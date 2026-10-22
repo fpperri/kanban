@@ -19,7 +19,6 @@ const PAGE_GLOBALS = [
   'graphFanLines',
   'graphFanNames',
   'graphLoadOptions',
-  'graphNeighbours',
   'graphSetOption',
   'hoveredId',
   'isDragging',

@@ -136,10 +136,8 @@ test('exactly one button of each option is pressed: the default at first, the st
 test('the row is there with Tiers and nowhere else', async () => {
   const tiers = await open();
   assert.ok(tiers.row());
-  for (const layout of ['force', 'status']) {
-    const s = await open({ layout });
-    assert.strictEqual(s.row(), null, `${layout} has no option row`);
-  }
+  const flow = await open({ layout: 'flow' });
+  assert.deepStrictEqual([...new Set(byClass(flow.host, 'graph-option-btn').map((b) => b.dataset.key))], ['deps', 'lanes'], 'the Flow has its Dependencies and Lanes switches and none of the fan\'s options');
 });
 
 test('every control of the row keeps the selection and holds no poll, and writes no style or handler', async () => {
@@ -436,10 +434,10 @@ test('pressing off takes card 7 and its arrow out of the Graph: no dot, no line,
   assert.strictEqual(s.drawn('wait').length, 2);
 });
 
-test('off is only the Tiers layout\'s: Force and Status draw every card, whatever is stored', async () => {
+test('off is only the Tiers layout\'s: the Flow draws every card, whatever is stored', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
   assert.deepStrictEqual(drawnIds(await open({ stored })), [1, 2, 3, 4, 5, 6]);
-  for (const layout of ['force', 'status']) assert.deepStrictEqual(drawnIds(await open({ stored, layout })), [1, 2, 3, 4, 5, 6, 7], layout);
+  assert.deepStrictEqual(drawnIds(await open({ stored, layout: 'flow' })), [1, 2, 3, 4, 5, 6, 7]);
 });
 
 test('a card off leaves the selection too: a selection reaches only cards the Graph draws', async () => {
@@ -465,10 +463,10 @@ test('what a selection can reach is what the Graph draws, with a status pill hid
   assert.deepStrictEqual(drawnIds(s), [1, 2, 3, 4, 5, 6]);
 });
 
-test('off leaves the selection of Force alone: the layouts without the option show every card', async () => {
+test('off leaves the selection of the Flow alone: the graph without the option shows every card', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
   assert.deepStrictEqual(shownIds(await open({ stored })), [1, 2, 3, 4, 5, 6]);
-  assert.deepStrictEqual(shownIds(await open({ stored, layout: 'force' })), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepStrictEqual(shownIds(await open({ stored, layout: 'flow' })), [1, 2, 3, 4, 5, 6, 7]);
 });
 
 test('the mode is kept for the board: a reload draws it, and another board has its own', async () => {
@@ -526,42 +524,42 @@ test('a mode frames the view again when the person has not moved it, and leaves 
   assert.deepStrictEqual(viewOf(s), zoomed, 'a view the person zoomed stays as it is');
 });
 
-// Switching the layout changes the cards the Graph draws when Unnested is off (it is the Tiers layout's
-// alone), and a selection and the pill and slice counts only reach the cards the view draws.
-const layoutButton = (s, layout) => {
-  const button = byClass(s.host, 'graph-layout-btn').map(matcher).find((b) => b.dataset.layout === layout);
-  assert.ok(button, `the ${layout} button is there`);
+// Switching between the Hierarchy and the Flow changes the cards the Graph draws when Unnested is off (it is
+// the Tiers layout's alone), and a selection and the pill and slice counts only reach the cards the view draws.
+const graphButton = (s, graph) => {
+  const button = byClass(s.host, 'graph-kind-btn').map(matcher).find((b) => b.dataset.graphKind === graph);
+  assert.ok(button, `the ${graph} button is there`);
   return button;
 };
 
-test('switching from Force to Tiers with Unnested off takes the unnested card out of the selection, and switching back brings it again', async () => {
+test('switching from Flow to Hierarchy with Unnested off takes the unnested card out of the selection, and switching back brings it again', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
-  const s = await open({ stored, layout: 'force' });
+  const s = await open({ stored, layout: 'flow' });
   s.run('setSelection(addPart(addPart(NO_SELECTION, cardPart(3)), cardPart(7)), 3)');
-  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'Force draws every card');
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'the Flow draws every card');
   assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6, 7]);
-  s.click(layoutButton(s, 'tiers'));
+  s.click(graphButton(s, 'hierarchy'));
   assert.deepStrictEqual(shownIds(s), [1, 2, 3, 4, 5, 6], 'Tiers with Unnested off leaves card 7 out');
   assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3], 'so the selection does not hold it: no bulk edit can reach a card the view does not draw');
-  s.click(layoutButton(s, 'force'));
-  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'Force draws it again');
+  s.click(graphButton(s, 'flow'));
+  assert.deepStrictEqual([...s.run('selectedIds')].map(Number).sort(), [3, 7], 'the Flow draws it again');
 });
 
-test('the pill counts follow the layout switch the same way', async () => {
+test('the pill counts follow the switch between the graphs the same way', async () => {
   const stored = { ...UNFOLDED, [key('kanban', 'graph.options')]: JSON.stringify({ unnested: 'off' }) };
-  const s = await open({ stored, layout: 'force' });
+  const s = await open({ stored, layout: 'flow' });
   const counted = () => JSON.parse(s.run('JSON.stringify(cardsBeforeSearch().map((c) => Number(c.id)).sort((a, b) => a - b))'));
   assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6, 7]);
-  s.click(layoutButton(s, 'tiers'));
+  s.click(graphButton(s, 'hierarchy'));
   assert.deepStrictEqual(counted(), [1, 2, 3, 4, 5, 6]);
 });
 
-test('a layout switch with Unnested on is a redraw alone: it works the selection out no more than it did', async () => {
-  const s = await open({ stored: UNFOLDED, layout: 'force' });
+test('a switch between the graphs with Unnested on is a redraw alone: it works the selection out no more than it did', async () => {
+  const s = await open({ stored: UNFOLDED, layout: 'flow' });
   let repaints = 0;
   const real = s.page.ctx.renderBoard;
   s.page.ctx.renderBoard = (...args) => { repaints++; return real(...args); };
-  s.click(layoutButton(s, 'tiers'));
+  s.click(graphButton(s, 'hierarchy'));
   assert.strictEqual(repaints, 0);
   assert.strictEqual(s.run('graphLoadLayout()'), 'tiers');
 });

@@ -51,7 +51,7 @@ test('the Graph section says depth 0 puts them on the depth 0 ring between the t
 test('the Graph section says table draws the Unnested block, and that the option is Tiers\' own, kept per board, and frames an untouched view again', () => {
   const text = graph();
   assert.match(text, /\*\*table\*\* draws the Unnested block outside the rim/);
-  assert.match(text, /The Unnested option is Tiers' own: Force and Status draw every card/);
+  assert.match(text, /The Unnested option is Tiers' own: the Flow draws every card/);
   assert.match(text, /Pressing Unnested, which changes what the fan draws and what Fit frames, frames an untouched view again/);
   assert.match(text, /choices are kept per board in `localStorage` under `graph\.options`/);
 });
@@ -75,9 +75,9 @@ test('the web doc names the fourth option and the four modes in short', () => {
   assert.doesNotMatch(text, /on the outer ring/);
 });
 
-test('the Tiers button\'s title says where the unnested cards go by default and that the option row moves them', () => {
-  const title = /tiers: '(Tiers: [^']*)'/.exec(view);
-  assert.ok(title, 'the Tiers title is in graph-view.js');
+test('the Hierarchy button\'s title says where the unnested cards go by default and that the option row moves them', () => {
+  const title = /hierarchy: '(Hierarchy: [^']*)'/.exec(view);
+  assert.ok(title, 'the Hierarchy title is in graph-view.js');
   assert.match(title[1], /one ring outside the rest/);
   assert.match(title[1], /Unnested option/);
   assert.match(title[1], /off, depth 0 or the Unnested block outside the rim/);

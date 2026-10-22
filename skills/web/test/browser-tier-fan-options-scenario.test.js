@@ -215,7 +215,7 @@ function standIn(over = {}) {
     waitFor: async (expr) => {
       if (expr === '!window.__stale') return true;
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return kind === 'tiers';
-      for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.layoutIs(name)) return kind === name;
+      for (const name of ['tiers', 'flow']) if (expr === tierFan.layoutIs(name)) return kind === name;
       if (expr === scenario.ROW_PRESENT) return kind === 'tiers';
       if (expr === scenario.ROW_ABSENT) return over.rowEverywhere ? false : kind !== 'tiers';
       if (expr === scenario.ROW_SHOWN) return kind === 'tiers';
@@ -233,7 +233,7 @@ function standIn(over = {}) {
     },
     ev: async (expr) => {
       if (expr === 'window.__stale=true') return true;
-      for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.pickLayout(name)) { kind = name; return true; }
+      for (const name of ['tiers', 'flow']) if (expr === tierFan.pickLayout(name)) { kind = name; return true; }
       if (expr === scenario.ROW_STATE) {
         const r = rows();
         return over.rows ? over.rows(r) : r;
@@ -284,8 +284,7 @@ test('each check listed here is in the scenario', async () => {
   const names = (await run()).checks.map(([n]) => n);
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `no check matches ${re}`);
   has(/the row is shown on the first open/);
-  has(/force has no option row/);
-  has(/status has no option row/);
+  has(/the flow has none of the fan's option row/);
   has(/the row holds Lines, Dependencies, Order, Names and Unnested/);
   has(/lines all draws 11 parent lines, the number the model predicts/);
   has(/lines chain draws 7 parent lines/);
@@ -316,7 +315,7 @@ const failsWith = async (over, re, why) => {
 test('a row with a toggle, outside the panel, in every layout, or shared by every board fails', async () => {
   await failsWith({ rowHasToggle: true }, /the row is shown on the first open/, 'a fold toggle is back');
   await failsWith({ rowOutsidePanel: true }, /the row is shown on the first open/, 'the row is not in the panel');
-  await failsWith({ rowEverywhere: true }, /force has no option row/, 'a row in Force');
+  await failsWith({ rowEverywhere: true }, /the flow has none of the fan's option row/, 'a fan row in the Flow');
   await failsWith({ sharedStore: true }, /fixture: and its own choices are the defaults/, 'one store for all boards');
 });
 

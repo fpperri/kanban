@@ -100,9 +100,9 @@ test('tint: a board without a hierarchy draws no wash, and so does a hierarchy n
   assert.deepStrictEqual(planOf(buildOf([card(1), card(2, { parent: 1 })], ['goal', 'epic'])).tints, []);
 });
 
-test('tint: the Force and Status layouts draw no wash', () => {
+test('tint: the Flow draws no wash', () => {
   const m = planModel();
-  for (const kind of ['force', 'status']) {
+  for (const kind of ['flow']) {
     const plan = graphPlan(m, graphLayout(m, kind, { statuses: STATUSES }), { ...OPTS, kind });
     assert.deepStrictEqual(plan.tints, [], kind);
   }

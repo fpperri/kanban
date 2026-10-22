@@ -84,7 +84,6 @@ const PANEL = '#graph-view .view-panel';
 const KIND = (k) => `#graph-view .graph-kind-btn[data-graph-kind=${k}]`;
 const DEPS = (v) => `#graph-view .graph-option-btn[data-key=deps][data-val=${v}]`;
 const LANES = (v) => `#graph-view .graph-option-btn[data-key=lanes][data-val=${v}]`;
-const LAYOUT = (l) => `#graph-view .graph-layout-btn[data-layout=${l}]`;
 const frames = `new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`;
 
 const DOT_IDS = `[...new Set([...document.querySelectorAll('#graph-view .graph-node:not(.graph-flow-lane-head)')].map((n)=>Number(n.dataset.id)))].sort((a,b)=>a-b)`;
@@ -165,7 +164,7 @@ module.exports = {
     const kinds = await ev(`[...document.querySelectorAll('#graph-view .view-panel .graph-kind-btn')].map((b)=>[b.dataset.graphKind,b.textContent,b.getAttribute('aria-pressed')])`);
     check('plan: the option panel opens with the Hierarchy | Flow choice, Hierarchy pressed', sameList(kinds, [['hierarchy', 'Hierarchy', 'true'], ['flow', 'Flow', 'false']])
       && await ev(`document.querySelector('${PANEL}').children[1].classList.contains('graph-kinds')`), kinds);
-    check('plan: the Hierarchy keeps its layouts and its option row, and no Dependencies switch', await ev(`document.querySelectorAll('${PANEL} .graph-layout-btn').length===3&&document.querySelectorAll('${PANEL} .graph-options').length===1&&document.querySelectorAll('${PANEL} .graph-flow-options').length===0`));
+    check('plan: the Hierarchy offers no layout to pick, keeps its option row, and has no Dependencies switch', await ev(`document.querySelectorAll('${PANEL} .graph-layout-btn').length===0&&document.querySelectorAll('${PANEL} .graph-options').length===1&&document.querySelectorAll('${PANEL} .graph-flow-options').length===0`));
     check('plan: the Hierarchy draws parent lines and no Flow column', await ev(`document.querySelectorAll('#graph-view .graph-link-parent').length>0&&document.querySelectorAll('#graph-view .graph-flow-col').length===0`));
     const hierarchyDots = await dots();
     const hierarchyClasses = await ev(`Object.fromEntries([...document.querySelectorAll('#graph-view .graph-node:not(.graph-flow-lane-head)')].map((n)=>[n.dataset.id,[...n.classList].filter((c)=>/^status-/.test(c)).join(' ')+'|'+(n.querySelector('path.graph-dot')?'mark':'round')]))`);
@@ -175,8 +174,8 @@ module.exports = {
     // --- Flow, frontier by default -------------------------------------------------------------------------
     await pressOn(KIND('flow'));
     check('plan: a press on Flow draws the Flow, frontier pressed, without a reload', await flowDrawn('frontier'));
-    check('plan: the panel offers the Dependencies switch, frontier then all, and not the layouts of the Hierarchy', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn[data-key=deps]')].map((b)=>b.textContent))`) === '["frontier","all"]'
-      && await ev(`document.querySelectorAll('${PANEL} .graph-layout-btn').length===0&&document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-label')[0].textContent==='Dependencies'`));
+    check('plan: the panel offers the Dependencies switch, frontier then all, and not the fan option row', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn[data-key=deps]')].map((b)=>b.textContent))`) === '["frontier","all"]'
+      && await ev(`document.querySelectorAll('${PANEL} .graph-options:not(.graph-flow-options)').length===0&&document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-label')[0].textContent==='Dependencies'`));
     check('plan: the Dependencies buttons keep the selection and do not hold the poll', await ev(`[...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn')].every((b)=>b.hasAttribute('data-keeps-selection')&&!b.hasAttribute('data-holds-poll'))`));
     check('plan: the address says graph=flow and deps=frontier, and the board keeps Flow', await waitFor(`/[?&]graph=flow(&|$)/.test(${SEARCH})&&/[?&]deps=frontier(&|$)/.test(${SEARCH})`)
       && await ev(STORED('layout')) === 'flow', await ev(SEARCH));

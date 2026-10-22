@@ -300,9 +300,9 @@ test('drawing: the loose caption stands to the side of its sector with its text 
   for (const make of Object.values(LOOSE_BOARDS)) check(side(make));
 });
 
-test('drawing: the force and status layouts draw no arcs, captions, dividers, block or loose caption', () => {
+test('drawing: the flow draws no arcs, captions, dividers, block or loose caption', () => {
   const m = planModel();
-  for (const kind of ['force', 'status']) {
+  for (const kind of ['flow']) {
     const plan = graphPlan(m, graphLayout(m, kind, { statuses: STATUSES, unnested: 'table' }), { ...OPTS, kind });
     assert.deepStrictEqual([plan.guides, plan.captions, plan.dividers], [[], [], []], kind);
     assert.strictEqual(plan.block, null, kind);

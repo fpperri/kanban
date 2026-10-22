@@ -347,8 +347,8 @@ test('cache: a hidden parent changes the key, since it moves its child to anothe
   assert.notStrictEqual(withParent, noParent, 'card 2 is drawn as a root in both, but at depth 1 in one and depth 0 in the other');
 });
 
-test('cache: the force and status layouts keep the key they had, so a type edit does not lose a dragged arrangement', () => {
+test('cache: the flow keeps the key it had when a type changes, since it does not read the types', () => {
   const a = buildOf([card(1, { type: 'goal' }), card(2)], HIERARCHY);
   const b = buildOf([card(1, { type: 'epic' }), card(2)], []);
-  for (const kind of ['force', 'status']) assert.strictEqual(graphSignature(a, kind, { statuses: STATUSES }), graphSignature(b, kind, { statuses: STATUSES }), kind);
+  for (const kind of ['flow']) assert.strictEqual(graphSignature(a, kind, { statuses: STATUSES }), graphSignature(b, kind, { statuses: STATUSES }), kind);
 });

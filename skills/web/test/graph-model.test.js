@@ -3,10 +3,10 @@ const assert = require('node:assert');
 const {
   GRAPH_LAYOUTS, mergeGraphLayout,
   graphBuild, graphRadius, graphNeighbours,
-  graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
+  graphLayoutTiers,
   graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
   graphVisibleIds, graphZoomAt, graphPlan,
-  graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
+  graphLinkPaths,
 } = require('../web/graph-model');
 const { sliceCards, sliceDepths } = require('../web/slices');
 
@@ -184,130 +184,6 @@ test('tiers: bounds contain every node including its radius', () => {
   }
 });
 
-// --- status ----------------------------------------------------------------------
-
-const statusCards = () => [
-  card(1, { status: 'backlog' }), card(2, { status: 'todo' }), card(3, { status: 'doing' }), card(4, { status: 'done' }),
-];
-const ringOfNode = (l, id, cx = 0) => Math.hypot(l.pos.get(id).x - cx, l.pos.get(id).y);
-
-test('status: rings run done, doing, todo, backlog from the centre', () => {
-  const m = build(statusCards());
-  const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
-  assert.deepStrictEqual(l.rings.map((r) => r.label), ['done (1)', 'doing (1)', 'todo (1)', 'backlog (1)']);
-  const radii = l.rings.map((r) => r.r);
-  assert.deepStrictEqual(radii, [...radii].sort((a, b) => a - b));
-  assert.strictEqual(radii[0], 48);
-  assert.ok(ringOfNode(l, '4') < ringOfNode(l, '3') && ringOfNode(l, '3') < ringOfNode(l, '2') && ringOfNode(l, '2') < ringOfNode(l, '1'));
-  assert.strictEqual(l.titles.length, 0);
-});
-
-test('status: default statuses apply when none are given', () => {
-  const l = graphLayoutStatus(build(statusCards()));
-  assert.deepStrictEqual(l.rings.map((r) => r.status), ['done', 'doing', 'todo', 'backlog']);
-});
-
-test('status: custom statuses reverse correctly', () => {
-  const m = build([card(1, { status: 'a' }), card(2, { status: 'b' }), card(3, { status: 'c' })]);
-  const l = graphLayoutStatus(m, { statuses: ['a', 'b', 'c'] });
-  assert.deepStrictEqual(l.rings.map((r) => r.status), ['c', 'b', 'a']);
-  assert.ok(ringOfNode(l, '3') < ringOfNode(l, '2') && ringOfNode(l, '2') < ringOfNode(l, '1'));
-});
-
-test('status: an unlisted status folds into the first column ring', () => {
-  const m = build([card(1, { status: 'backlog' }), card(2, { status: 'weird' })]);
-  const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
-  const backlog = l.rings.find((r) => r.status === 'backlog');
-  assert.strictEqual(backlog.count, 2);
-  assert.ok(Math.abs(ringOfNode(l, '2') - backlog.r) < 1e-6);
-});
-
-test('status: archived cards form a second clump to the right with the same ring labels', () => {
-  const m = build([card(1, { status: 'todo' }), card(2, { status: 'done', archived: true })]);
-  const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
-  assert.strictEqual(l.rings.length, 8);
-  assert.deepStrictEqual(l.rings.slice(0, 4).map((r) => r.status), l.rings.slice(4).map((r) => r.status));
-  assert.deepStrictEqual(l.rings.map((r) => r.label), [
-    'done (0)', 'doing (0)', 'todo (1)', 'backlog (0)', 'done (1)', 'doing (0)', 'todo (0)', 'backlog (0)',
-  ]);
-  assert.ok(l.rings[4].cx > l.rings[0].cx);
-  assert.ok(l.pos.get('2').x > l.pos.get('1').x);
-  assert.ok(Math.abs(ringOfNode(l, '2', l.rings[4].cx) - l.rings[4].r) < 1e-6);
-  assert.deepStrictEqual(l.titles.map((t) => t.text), ['live', 'archive']);
-  assert.ok(finite(l));
-});
-
-test('plan: a card with no relation is marked loose so the view can skip the grab cursor', () => {
-  const m = build([card(1), card(2, { parent: 1 }), card(3)]);
-  const plan = graphPlan(m, graphLayout(m, 'force'), planOpts());
-  const cls = (id) => plan.nodes.find((n) => n.id === id).cls.split(' ');
-  assert.ok(cls('3').includes('is-loose'));
-  assert.ok(!cls('1').includes('is-loose') && !cls('2').includes('is-loose'));
-});
-
-test('status: the group titles sit inside the bounds the view fits to', () => {
-  const m = build([card(1, { status: 'todo' }), card(2, { status: 'done', archived: true })]);
-  const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
-  for (const t of l.titles) {
-    assert.ok(t.y - 16 >= l.bounds.y0, `title ${t.text} is clipped above the bounds`);
-    assert.ok(t.x >= l.bounds.x0 && t.x + 80 <= l.bounds.x1);
-  }
-});
-
-test('status: a crowded ring spills onto a second track without overlap', () => {
-  const cards = [];
-  for (let i = 1; i <= 60; i++) cards.push(card(i, { status: 'done' }));
-  const m = build(cards);
-  const l = graphLayoutStatus(m, { statuses: ['backlog', 'todo', 'doing', 'done'] });
-  const radii = new Set(m.nodes.map((n) => Math.round(ringOfNode(l, n.id))));
-  assert.ok(radii.size >= 2, 'expected a second track');
-  for (let i = 0; i < m.nodes.length; i++) {
-    for (let j = i + 1; j < m.nodes.length; j++) {
-      const a = m.nodes[i];
-      const b = m.nodes[j];
-      const pa = l.pos.get(a.id);
-      const pb = l.pos.get(b.id);
-      const min = graphRadius(a) + graphRadius(b);
-      assert.ok(Math.hypot(pa.x - pb.x, pa.y - pb.y) >= min * 0.9, `${a.id} overlaps ${b.id}`);
-    }
-  }
-  assert.ok(finite(l));
-});
-
-test('status: deterministic and safe on 0 and 1 node', () => {
-  const m = build(statusCards());
-  assert.deepStrictEqual(plain(graphLayoutStatus(m)), plain(graphLayoutStatus(m)));
-  assert.ok(finite(graphLayoutStatus(build([]))));
-  assert.ok(finite(graphLayoutStatus(build([card(1)]))));
-});
-
-// --- force -----------------------------------------------------------------------
-
-test('force: deterministic and finite; deg-0 cards sit beyond the connected radius', () => {
-  const m = build([
-    card(1), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { waiting_for: ['3'] }), card(5), card(6),
-  ]);
-  const a = graphLayoutForce(m);
-  assert.deepStrictEqual(plain(a), plain(graphLayoutForce(m)));
-  assert.ok(finite(a));
-  const far = Math.max(...['1', '2', '3', '4'].map((id) => Math.hypot(a.pos.get(id).x, a.pos.get(id).y)));
-  for (const id of ['5', '6']) assert.ok(Math.hypot(a.pos.get(id).x, a.pos.get(id).y) > far + 59);
-});
-
-test('force: many isolated cards use two alternating radii', () => {
-  const cards = [card(1), card(2, { parent: 1 })];
-  for (let i = 3; i < 30; i++) cards.push(card(i));
-  const l = graphLayoutForce(build(cards));
-  const radii = new Set(['3', '4', '5', '6'].map((id) => Math.round(Math.hypot(l.pos.get(id).x, l.pos.get(id).y))));
-  assert.strictEqual(radii.size, 2);
-});
-
-test('force: zero and one node are safe', () => {
-  assert.ok(finite(graphLayoutForce(build([]))));
-  assert.ok(finite(graphLayoutForce(build([card(1)]))));
-  assert.ok(finite(graphLayoutForce(build([card(1), card(2, { parent: 1 })]))));
-});
-
 // --- fit -------------------------------------------------------------------------
 
 test('fit: centres the bounds and caps the scale', () => {
@@ -341,10 +217,10 @@ test('neighbours: the id plus everything it shares a link with', () => {
 
 // --- layout names ----------------------------------------------------------------
 
-test('mergeGraphLayout: valid names pass, anything else is tiers', () => {
-  assert.deepStrictEqual(GRAPH_LAYOUTS, ['tiers', 'force', 'status']);
-  for (const k of GRAPH_LAYOUTS) assert.strictEqual(mergeGraphLayout(k), k);
-  for (const bad of [undefined, null, '', 'radial', 7, {}]) assert.strictEqual(mergeGraphLayout(bad), 'tiers');
+test('mergeGraphLayout: the Hierarchy has the one layout, tiers, and the Flow is beside it; anything else, a layout once offered included, is tiers', () => {
+  assert.deepStrictEqual(GRAPH_LAYOUTS, ['tiers']);
+  for (const k of [...GRAPH_LAYOUTS, 'flow']) assert.strictEqual(mergeGraphLayout(k), k);
+  for (const bad of [undefined, null, '', 'radial', 7, {}, 'force', 'status']) assert.strictEqual(mergeGraphLayout(bad), 'tiers');
 });
 
 // --- cache -----------------------------------------------------------------------
@@ -353,17 +229,17 @@ test('cache: an identical signature returns the identical layout; blocked/review
   graphLayoutCacheClear();
   const a = build([card(1), card(2, { parent: 1 })]);
   const b = build([card(1, { blocked: 'x', review: true }), card(2, { parent: 1 })]);
-  assert.strictEqual(graphSignature(a, 'force'), graphSignature(b, 'force'));
-  const la = graphLayout(a, 'force');
-  assert.strictEqual(graphLayout(b, 'force'), la);
-  assert.notStrictEqual(graphLayout(a, 'tiers'), la);
+  assert.strictEqual(graphSignature(a, 'tiers'), graphSignature(b, 'tiers'));
+  const la = graphLayout(a, 'tiers');
+  assert.strictEqual(graphLayout(b, 'tiers'), la);
+  assert.notStrictEqual(graphLayout(a, 'flow'), la);
 });
 
 test('cache: a status change or a different statuses list changes the signature', () => {
   const a = build([card(1, { status: 'todo' })]);
   const b = build([card(1, { status: 'doing' })]);
-  assert.notStrictEqual(graphSignature(a, 'status'), graphSignature(b, 'status'));
-  assert.notStrictEqual(graphSignature(a, 'status', { statuses: ['a', 'b'] }), graphSignature(a, 'status', { statuses: ['b', 'a'] }));
+  assert.notStrictEqual(graphSignature(a, 'tiers'), graphSignature(b, 'tiers'));
+  assert.notStrictEqual(graphSignature(a, 'tiers', { statuses: ['a', 'b'] }), graphSignature(a, 'tiers', { statuses: ['b', 'a'] }));
 });
 
 test('cache: holds at most 8 entries, evicting the oldest', () => {
@@ -411,21 +287,17 @@ test('plan: node classes, order and title', () => {
 
 test('plan: the default status class cannot smuggle a second class', () => {
   const m = build([card(1, { status: 'a hidden' })]);
-  const plan = graphPlan(m, graphLayout(m, 'force'), { titleOf: (c) => c.title });
+  const plan = graphPlan(m, graphLayout(m, 'tiers'), { titleOf: (c) => c.title });
   assert.ok(!plan.nodes[0].cls.split(' ').includes('hidden'));
   assert.ok(plan.nodes[0].cls.includes('status-a-hidden'));
 });
 
-test('plan: parent links curve in tiers and status, straight in force; waits end at the rim', () => {
+test('plan: parent links curve in tiers; waits end at the rim', () => {
   const m = build(sampleCards());
-  for (const kind of ['tiers', 'status']) {
-    const plan = graphPlan(m, graphLayout(m, kind), planOpts());
-    const parent = plan.links.find((l) => l.kind === 'parent');
-    assert.match(parent.d, /^M[-\d.]+ [-\d.]+Q/, kind);
-    assert.strictEqual(parent.arrow, false);
-  }
-  const force = graphPlan(m, graphLayout(m, 'force'), planOpts());
-  assert.match(force.links.find((l) => l.kind === 'parent').d, /^M[-\d.]+ [-\d.]+L/);
+  const curved = graphPlan(m, graphLayout(m, 'tiers'), planOpts());
+  const parent = curved.links.find((l) => l.kind === 'parent');
+  assert.match(parent.d, /^M[-\d.]+ [-\d.]+Q/);
+  assert.strictEqual(parent.arrow, false);
   const lay = graphLayout(m, 'tiers');
   const plan = graphPlan(m, lay, planOpts());
   const wait = plan.links.find((l) => l.kind === 'wait' && l.from === '2' && l.to === '4');
@@ -436,16 +308,7 @@ test('plan: parent links curve in tiers and status, straight in force; waits end
   assert.ok(Math.abs(Math.hypot(ex - t.x, ey - t.y) - (graphRadius(m.byId.get('4')) + 2)) < 0.05);
 });
 
-test('plan: status layout marks cross-clump links', () => {
-  const m = build([card(1, { archived: true, status: 'done' }), card(2, { parent: 1 }), card(3), card(4, { parent: 3 })]);
-  const plan = graphPlan(m, graphLayout(m, 'status', { statuses: ['todo', 'doing', 'done'] }), planOpts());
-  const cross = plan.links.filter((l) => l.cls.includes('graph-link-cross'));
-  assert.deepStrictEqual(cross.map((l) => `${l.from}>${l.to}`), ['1>2']);
-  const tiers = graphPlan(m, graphLayout(m, 'tiers'), planOpts());
-  assert.ok(tiers.links.every((l) => !l.cls.includes('cross')));
-});
-
-test('plan: rings, dividers and titles come from the layout; output is finite and deterministic', () => {
+test('plan: guides and dividers come from the layout; output is finite and deterministic', () => {
   const m = build(sampleCards());
   for (const kind of GRAPH_LAYOUTS) {
     const lay = graphLayout(m, kind, { statuses: ['backlog', 'todo', 'doing', 'done'] });
@@ -454,11 +317,9 @@ test('plan: rings, dividers and titles come from the layout; output is finite an
     assert.deepStrictEqual(a, b);
     const nums = JSON.stringify(a).match(/-?\d+(\.\d+)?(e-?\d+)?/g).map(Number);
     assert.ok(nums.every(Number.isFinite));
-    // The tier fan draws its bands as guide arcs and its sectors' spokes as dividers; the status layout draws rings.
-    assert.strictEqual(a.rings.length, kind === 'tiers' ? 0 : lay.rings.length);
-    assert.strictEqual(a.guides.length, kind === 'tiers' ? lay.rings.length : 0);
+    // The tier fan draws its bands as guide arcs and its sectors' spokes as dividers.
+    assert.strictEqual(a.guides.length, lay.rings.length);
     assert.strictEqual(a.dividers.length, lay.spokes.length);
-    assert.ok(a.rings.every((r) => r.cls === 'graph-ring'));
     assert.ok(!JSON.stringify(a).includes('NaN'));
   }
   assert.strictEqual(graphPlan(m, graphLayout(m, 'tiers'), planOpts()).dividers.length, 0, 'one tree needs no sector dividers');
@@ -514,48 +375,6 @@ test('tiers: a 6000-deep parent chain lays out without recursing', () => {
   assert.ok(finite(l));
 });
 
-// --- force stepper ---------------------------------------------------------------
-
-const starCards = () => [card(1), ...[2, 3, 4, 5].map((i) => card(i, { parent: 1 })), card(6, { parent: 5 }), card(7), card(8, { parent: 7 })];
-
-test('force stepper: graphLayoutForce equals a stepper run of the documented schedule', () => {
-  const m = build(starCards());
-  const sim = graphForceSim(m);
-  let alpha = 1;
-  for (let i = 0; i < sim.iterations; i++) { graphForceStep(sim, alpha, null); alpha *= 0.985; }
-  const stepped = graphForcePositions(sim);
-  const layout = graphLayoutForce(m);
-  for (const [id, p] of stepped) assert.deepStrictEqual(layout.pos.get(id), p);
-  assert.strictEqual(sim.iterations, 300);
-});
-
-test('force stepper: deterministic, finite, and a seed starts the nodes where they are', () => {
-  const m = build(starCards());
-  const run = () => { const s = graphForceSim(m); for (let i = 0; i < 20; i++) graphForceStep(s, 0.5, null); return [...graphForcePositions(s)]; };
-  assert.deepStrictEqual(run(), run());
-  for (const [, p] of run()) assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
-  const seed = new Map([['1', { x: 500, y: -40 }]]);
-  const s = graphForceSim(m, seed);
-  assert.deepStrictEqual(graphForcePositions(s).get('1'), { x: 500, y: -40 });
-});
-
-test('force stepper: a pinned node stays exactly at its pin and pulls its neighbours along', () => {
-  const m = build(starCards());
-  const layout = graphLayoutForce(m);
-  const sim = graphForceSim(m, layout.pos);
-  const start = graphForcePositions(sim);
-  const home = start.get('1');
-  const pin = { id: '1', x: home.x + 200, y: home.y };
-  for (let i = 0; i < 40; i++) graphForceStep(sim, 0.3, pin);
-  const end = graphForcePositions(sim);
-  assert.deepStrictEqual(end.get('1'), { x: pin.x, y: pin.y });
-  const d = (p) => Math.hypot(p.x - pin.x, p.y - pin.y);
-  const gain = (id) => d(start.get(id)) - d(end.get(id));
-  assert.ok(gain('2') > 0 && gain('3') > 0 && gain('4') > 0 && gain('5') > 0);
-  assert.ok(gain('2') > gain('7'), 'a direct neighbour follows more than an unrelated card');
-  assert.ok([...end.values()].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)));
-});
-
 test('graphLinkPaths matches the d strings graphPlan emits, in every layout', () => {
   const m = build([card(1), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: ['2'] }), card(4, { status: 'done', archived: true, waiting_for: ['1'] })]);
   for (const kind of GRAPH_LAYOUTS) {
@@ -564,20 +383,6 @@ test('graphLinkPaths matches the d strings graphPlan emits, in every layout', ()
     assert.deepStrictEqual(graphLinkPaths(m, layout, kind), plan.links.map((l) => l.d), kind);
     assert.strictEqual(graphLinkPaths(m, layout).length, m.links.length);
   }
-});
-
-test('graphWithPositions returns a new layout, moves only the named cards and refits the bounds', () => {
-  const m = build(starCards());
-  const layout = graphLayoutForce(m);
-  const before = JSON.stringify({ pos: [...layout.pos], bounds: layout.bounds });
-  const next = graphWithPositions(layout, m, new Map([['1', { x: 5000, y: 0 }], ['99', { x: 1, y: 1 }]]));
-  assert.notStrictEqual(next, layout);
-  assert.notStrictEqual(next.pos, layout.pos);
-  assert.strictEqual(JSON.stringify({ pos: [...layout.pos], bounds: layout.bounds }), before);
-  assert.deepStrictEqual(next.pos.get('1'), { x: 5000, y: 0 });
-  assert.deepStrictEqual(next.pos.get('2'), layout.pos.get('2'));
-  assert.ok(!next.pos.has('99'));
-  assert.ok(next.bounds.x1 >= 5000);
 });
 
 // --- type icons ------------------------------------------------------------------

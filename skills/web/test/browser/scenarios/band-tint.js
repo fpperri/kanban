@@ -4,8 +4,8 @@
 // and strategy and objective have none, so they get the neutral wash. Each wash is one
 // path across the whole ring of its band, the first mark of the world, so it lies behind
 // the lines, the dots and the captions; the depth rings, the Unnested ring and the Unnested
-// block get none, and neither do the fixture board (no hierarchy), the Force layout and
-// the Status layout. A wash takes no click: a point inside a band that holds no mark is
+// block get none, and neither do the fixture board (no hierarchy) and the Flow.
+// A wash takes no click: a point inside a band that holds no mark is
 // the canvas itself, a click there leaves a picked pair of cards as it found them and a
 // double click clears them, as on any empty space. A slice: cut and a status pill drop the
 // washes of the bands they empty and keep the others. The wash reads in both themes: its
@@ -221,11 +221,11 @@ module.exports = {
         w.length === TIERS.length && w.every((x) => near(x.opacity, OPACITY) && x.events === 'none' && x.fill === (colourOf(x).fill || mut)), { mut, w });
     }
 
-    // The other layouts draw none.
-    for (const layout of ['force', 'status']) {
+    // The Flow draws none.
+    for (const layout of ['flow']) {
       await ev(pickLayout(layout));
       await waitFor(layoutIs(layout), 10000);
-      check(`plan: the ${layout} layout draws no wash`, (await ev(WASH_TIERS)).length === 0);
+      check(`plan: the ${layout} draws no wash`, (await ev(WASH_TIERS)).length === 0);
     }
     await ev(pickLayout('tiers'));
     await waitFor(layoutIs('tiers'), 10000);

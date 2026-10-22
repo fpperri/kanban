@@ -1473,8 +1473,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* The (i) and the option button float in the drawing's top-right corner and take no row. */
 .graph-controls { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; }
 .graph-layouts, .graph-zoom { display: flex; gap: 6px; }
-.graph-layout-btn, .graph-kind-btn, .graph-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
-.graph-layout-btn[aria-pressed="true"], .graph-kind-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.graph-kind-btn, .graph-zoom-btn { background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.78em; padding: 2px 10px; cursor: pointer; }
+.graph-kind-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .graph-kinds .graph-kind-btn { flex: 1; font-weight: 600; }
 .graph-options { margin-bottom: 8px; }
 .graph-key, .graph-count { color: var(--mut); font-size: 0.78em; }
@@ -1510,11 +1510,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 }
 .graph-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
 .graph-canvas.graph-panning { cursor: grabbing; }
-.graph-canvas.graph-kind-force .graph-node { cursor: grab; }
-.graph-canvas.graph-kind-force .graph-node.is-loose { cursor: pointer; }
-.graph-canvas.graph-dragging, .graph-canvas.graph-dragging .graph-node { cursor: grabbing; }
 
-.graph-ring { fill: none; stroke: var(--line-strong); stroke-width: 1px; stroke-dasharray: 4 4; opacity: 0.6; }
 .graph-tint { fill: var(--mut); fill-opacity: 0.13; fill-rule: evenodd; stroke: none; pointer-events: none; }
 .graph-tint[data-type-color] { fill: currentColor; }
 .graph-guide { fill: none; stroke: var(--line-strong); stroke-width: 1px; opacity: 0.55; pointer-events: none; }
@@ -1522,9 +1518,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-guide-empty { stroke-dasharray: 4 4; opacity: 0.35; }
 .graph-divider { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; pointer-events: none; }
 .graph-block-frame { fill: none; stroke: var(--line); stroke-width: 1px; stroke-dasharray: 4 4; pointer-events: none; }
-.graph-ring-label, .graph-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: none; }
-.graph-ring-label { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
-.graph-title { fill: var(--ink); font-weight: 600; font-size: calc(15px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 
 .graph-caption, .graph-block-caption, .graph-block-title { fill: var(--mut); paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; pointer-events: all; }
 .graph-caption, .graph-block-caption { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
@@ -1545,7 +1538,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-link-wait { stroke: var(--id-waiting); stroke-dasharray: 5 3; opacity: 0.8; }
 .graph-link-counted { stroke-linecap: round; }
 .graph-link-count { fill: var(--mut); font-size: calc(11px / var(--graph-k, 1)); stroke: var(--paper); stroke-width: calc(4px / var(--graph-k, 1)); stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
-.graph-link-cross { opacity: 0.07; }
 .graph-arrow { fill: var(--id-waiting); }
 
 /* The Flow: a shaded frame and a heading for each column, the strip of the cards with no dependency */

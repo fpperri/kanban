@@ -122,16 +122,11 @@ test('the Unnested block is a frame, a title and a caption for each column, and 
   assert.strictEqual(v.all.filter((e) => (e.attrs.class || '').split(' ').includes('graph-node')).length, v.plan.nodes.length);
 });
 
-test('the force and status layouts stamp none of it, and the status layout keeps its rings and labels', () => {
-  for (const kind of ['force', 'status']) {
-    const v = fanOf(kind);
-    for (const cls of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-loose-caption']) {
-      assert.strictEqual(v.by(cls).length, 0, `${kind}: ${cls}`);
-    }
+test('the flow stamps none of the fan\'s marks', () => {
+  const v = fanOf('flow');
+  for (const cls of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-loose-caption']) {
+    assert.strictEqual(v.by(cls).length, 0, cls);
   }
-  const status = fanOf('status');
-  assert.ok(status.by('graph-ring').length >= 4);
-  assert.ok(status.by('graph-ring-label').length >= 4);
 });
 
 test('the view makes the marks with DOM calls and classes only: no style attribute, no fill or stroke attribute, no markup string', () => {
