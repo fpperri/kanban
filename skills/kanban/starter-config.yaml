@@ -1,6 +1,8 @@
 # The starter config every board begins with: the plan types, their
-# hierarchy and the id prefixes. Every line can be changed or deleted; the
-# lists suggest, they never validate.
+# hierarchy, the id prefixes and the board's kit (notes, scratchpad, todo
+# lists, groups and iterations). Every line can be changed or deleted; the
+# lists suggest, they never validate. Deleting a kit line (or switching it
+# off in the web's gear sheet) turns that feature off.
 
 # Card types: a chip colour and a shape (circle, square, diamond, triangle,
 # hexagon or star) are optional. A bare entry is a name with no colour.
@@ -40,10 +42,10 @@ prefixes:
   W: .groups/workflow
   DW: .groups/workflow/dynamic
 
-# Off until its own line is added here, or switched on from the web's gear
-# sheet (This board):
-# logbook: logbook          # dated notes, one file per day
-# scratchpad: .scratchpad   # a disposable page per card or group
-# todos: .todos             # a Markdown task list per card or group; may share the scratchpad's folder
-# groups: .groups           # files that list cards; the I, W and DW prefixes above name folders in it
-# iterations: true          # the header's iteration dropdown; needs groups
+# The board's kit. Each line turns a feature on; delete it, or switch it off
+# in the web's gear sheet (This board), and the feature is off.
+logbook: .logbook         # dated notes, one file per day
+scratchpad: .scratchpad   # a disposable page per card or group
+todos: .todos             # a Markdown task list per card or group; may share the scratchpad's folder
+groups: .groups           # files that list cards; the I, W and DW prefixes above name folders in it
+iterations: true          # the header's iteration dropdown; needs groups

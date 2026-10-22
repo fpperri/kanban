@@ -19,9 +19,9 @@ const kanbanKey = flat(kanban.slice(kanban.indexOf('**`iterations` —'), kanban
 const webBullet = flat(web.slice(web.indexOf('- **Iterations** —'), web.indexOf('- **Hover/focus highlight**')));
 const docsPara = flat(docs.slice(docs.indexOf('**Iterations**'), docs.indexOf('## Other surfaces')));
 
-test('the kanban skill documents the iterations key: a human writes it, it needs groups, and it adds only the picker', () => {
+test('the kanban skill documents the iterations key: the starter writes it, it needs groups, and it adds only the picker', () => {
   assert.ok(kanbanKey.length > 200, 'the iterations paragraph is found');
-  for (const part of ['`iterations: true`', 'needs the `groups:` line', 'the `iteration/` folder', 'only adds a picker to the web', 'A human writes the line']) {
+  for (const part of ['`iterations: true`', 'needs the `groups:` line', 'the `iteration/` folder', 'only adds a picker to the web', 'The starter writes the line for a new board']) {
     assert.ok(kanbanKey.includes(part), part);
   }
 });
