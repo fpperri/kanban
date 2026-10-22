@@ -27,6 +27,6 @@ test('the documented suggestions are what the module offers', () => {
   const cards = [card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: '1' }), card(3, { type: 'objective', parent: '2' }), card(4, { parent: '3' })];
   const ctx = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
   assert.ok(searchSuggestionItems('slice:goal..', 12, cards, ctx).some((i) => i.value === 'slice:goal..objective'));
-  const spaced = [card(1, { type: 'big goal' }), card(2, { parent: '1' }), card(3, { parent: '2' })];
+  const spaced = [card(1, { type: 'big goal' }), card(2, { parent: '1' }), card(3, { parent: '2' }), card(4, { parent: '3' })];
   assert.ok(searchSuggestionItems('slice:"big goal..', undefined, spaced, { board: 'kanban', hierarchy: ['big goal'] }).some((i) => i.value === 'slice:"big goal..2"'));
 });

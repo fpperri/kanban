@@ -40,11 +40,11 @@ const CASES = {
     depthZero: { query: 'slice:0', datedShows: [28, 29] },
     suggest: {
       typed: 'slice:',
-      labels: ['slice:goal', 'slice:strategy', 'slice:objective', 'slice:epic', 'slice:0', 'slice:1', 'slice:2', 'slice:3', 'slice:4', 'slice:5'],
+      labels: ['slice:goal', 'slice:strategy', 'slice:objective', 'slice:epic', 'slice:0', 'slice:1'],
       first: { pick: 'slice:strategy', shows: [2, 26] },
       second: {
         typed: '..',
-        labels: ['slice:strategy..goal', 'slice:strategy..strategy', 'slice:strategy..objective', 'slice:strategy..epic', 'slice:strategy..0', 'slice:strategy..1', 'slice:strategy..2', 'slice:strategy..3', 'slice:strategy..4', 'slice:strategy..5'],
+        labels: ['slice:strategy..goal', 'slice:strategy..strategy', 'slice:strategy..objective', 'slice:strategy..epic', 'slice:strategy..0', 'slice:strategy..1'],
         pick: 'slice:strategy..objective',
         shows: [2, 7, 26],
       },

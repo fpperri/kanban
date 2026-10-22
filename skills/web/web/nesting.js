@@ -133,13 +133,17 @@ function depthOf(cards, id, ctx) {
 // archived parent is still a parent, and a view that hides cards must not move
 // the cards it still shows to another depth. Iterative, so a very deep chain
 // cannot overflow the stack.
-function depthMap(cards, ctx) {
+// `cutAt`, when given, is a function of a card: a card whose parent it is true of
+// counts as a root, its link up cut. The slices use it to count from the nearest
+// tier card down.
+function depthMap(cards, ctx, cutAt) {
   const byId = new Map();
   for (const c of cards) if (!byId.has(nestKey(c.id))) byId.set(nestKey(c.id), c);
   const parentOf = new Map();
   for (const [key, c] of byId) {
     const pid = localParentId(c, ctx);
-    parentOf.set(key, pid !== null && byId.has(pid) ? pid : null);
+    const cut = pid !== null && byId.has(pid) && typeof cutAt === 'function' && cutAt(byId.get(pid));
+    parentOf.set(key, pid !== null && byId.has(pid) && !cut ? pid : null);
   }
   const depths = new Map();
   for (const start of byId.keys()) {

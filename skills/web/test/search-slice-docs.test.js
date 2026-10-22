@@ -62,7 +62,7 @@ test('the documented examples cut as the docs say', () => {
   ];
   const ctx = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
   const ids = (q) => filterCards(cards, parseSearchQuery(q, 'kanban'), ctx).map((c) => c.id);
-  assert.deepStrictEqual(ids(EXAMPLES.run), [3, 7, 12], 'the objective tier, then depths 0 to 2, where depths 1 and 2 hold no card');
+  assert.deepStrictEqual(ids(EXAMPLES.run), [3, 4, 5, 6, 7, 12], 'the objective tier, then depths 0 to 2: card 4 is right under the objective, so it is depth 0, and 5 and 6 are depths 1 and 2');
   assert.deepStrictEqual(ids(EXAMPLES.one), [1]);
   assert.deepStrictEqual(ids(EXAMPLES.openBottom), [1, 2, 3, 4, 5, 6, 7, 12]);
   assert.deepStrictEqual(ids(EXAMPLES.openTop), [1, 2, 3]);

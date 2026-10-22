@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createServer } = require('../scripts/server');
 const { typeBadge, boardTypeView } = require('../web/type-badge');
-const { sliceCards } = require('../web/slices');
+const { sliceCards, sliceDepths } = require('../web/slices');
 const { depthMap } = require('../web/nesting');
 const { graphBuild } = require('../web/graph-model');
 const { card } = require('./helpers/fan-boards');
@@ -58,11 +58,11 @@ const ctx = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 
 test('with types off the slices are the depths, exactly as on a board with no hierarchy', () => {
   const off = boardTypeView({ typesOn: false, types: TYPES, hierarchy: HIERARCHY });
-  const depths = depthMap(cards, ctx);
-  const axis = sliceCards(cards, off.hierarchy, depths);
+  const axis = sliceCards(cards, off.hierarchy, sliceDepths(cards, off.hierarchy, ctx));
   assert.deepStrictEqual(axis.axis.map((s) => s.kind), ['depth', 'depth', 'depth']);
-  assert.deepStrictEqual(axis, sliceCards(cards, [], depths));
-  const on = sliceCards(cards, HIERARCHY, depths);
+  assert.deepStrictEqual(axis, sliceCards(cards, [], sliceDepths(cards, [], ctx)));
+  assert.deepStrictEqual(axis, sliceCards(cards, [], depthMap(cards, ctx)), 'and each card reads its plain depth');
+  const on = sliceCards(cards, HIERARCHY, sliceDepths(cards, HIERARCHY, ctx));
   assert.deepStrictEqual(on.axis.slice(0, 2).map((s) => s.kind), ['tier', 'tier'], 'on, the same cards sit in tiers');
 });
 

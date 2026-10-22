@@ -57,8 +57,8 @@ test('the plan board\'s lists are the tiers, depth rings, Unnested cards and arc
   }
   assert.deepStrictEqual([...byTier.keys()].sort(), [0, 1, 2, 3]);
   assert.deepStrictEqual([0, 1, 2, 3].map((t) => sorted(byTier.get(t))), want.tiers.map(sorted));
-  assert.deepStrictEqual([...byDepth.keys()].sort((a, b) => a - b), [1, 2, 4, 5]);
-  assert.deepStrictEqual([1, 2, 4, 5].map((d) => sorted(byDepth.get(d))), want.depths.map(sorted));
+  assert.deepStrictEqual([...byDepth.keys()].sort((a, b) => a - b), [0, 1]);
+  assert.deepStrictEqual([0, 1].map((d) => sorted(byDepth.get(d))), want.depths.map(sorted));
   assert.deepStrictEqual(sorted(block), sorted(want.block));
   assert.deepStrictEqual(sorted(BOARDS.plan.all.filter((c) => c.archived).map((c) => c.id)), want.archived);
   assert.deepStrictEqual(sorted(model.nodes.map((n) => n.id)), sorted(want.tiers.flat().concat(want.depths.flat(), want.block)));
@@ -70,7 +70,7 @@ test('the plan board\'s names, columns, loose card and icon cards are the real b
   const want = scenario.CASES.plan;
   const { model, place } = drawn('plan', false);
   assert.deepStrictEqual(want.tierNames, BOARDS.plan.config.hierarchy);
-  assert.deepStrictEqual(want.depthNames, [1, 2, 4, 5].map((d) => `depth ${d}`));
+  assert.deepStrictEqual(want.depthNames, [0, 1].map((d) => `depth ${d}`));
   const columns = Object.fromEntries(place.columns.map((c) => [c.label, sorted(c.ids)]));
   assert.deepStrictEqual(columns, Object.fromEntries(Object.entries(want.blockColumns).map(([s, ids]) => [s, sorted(ids)])));
   assert.deepStrictEqual(Object.keys(want.blockColumns), BOARDS.plan.config.statuses);
@@ -109,7 +109,7 @@ test('the malformed board names two tiers, each twice, a depth ring and a loose 
   assert.deepStrictEqual(BOARDS.malformed.config.hierarchy, ['Goal', 'goal', 'Epic', 'EPIC']);
   assert.deepStrictEqual(layout.bands.filter((b) => b.slice.kind === 'tier').map((b) => b.count), [1, 1]);
   assert.deepStrictEqual(want.tiers.map((ids) => ids.map((id) => model.axis[place.places.get(String(id)).band].kind)), [['tier'], ['tier']]);
-  assert.strictEqual(model.axis[place.places.get('3').band].depth, 2);
+  assert.strictEqual(model.axis[place.places.get('3').band].depth, 0);
   assert.strictEqual(place.places.get('4').block, 'done');
 });
 
@@ -441,7 +441,7 @@ test('captions out of hierarchy order, a missing tier caption or a wrong count f
 test('a depth caption for an empty depth, or one missing, fails', async () => {
   const extra = await run({ marks: (key, m) => { if (key === 'plan') m.captions.push({ name: 'depth 3', count: 0, kind: 'depth', x: -900, y: 0 }); return m; } });
   assert.ok(failed(extra).includes('plan: one caption per non-empty depth follows, in depth order'), failed(extra).join('; '));
-  const short = await run({ marks: (key, m) => { if (key === 'plan') m.captions = m.captions.filter((c) => c.name !== 'depth 4'); return m; } });
+  const short = await run({ marks: (key, m) => { if (key === 'plan') m.captions = m.captions.filter((c) => c.name !== 'depth 1'); return m; } });
   assert.ok(failed(short).includes('plan: one caption per non-empty depth follows, in depth order'));
 });
 
@@ -659,7 +659,7 @@ test('a frame the zoom presses left to draw takes down a tooltip shown before it
 test('a tooltip off the stage, or on top of the caption it describes, fails', async () => {
   const off = await run({ tip: (name, t) => (name === 'goal' ? { ...t, tip: { ...t.tip, r: t.stage.r + 40 } } : t) });
   assert.ok(failed(off).includes(HOVER), failed(off).join('; '));
-  const over = await run({ tip: (name, t) => (name === 'depth 2' ? { ...t, tip: { l: t.caption.l, t: t.caption.t, r: t.caption.r + 100, b: t.caption.b + 4 } } : t) });
+  const over = await run({ tip: (name, t) => (name === 'depth 1' ? { ...t, tip: { l: t.caption.l, t: t.caption.t, r: t.caption.r + 100, b: t.caption.b + 4 } } : t) });
   assert.ok(failed(over).includes(HOVER), failed(over).join('; '));
   const other = await run({ tip: (name, t) => (name === 'done' ? { ...t, described: 'todo' } : t) });
   assert.ok(failed(other).includes(HOVER), 'the tooltip has to describe the caption the pointer is on');

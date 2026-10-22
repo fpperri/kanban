@@ -96,10 +96,8 @@ const DG = (typeof module !== 'undefined' && module.exports) ? require('./depend
 // Named WBS (not WB) — dependency-graph.js already claims WB in this shared
 // page scope (every web/*.js top-level name must be unique).
 const WBS = (typeof module !== 'undefined' && module.exports) ? require('./waiting-blocked') : window;
-// slice: reads the slices module and the nesting module's depth map; named SLM and NSM so no
-// two page scripts claim one name.
+// slice: reads the slices module; named SLM so no two page scripts claim one name.
 const SLM = (typeof module !== 'undefined' && module.exports) ? require('./slices') : window;
-const NSM = (typeof module !== 'undefined' && module.exports) ? require('./nesting') : window;
 // Ids are read and compared through the id module (a card is `#7` or `#G7`, never a number).
 const SEARCH_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
@@ -767,10 +765,10 @@ function groupIds(cards, term, ctx) {
 // The slices of the whole board, { axis, byId } (the slices module's), built once
 // for a pass through `memo` when it is given. A cut and the suggestions the box
 // offers for one read it alike, so they cannot disagree about what a slice is. null
-// when the page has not loaded the slices and nesting modules.
+// when the page has not loaded the slices module.
 function searchSlices(cards, ctx, memo) {
-  if (typeof SLM.sliceCards !== 'function' || typeof NSM.depthMap !== 'function') return null;
-  const build = () => SLM.sliceCards(cards, ctx && ctx.hierarchy, NSM.depthMap(cards, ctx));
+  if (typeof SLM.sliceCards !== 'function' || typeof SLM.sliceDepths !== 'function') return null;
+  const build = () => SLM.sliceCards(cards, ctx && ctx.hierarchy, SLM.sliceDepths(cards, ctx && ctx.hierarchy, ctx));
   if (!memo) return build();
   if (!memo.slices) memo.slices = build();
   return memo.slices;

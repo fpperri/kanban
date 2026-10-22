@@ -3,9 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { sliceCards } = require('../web/slices');
+const { sliceCards, sliceDepths } = require('../web/slices');
 const { parseSearchQuery, filterCards } = require('../web/search');
-const { depthMap } = require('../web/nesting');
 const {
   sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey,
   sliceKeyIsChord,
@@ -25,8 +24,11 @@ const CARDS = [
   { id: 5, type: 'story', parent: 4 },
   { id: 6, type: 'task', parent: 5 },
   { id: 7, type: 'story', parent: null },
+  { id: 8, type: 'story', parent: 6 },
+  { id: 9, type: 'story', parent: 8 },
+  { id: 10, type: 'story', parent: 9 },
 ];
-const DEPTHS = depthMap(CARDS, { board: 'b' });
+const DEPTHS = sliceDepths(CARDS, HIERARCHY, { board: 'b' });
 const sliced = (cards = CARDS, hierarchy = HIERARCHY, depths = DEPTHS) => sliceCards(cards, hierarchy, depths);
 const list = () => sliceListOf(sliced(), CARDS.map((c) => c.id));
 const run = (from, to) => ({ from, to });
@@ -45,11 +47,11 @@ test('a tier that no card on the board has is not listed, though the axis has it
 
 test('a tier whose only cards are not in the view is still listed, with a count of none', () => {
   const entries = sliceListOf(sliced(), [1, 5]);
-  assert.deepStrictEqual(entries.map((e) => [e.label, e.count]), [['goal', 1], ['strategy', 0], ['epic', 0], ['depth 0', 0], ['depth 1', 0], ['depth 2', 0], ['depth 3', 1], ['depth 4', 0]]);
+  assert.deepStrictEqual(entries.map((e) => [e.label, e.count]), [['goal', 1], ['strategy', 0], ['epic', 0], ['depth 0', 1], ['depth 1', 0], ['depth 2', 0], ['depth 3', 0], ['depth 4', 0]]);
 });
 
 test('each count is over the ids given, so the caller picks the basis, and the board\'s cards fix what is listed', () => {
-  assert.deepStrictEqual(list().map((e) => e.count), [2, 1, 1, 1, 0, 0, 1, 1]);
+  assert.deepStrictEqual(list().map((e) => e.count), [2, 1, 1, 2, 1, 1, 1, 1]);
   assert.deepStrictEqual(sliceListOf(sliced(), [1, 2, 3]).map((e) => e.count).slice(0, 3), [2, 1, 0]);
   assert.deepStrictEqual(sliceListOf(sliced(), []).map((e) => e.count), [0, 0, 0, 0, 0, 0, 0, 0]);
 });
@@ -263,7 +265,7 @@ test('an entry\'s key is its own whatever the list holds, and the same after the
   const keys = list().map(sliceEntryKey);
   assert.deepStrictEqual(keys, ['t:goal', 't:strategy', 't:epic', 'd:0', 'd:1', 'd:2', 'd:3', 'd:4']);
   assert.strictEqual(new Set(keys).size, keys.length);
-  const more = sliceListOf(sliceCards([...CARDS, { id: 8, type: 'objective', parent: null }], HIERARCHY, depthMap([...CARDS, { id: 8, type: 'objective', parent: null }], { board: 'b' })), [1, 8]);
+  const more = sliceListOf(sliceCards([...CARDS, { id: 11, type: 'objective', parent: null }], HIERARCHY, sliceDepths([...CARDS, { id: 11, type: 'objective', parent: null }], HIERARCHY, { board: 'b' })), [1, 11]);
   assert.deepStrictEqual(more.slice(0, 4).map(sliceEntryKey), ['t:goal', 't:strategy', 't:objective', 't:epic'], 'a tier that joins leaves the others\' keys as they were');
   const cased = sliceListOf(sliceCards([{ id: 1, type: 'Goal', parent: null }], ['Goal'], new Map([[1, 0]])), [1]);
   assert.strictEqual(sliceEntryKey(cased[0]), 't:goal', 'a tier is keyed without regard to letter case');

@@ -93,10 +93,10 @@ test('the documented examples cut as the skill says', () => {
   assert.deepStrictEqual(ids(EXAMPLES.quote), [6]);
   assert.deepStrictEqual(ids(EXAMPLES.phrase), [6]);
   assert.deepStrictEqual(ids(EXAMPLES.waiting), []);
-  assert.deepStrictEqual(ids(EXAMPLES.run), [3, 7, 8, 12, 13]);
+  assert.deepStrictEqual(ids(EXAMPLES.run), [3, 4, 5, 6, 7, 8, 12, 13]);
   assert.deepStrictEqual(ids(EXAMPLES.one), [1]);
   assert.deepStrictEqual(ids(EXAMPLES.openBottom), [1, 2, 3, 4, 5, 6, 7, 8, 12, 13]);
   assert.deepStrictEqual(ids(EXAMPLES.openTop), [1, 2, 3]);
-  assert.deepStrictEqual(ids(EXAMPLES.depth), [8]);
+  assert.deepStrictEqual(ids(EXAMPLES.depth), [5, 8]);
   assert.deepStrictEqual(ids(EXAMPLES.combined), [1, 12]);
 });

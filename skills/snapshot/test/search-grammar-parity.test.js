@@ -11,8 +11,8 @@ const { planCards, search, webContext, webIds, withPlanPage } = require('./searc
 // The plan board's cards are 1 to 29; 19, 20 and 21 are archived. The slice
 // axis, top to bottom, holds these cards:
 //   goal 1, 25 · strategy 2, 26 · objective 7 · epic 22
-//   depth 0: 9 to 18, 20, 21, 27, 28, 29 · depth 1: 3, 4, 5, 6 · depth 2: 8, 19
-//   depth 3: none · depth 4: 23 · depth 5: 24
+//   depth 0: 3 to 6, 8 to 21, 23, 27, 28, 29 · depth 1: 24
+// A depth counts from the nearest tier card down, so 23 (right under the epic 22) is depth 0.
 // A card of a type outside the hierarchy (11 story, 14 bug, 15 and 17 task) is in
 // the slice of its depth.
 
@@ -48,14 +48,13 @@ const GRAMMAR = [
 
   { q: 'slice:objective', ids: [7] },
   { q: 'slice:GOAL..Strategy', ids: [1, 2, 25, 26] },
-  { q: 'slice:objective..2', ids: except(1, 2, 23, 24, 25, 26) },
-  { q: 'slice:2..objective', ids: except(1, 2, 23, 24, 25, 26) },
+  { q: 'slice:objective..0', ids: except(1, 2, 24, 25, 26) },
+  { q: 'slice:0..objective', ids: except(1, 2, 24, 25, 26) },
   { q: 'slice:objective..', ids: except(1, 2, 25, 26) },
   { q: 'slice:..objective', ids: [1, 2, 7, 25, 26] },
-  { q: 'slice:..2', ids: except(23, 24) },
-  { q: 'slice:1..2', ids: [3, 4, 5, 6, 8, 19] },
-  { q: 'slice:5', ids: [24] },
-  { q: 'slice:3', ids: [] },
+  { q: 'slice:..0', ids: except(24) },
+  { q: 'slice:0..1', ids: except(1, 2, 7, 22, 25, 26) },
+  { q: 'slice:1', ids: [24] },
   { q: 'slice:objective..nowhere', ids: except(1, 2, 25, 26) },
   { q: 'slice:nowhere..objective', ids: [1, 2, 7, 25, 26] },
   { q: 'slice:nowhere', ids: ALL },

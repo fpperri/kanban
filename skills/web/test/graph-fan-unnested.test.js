@@ -113,12 +113,16 @@ const turnOf = (l, p) => {
   return a < l.fan.to - 1e-9 ? a + 2 * Math.PI : a;
 };
 const PLAN_UNNESTED = ['9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '27', '28', '29'];
+// The nested cards with no tier right under a tier card: depth 0, like the unnested ones.
+const PLAN_NESTED_0 = ['3', '4', '5', '6', '8', '23'];
 
 test('depth 0: the cards go on the depth 0 ring, which the axis puts after the tier bands and before depth 1', () => {
   const m = build();
   const there = place(m, 'depth 0');
-  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'depth 2']);
-  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 0, 0, 1, 6, 1, 1], 'the six cards are the depth 0 ring\'s own');
+  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 0, 0, 1, 7, 1], 'the six cards share the depth 0 ring with card 2, the nested card right under the goal');
+  assert.strictEqual(there.places.get('2').band, there.places.get('5').band);
+  assert.notStrictEqual(there.places.get('2').sector, there.places.get('5').sector, 'each in its own sector');
   const ring = there.bands.find((b) => b.slice.kind === 'depth' && b.slice.depth === 0);
   for (const id of ['5', '6', '7', '8', '9', '10']) {
     const at = there.places.get(id);
@@ -143,11 +147,14 @@ test('depth 0: they share a sector of their own, after the trees and the loose c
   assert.strictEqual(there.places.get('1').sector, 0);
 });
 
-test('depth 0: with none, there is no sector and no ring for them, and nothing else moves', () => {
+test('depth 0: with none, there is no sector for them, and nothing else moves', () => {
   const m = graphBuild(cards().filter((c) => c.id <= 4), { ctx: CTX, hierarchy: HIERARCHY });
   const there = place(m, 'depth 0');
   assert.deepStrictEqual(there.sectors.map((s) => s.kind), ['tree', 'loose']);
-  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 0, 0, 1, 1, 1], 'the depth 0 ring holds card 2 alone');
+  const none = graphBuild(cards().filter((c) => c.id === 1 || c.id === 4), { ctx: CTX, hierarchy: HIERARCHY });
+  assert.deepStrictEqual(bandNames(place(none, 'depth 0')), ['goal', 'strategy', 'objective', 'epic'], 'and with no card at depth 0 there is no ring');
 });
 
 test('every other mode keeps them out of the rings, in the status columns the block and the outermost ring read', () => {
@@ -160,16 +167,16 @@ test('every other mode keeps them out of the rings, in the status columns the bl
     assert.deepStrictEqual(other.sectors.map((s) => s.kind), ['tree', 'loose'], String(unnested));
   }
   assert.deepStrictEqual(table.columns.map((c) => [c.label, c.ids]), [['todo', ['5', '8', '10']], ['doing', ['6']], ['done', ['7']], ['archived', ['9']]]);
-  assert.deepStrictEqual(bandNames(table), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(bandNames(table), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
 });
 
-test('depth 0 on the plan board: the 13 cards fill the depth 0 ring, the only card of that depth, between the tier bands and depth 1', () => {
+test('depth 0 on the plan board: the 13 cards fill the depth 0 ring beside the six nested cards of that depth, between the tier bands and depth 1', () => {
   const m = drawnModel(loadBoard('plan'));
   const there = place(m, 'depth 0');
-  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'depth 2', 'depth 4', 'depth 5']);
+  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
   const ring = there.bands[4];
-  assert.strictEqual(ring.count, PLAN_UNNESTED.length);
-  assert.deepStrictEqual(m.nodes.filter((n) => there.places.get(n.id).band === ring.index).map((n) => n.id).sort((a, b) => a - b), PLAN_UNNESTED);
+  assert.strictEqual(ring.count, PLAN_UNNESTED.length + PLAN_NESTED_0.length);
+  assert.deepStrictEqual(m.nodes.filter((n) => there.places.get(n.id).band === ring.index).map((n) => n.id).sort((a, b) => a - b), PLAN_UNNESTED.concat(PLAN_NESTED_0).sort((a, b) => a - b));
 });
 
 test('depth 0 draws them on one ring just outside the tier bands and inside depth 1, in their own stretch of the fan', () => {
@@ -179,8 +186,9 @@ test('depth 0 draws them on one ring just outside the tier bands and inside dept
   const rs = PLAN_UNNESTED.map((id) => radius(l, id));
   assert.ok(Math.max(...rs) - Math.min(...rs) < 1e-6, 'one ring');
   assert.ok(Math.min(...rs) > l.bands[3].r1, 'outside the tier bands');
-  const depth1 = ['3', '4', '5', '6'].map((id) => radius(l, id));
-  assert.ok(Math.max(...rs) < Math.min(...depth1), 'inside depth 1');
+  const nested = PLAN_NESTED_0.map((id) => radius(l, id));
+  assert.ok(Math.abs(Math.max(...rs) - Math.max(...nested)) < 1e-6 && Math.abs(Math.min(...rs) - Math.min(...nested)) < 1e-6, 'on the ring of the nested depth 0 cards');
+  assert.ok(Math.max(...rs) < radius(l, 24), 'inside depth 1');
   const own = l.sectors.find((s) => s.kind === 'unnested');
   assert.deepStrictEqual(own.tops.slice().sort((a, b) => a - b), PLAN_UNNESTED);
   for (const id of PLAN_UNNESTED) {
@@ -204,8 +212,8 @@ test('depth 0 captions the ring as depth 0 does: depth 0, with the cards of the 
   const m = drawnModel(loadBoard('plan'));
   const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'depth 0' });
   const cap = l.captions.find((c) => c.name === 'depth 0');
-  assert.strictEqual(cap.count, PLAN_UNNESTED.length);
-  assert.deepStrictEqual(cap.split, [['backlog', 4], ['todo', 4], ['doing', 2], ['done', 3]]);
+  assert.strictEqual(cap.count, PLAN_UNNESTED.length + PLAN_NESTED_0.length);
+  assert.deepStrictEqual(cap.split, [['backlog', 6], ['todo', 6], ['doing', 3], ['done', 4]]);
   assert.strictEqual(cap.term, 'slice:0');
   assert.strictEqual(l.block, null);
 });
@@ -231,7 +239,7 @@ test('outermost: the cards sit on one ring outside every other dot and every ban
   assert.ok(rest.length > 10);
   for (const n of rest) assert.ok(radius(l, n.id) < Math.min(...rs), `card ${n.id} is inside the ring`);
   const last = ringBand(l);
-  assert.deepStrictEqual(last.rings, [rs[0]], 'the ring is the last band, its own radius the cards\'');
+  assert.ok(last.rings.length === 1 && Math.abs(last.rings[0] - rs[0]) < 1e-6, 'the ring is the last band, its own radius the cards\'');
   const before = l.bands[l.bands.length - 2];
   assert.ok(last.r0 >= before.r1 - 1e-9 && last.r1 > last.rings[0], 'it lies outside the band before it');
   assert.ok(rs[0] > before.r1, 'outside the deepest depth ring');
@@ -275,8 +283,8 @@ test('outermost captions the ring unnested, last, on the seam level with the rin
   assert.strictEqual(cap.count, PLAN_UNNESTED.length);
   assert.deepStrictEqual(cap.split, [['backlog', 4], ['todo', 4], ['doing', 2], ['done', 3]]);
   assert.strictEqual(cap.term, null, 'the ring is not a slice');
-  assert.strictEqual(cap.y, -radius(l, PLAN_UNNESTED[0]), 'level with the ring');
-  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2', 'depth 4', 'depth 5', 'unnested'], 'after the depth rings');
+  assert.ok(Math.abs(cap.y + radius(l, PLAN_UNNESTED[0])) < 1e-6, 'level with the ring');
+  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'unnested'], 'after the depth rings');
   assert.deepStrictEqual(l.rings.map((r) => r.label).slice(-1), ['unnested']);
 });
 
@@ -354,7 +362,7 @@ test('outermost: a board of unnested cards alone is a ring round the centre, wit
 test('outermost: no unnested card, no ring and no caption', () => {
   const m = graphBuild(cards().filter((c) => c.id <= 4), { ctx: CTX, hierarchy: HIERARCHY });
   const l = outermost(m);
-  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2']);
+  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
   assert.strictEqual(l.block, null);
   assert.strictEqual(l.bands.length, 6);
 });
@@ -392,7 +400,7 @@ test('outermost draws the relations of the cards on the ring as it draws every r
 test('depth 0 and table draw the loose caption beside what they always did, and the caption of the ring is the depth 0 band\'s, depth 0', () => {
   const m = drawnModel(loadBoard('plan'));
   const depth = planFor('depth 0', m);
-  assert.deepStrictEqual(depth.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'depth 2', 'depth 4', 'depth 5']);
+  assert.deepStrictEqual(depth.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
   assert.strictEqual(depth.block, null);
   assert.ok(depth.dividers.length > planFor('table', m).dividers.length, 'the unnested sector is parted from its neighbour, one divider more');
   assert.ok(depth.looseCaption && depth.looseCaption.name === 'Unnested, with a tier');
@@ -499,7 +507,7 @@ test('off is the cards leaving the model: its layout is the layout of a board wi
   const off = graphBuild(board.all.filter((c) => !c.archived), { ...opts, unnested: 'off' });
   const l = graphLayoutTiers(off, { statuses: STATUSES, unnested: 'off' });
   assert.strictEqual(l.block, null);
-  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2', 'depth 4', 'depth 5'], 'no unnested caption');
+  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1'], 'no unnested caption');
   for (const id of PLAN_UNNESTED) assert.ok(!l.pos.has(id), `card ${id} has no place`);
   const kept = off.nodes.map((n) => n.id).sort((a, b) => a - b);
   assert.ok(kept.every((id) => !PLAN_UNNESTED.includes(id)));
@@ -513,7 +521,7 @@ test('table keeps the block as it was, whatever the cards: a column for each sta
   const m = drawnModel(loadBoard('plan'));
   const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
   assert.deepStrictEqual(l.block.columns.map((c) => [c.label, c.ids]), [['backlog', ['11', '14', '18', '28']], ['todo', ['10', '13', '17', '27']], ['doing', ['9', '15']], ['done', ['12', '16', '29']]]);
-  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2', 'depth 4', 'depth 5']);
+  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
   const outer = l.bands[l.bands.length - 1].r1;
   for (const id of PLAN_UNNESTED) assert.ok(radius(l, id) > outer + 20, `card ${id} is outside the rim`);
 });

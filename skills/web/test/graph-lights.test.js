@@ -85,14 +85,14 @@ test('the decision hands back what the search module matched, without changing i
 // of the query lights, inside the cut.
 
 const SLICE_CTX = { ...CTX, hierarchy: ['goal', 'strategy', 'objective', 'epic'] };
-// goal 1, strategy 2, objective 3, epic 4, story 5 (done) under it, and the untiered task 6 at depth 0.
+// goal 1, strategy 2, objective 3, epic 4, the untiered task 6 right under it at depth 0 and the story 5 (done) under that at depth 1.
 const TIERED = [
   card(1, { type: 'goal', tags: ['ui'] }),
   card(2, { type: 'strategy', parent: 1, tags: ['ui'] }),
   card(3, { type: 'objective', parent: 2 }),
   card(4, { type: 'epic', parent: 3, tags: ['ui'] }),
-  card(5, { type: 'story', parent: 4, tags: ['ui'], status: 'done' }),
-  card(6, { type: 'task', tags: ['ui'] }),
+  card(5, { type: 'story', parent: 6, tags: ['ui'], status: 'done' }),
+  card(6, { type: 'task', parent: 4, tags: ['ui'] }),
 ];
 const slicedMatch = (query) => {
   const terms = parseSearchQuery(query, 'kanban');

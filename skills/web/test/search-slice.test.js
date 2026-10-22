@@ -27,13 +27,11 @@ const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'], hierarchy:
 //   strategy   2
 //   objective  3
 //   epic       4, 8 (8 sits loose)
-//   depth 0    9, 10 (loose), 14 (parent 99 is not on the board), 17 (parent on another board)
-//   depth 1    11 and 12 (a parent loop), 15 (an archived story under goal 1)
-//   depth 2    13 (under 11), 16 (under archived 15)
-//   depth 3    nothing
-//   depth 4    5 (a story under epic 4)
-//   depth 5    6 (a task under 5)
-// So the axis is: goal, strategy, objective, epic, 0, 1, 2, 3, 4, 5.
+//   depth 0    5 (a story right under epic 4), 9, 10 (loose), 14 (parent 99 is not on the board),
+//              15 (an archived story right under goal 1), 17 (parent on another board)
+//   depth 1    6 (a task under 5), 11 and 12 (a parent loop), 16 (under archived 15)
+//   depth 2    13 (under 11)
+// So the axis is: goal, strategy, objective, epic, 0, 1, 2.
 const fixture = () => [
   card(1, { type: 'goal', tags: ['ui'] }),
   card(2, { type: 'strategy', parent: 1 }),
@@ -59,7 +57,7 @@ const ALL = fixture().map((c) => c.id);
 const idsOf = (query, cards = fixture(), ctx = CTX) => filterCards(cards, parseSearchQuery(query, ctx.board), ctx).map((c) => c.id).sort((a, b) => a - b);
 
 test('slice:objective..2 matches the objective and the tiers below it and the untiered cards at depths 0 to 2, and nothing else', () => {
-  assert.deepStrictEqual(idsOf('slice:objective..2'), [3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+  assert.deepStrictEqual(idsOf('slice:objective..2'), [3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
 });
 
 test('slice:goal is that one slice, whatever its parent is or how its type is written', () => {
@@ -71,29 +69,29 @@ test('slice:goal is that one slice, whatever its parent is or how its type is wr
 test('slice:goal.. runs from that slice to the end of the axis', () => {
   assert.deepStrictEqual(idsOf('slice:goal..'), ALL);
   assert.deepStrictEqual(idsOf('slice:epic..'), [4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
-  assert.deepStrictEqual(idsOf('slice:2..'), [5, 6, 13, 16]);
+  assert.deepStrictEqual(idsOf('slice:2..'), [13]);
 });
 
 test('slice:..objective runs from the start of the axis to that slice', () => {
   assert.deepStrictEqual(idsOf('slice:..objective'), [1, 2, 3, 7, 18]);
-  assert.deepStrictEqual(idsOf('slice:..1'), [1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 14, 15, 17, 18]);
+  assert.deepStrictEqual(idsOf('slice:..1'), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18]);
 });
 
 test('a depth number names the slice of the cards with no tier at that depth', () => {
-  assert.deepStrictEqual(idsOf('slice:0'), [9, 10, 14, 17]);
-  assert.deepStrictEqual(idsOf('slice:1..2'), [11, 12, 13, 15, 16]);
-  assert.deepStrictEqual(idsOf('slice:5'), [6]);
+  assert.deepStrictEqual(idsOf('slice:0'), [5, 9, 10, 14, 15, 17]);
+  assert.deepStrictEqual(idsOf('slice:1..2'), [6, 11, 12, 13, 16]);
+  assert.deepStrictEqual(idsOf('slice:2'), [13]);
 });
 
 test('a tier that holds no card is still a slice, and cuts to nothing', () => {
   const noEpics = [card(1, { type: 'goal' }), card(2, { type: 'story', parent: 1 }), card(3)];
   assert.deepStrictEqual(idsOf('slice:epic', noEpics), []);
-  assert.deepStrictEqual(idsOf('slice:epic..0', noEpics), [3]);
+  assert.deepStrictEqual(idsOf('slice:epic..0', noEpics), [2, 3], 'card 2 is right under a goal, so it is depth 0');
 });
 
 test('slice:2..objective matches exactly what slice:objective..2 matches: a reversed pair is swapped', () => {
   assert.deepStrictEqual(idsOf('slice:2..objective'), idsOf('slice:objective..2'));
-  assert.deepStrictEqual(idsOf('slice:2..objective'), [3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+  assert.deepStrictEqual(idsOf('slice:2..objective'), [3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
   assert.deepStrictEqual(idsOf('slice:epic..goal'), idsOf('slice:goal..epic'));
   assert.deepStrictEqual(idsOf('slice:goal..epic'), [1, 2, 3, 4, 7, 8, 18]);
 });
@@ -166,17 +164,17 @@ test('a goal nested under an epic is in the goal slice, and nothing warns about 
 
 test('a card is in the same slice whether its parent is in the result or filtered out of it', () => {
   const cards = fixture().map((c) => (c.id === 6 ? { ...c, tags: ['leaf'] } : c));
-  assert.deepStrictEqual(idsOf('slice:5', cards), [6], 'card 6 sits at depth 5 with its parents on the board');
-  assert.deepStrictEqual(idsOf('tags:leaf slice:5', cards), [6], 'its parents all fail tags:leaf, and the depth is the same');
+  assert.deepStrictEqual(idsOf('slice:1', cards), [6, 11, 12, 16], 'card 6 sits at depth 1 under card 5, with its parents on the board');
+  assert.deepStrictEqual(idsOf('tags:leaf slice:1', cards), [6], 'its parents all fail tags:leaf, and the depth is the same');
   assert.deepStrictEqual(idsOf('tags:leaf slice:0', cards), [], 'it does not fall to depth 0 for want of parents in the result');
   assert.deepStrictEqual(idsOf('tags:leaf slice:goal..epic', cards), []);
-  assert.deepStrictEqual(idsOf('tags:leaf slice:4..', cards), [6]);
+  assert.deepStrictEqual(idsOf('tags:leaf slice:1..', cards), [6]);
 });
 
 test('an archived card still counts as a parent, so the cards below it keep their depth', () => {
-  assert.deepStrictEqual(idsOf('slice:2'), [13, 16]);
+  assert.deepStrictEqual(idsOf('slice:1'), [6, 11, 12, 16]);
   const withoutArchived = fixture().filter((c) => !c.archived);
-  assert.deepStrictEqual(idsOf('slice:2', withoutArchived), [13], 'the subset is what a caller must never pass: card 16 would fall to depth 0');
+  assert.deepStrictEqual(idsOf('slice:1', withoutArchived), [6, 11, 12], 'the subset is what a caller must never pass: card 16 would fall to depth 0');
 });
 
 test('on a board without a hierarchy every slice is a depth, and slice:1 is exactly the depth-1 cards', () => {

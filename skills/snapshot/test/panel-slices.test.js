@@ -1,7 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { sliceCards } = require('../../web/web/slices');
-const { depthMap } = require('../../web/web/nesting');
+const { sliceCards, sliceDepths } = require('../../web/web/slices');
 const { parseSearchQuery, searchSetSlice } = require('../../web/web/search');
 const { sliceListOf, sliceRunClick, sliceRunKeep, sliceRunOf, sliceRunValue } = require('../../web/web/slice-run');
 const { byClass } = require('./page-harness');
@@ -29,25 +28,23 @@ const without = (ids, gone) => ids.filter((id) => !gone.includes(id));
 const LIVE = [...range(1, 18), ...range(22, 29)];
 
 // Every slice the plan board's axis has: its four tiers with the glyph each type wears, then
-// the depths, written out from the board's cards, the three archived ones left out.
+// the depths, written out from the board's cards, the three archived ones left out. A depth
+// counts from the nearest tier card down, so only card 24 (under the story 23 under the epic 22)
+// is below depth 0.
 const PLAN = [
   ['goal', '★', 2],
   ['strategy', '⬢', 2],
   ['objective', '◆', 1],
   ['epic', '■', 1],
-  ['depth 0', '', 13],
-  ['depth 1', '', 4],
-  ['depth 2', '', 1],
-  ['depth 3', '', 0],
-  ['depth 4', '', 1],
-  ['depth 5', '', 1],
+  ['depth 0', '', 19],
+  ['depth 1', '', 1],
 ];
 
 // What the web's slice list says for a board as built, over the cards the status pills leave.
 function webList(dir, { archive = false, hide = [] } = {}) {
   const all = planCards(dir);
   const ctx = webContext(dir);
-  const sliced = sliceCards(all, ctx.hierarchy, depthMap(all, ctx));
+  const sliced = sliceCards(all, ctx.hierarchy, sliceDepths(all, ctx.hierarchy, ctx));
   const shown = all.filter((c) => (c.archived ? archive : !hide.includes(c.status))).map((c) => c.id);
   return sliceListOf(sliced, shown).map((e) => [e.label, e.count]);
 }
@@ -149,12 +146,12 @@ describe('a click on a slice entry', () => {
   // writes and the cards the Board then shows.
   const STEPS = [
     ['click', 'goal', 'slice:strategy..', without(LIVE, [1, 25])],
-    ['click', 'depth 5', 'slice:strategy..4', without(LIVE, [1, 25, 24])],
-    ['click', 'goal', 'slice:..4', without(LIVE, [24])],
-    ['click', 'objective', 'slice:..4', without(LIVE, [24])],
+    ['click', 'depth 1', 'slice:strategy..0', without(LIVE, [1, 25, 24])],
+    ['click', 'goal', 'slice:..0', without(LIVE, [24])],
+    ['click', 'objective', 'slice:..0', without(LIVE, [24])],
     ['keep', 'epic', 'slice:epic', [22]],
     ['click', 'epic', '', LIVE],
-    ['keep', 'depth 1', 'slice:1', [3, 4, 5, 6]],
+    ['keep', 'depth 1', 'slice:1', [24]],
   ];
 
   test('writes the slice: term the web writes for the same run, step by step, and the board cuts to it', () => {
@@ -162,7 +159,7 @@ describe('a click on a slice entry', () => {
       openPanel(page);
       const ctx = webContext(dir);
       const all = planCards(dir);
-      const sliced = sliceCards(all, ctx.hierarchy, depthMap(all, ctx));
+      const sliced = sliceCards(all, ctx.hierarchy, sliceDepths(all, ctx.hierarchy, ctx));
       const list = sliceListOf(sliced, all.map((c) => c.id));
       const at = (label) => list.findIndex((e) => e.label === label);
       // What the web writes for the same gesture on the same box: its run arithmetic, then its term writer.
@@ -299,7 +296,7 @@ describe('the keys [ ] { }', () => {
       page.click(page.byId('search-panel-toggle'));
       assert.ok(page.byId('search-panel').classList.contains('hidden'), 'sanity: the panel is closed');
       press(page, '[');
-      assert.strictEqual(boxText(page), 'slice:strategy..4', 'the run moves while the panel is closed too');
+      assert.strictEqual(boxText(page), 'slice:strategy..0', 'the run moves while the panel is closed too');
     });
   });
 
@@ -307,9 +304,9 @@ describe('the keys [ ] { }', () => {
     withBuiltBoard('plan', (page) => {
       openPanel(page);
       press(page, '[');
-      assert.strictEqual(boxText(page), 'slice:..4', '[ pulls the bottom of the run up by one');
+      assert.strictEqual(boxText(page), 'slice:..0', '[ pulls the bottom of the run up by one');
       press(page, '}');
-      assert.strictEqual(boxText(page), 'slice:strategy..4', '} pulls the top down by one');
+      assert.strictEqual(boxText(page), 'slice:strategy..0', '} pulls the top down by one');
     });
   });
 
@@ -420,7 +417,7 @@ describe('an entry and a pill are named for a screen reader', () => {
       openPanel(page);
       const names = sliceEntries(page).map((s) => s.name);
       assert.deepStrictEqual(names.slice(0, 4), ['goal, 2 cards, in the run', 'strategy, 2 cards, in the run', 'objective, 1 card, in the run', 'epic, 1 card, in the run']);
-      assert.strictEqual(names[7], 'depth 3, 0 cards, in the run');
+      assert.strictEqual(names[5], 'depth 1, 1 card, in the run');
       keepOnly(page, 'epic');
       assert.strictEqual(entry(page, 'epic').name, 'epic, 1 card, in the run');
       assert.strictEqual(entry(page, 'goal').name, 'goal, 2 cards, not in the run');

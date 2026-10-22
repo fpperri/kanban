@@ -7,7 +7,8 @@
 //              ring, after the captions of the bands; its tip counts the cards and names no slice.
 //   off        the cards are not drawn, and neither is any relation to a card that is.
 //   depth 0    on the depth 0 ring, between the tier bands and depth 1, in a sector of their
-//              own; the ring's caption is the depth 0 band's, depth 0, and counts them.
+//              own; the ring's caption is the depth 0 band's, depth 0, and counts them with the
+//              nested cards of that depth.
 //   table      the Unnested block outside the rim, a column for each status (tier-fan's checks).
 // In every mode the view frames what is drawn, at the first draw after a press and after Fit,
 // the whole circle with it, and no two captions overlap, the unnested caption's text clear of
@@ -22,7 +23,7 @@
 // them have no parent, no children and no tier: 9 to 18 and 27 to 29. By status they are
 // backlog 11, 14, 18 and 28, todo 10, 13, 17 and 27, doing 9 and 15, done 12, 16 and 29; the
 // archived cards 20 and 21 are two more, last. Card 27 waits for card 5, the one relation that
-// joins an unnested card to another. Cards 3 to 6 are at depth 1. The fixture board's cards 9
+// joins an unnested card to another. Cards 3 to 6, 8 and 23 are at depth 0 (right under a tier card) and card 24 at depth 1. The fixture board's cards 9
 // to 18 are its unnested cards; the malformed board's card 4 is its one. The fixture board has
 // no hierarchy, so its rings follow depth and the ring of unnested cards comes after them.
 //
@@ -50,7 +51,8 @@ const CASES = {
     ring: [11, 14, 18, 28, 10, 13, 17, 27, 9, 15, 12, 16, 29],
     split: ['backlog 4', 'todo 4', 'doing 2', 'done 3'],
     archived: [20, 21],
-    depthOne: [3, 4, 5, 6],
+    depthZero: [3, 4, 5, 6, 8, 23],
+    depthOne: [24],
     wait: { from: 5, to: 27 },
     picked: 27,
     tierCount: 4,
@@ -190,14 +192,14 @@ module.exports = {
     marks = await ev(FAN_MARKS);
     const edges = await ev(BAND_EDGES);
     const sectors = await ev(SECTORS);
-    check('plan depth 0: the unnested cards sit on one ring, outside the tier bands and inside depth 1',
-      onOneRing(all, plan.ring) && Math.min(...radii(all, plan.ring)) > edges.tiers[plan.tierCount - 1] && Math.max(...radii(all, plan.ring)) < Math.min(...radii(all, plan.depthOne)),
+    check('plan depth 0: the unnested cards sit on one ring with the nested cards of depth 0, outside the tier bands and inside depth 1',
+      onOneRing(all, plan.ring.concat(plan.depthZero)) && Math.min(...radii(all, plan.ring)) > edges.tiers[plan.tierCount - 1] && Math.max(...radii(all, plan.ring)) < Math.min(...radii(all, plan.depthOne)),
       { ring: radii(all, plan.ring), edges, depthOne: radii(all, plan.depthOne) });
     const own = sectors.filter((s) => s.kind === 'unnested');
     check('plan depth 0: they share a sector of their own', own.length === 1 && sameSet(own[0].tops, plan.ring), sectors);
     const roots = named(marks, 'depth 0');
-    check('plan depth 0: the ring is the depth 0 band, its caption depth 0 counts them, and nothing is captioned unnested',
-      roots.length === 1 && roots[0].count === plan.ring.length && roots[0].kind === 'depth' && named(marks, 'unnested').length === 0 && marks.block === null, marks.captions);
+    check('plan depth 0: the ring is the depth 0 band, its caption depth 0 counts them and the nested cards of that depth, and nothing is captioned unnested',
+      roots.length === 1 && roots[0].count === plan.ring.length + plan.depthZero.length && roots[0].kind === 'depth' && named(marks, 'unnested').length === 0 && marks.block === null, marks.captions);
     check('plan depth 0: the relation of card 27 to card 5 is drawn', await ev(linesTouching(plan.ring)) === 1, await ev(linesTouching(plan.ring)));
     await framed('plan depth 0');
     await shot('tier-fan-unnested-depth-0');

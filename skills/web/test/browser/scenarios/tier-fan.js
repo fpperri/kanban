@@ -35,7 +35,9 @@
 // archived. Cards 1 and 25 are goals (25 is nested under the epic 22, against
 // the hierarchy), 2 and 26 strategies, 7 the objective and 22 the epic. Cards 3
 // to 6, 8, 23 and 24 are nested and have no tier (a story and a task among them),
-// at depths 1, 1, 1, 1, 2, 4 and 5. Every other live card has no parent and no
+// at depths 0, 0, 0, 0, 0, 0 and 1: a depth counts from the nearest tier card down, so
+// the cards right under the goal 1, the strategy 2 and the epic 22 are depth 0 and the task
+// 24 under the story 23 is depth 1. Every other live card has no parent and no
 // children. Card 26 is the one loose card with a tier. Card 1's type has the star
 // icon and card 14's type an icon name that is not one.
 //
@@ -48,8 +50,8 @@ const CASES = {
   plan: {
     tiers: [[1, 25], [2, 26], [7], [22]],
     tierNames: ['goal', 'strategy', 'objective', 'epic'],
-    depths: [[3, 4, 5, 6], [8], [23], [24]],
-    depthNames: ['depth 1', 'depth 2', 'depth 4', 'depth 5'],
+    depths: [[3, 4, 5, 6, 8, 23], [24]],
+    depthNames: ['depth 0', 'depth 1'],
     block: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 27, 28, 29],
     blockColumns: { backlog: [11, 14, 18, 28], todo: [10, 13, 17, 27], doing: [9, 15], done: [12, 16, 29] },
     archived: [19, 20, 21],
@@ -64,10 +66,8 @@ const CASES = {
       strategy: ['2 cards', 'todo 1 · doing 1', 'slice:strategy'],
       objective: ['1 card', 'todo 1', 'slice:objective'],
       epic: ['1 card', 'doing 1', 'slice:epic'],
-      'depth 1': ['4 cards', 'backlog 1 · todo 2 · done 1', 'slice:1'],
-      'depth 2': ['1 card', 'backlog 1', 'slice:2'],
-      'depth 4': ['1 card', 'doing 1', 'slice:4'],
-      'depth 5': ['1 card', 'todo 1', 'slice:5'],
+      'depth 0': ['6 cards', 'backlog 2 · todo 2 · doing 1 · done 1', 'slice:0'],
+      'depth 1': ['1 card', 'todo 1', 'slice:1'],
       'Unnested, with a tier': ['1 card', 'todo 1'],
       Unnested: ['13 cards', 'backlog 4 · todo 4 · doing 2 · done 3'],
       backlog: ['4 cards'],
@@ -455,7 +455,7 @@ module.exports = {
       // The term a tooltip names is the term the search box takes: it cuts the Graph to the band's cards.
       const dotsBefore = Object.keys(all).length;
       const cutFailures = [];
-      for (const [name, ids] of [['epic', plan.tiers[3]], ['depth 1', plan.depths[0]]]) {
+      for (const [name, ids] of [['epic', plan.tiers[3]], ['depth 1', plan.depths[1]]]) {
         await ev(focusCaption(name));
         const named = (await waitFor(tipHas(plan.tips[name]))) ? await ev(TIP) : null;
         const term = named ? named.lines[named.lines.length - 1] : '';

@@ -8,8 +8,7 @@ const {
   graphVisibleIds, graphZoomAt, graphPlan,
   graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
 } = require('../web/graph-model');
-const { depthMap } = require('../web/nesting');
-const { sliceCards } = require('../web/slices');
+const { sliceCards, sliceDepths } = require('../web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra = {}) => ({
@@ -127,7 +126,7 @@ test('tiers: each depth sits on its own ring, a band of 56 further out than the 
 
 test('tiers: over this fixture, unfiltered, the depths the slice module gives are the rings the layout draws', () => {
   const cards = treeCards();
-  const slices = sliceCards(cards, [], depthMap(cards, CTX));
+  const slices = sliceCards(cards, [], sliceDepths(cards, [], CTX));
   const m = build(cards);
   const l = graphLayoutTiers(m);
   const ringFor = (depth) => l.rings.find((r) => r.label === `depth ${depth}`);

@@ -72,7 +72,7 @@ test('tint: a wash is a whole ring from the inner edge of its band to the outer 
 test('tint: a tier nobody is in has no wash, though its thin band and its muted caption are drawn', () => {
   const m = buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']);
   const plan = planOf(m, { ...OPTS, types: [{ name: 'goal', color: 'red' }, { name: 'epic', color: 'blue' }] });
-  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.muted]), [['goal', true], ['epic', false], ['depth 1', false]]);
+  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.muted]), [['goal', true], ['epic', false], ['depth 0', false]]);
   assert.deepStrictEqual(plan.tints.map((t) => [t.tier, t.color]), [['epic', 'blue']]);
 });
 
