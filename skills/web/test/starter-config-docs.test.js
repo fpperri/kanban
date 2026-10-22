@@ -62,7 +62,7 @@ test('the skill names every starter type', () => {
   for (const t of starter.types) assert.ok(flatSkill.includes(`\`${t.name}\``), `the skill names ${t.name}`);
 });
 
-test('the README and the skill say the lines can be changed, that cards made before a prefix keep their numbers, and that the five features are off', () => {
+test('the README and the skill say the lines can be changed, that cards made before a prefix keep their numbers, and that the five features are on', () => {
   assert.match(flatReadme, /every line can be changed or deleted/);
   assert.match(flatSkill, /every line can be changed or deleted/);
   assert.match(flatReadme, /card made before its prefix was declared keeps its plain number/);
@@ -72,19 +72,45 @@ test('the README and the skill say the lines can be changed, that cards made bef
       assert.ok(text.includes(line), `${name} gives the line ${line}`);
     }
     assert.match(text, /gear sheet/);
+    assert.doesNotMatch(text, /off until|stays? off|are not in the config|not lines of it/i, `${name} does not call the five features off`);
+  }
+  assert.match(flatReadme, /iterations \(`iterations: true`\) are on in the starter, so every new board has them/);
+  assert.match(flatSkill, /writes the logbook, scratchpad, todo lists, groups and iterations lines for a new board/);
+  assert.match(flatSkill, /adds the missing ones to an existing board when a human asks/);
+  assert.match(flatSkill, /never invents them otherwise/);
+});
+
+test('each feature paragraph of the skill says the starter writes the line and an AI servicing a board does not invent it otherwise', () => {
+  for (const key of ['groups', 'iterations', 'logbook', 'scratchpad', 'todos']) {
+    const start = skillConfig.indexOf(`**\`${key}\` `);
+    assert.ok(start !== -1, `the skill has a ${key} paragraph`);
+    const end = skillConfig.indexOf('\n\n', start);
+    const para = flatten(skillConfig.slice(start, end));
+    assert.match(para, /starter writes the line for a new board/, key);
+    assert.match(para, /otherwise nothing that services the board invents it/, key);
+    assert.doesNotMatch(para, /A human writes the line, or/, key);
   }
 });
 
-test('the starter file leaves the five features off and says what each line would be', () => {
-  assert.strictEqual(starter.logbook, '');
-  assert.strictEqual(starter.scratchpad, '');
-  assert.strictEqual(starter.todos, '');
-  assert.strictEqual(starter.groups, '');
-  assert.strictEqual(starter.iterations, false);
+test('ADR 0022 records the change and the README points to it', () => {
+  const adr = read('docs', 'adr', '0022-the-starter-turns-the-notes-kit-on.md');
+  assert.match(adr, /Status: accepted/);
+  assert.match(flatten(adr), /ADR 0017/);
+  assert.match(flatten(adr), /a board can still delete the lines/i);
+  assert.match(flatten(read('README.md')), /ADR 0022/);
+});
+
+test('the starter file turns the five features on, each line with its meaning', () => {
+  assert.strictEqual(starter.logbook, '.logbook');
+  assert.strictEqual(starter.scratchpad, '.scratchpad');
+  assert.strictEqual(starter.todos, '.todos');
+  assert.strictEqual(starter.groups, '.groups');
+  assert.strictEqual(starter.iterations, true);
   for (const key of ['logbook', 'scratchpad', 'todos', 'groups', 'iterations']) {
-    assert.match(starterText, new RegExp(`^# ${key}: \\S.*# \\S`, 'm'), `${key} is a comment with its meaning`);
+    assert.match(starterText, new RegExp(`^${key}: \\S.*# \\S`, 'm'), `${key} is a line with its meaning`);
   }
   assert.match(flatten(starterText), /Every line can be changed or deleted/);
+  assert.match(flatten(starterText.replace(/^# ?/gm, '')), /deleting a kit line \(or switching it off in the web's gear sheet\) turns that feature off/i);
 });
 
 test('the skill says how to run the script on an existing board, dry first, and the script exists', () => {

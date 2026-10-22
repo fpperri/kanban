@@ -206,10 +206,13 @@ icon each, except `task`, which has an icon only, and `bug`, which is bare),
 the `hierarchy` `[goal, strategy, objective, epic]`, and the `prefixes`
 `G: goal`, `S: strategy`, `O: objective`, `_: .groups`, `I: .groups/iteration`,
 `W: .groups/workflow` and `DW: .groups/workflow/dynamic`. A card made before a
-prefix is declared keeps its plain number. The logbook, scratchpad, todo lists, groups and
-iterations are not lines of it: each stays off until its own line (`logbook:`,
-`scratchpad:`, `todos:`, `groups:`, `iterations: true`) is added by a human or from the
-web's gear sheet, and the starter lists them as comments.
+prefix is declared keeps its plain number. It also holds the board's kit, five
+lines that turn features on: `logbook: .logbook`, `scratchpad: .scratchpad`,
+`todos: .todos`, `groups: .groups` and `iterations: true`. The starter writes
+the logbook, scratchpad, todo lists, groups and iterations lines for a new
+board, and the script below adds the missing ones to an existing board when a
+human asks; an AI servicing a board never invents them otherwise. A board turns
+one off by deleting its line, or from the web's gear sheet (This board).
 
 - **A new board.** When you create a board's `config.yaml` (the `name:` seed
   above), write `name:` on line 1 and the starter file's content under it, as it
@@ -229,8 +232,11 @@ node <SCRIPTS_DIR>/apply-starter.js <kanban-dir>...             # adds them
   entry that keeps its name; a value the entry has is never changed); `hierarchy:` only when the board has none (a different one is
   reported, never changed); `prefixes:` when missing, or the entries missing
   from it (an entry the board has is never changed, and a prefix that means
-  something else is reported). It keeps every other byte and the file's line
-  ending, creates `config.yaml` from the starter when a board has none, and
+  something else is reported); each of the five kit keys that has no top-level
+  line (a commented-out line is not the key), added at the end of the file as
+  the starter writes it, and never a value the board already has (`logbook:
+  notes` and `iterations: false` stay). It keeps every other byte and the
+  file's line ending, creates `config.yaml` from the starter when a board has none, and
   takes several board directories in one run, one summary line each.
 
 **Grab semantics for AI writers:** the registry's `kind` tells *you*, the
@@ -270,15 +276,15 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 
 **`prefixes`, `counters` and `idDigits` — how ids are made.** `prefixes:` is a block of `PREFIX: type` lines (a prefix is `_` and uppercase letters only; the type is compared without regard to case; a value that names a groups folder, a path such as `.groups/iteration` or `workflow/`, or the `groups:` folder itself (`_: .groups`, the root, which has no slash), is a folder, not a type, and no card takes it: a group in exactly that folder takes the prefix, see *Groups* below). A prefix is declared once, for a card type or for a groups folder, never both: when a prefix appears twice with different values the first stands, and the web names the ignored one on stderr at startup, never fatal. A card takes the prefix its type declares when it is created and keeps it; prefixes are suggested, never enforced, so a card of any type may still be given any id by hand. `counters:` is one flow-map line, `counters: { G: 3, O: 5 }`: the next number of each prefix, and each is self-healing, `max(its counter, the highest number with that prefix + 1)`, exactly like `nextId`. The block form of `counters:` is not read. `idDigits:` is a whole number from 1 to 15 (anything else reads as 4) and only sets the width a file name pads to; the readers parse the number, so changing it orphans no file, and `scripts/migrate_card_names.sh` renames a board to the new width. Without `prefixes:` every id is a plain number, as before.
 
-**`groups` — the folder of the board's groups.** `groups: .groups` (relative to the board, or an absolute path written by hand) turns groups on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Groups), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *Groups: files that list their cards* below.
+**`groups` — the folder of the board's groups.** `groups: .groups` (relative to the board, or an absolute path written by hand) turns groups on; without the line the board keeps none and you write none. The starter writes the line for a new board, and a human may switch it off or on in the web's gear sheet (This board, Groups), which writes that one line and never a folder outside the board; otherwise nothing that services the board invents it. See *Groups: files that list their cards* below.
 
-**`iterations` — the web's iteration dropdown.** `iterations: true` adds a dropdown to the web header over the groups in the `iteration/` folder (a group sitting in exactly that folder, no subtype). It needs the `groups:` line and does nothing without it; it only adds a picker to the web, and an iteration is otherwise an ordinary group. A human writes the line, or switches it on in the web's gear sheet (This board, Groups, Iterations), which writes that one line (turning groups off leaves it, ignored, until groups are back); nothing that services the board invents it.
+**`iterations` — the web's iteration dropdown.** `iterations: true` adds a dropdown to the web header over the groups in the `iteration/` folder (a group sitting in exactly that folder, no subtype). It needs the `groups:` line and does nothing without it; it only adds a picker to the web, and an iteration is otherwise an ordinary group. The starter writes the line for a new board, and a human may switch it off or on in the web's gear sheet (This board, Groups, Iterations), which writes that one line (turning groups off leaves it, ignored, until groups are back); otherwise nothing that services the board invents it.
 
-**`logbook` — the folder of the board's notes.** `logbook: logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Logbook), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The logbook: notes in day files* below.
+**`logbook` — the folder of the board's notes.** `logbook: .logbook` (relative to the board, or an absolute path written by hand) turns the logbook on; without the line the board keeps none and you write none. The starter writes the line for a new board, and a human may switch it off or on in the web's gear sheet (This board, Logbook), which writes that one line and never a folder outside the board; otherwise nothing that services the board invents it. See *The logbook: notes in day files* below.
 
-**`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
+**`scratchpad` — the folder of the board's scratchpads.** `scratchpad: .scratchpad` (relative to the board, or an absolute path written by hand) turns scratchpads on; without the line the board keeps none and you write none. The starter writes the line for a new board, and a human may switch it off or on in the web's gear sheet (This board, Scratchpad), which writes that one line and never a folder outside the board; otherwise nothing that services the board invents it. See *The scratchpad: a disposable page per card or group* below.
 
-**`todos` — the folder of the board's todo lists.** `todos: .todos` (relative to the board, or an absolute path written by hand) turns todo lists on; without the line the board keeps none and you write none. A human writes the line, or switches it on in the web's gear sheet (This board, Todos); nothing that services the board invents it. See *The todo list: a task list per card or group* below.
+**`todos` — the folder of the board's todo lists.** `todos: .todos` (relative to the board, or an absolute path written by hand) turns todo lists on; without the line the board keeps none and you write none. The starter writes the line for a new board, and a human may switch it off or on in the web's gear sheet (This board, Todos); otherwise nothing that services the board invents it. See *The todo list: a task list per card or group* below.
 
 **`typesOn` — Types off.** `typesOn: false` makes the web and the snapshot show no types (display only), so keep writing `type:` and prefixed ids as ever. A human writes the line, or switches it in the web's gear sheet; nothing that services the board invents it.
 
