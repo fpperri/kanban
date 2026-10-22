@@ -6,8 +6,8 @@ const { decide, run, isDoc, isDocsTest, baseRef } = require('./docs-pinned-check
 // docs-pinned-check.js on a pull request; this file holds its decision to fixtures, with no git.
 
 test('the docs are docs/*.md, every SKILL.md and the README, and nothing deeper or looser', () => {
-  for (const f of ['docs/web.md', 'docs/testing.md', 'docs/snapshot.md', 'skills/web/SKILL.md', 'skills/snapshot/SKILL.md', 'skills/a/b/SKILL.md', 'README.md']) assert.ok(isDoc(f), f);
-  for (const f of ['docs/agents/x.md', 'docs/img/a.png', 'skills/web/README.md', 'skills/web/web/app.js', 'notes/README.md', 'GLOSSARY.md', 'skills/web/test/foo-docs.test.js']) assert.ok(!isDoc(f), f);
+  for (const f of ['docs/web.md', 'docs/testing.md', 'docs/snapshot.md', 'skills/web/SKILL.md', 'skills/snapshot/SKILL.md', 'skills/a/b/SKILL.md', 'README.md', 'GLOSSARY.md', 'skills/web/references/apply-protocol.md', 'skills/snapshot/references/x.md']) assert.ok(isDoc(f), f);
+  for (const f of ['docs/agents/x.md', 'docs/img/a.png', 'skills/web/README.md', 'skills/web/web/app.js', 'notes/README.md', 'skills/web/references/deep/x.md', 'skills/web/references/x.txt', 'references/x.md', 'skills/web/test/foo-docs.test.js']) assert.ok(!isDoc(f), f);
 });
 
 test('the docs tests are skills/**/test/*-docs.test.js and docs-agree.test.js', () => {
@@ -32,6 +32,14 @@ test('every kind of doc is held to it, and the message names each changed doc', 
   const r = decide({ changed: ['README.md', 'docs/web.md', 'skills/kanban/SKILL.md'], messages: [] });
   assert.deepStrictEqual(r.docs, ['README.md', 'docs/web.md', 'skills/kanban/SKILL.md']);
   for (const d of r.docs) assert.ok(r.message.includes(d), d);
+});
+
+test('the glossary and the skills references are held to it too', () => {
+  for (const doc of ['GLOSSARY.md', 'skills/snapshot/references/apply-protocol.md']) {
+    const r = decide({ changed: [doc], messages: [] });
+    assert.strictEqual(r.ok, false, doc);
+    assert.ok(r.message.includes(doc), doc);
+  }
 });
 
 test('a docs test changed in the same range lets it through', () => {
@@ -61,6 +69,13 @@ test('a commit message line "Docs-test: none, <reason>" is the escape hatch', ()
   assert.strictEqual(crlf.ok, true);
   const later = decide({ changed: ['README.md'], messages: ['one', 'two\n\nDocs-test: none, wording only'] });
   assert.strictEqual(later.ok, true, 'any commit in the range may carry it');
+});
+
+test('the placeholder itself is not a reason', () => {
+  for (const msg of ['Docs-test: none, <reason>', 'x\n\nDocs-test: none, <reason>  ', 'Docs-test: none, <reason> and more']) {
+    const r = decide({ changed: ['docs/web.md'], messages: [msg] });
+    assert.strictEqual(r.ok, msg.endsWith('and more'), msg);
+  }
 });
 
 test('only the exact line counts: a reason is required, and it is a line of its own', () => {

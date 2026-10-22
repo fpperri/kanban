@@ -38,7 +38,7 @@ Docs are held to the code by tests that read them as text. The pattern: a `*-doc
 
 ## A docs change brings its docs test
 
-The rule above is held by the `tests` workflow. Its unit job checks out the whole history and, after `npm test`, runs `skills/web/test/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches `docs/*.md`, any `SKILL.md` or `README.md` and touches no `skills/**/test/*-docs.test.js` and no `docs-agree.test.js`, the step fails and names the doc that changed. On a push to `main` there is no pull request base and it does nothing.
+The rule above is held by the `tests` workflow. Its unit job checks out the whole history and, after `npm test`, runs `skills/web/test/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches `docs/*.md`, any `SKILL.md`, any `skills/**/references/*.md`, `README.md` or `GLOSSARY.md` and touches no `skills/**/test/*-docs.test.js` and no `docs-agree.test.js`, the step fails and names the doc that changed. On a push to `main` there is no pull request base and it does nothing.
 
 For a change the tests cannot say anything about (a typo, a reworded sentence no test reads), a line in any commit message of the pull request lets it through:
 
@@ -46,7 +46,7 @@ For a change the tests cannot say anything about (a typo, a reworded sentence no
 Docs-test: none, <reason>
 ```
 
-The reason is required and the line stands alone. The script's decision is unit-tested with fixtures in `skills/web/test/docs-pinned-check.test.js`; run it by hand with `node skills/web/test/docs-pinned-check.js --base origin/main`.
+The reason is required and the line stands alone; the placeholder `<reason>` left as it is does not count. The script's decision is unit-tested with fixtures in `skills/web/test/docs-pinned-check.test.js`; run it by hand with `node skills/web/test/docs-pinned-check.js --base origin/main`.
 
 ## Snapshot tests
 

@@ -2,8 +2,8 @@
 // CI step for a pull request: a change to a doc brings the test that pins it.
 //
 // docs/testing.md asks for the doc and its test in the same change. A pull request that changes
-// docs/*.md, a SKILL.md or the README and changes no skills/**/test/*-docs.test.js (or
-// docs-agree.test.js) fails here. A typo fix says so with a line in one of its commit messages:
+// docs/*.md, a SKILL.md, a skill's references/*.md, the README or GLOSSARY.md and changes no
+// skills/**/test/*-docs.test.js (or docs-agree.test.js) fails here. A typo fix says so with a line in one of its commit messages:
 //
 //   Docs-test: none, <reason>
 //
@@ -16,9 +16,9 @@
 // the change passes or there is nothing to check, 1 when a doc changed alone, 2 when git cannot
 // answer (a shallow clone: check out with fetch-depth: 0).
 
-const DOCS = [/^docs\/[^/]+\.md$/, /^skills\/(?:.+\/)?SKILL\.md$/, /^README\.md$/];
+const DOCS = [/^docs\/[^/]+\.md$/, /^skills\/(?:.+\/)?SKILL\.md$/, /^skills\/(?:.+\/)?references\/[^/]+\.md$/, /^README\.md$/, /^GLOSSARY\.md$/];
 const DOCS_TESTS = [/^skills\/(?:.+\/)?test\/[^/]+-docs\.test\.js$/, /^skills\/(?:.+\/)?test\/docs-agree\.test\.js$/];
-const ESCAPE = /^Docs-test: none, \S.*$/m;
+const ESCAPE = /^Docs-test: none, (\S.*)$/;
 
 const isDoc = (file) => DOCS.some((re) => re.test(file));
 const isDocsTest = (file) => DOCS_TESTS.some((re) => re.test(file));
@@ -28,8 +28,8 @@ function decide({ changed, messages }) {
   if (!docs.length) return { ok: true, docs, message: 'no doc changed; nothing to pin' };
   const tests = changed.filter(isDocsTest);
   if (tests.length) return { ok: true, docs, message: `docs changed (${docs.join(', ')}) with ${tests.join(', ')}` };
-  const hatch = messages.map((m) => m.replace(/\r/g, '')).find((m) => ESCAPE.test(m));
-  if (hatch) return { ok: true, docs, message: `docs changed (${docs.join(', ')}) with no docs test; the commit says ${ESCAPE.exec(hatch.replace(/\r/g, ''))[0]}` };
+  const hatch = messages.join('\n').replace(/\r/g, '').split('\n').map((l) => ESCAPE.exec(l.trimEnd())).find((m) => m && m[1] !== '<reason>');
+  if (hatch) return { ok: true, docs, message: `docs changed (${docs.join(', ')}) with no docs test; the commit says ${hatch[0]}` };
   return {
     ok: false,
     docs,

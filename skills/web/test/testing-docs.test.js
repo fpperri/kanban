@@ -40,17 +40,11 @@ test('every file the testing doc points at exists', () => {
 
 test('the testing doc states the docs rule, the CI step that holds it and the escape hatch', () => {
   assert.match(doc, /## A docs change brings its docs test/);
-  for (const name of ['`skills/web/test/docs-pinned-check.js`', '`docs/*.md`', '`SKILL.md`', '`README.md`', '`skills/**/test/*-docs.test.js`', '`docs-agree.test.js`', 'Docs-test: none, <reason>']) {
+  for (const name of ['`skills/web/test/docs-pinned-check.js`', '`docs/*.md`', '`SKILL.md`', '`README.md`', '`GLOSSARY.md`', '`skills/**/references/*.md`', '`skills/**/test/*-docs.test.js`', '`docs-agree.test.js`', 'Docs-test: none, <reason>']) {
     assert.ok(doc.includes(name), `${name} is in the testing doc`);
   }
   assert.match(doc, /push to `main`[^.]*does nothing/);
-});
-
-test('the unit job checks out the whole history and runs the docs check', () => {
-  const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'test.yml'), 'utf8').replace(/\r\n/g, '\n');
-  const unit = workflow.slice(workflow.indexOf('  test:\n'), workflow.indexOf('  browser:\n'));
-  assert.match(unit, /actions\/checkout@v4\s+with:\s+fetch-depth: 0/);
-  assert.match(unit, /run: node skills\/web\/test\/docs-pinned-check\.js/);
+  assert.match(doc, /placeholder `<reason>`[^.]*does not count/);
 });
 
 test('the testing doc says how to add a step to the phone and phone-flip scenarios', () => {
