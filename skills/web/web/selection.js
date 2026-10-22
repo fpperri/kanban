@@ -39,14 +39,14 @@ function isHoverHighlighted(hoveredId, cardId) {
 // a pill's cards included, in the order they were picked. `resolved` is the id
 // set the selection stands for now and is never written to. The card details'
 // own menu (`fromDetail`) has no Peek, the card is already open. Path and Tree
-// are offered only when the subject is one card. Isolate is offered inside the
+// are offered on every card's menu, whether the subject is one card or several. Isolate is offered inside the
 // selection only, since it shows the selection and a card outside it is not part of
 // it, and never in the card details' own menu. Returns
 // { ids, inSelection, peek, add, dependency, isolate }.
 function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
   const inSelection = resolved.has(id);
   const ids = inSelection ? [...resolved] : [id];
-  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1, isolate: inSelection && !fromDetail };
+  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: true, isolate: inSelection && !fromDetail };
 }
 
 // The menu a right-click on the empty Graph or Map canvas opens: Isolate alone. It has no

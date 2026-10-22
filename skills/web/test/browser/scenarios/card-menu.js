@@ -154,8 +154,18 @@ module.exports = {
 
     await selectPair();
     await rightClickOnBoard(3);
-    check('Dependency path and Dependency tree are absent from the menu when its subject is several cards', !(await entryShown('ctx-path')) && !(await entryShown('ctx-tree')) && (await entryShown('ctx-assign')));
+    check('Dependency path and Dependency tree are in the menu when its subject is several cards', (await entryShown('ctx-path')) && (await entryShown('ctx-tree')) && (await entryShown('ctx-assign')));
     await closeMenu();
+
+    // A right-click inside a lit path has its cards as the subject, and the menu still offers both.
+    await openBoard();
+    await rightClickOnBoard(4);
+    await press('ctx-path');
+    await waitFor(`selectedIds.size===3`);
+    await rightClickOnBoard(4);
+    check('a right-click on a card inside a lit path still offers Dependency path and Dependency tree', await menuOpen() && (await entryShown('ctx-path')) && (await entryShown('ctx-tree')));
+    await press('ctx-path');
+    check('and Dependency path adds the path of each card of the path, one part per card', await waitFor(`selectionState.selection.additions.length===2`) && same(await anchorAndAdditions(), { anchor: 'path:4', additions: ['path:1', 'path:3'] }), await anchorAndAdditions());
 
     // Archive and Delete name the resolved count of a selection that holds a path part. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
     await openBoard();

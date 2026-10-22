@@ -111,7 +111,7 @@ test('the pieces that wrote the selection before now call the entry point', () =
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
     addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
-    addDependencyToSelection: /setSelection\(addPart\(selectionState\.selection, part\(menuSubject\.ids\[0\]\)\)\)/,
+    addDependencyToSelection: /setSelection\(menuSubject\.ids\.reduce\(\(selection, id\) => addPart\(selection, part\(id\)\), selectionState\.selection\)\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,

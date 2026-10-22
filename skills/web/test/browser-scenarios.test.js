@@ -481,7 +481,9 @@ const CARD_MENU_CHECKS = [
   'and the search box is unchanged after Dependency path', 'and the path is lit in the Graph',
   'Dependency tree on a card adds its tree, marked on the Board', 'and the tree is one part of the selection',
   'and the search box is unchanged after Dependency tree', 'and the tree is lit in the Graph',
-  'Dependency path and Dependency tree are absent from the menu when its subject is several cards',
+  'Dependency path and Dependency tree are in the menu when its subject is several cards',
+  'a right-click on a card inside a lit path still offers Dependency path and Dependency tree',
+  'and Dependency path adds the path of each card of the path, one part per card',
   'archiving a selection that holds a path part names the resolved count', 'deleting a selection that holds a path part names the resolved count in the delete popup',
 ];
 

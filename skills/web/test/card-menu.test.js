@@ -274,27 +274,41 @@ test('Tree adds the card\'s dependency tree to the selection as one part and lea
   assert.strictEqual(s.page.input.writes.length, writes);
 });
 
-test('a part added by Path stays a path part: the selection holds one path part, not its cards', async () => {
+test('a part added by Path stays a path part: the selection holds the path part, not its cards', async () => {
   const s = await open();
   s.rightClick(2);
   s.click('#ctx-path');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] });
   s.rightClick(2);
   s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] }, 'the same path twice is one part');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [{ kind: 'path', id: '1' }, { kind: 'path', id: '3' }] }, 'a right-click inside the lit path has its three cards as the subject: one path part each, and the path the selection already holds is not added twice');
 });
 
-test('Path and Tree are in the menu when its subject is one card and absent when it is several', async () => {
+test('Path and Tree are in the menu whatever its subject is: a card outside the selection, a selection of one, a selection of several', async () => {
   const s = await open();
   s.select(null, 'cardPart(1)', 'cardPart(2)');
   s.rightClick(3);
   assert.strictEqual(s.shown('#ctx-path'), true, 'a card outside the selection is a subject of one');
   assert.strictEqual(s.shown('#ctx-tree'), true);
   s.rightClick(2);
-  assert.strictEqual(s.shown('#ctx-path'), false, 'the two selected cards are the subject');
-  assert.strictEqual(s.shown('#ctx-tree'), false);
+  assert.strictEqual(s.shown('#ctx-path'), true, 'the two selected cards are the subject');
+  assert.strictEqual(s.shown('#ctx-tree'), true);
   s.select(null, 'cardPart(4)');
   s.rightClick(4);
   assert.strictEqual(s.shown('#ctx-path'), true, 'a selection of one is a subject of one');
+});
+
+test('with several cards as the subject, Path adds each card path and Tree each card tree, one part per card in the order they were picked', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(4)', 'cardPart(5)');
+  s.rightClick(5);
+  s.click('#ctx-path');
+  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(5), { kind: 'path', id: '4' }, { kind: 'path', id: '5' }] });
+  assert.strictEqual(s.menuOpen(), false);
+  s.select(null, 'pathPart(2)', 'cardPart(4)');
+  s.rightClick(4);
+  s.click('#ctx-tree');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [a(4), { kind: 'tree', id: '1' }, { kind: 'tree', id: '2' }, { kind: 'tree', id: '3' }, { kind: 'tree', id: '4' }] }, 'the subject is the whole resolved selection: path 2 reaches 1, 2 and 3, and card 4 follows');
 });
 
 test('Path from a menu inside a selection of one adds to that selection, and the cards it reaches show as selected', async () => {

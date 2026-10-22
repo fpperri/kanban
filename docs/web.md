@@ -370,7 +370,7 @@ blocked reason, type, the date triad, and a Markdown description.
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
 archive, restore, delete, isolate (inside the selection only), or add a dependency tree/path to
-the selection. A
+the selection (on every card's menu, one part for each card when the menu is for several). A
 right-click on a card outside the selection opens the menu for that card alone,
 leading with Peek (open its details), and leaves your
 selection as it was. The menu reads Peek, Add note… (with its key, `n`, muted at the right),

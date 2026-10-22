@@ -82,9 +82,10 @@ test('the multi-select section describes the right-click menu: Peek and Add to s
   assert.match(text, /menu for the card shown, without Peek/);
 });
 
-test('the multi-select section says Path and Tree add to the selection as one part and no longer write the search box', () => {
+test('the multi-select section says Path and Tree add to the selection as one part per subject card and no longer write the search box', () => {
   const text = bullet('- **Multi-select**');
-  assert.match(text, /\*\*Dependency path\*\* add the card's tree or path to the selection as one part/);
+  assert.match(text, /\*\*Dependency path\*\* add the tree or path of each card in the menu's subject to the selection, one part per card/);
+  assert.match(text, /a selection of several cards adds one part for each, in the order they were picked/);
   assert.match(text, /They no longer write the search box/);
   assert.doesNotMatch(text, /sugar over the/);
   assert.match(text, /Archive and Delete keep their confirmation, which names the resolved count/);
@@ -94,4 +95,12 @@ test('the Map section says the menu adds a tree or a path to the selection inste
   const text = bullet('**Dependency tree / Dependency path** — a second way');
   assert.match(text, /adds a card's tree or path to the selection instead of writing a term/);
   assert.doesNotMatch(text, /offers these as sugar/);
+});
+
+test('the docs say the dependency tree and path show on every card\'s menu, whatever the subject, and the canvas menu stays Isolate alone', () => {
+  assert.match(webSkill.replace(/\s+/g, ' '), /Dependency tree and Dependency path show on every card's menu, whatever the subject/);
+  assert.doesNotMatch(webSkill.replace(/\s+/g, ' '), /show only when the subject is one card/);
+  assert.match(webSkill.replace(/\s+/g, ' '), /The empty Graph or Map canvas's menu is still Isolate alone/);
+  const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(webDoc, /add a dependency tree\/path to the selection \(on every card's menu, one part for each card when the menu is for several\)/);
 });

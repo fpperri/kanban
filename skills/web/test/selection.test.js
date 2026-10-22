@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
+const { cardMenuFor, canvasMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
 
 // --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
@@ -98,11 +98,12 @@ test('the card details\' own menu has no Peek, and still offers Add to selection
   assert.strictEqual(cardMenuFor(new Set([1, 2]), 2, { fromDetail: true }).add, false, 'a card already picked has nothing to add');
 });
 
-test('Path and Tree are offered when the subject is one card, outside the selection or alone inside it, and not when it is several', () => {
+test('Path and Tree are offered on every card menu, whether the subject is one card or several, and not on the canvas menu', () => {
   assert.strictEqual(cardMenuFor(new Set([1, 2]), 3).dependency, true, 'one card outside a selection');
   assert.strictEqual(cardMenuFor(new Set([4]), 4).dependency, true, 'a selection of one');
-  assert.strictEqual(cardMenuFor(new Set([4, 5]), 5).dependency, false, 'a selection of two');
+  assert.strictEqual(cardMenuFor(new Set([4, 5]), 5).dependency, true, 'a selection of two');
   assert.strictEqual(cardMenuFor(new Set(), 3).dependency, true, 'nothing selected');
+  assert.strictEqual(canvasMenuFor().dependency, false, 'the empty canvas');
 });
 
 test('partitionByMovable: gate-refused cards (waiting or blocked) are skipped only for doing; same-status cards are no-ops', () => {

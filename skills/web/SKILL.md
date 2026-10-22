@@ -753,8 +753,8 @@ to `127.0.0.1` only.
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
   is when Apply is pressed. **Dependency tree**/
-  **Dependency path** add the card's tree or path to the selection as one part: the cards it
-  reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
+  **Dependency path** add the tree or path of each card in the menu's subject to the selection, one part per card (a selection of several cards adds one part for each, in the order they were picked): the cards they
+  reach among the cards the view shows are marked (lit in the Graph) and are bulk targets
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
   card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
@@ -785,8 +785,8 @@ to `127.0.0.1` only.
   alternative text, so they are not in an accessible name. **Add note…** shows its key as `data-hint="n"` drawn by the stylesheet, so the entry's text
   is its name; no other entry shows a key. The empty Graph or Map canvas's menu is still Isolate
   alone: its group's panel stands in the menu with no row (`canvas-menu`). The conditionally-hidden items: Peek and Add to selection show only
-  outside the selection (Peek is also left out of the card details' own menu), Tree and Path
-  show only when the subject is one card, and Isolate shows only inside the selection and never
+  outside the selection (Peek is also left out of the card details' own menu), Dependency tree and
+  Dependency path show on every card's menu, whatever the subject, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
   lives inside each click handler). A right-click on the **empty Graph or Map canvas** (the
   Graph's or the Map's canvas, where no card, Graph dot, Map node, link or control is) opens the

@@ -6211,11 +6211,9 @@ function showContextMenu(x, y) {
   $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
   $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
-  // card details' menu leaves Peek out. "Dependency tree"/"Dependency path" only
-  // make sense against a single card — hidden whenever the menu's subject is
-  // more than one. The caller has already decided menuSubject. These are the only
-  // conditionally-hidden items — the others always render; mixed-selection
-  // handling for them lives inside each click handler instead.
+  // card details' menu leaves Peek out. Dependency tree and path show on every card's menu,
+  // whatever the subject; only the empty canvas's menu hides them. The caller has
+  // already decided menuSubject.
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
@@ -6250,15 +6248,14 @@ function addCardToSelection() {
   renderBoard();
 }
 
-// Dependency tree / path: the card's tree or path joins the selection as one part,
-// resolved with the others on every render (selection.js); the search box is left
-// alone. One card only; showContextMenu already hides these items for a menu whose
-// subject is several, and this guards the empty subject too.
+// Dependency tree / path: each subject card's tree or path joins the selection as one part, in
+// the order the cards were picked, resolved with the others on every render
+// (selection.js); the search box is left alone. The empty subject adds nothing.
 function addDependencyToSelection(kind) {
   hideContextMenu();
-  if (menuSubject.ids.length !== 1) return;
+  if (!menuSubject.ids.length) return;
   const part = kind === 'tree' ? treePart : pathPart;
-  setSelection(addPart(selectionState.selection, part(menuSubject.ids[0])));
+  setSelection(menuSubject.ids.reduce((selection, id) => addPart(selection, part(id)), selectionState.selection));
   renderBoard();
 }
 
