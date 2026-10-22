@@ -138,7 +138,35 @@ function readFoldersNow(dir, value) {
     walk(i + 1, segs, names, parts);
   };
   walk(0, [], [], {});
-  return out;
+  return oneReadingEach(dir, out);
+}
+
+// Two readings can name one folder: under `work/<iteration>/<card>`, `work/0007.a` is an iteration's
+// folder with the card dropped and a card's folder with the iteration dropped. Each folder is kept
+// once, as the reading that fills more placeholders with a folder of the right kind (an iteration's id
+// under <iteration>, a card's or a group's under <card>); on a tie the first, where a filled
+// placeholder comes before a dropped one.
+function oneReadingEach(dir, readings) {
+  const byAbs = new Map();
+  for (const r of readings) {
+    if (!byAbs.has(r.abs)) byAbs.set(r.abs, []);
+    byAbs.get(r.abs).push(r);
+  }
+  if (byAbs.size === readings.length) return readings;
+  let iterationIds = null;
+  let groupIds = null;
+  const isIteration = (id) => {
+    if (iterationIds === null) iterationIds = new Set(iterations(dir).map((i) => i.id));
+    return iterationIds.has(id);
+  };
+  const isTarget = (id) => {
+    if (cs.findCardFile(dir, id)) return true;
+    if (groupIds === null) { const read = gs.readGroups(dir); groupIds = new Set(read ? read.list.map((g) => g.id) : []); }
+    return groupIds.has(id);
+  };
+  const fits = (r) => (r.parts.iteration !== undefined && isIteration(idOfFolder(r.parts.iteration)) ? 1 : 0)
+    + (r.parts.card !== undefined && isTarget(idOfFolder(r.parts.card)) ? 1 : 0);
+  return [...byAbs.values()].map((same) => same.reduce((best, r) => (fits(r) > fits(best) ? r : best)));
 }
 
 // The name of a folder under `parentAbs` for an id: one that exists and starts with the id (the one

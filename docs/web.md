@@ -684,7 +684,10 @@ folder, or a file as in a git worktree); with none, the server names the path an
 feature is off, as if its line were absent. `<card>` is the file name of the card or group a
 note, page or list is about, without its extension (`0007.fix-login`, `I0002.zephyr-2`); the
 folder is matched to its target by the id at the front of its name, so renaming the card keeps
-its folder, and a note about nothing drops the segment. The gear does not write `vars:` and
+its folder, and a note about nothing drops the segment. With `<iteration>` and `<card>` side by
+side, a folder both could name (`work/0007.fix-login`, a card's folder with no iteration) is
+read once, as the kind its id says: an iteration's id makes it the iteration's, a card's or a
+group's makes it the card's. The gear does not write `vars:` and
 keeps the block as it is. Any other `<word>` is a folder name, named on stderr as a likely
 typo.
 
