@@ -80,7 +80,7 @@ one element of a list (`tags:"grill"` finds a card tagged grill and not one tagg
 a quoted `title:` or `body:` matches the whole field, and quoted text with no scope is a phrase
 (`"two words"`); a bare `waiting:` finds the cards waiting for a card that is not done; and
 `slice:<top>..<bottom>` cuts every view to a run of slices, which are the tiers of the
-`hierarchy:` in `config.yaml`, top first, and then the depths of the cards with no tier:
+`hierarchy:` in `config.yaml`, top first, and then the depths of the cards with no tier, counted from the nearest tier card above (a card right under an epic is depth 0):
 `slice:objective..2` keeps the objective tier down to depth 2, `slice:goal` is that one slice,
 `slice:goal..` and `slice:..objective` leave an end open, a reversed pair is swapped, an end the
 board does not have is left open, and a single unknown name, `slice:..` and a half-typed name

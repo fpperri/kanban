@@ -49,7 +49,7 @@ element of a list (`tags:"grill"` finds a card tagged grill and not one tagged g
 text with no field is a phrase (`"two words"`); a bare `waiting:` finds the cards waiting for a card
 that is not done, as `blocked:` and `review:` find their stickers; and `slice:` cuts every view to a
 run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards
-with no tier: `slice:objective..2`, `slice:goal`, `slice:goal..`. A board with no hierarchy cuts by
+with no tier, counted from the nearest tier card above (a card right under an epic is depth 0): `slice:objective..2`, `slice:goal`, `slice:goal..`. A board with no hierarchy cuts by
 depth. After `slice:` and after `..` the box suggests the board's slices, the tiers in hierarchy
 order and then the depth numbers, and a tap writes the whole term. A `|` and a bracket count
 only at a token's edge, so `a|b` and `fix(auth)` stay literal text while `a |b` means `a | b`.

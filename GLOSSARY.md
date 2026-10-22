@@ -106,7 +106,7 @@ A board's choice to have the views ignore its types: no chips, colors, icons or 
 _Avoid_: types disabled, hide types, untyped board.
 
 **Slice** (derived):
-One place on a board's single top-to-bottom axis: each tier of the hierarchy in order, then each depth for the cards without a tier. Every card is in exactly one slice, so an epic and a plain card at depth 0 are in different slices once epic is in the hierarchy. On a board with no hierarchy the slices are the depths. A view can be cut to a run of slices.
+One place on a board's single top-to-bottom axis: each tier of the hierarchy in order, then each depth for the cards without a tier. A card without a tier is in the depth slice of how many parents without a tier sit between it and its nearest parent with a tier, or its root when none has one, so a card right under an epic is depth 0 and its child depth 1: the hierarchy does not count as depth. Every card is in exactly one slice, so an epic and a plain card at depth 0 are in different slices once epic is in the hierarchy. On a board with no hierarchy the slices are the depths. A view can be cut to a run of slices.
 _Avoid_: rung, layer, band, cut.
 
 **Rank** (via **rank**):
