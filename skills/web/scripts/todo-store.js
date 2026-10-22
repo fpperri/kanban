@@ -17,7 +17,8 @@
 // text after them, an add is a new line, a delete or a move is the item's lines) and keeps every
 // other byte, line endings included. An item is named by its line number, which holds because every
 // write names the `version` it read (a hash of the file as it was) and is refused (409) when the file
-// is not that any more.
+// is not that any more. The whole-text write (the tab's Edit) is the one write that replaces every
+// line: the file becomes the text it is given, in the file's own line ending, under the same version rule.
 //
 // `todos:` may hold `<iteration>` as a whole path segment by the rules of docs/adr/0019
 // (iteration-folders.js, the same folder rules as a scratchpad page): a list goes to the folder of the
@@ -149,6 +150,9 @@ function folderOf(value, place) {
 // A file that starts with a byte order mark reads past it, and a write puts it back.
 const withoutBom = (raw) => (raw.startsWith(BOM) ? raw.slice(1) : raw);
 
+// The file as the tab's Edit box shows it: no byte order mark, every line ending a plain new line.
+const plainText = (raw) => withoutBom(raw).replace(/\r\n?/g, '\n');
+
 function present(target, name, exists, raw, folderText) {
   const rows = parse(splitLines(withoutBom(raw)));
   const lines = [];
@@ -159,7 +163,7 @@ function present(target, name, exists, raw, folderText) {
   });
   const out = { target, exists, file: name };
   if (folderText !== null) out.folder = folderText;
-  return { ...out, version: versionOf(raw), lines };
+  return { ...out, version: versionOf(raw), text: plainText(raw), lines };
 }
 
 function readRaw(file) {
@@ -356,6 +360,21 @@ function outdentTodo(dir, target, body, opts) {
   return { ...save(dir, ctx, out, opts), at };
 }
 
+// Write the whole file `{ text, version }`, as the tab's Edit box gives it: the file then holds exactly
+// that text, every line ending the file's own (its first, else a new line) and a byte order mark kept. A
+// list not written yet is made in its folder. Unlike an item write, a text over the limit is refused even
+// when the file is already over it.
+function writeTodos(dir, target, body, opts) {
+  const { text, version } = body && typeof body === 'object' ? body : {};
+  const ctx = open(dir, target, version, opts);
+  if (typeof text !== 'string') throw new StatusError('The list is text.', 400);
+  const out = ctx.bom + text.replace(/\r\n?|\n/g, eolOf(ctx.lines));
+  if (out.length > MAX_FILE) throw new StatusError('That list is too long.', 413);
+  fs.mkdirSync(ctx.place.folder.abs, { recursive: true });
+  writeAtomic(ctx.file, out);
+  return readTodos(dir, ctx.key, opts);
+}
+
 // ---------- the board ----------
 
 // The start of a file, at most MAX_FILE characters of it: what the counts read on every board read.
@@ -388,4 +407,4 @@ function counts(dir, opts) {
   return out;
 }
 
-module.exports = { readTodos, addTodo, setTodo, deleteTodo, moveTodo, indentTodo, outdentTodo, listTargets, counts, deleteTargetFiles, canonicalName, MAX_ITEM, MAX_FILE };
+module.exports = { readTodos, addTodo, setTodo, deleteTodo, moveTodo, indentTodo, outdentTodo, writeTodos, listTargets, counts, deleteTargetFiles, canonicalName, MAX_ITEM, MAX_FILE };
