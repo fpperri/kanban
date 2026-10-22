@@ -15,10 +15,10 @@ function rule(selector) {
   return m[2];
 }
 
-test('card body prose paints --prose; headings paint --md-preview-heading and bold --ink-strong', () => {
+test('card body prose paints --prose; headings paint --md-preview-heading and bold --md-preview-bold', () => {
   assert.match(rule('.detail-body'), /color:\s*var\(--prose\)/);
   assert.match(rule('.detail-body h1, .detail-body h2, .detail-body h3'), /color:\s*var\(--md-preview-heading\)/);
-  assert.match(rule('.detail-body strong'), /color:\s*var\(--ink-strong\)/);
+  assert.match(rule('.detail-body strong'), /color:\s*var\(--md-preview-bold\)/);
 });
 
 test('inline code is its own colour on the raised ground, with no border', () => {
@@ -48,4 +48,17 @@ test('only a leading heading drops its section rule; a leading rule or code bloc
 test('a notification leads with its TLDR in the strongest ink and the rest in prose', () => {
   assert.match(rule('.notif-message'), /color:\s*var\(--prose\)/);
   assert.match(rule('.notif-message strong'), /color:\s*var\(--ink-strong\)/);
+});
+
+test('every card mention chip paints --mention on --mention-bg, and a same-board one keeps its line and focus ring in that ink', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const chips = [...css.matchAll(/^([^{}\n]*code\.mention)\s*\{([^}]*)\}/gm)];
+  assert.ok(chips.length >= 4, 'the four rules that draw a chip');
+  for (const [, sel, body] of chips) {
+    assert.match(body, /color:\s*var\(--mention\)/, sel);
+    assert.match(body, /background:\s*var\(--mention-bg\)/, sel);
+  }
+  assert.match(css, /code\.mention\.same \{[^}]*border-bottom: 1px dotted var\(--mention\)/);
+  assert.match(css, /code\.mention\.same:focus-visible \{ outline: 2px solid var\(--mention\)/);
+  assert.doesNotMatch(css, /code\.mention[^{]*\{[^}]*var\(--accent\)/);
 });
