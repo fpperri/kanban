@@ -1,7 +1,7 @@
 'use strict';
 // The tier fan's option row, on the plan board. In Tiers an option row stands in the option panel
 // beside the fan, shown with every option built and no toggle of its own (the panel is what hides it;
-// view-panel's), and absent in Force and Status.
+// view-panel's), and absent in the Flow, whose row holds the Dependencies switch alone.
 // It holds Lines (folded, chain, all, off), Dependencies (on, off), Order
 // (status, rank), Names (relevant, all, none; fan-names's) and Unnested (outermost, off, depth 0,
 // table; tier-fan-unnested's), one button of each pressed. Each lines mode and the dependencies switch
@@ -62,7 +62,7 @@ const CASES = {
 };
 
 const OPTION_LABEL = '#graph-view .graph-options .graph-option-label';
-const ROW = '#graph-view .graph-options';
+const ROW = '#graph-view .graph-options:not(.graph-flow-options)';
 const optionButton = (key, val) => `#graph-view .graph-option-btn[data-key="${key}"][data-val="${val}"]`;
 
 // The row as the page has it: whether it keeps the selection, how many fold toggles it holds (none),
@@ -173,10 +173,10 @@ module.exports = {
     check('plan: the row is shown on the first open: every option is built, in the panel, with no toggle of its own',
       !!state && state.groups.length === 5 && state.toggles === 0 && state.inPanel === true && await ev(ROW_SHOWN), state);
     check('plan: the row keeps the selection', !!state && state.keeps === true, state);
-    for (const other of ['force', 'status']) {
+    for (const other of ['flow']) {
       await ev(pickLayout(other));
       await waitFor(layoutIs(other), 10000);
-      check(`plan: ${other} has no option row`, await waitFor(ROW_ABSENT, 6000), await rowState());
+      check(`plan: the ${other} has none of the fan's option row`, await waitFor(ROW_ABSENT, 6000), await rowState());
     }
     await ev(pickLayout('tiers'));
     await waitFor(layoutIs('tiers'), 10000);

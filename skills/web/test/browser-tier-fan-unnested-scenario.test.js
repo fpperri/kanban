@@ -208,7 +208,7 @@ function standIn(over = {}) {
     waitFor: async (expr) => {
       if (expr === '!window.__stale') return true;
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return kind === 'tiers';
-      for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.layoutIs(name)) return kind === name;
+      for (const name of ['tiers', 'flow']) if (expr === tierFan.layoutIs(name)) return kind === name;
       if (expr === options.ROW_SHOWN) return kind === 'tiers';
       for (const v of GRAPH_FAN_OPTION_VALUES.unnested) if (expr === options.pressedIs('unnested', v)) return mode() === v;
       if (expr === tierFan.ZOOMED) return zoomed;
@@ -256,7 +256,7 @@ function standIn(over = {}) {
       if (expr === tierFan.ARCHIVE_PILL) { archiveOn = !archiveOn; return true; }
       if (expr === tierFan.ZOOM_IN) { zoomed = true; return true; }
       if (expr === tierFan.FIT) { zoomed = false; return true; }
-      for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.pickLayout(name)) { kind = name; return true; }
+      for (const name of ['tiers', 'flow']) if (expr === tierFan.pickLayout(name)) { kind = name; return true; }
       const dot = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
       if (dot) return drawnIds().includes(Number(dot[1])) ? dotHandle(Number(dot[1])) : null;
       throw new Error(`the stand-in page was asked something it does not know: ${expr.slice(0, 100)}`);
@@ -307,7 +307,7 @@ test('each check listed here is in the scenario', async () => {
   has(/plan off: the card is out of the Graph, so out of the selection/);
   has(/plan outermost: it comes back with the card, selected as it was/);
   has(/plan: a reload keeps the mode: off is pressed/);
-  has(/plan: Force, which has no such option, draws every live card whatever the mode/);
+  has(/plan: the Flow, which has no such option, draws every live card whatever the mode/);
   has(/fixture: another board has chosen nothing/);
   has(/fixture: the unnested cards sit on one ring outside every other dot/);
   has(/malformed: the one unnested card is on a ring of its own/);

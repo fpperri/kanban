@@ -9,7 +9,7 @@
 // Graph shows Tiers, and shows the setting in the footer line of the Graph. It goes through the
 // shared key guard: with focus in the search box l is typed and the setting stays, with a card
 // menu, the notifications panel or the preferences sheet up it does nothing, and with the search
-// panel open and focus outside the box it steps the setting. In Force, in Status and outside the
+// panel open and focus outside the box it steps the setting. In the Flow and outside the
 // Graph it does nothing. An option that has focus keeps it through a step. A reload keeps the
 // choice and another board keeps its own. With names on all, a zoom, a pan and a poll leave
 // exactly one name label for each card. A click on a card names it and the cards it lights, the
@@ -278,11 +278,11 @@ module.exports = {
     await frame();
     check('plan: l with Ctrl or Alt held does nothing', (await setting()) === held, await setting());
 
-    for (const other of ['force', 'status']) {
+    for (const other of ['flow']) {
       await ev(pickLayout(other));
       await waitFor(layoutIs(other), 10000);
       await blur();
-      check(`plan: in ${other}, l does nothing`, await nothingHappens(), await setting());
+      check(`plan: in the ${other}, l does nothing`, await nothingHappens(), await setting());
     }
     await ev(pickLayout('tiers'));
     await waitFor(layoutIs('tiers'), 10000);

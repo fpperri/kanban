@@ -14,7 +14,7 @@
 // the whole circle with it, and no two captions overlap, the unnested caption's text clear of
 // every dot. A selection reaches only the cards the Graph draws, so a card that is off leaves
 // it and comes back with the card. A reload keeps the mode, another board keeps its own, and
-// Force draws every card whatever the option says.
+// the Flow draws every card whatever the option says.
 //
 // A press is a real click at the centre of the element, as a person makes it, and every wait
 // is on the page, never on a fixed sleep.
@@ -232,14 +232,14 @@ module.exports = {
       check('plan outermost: it comes back with the card, selected as it was', await waitFor(`${SELECTED}.length===1&&${SELECTED}[0]===${plan.picked}`, 4000), await ev(SELECTED));
     }
 
-    // --- the mode is kept for the board; Force and Status draw every card -------------------------------------
+    // --- the mode is kept for the board; the Flow draws every card -------------------------------------
     await press('off');
     await load('plan');
     await waitFor(ROW_SHOWN, 6000);
     check('plan: a reload keeps the mode: off is pressed and the unnested cards are not drawn', await waitFor(pressedIs('unnested', 'off'), 6000) && await waitFor(live(kept), 6000), await ev(UNNESTED_ROW));
-    await ev(pickLayout('force'));
-    await waitFor(layoutIs('force'), 10000);
-    check('plan: Force, which has no such option, draws every live card whatever the mode', await waitFor(live(plan.live), 6000), Object.keys(await ev(DOTS)));
+    await ev(pickLayout('flow'));
+    await waitFor(layoutIs('flow'), 10000);
+    check('plan: the Flow, which has no such option, draws every live card whatever the mode', await waitFor(live(plan.live), 6000), Object.keys(await ev(DOTS)));
     await ev(pickLayout('tiers'));
     await waitFor(layoutIs('tiers'), 10000);
     check('plan: and Tiers draws it again as it was chosen', await waitFor(live(kept), 6000));
