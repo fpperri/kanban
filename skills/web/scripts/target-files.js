@@ -21,8 +21,8 @@ function targetFiles({ key, kind, off }) {
 
   function mustBeOn(dir) {
     const config = cfg.readConfig(dir);
-    if (!config[key]) throw new StatusError(off, 404);
-    return { value: config[key], digits: config.idDigits };
+    if (!config.paths[key]) throw new StatusError(off, 404);
+    return { value: config.paths[key], digits: config.idDigits };
   }
 
   function checkTarget(target) {
@@ -73,8 +73,8 @@ function targetFiles({ key, kind, off }) {
   // The targets that have a file, in id order, from the file names alone.
   function listTargets(dir) {
     const config = cfg.readConfig(dir);
-    if (!config[key]) return [];
-    return ids.sortIds([...new Set(allFiles(dir, config[key]).map((f) => f.target))]);
+    if (!config.paths[key]) return [];
+    return ids.sortIds([...new Set(allFiles(dir, config.paths[key]).map((f) => f.target))]);
   }
 
   // Delete every file of one target (a card or a group), whatever its padding or folder; how many went. A
@@ -82,9 +82,9 @@ function targetFiles({ key, kind, off }) {
   function deleteTargetFiles(dir, target) {
     const config = cfg.readConfig(dir);
     const id = typeof target === 'string' || typeof target === 'number' ? ids.idKey(target) : null;
-    if (!config[key] || id === null) return 0;
+    if (!config.paths[key] || id === null) return 0;
     let gone = 0;
-    for (const f of allFiles(dir, config[key])) {
+    for (const f of allFiles(dir, config.paths[key])) {
       if (f.target !== id) continue;
       try { fs.unlinkSync(path.join(f.folder.abs, f.name)); gone++; } catch (_) { /* already gone */ }
     }

@@ -329,9 +329,9 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           typesOn: config.typesOn, // false = types off (ADR 0018): the web ignores types and hierarchy; the lists above stay as written
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
-          logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
-          scratchpad: config.scratchpad ? { folder: config.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
-          todos: config.todos ? { folder: config.todos, targets: td.listTargets(dir), counts: td.counts(dir) } : null, // the folder, the ids that have a list and the open and total of each (ADR 0021); the list itself is read when opened; null = no todos: line, nothing shows
+          logbook: config.paths.logbook ? { folder: config.paths.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
+          scratchpad: config.paths.scratchpad ? { folder: config.paths.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
+          todos: config.paths.todos ? { folder: config.paths.todos, targets: td.listTargets(dir), counts: td.counts(dir) } : null, // the folder, the ids that have a list and the open and total of each (ADR 0021); the list itself is read when opened; null = no todos: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
           settings: settings.readSettings(dir, [...active, ...archived]), // the config the gear's This board pages show (ADR 0017)
           iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)

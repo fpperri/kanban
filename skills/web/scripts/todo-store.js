@@ -377,11 +377,11 @@ function readCapped(file) {
 // time, reading no more than MAX_FILE of each.
 function counts(dir, opts) {
   const config = cfg.readConfig(dir);
-  if (!config.todos) return {};
-  const all = files.allFiles(dir, config.todos);
+  if (!config.paths.todos) return {};
+  const all = files.allFiles(dir, config.paths.todos);
   const out = {};
   for (const target of new Set(all.map((f) => f.target))) {
-    const place = placeOf(dir, config.todos, config.idDigits, target, (opts && opts.today) || localToday(), all);
+    const place = placeOf(dir, config.paths.todos, config.idDigits, target, (opts && opts.today) || localToday(), all);
     const items = parse(splitLines(withoutBom(readCapped(path.join(place.folder.abs, place.name))))).filter((r) => r.item);
     if (items.length) out[target] = { open: items.filter((r) => !r.done).length, total: items.length };
   }

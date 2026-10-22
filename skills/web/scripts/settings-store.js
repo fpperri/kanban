@@ -109,15 +109,19 @@ function typeUse(dir, cards) {
 }
 
 // The folder of a feature as an absolute path, whether or not it exists yet; null when it is off.
+// The variables and <repo> are filled in (docs/adr/0022); `groups:` has none.
+const filledPath = (config, key) => (key in config.paths ? config.paths[key] : config[key]);
+
 function folderPath(dir, config, key) {
-  return config[key] === '' ? null : path.resolve(dir, config[key]);
+  const value = filledPath(config, key);
+  return value === '' ? null : path.resolve(dir, value);
 }
 
 // The folder a new write would go to today when the feature's path holds `<iteration>` (docs/adr/0019):
 // the iteration whose dates hold today, else the path with the segment dropped; null for a path
 // without the placeholder.
 function folderToday(dir, config, key) {
-  const value = config[key];
+  const value = filledPath(config, key);
   if (value === '' || !iter.hasPlaceholder(value)) return null;
   return iter.folderOfDay(dir, value, localToday()).abs;
 }

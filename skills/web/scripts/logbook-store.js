@@ -53,8 +53,8 @@ const MAX_NOTE = 20000;
 
 function mustLogbook(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.logbook) throw new StatusError('The logbook is off: config.yaml has no logbook: line.', 404);
-  return { value: config.logbook, digits: config.idDigits };
+  if (!config.paths.logbook) throw new StatusError('The logbook is off: config.yaml has no logbook: line.', 404);
+  return { value: config.paths.logbook, digits: config.idDigits };
 }
 
 function checkDay(day) {
@@ -376,9 +376,9 @@ function record(e, day, target, file, index) {
 
 function listNotes(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.logbook) return [];
+  if (!config.paths.logbook) return [];
   const out = [];
-  for (const f of allDayFiles(dir, config.logbook)) {
+  for (const f of allDayFiles(dir, config.paths.logbook)) {
     let raw;
     try { raw = fs.readFileSync(f.file, 'utf8'); } catch (_) { continue; }
     parseDayFile(raw).entries.forEach((e, index) => out.push(record(e, f.day, f.target, f.ref, index)));
@@ -521,9 +521,9 @@ function assignNote(dir, ref, to, hooks) {
 function deleteTargetFiles(dir, target) {
   const config = cfg.readConfig(dir);
   const key = ids.idKey(target);
-  if (!config.logbook || key === null) return 0;
+  if (!config.paths.logbook || key === null) return 0;
   let gone = 0;
-  for (const f of allDayFiles(dir, config.logbook)) {
+  for (const f of allDayFiles(dir, config.paths.logbook)) {
     if (f.target !== key) continue;
     try { fs.unlinkSync(f.file); gone++; } catch (_) { /* already gone */ }
   }
