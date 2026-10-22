@@ -149,9 +149,10 @@ back. A wider strip shows more of each note's words. The width is kept per board
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as
-a dot, joined by its relations: a solid line from a parent to its child, a
-dashed arrow from a card to the card that waits for it. Three layouts, remembered
-per board, with **Tiers** first:
+a dot, in one of two graphs, **Hierarchy** or **Flow**, chosen at the top of its option panel
+(Hierarchy opens first; see **Flow** below). Hierarchy joins the cards by their relations: a solid
+line from a parent to its child, a dashed arrow from a card to the card that waits for it. Three
+layouts, remembered per board, with **Tiers** first:
 
 - **Tiers** draws a fan all the way round the centre, but for a narrow seam at
   the top: a band for each tier of the board's
@@ -189,6 +190,24 @@ with no room goes unnamed, which can leave the block's left-hand columns unnamed
 Unnested says where the cards with no parent, no children and no tier are drawn: on one
 ring outside the fan by default, not at all, on the depth 0 ring, or in the block outside
 the rim. The row's choices are kept per board.
+
+**Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
+from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the
+choice, **frontier** by default or **all**, decides the columns. Frontier counts the steps until a card is
+ready, and only the dependencies that are not done: the first column is `done`, faded, then `ready now`
+(the first column with work in it is what you can pick up now), `1 step`, `2 steps`, and a card in or
+behind a dependency loop stands in a last `loop` column. All counts the longest chain of dependencies behind
+a card, done ones included: `waits for nothing`, `chain 1`, `chain 2`, a loop sharing one column. Each column
+heading carries its card count. Cards with no dependency either way sit in a strip below the columns, titled
+`no dependency either way` with its count. Within a column the cards are ordered to cut the arrows that cross,
+ties by id, and a tall column wraps into side-by-side stacks. A dot keeps its status colour and its type mark,
+and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
+`slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
+hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its
+parent. A dot cannot be dragged. The choice and the switch are remembered per board in your browser and written
+in the address as `graph=hierarchy|flow` and `deps=frontier|all`: a link's values win on that load, and a press
+replaces the page's address without adding a step to Back. In the phone's bottom sheet the choice and the switch
+are its first rows.
 
 A dot takes its status colour, grows with its relations, goes hollow when done
 and dim when archived. A type that has an `icon:` in the board's `types:` list draws its dot

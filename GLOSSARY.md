@@ -166,8 +166,16 @@ Of one parent's children, a child where a chain of its siblings meets the parent
 _Avoid_: terminal, leaf (that is a card with no children).
 
 **Graph view** (web only):
-The view that draws every card at once as a dot, joined by its relations, in one of three layouts: tiers (the default), force or status. The tiers layout, the tier fan, goes all the way round its centre and gives each tier its own band, tier 1 innermost, then rings the cards without a tier by depth; the unnested cards with no tier sit on a ring of their own outside the rest, unless the layout's option row puts them on the depth 0 ring or in a block, or leaves them out. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**.
+The view that draws every card at once as a dot, one of two graphs chosen at the top of its option panel: the **Hierarchy**, the cards joined by their relations, and the **Flow**, the cards laid out by their dependencies. The Hierarchy has layouts: tiers (the default), force or status. The tiers layout, the tier fan, goes all the way round its centre and gives each tier its own band, tier 1 innermost, then rings the cards without a tier by depth; the unnested cards with no tier sit on a ring of their own outside the rest, unless the layout's option row puts them on the depth 0 ring or in a block, or leaves them out. Not the Map's "graph": the Map draws one graph per tree, under a heading, while the Graph view puts every card on one canvas. A card with no parent and no children is **unnested**.
 _Avoid_: network, node-link diagram, the Map (that is a different view).
+
+**Flow** (web only):
+The Graph view's second graph, beside the Hierarchy: the board laid out by its dependencies in columns, left to right, one column for each step of a plan, with an arrow from each card waited for to the card that waits, and no parent line. Its Dependencies switch is **frontier** (the default) or all. A card with no dependency either way sits in a strip below the columns, with a count. A dependency loop never hangs it: the loop has a column of its own under frontier.
+_Avoid_: workflow, pipeline, timeline (that is the Gantt).
+
+**Frontier** (web only):
+The Flow's default reading of its columns: the steps until a card is ready, counting only the dependencies that are not done. The first column holds the done cards, faded; then `ready now` (what can be picked up now), `1 step`, `2 steps` and so on; a card in or behind a dependency loop stands in a last `loop` column. The Flow's other setting, all, counts the longest chain of dependencies behind a card instead, done ones included: `waits for nothing`, `chain 1`, `chain 2`.
+_Avoid_: backlog, queue, critical path.
 
 **Unnested**:
 A card with no parent and no children. It may still wait for a card or be waited for.
