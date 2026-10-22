@@ -170,7 +170,7 @@ test('the helpers escape and carry no inline style', () => {
 });
 
 test('the mention colours reach the thread and the child list', () => {
-  const m = css.match(/\n([^\n{]*code\.mention[^\n{]*) \{ color: var\(--accent\); background: var\(--accent-soft\); \}/);
+  const m = css.match(/\n([^\n{]*code\.mention[^\n{]*) \{ color: var\(--mention\); background: var\(--mention-bg\); \}/);
   assert.ok(m, 'the mention colour rule exists');
   assert.ok(m[1].includes('.detail-thread code.mention'));
   assert.ok(m[1].includes('.detail-children code.mention'));

@@ -482,6 +482,28 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     assert.ok(r >= TEXT, `--md-edit-mention on --md-edit-mention-bg is ${r.toFixed(2)}:1, under ${TEXT}`);
   });
 
+  test(`${name}: preview bold clears ${TEXT}:1 on the surface and on the raised ground`, () => {
+    for (const ground of ['--surface', '--raised']) {
+      const r = ratioOfColours(colourOf(set, '--md-preview-bold'), colourOf(set, ground));
+      assert.ok(r >= TEXT, `--md-preview-bold on ${ground} is ${r.toFixed(2)}:1, under ${TEXT}`);
+    }
+  });
+
+  test(`${name}: the preview mention clears ${TEXT}:1 on its own ground, and the ground is the accent wash`, () => {
+    assert.strictEqual(set['--mention-bg'], 'var(--accent-soft)');
+    const r = ratioOfColours(colourOf(set, '--mention'), colourOf(set, '--mention-bg'));
+    assert.ok(r >= TEXT, `--mention on --mention-bg is ${r.toFixed(2)}:1, under ${TEXT}`);
+  });
+
+  test(`${name}: the Markdown edit colours and the mention have their own values, apart from the accent`, () => {
+    assert.strictEqual(set['--md-edit-bold'], name === 'light' ? '#263d51' : '#bdd9e7');
+    assert.strictEqual(set['--md-edit-italic'], name === 'light' ? '#4a5d71' : '#96afbd');
+    assert.strictEqual(set['--md-preview-bold'], set['--md-edit-bold']);
+    assert.strictEqual(set['--md-edit-mention'], name === 'light' ? '#7f584d' : '#b89689');
+    assert.strictEqual(set['--md-edit-mention-bg'], name === 'light' ? '#f9ece6' : '#261e1b');
+    assert.strictEqual(set['--mention'], name === 'light' ? '#8d5044' : '#ca8975');
+  });
+
   test(`${name}: the preview heading clears ${TEXT}:1 on the surface and on the raised ground`, () => {
     for (const ground of ['--surface', '--raised']) {
       const r = ratioOfColours(colourOf(set, '--md-preview-heading'), colourOf(set, ground));

@@ -18,7 +18,7 @@ const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
 const KINDS = ['heading', 'heading-six', 'bold', 'italic', 'strike', 'code', 'link', 'marker', 'tag', 'mention'];
-const TOKENS = [...KINDS.map((k) => `--md-edit-${k}`), '--md-edit-mention-bg', '--md-edit-selection', '--md-preview-heading'];
+const TOKENS = [...KINDS.map((k) => `--md-edit-${k}`), '--md-edit-mention-bg', '--md-edit-selection', '--md-preview-heading', '--md-preview-bold', '--mention', '--mention-bg'];
 
 const at = (f) => html.indexOf(`<script src="/${f}"></script>`);
 

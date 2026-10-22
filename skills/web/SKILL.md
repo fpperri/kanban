@@ -1353,9 +1353,13 @@ to `127.0.0.1` only.
   are tokens, declared on `:root` and in both dark blocks: `--md-edit-heading`, `--md-edit-heading-six`, `--md-edit-bold`,
   `--md-edit-italic`, `--md-edit-strike`, `--md-edit-code`, `--md-edit-link`, `--md-edit-marker`,
   `--md-edit-tag`, `--md-edit-mention` on `--md-edit-mention-bg`, the box's own selection wash
-  `--md-edit-selection` (its own alpha, so selected text stays readable), and `--md-preview-heading`,
-  the colour of headings in the rendered preview and the card details. Each pair clears 4.5:1 in
-  both themes (theme-contrast.test.js).
+  `--md-edit-selection` (its own alpha, so selected text stays readable), `--md-preview-heading`,
+  the colour of headings in the rendered preview and the card details, and `--md-preview-bold`, the
+  colour of bold there (its weight is unchanged). Bold and italic in the copy are blue-greys and the
+  edit mention is a muted terracotta on a pale ground, none of them the accent. A card mention in the
+  rendered body, notifications, notes, the scratchpad refs and the todos is `--mention` on
+  `--mention-bg` (the accent wash); a same-board one keeps its dotted line and focus ring in
+  `--mention`. Each pair clears 4.5:1 in both themes (theme-contrast.test.js).
 - **Scratchpad** — with a `scratchpad:` line in `config.yaml` (the folder of the board's
   pages, see the kanban skill's scratchpad section) a card or a group has a disposable page,
   `<padded id>.scratchpad.md`, with optional `refs:` in its frontmatter and a free body.
