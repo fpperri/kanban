@@ -461,9 +461,8 @@ function graphFinish(model, pos, rings, spokes, extra) {
 // drawn or not, so hiding its relatives never moves it. The sector of kind 'loose'
 // holds the unnested cards that have a tier, the one of kind 'unnested' those with no
 // tier that depth 0 puts on the ring. `bands` lists
-// the bands that are drawn: every tier, empty ones too, then only the depths
-// that hold a card without a tier that is not in the block (a depth with none
-// has no ring). `columns` are the block's columns in the board's status order,
+// the bands that are drawn: only the slices, tiers and depths alike, that hold a
+// drawn card that is not in the block (a slice with none has no ring). `columns` are the block's columns in the board's status order,
 // archived cards last. The Unnested option (opts.unnested, GRAPH_FAN_OPTION_VALUES)
 // decides one thing here: with depth 0 the unnested cards with no tier are ordinary
 // depth 0 cards, on the depth 0 ring, in a sector of their own, and there are no
@@ -530,8 +529,8 @@ function graphFanPlace(model, opts) {
 
   const bands = [];
   axis.forEach((slice, index) => {
-    if (slice.kind === 'depth' && !rows[index].count) return;
-    bands.push({ slice, index, count: rows[index].count, subs: rows[index].count ? rows[index].maxSub + 1 : 0 });
+    if (!rows[index].count) return;
+    bands.push({ slice, index, count: rows[index].count, subs: rows[index].maxSub + 1 });
   });
   const columns = statuses.filter((s) => live.get(s).length).map((s) => ({ label: s, ids: live.get(s) }));
   if (archived.length) columns.push({ label: 'archived', ids: archived });
@@ -635,7 +634,6 @@ const GRAPH_FAN_TO = -Math.PI / 2 + GRAPH_FAN_SEAM;
 const GRAPH_FAN_GAP = 5 * Math.PI / 180;
 const GRAPH_FAN_R0 = 60;
 const GRAPH_FAN_PITCH = 56;
-const GRAPH_FAN_EMPTY = 20;
 const GRAPH_FAN_MARK_GAP = 8;
 const GRAPH_FAN_CLEAR = 30;
 const GRAPH_FAN_BLOCK_PITCH = 22;
@@ -736,32 +734,19 @@ function graphTipAt(anchor, stage, size, gap) {
 // first ring, in axis order, with its name; the number of cards on its rings, their
 // split by status and the slice: term go with it for the tip. The
 // text runs away from the seam, and neighbours take opposite sides of it, so they
-// never touch whatever the zoom. A band nobody is in has a muted caption too, but
-// only when it clears the captions on its side by a line: thin empty bands are closer
-// together than that, and a band with a card is never left out.
+// never touch whatever the zoom.
 function graphFanCaptions(bands, scale) {
   const line = GRAPH_FAN_CAPTION_LINE / scale;
   const pad = GRAPH_FAN_SEAM_PAD / scale;
-  const items = bands.map((b, i) => {
+  return bands.map((b, i) => {
     const name = graphFanLabel(b);
     const right = i % 2 === 1;
     return {
-      band: b.index, name, count: b.count, split: b.split, term: b.slice ? graphFanTerm(b.slice) : null, kind: b.slice ? b.slice.kind : GRAPH_FAN_RING_NAME, muted: !b.count,
+      band: b.index, name, count: b.count, split: b.split, term: b.slice ? graphFanTerm(b.slice) : null, kind: b.slice ? b.slice.kind : GRAPH_FAN_RING_NAME,
       side: right ? 'right' : 'left', anchor: right ? 'start' : 'end',
       x: right ? pad : -pad, y: -b.rings[0], w: graphFanCaptionWidth(name, scale), h: line,
     };
   });
-  const taken = { left: [], right: [] };
-  const clear = (it) => taken[it.side].every((t) => Math.abs(it.y - t.y) >= line);
-  const kept = new Set();
-  for (const muted of [false, true]) {
-    for (const it of items) {
-      if (it.muted !== muted || (muted && !clear(it))) continue;
-      kept.add(it);
-      taken[it.side].push(it);
-    }
-  }
-  return items.filter((it) => kept.has(it));
 }
 
 function graphFanMeets(a, b) {
@@ -909,7 +894,7 @@ function graphLayoutHierarchy(model, opts) {
   let r = GRAPH_FAN_R0;
   for (const b of fan.bands) {
     const r0 = r;
-    r += b.subs ? b.subs * GRAPH_FAN_PITCH : GRAPH_FAN_EMPTY;
+    r += b.subs * GRAPH_FAN_PITCH;
     bands.push({ ...b, r0, r1: r });
   }
   const bandAt = new Map(bands.map((b) => [b.index, b]));
@@ -1001,9 +986,7 @@ function graphLayoutHierarchy(model, opts) {
     subs: b.subs,
     r0: b.r0 * grow,
     r1: b.r1 * grow,
-    rings: b.subs
-      ? Array.from({ length: b.subs }, (_, k) => (b.r0 + (k + 0.5) * GRAPH_FAN_PITCH) * grow)
-      : [(b.r0 + GRAPH_FAN_EMPTY / 2) * grow],
+    rings: Array.from({ length: b.subs }, (_, k) => (b.r0 + (k + 0.5) * GRAPH_FAN_PITCH) * grow),
   }));
   const ring = mergeGraphFanOptions(opts).unnested === 'outermost' && fan.columns.length
     ? graphFanRing(model, fan.columns, grown.length ? grown[grown.length - 1].r1 : GRAPH_FAN_R0, splitOf, pos, polar)
@@ -1169,15 +1152,14 @@ function graphLinkPaths(model, layout) {
 
 // A faint arc through each ring of each band, from one side of the seam the long way
 // round to the other: one for the band, at its first ring, and a lighter one for each
-// further ring of a tier whose cards nest in one another (`sub`). A band nobody is in
-// has one thin ring, drawn fainter.
+// further ring of a tier whose cards nest in one another (`sub`).
 function graphFanGuides(layout) {
   const { from, to } = layout.fan;
   return layout.bands.flatMap((b) => b.rings.map((r, k) => ({
     band: b.index,
     sub: k > 0,
     d: `M${graphRound(Math.cos(from) * r)} ${graphRound(Math.sin(from) * r)}A${graphRound(r)} ${graphRound(r)} 0 1 0 ${graphRound(Math.cos(to) * r)} ${graphRound(Math.sin(to) * r)}`,
-    cls: `graph-guide${b.count ? '' : ' graph-guide-empty'}${k ? ' graph-guide-sub' : ''}`,
+    cls: `graph-guide${k ? ' graph-guide-sub' : ''}`,
   })));
 }
 
@@ -1397,9 +1379,9 @@ function graphPlan(model, layout, opts) {
     tip: graphFanTip(fan.looseCaption.count, fan.looseCaption.split, null),
   } : null;
   const captions = fan ? fan.captions.map((c) => ({
-    band: c.band, name: c.name, count: c.count, kind: c.kind, muted: c.muted, side: c.side,
+    band: c.band, name: c.name, count: c.count, kind: c.kind, side: c.side,
     x: graphRound(c.x), y: graphRound(c.y), dy: GRAPH_FAN_CAPTION_DY, anchor: c.anchor,
-    cls: c.muted ? 'graph-caption graph-caption-muted' : 'graph-caption',
+    cls: 'graph-caption',
     tip: graphFanTip(c.count, c.split, c.term),
   })) : [];
   const flow = layout.flow ? GRAPH_FLOW.graphFlowMarks(layout.flow, graphFlowLook(model, titleOf, o.types)) : { rects: [], texts: [], heads: [] };

@@ -1515,7 +1515,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-tint[data-type-color] { fill: currentColor; }
 .graph-guide { fill: none; stroke: var(--line-strong); stroke-width: 1px; opacity: 0.55; pointer-events: none; }
 .graph-guide-sub { stroke-dasharray: 2 5; opacity: 0.4; }
-.graph-guide-empty { stroke-dasharray: 4 4; opacity: 0.35; }
 .graph-divider { stroke: var(--line-strong); stroke-width: 1px; opacity: 0.6; pointer-events: none; }
 .graph-block-frame { fill: none; stroke: var(--line); stroke-width: 1px; stroke-dasharray: 4 4; pointer-events: none; }
 
@@ -1523,7 +1522,6 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-caption, .graph-block-caption { font-size: calc(11px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-caption-name { fill: var(--ink); }
-.graph-caption-muted .graph-caption-name { fill: var(--mut); }
 .graph-loose-caption { font-style: italic; }
 .graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { outline: none; stroke: var(--accent-soft); }
 .graph-caption:focus-visible .graph-caption-name, .graph-block-caption:focus-visible .graph-caption-name, .graph-block-title:focus-visible .graph-caption-name { fill: var(--accent); }

@@ -400,7 +400,7 @@ test('unnested outermost is what the Graph opens with: card 7 is on a ring outsi
   const s = await open();
   assert.strictEqual(s.run('graphCur.layout.block'), null);
   assert.ok(Math.abs(ringRadius(s) - lastRing(s)) < 1e-6, 'card 7 is on the last band\'s ring');
-  assert.strictEqual(s.run('graphCur.layout.bands.length'), 4, 'the two tiers, the depth 1 ring and the ring of unnested cards');
+  assert.strictEqual(s.run('graphCur.layout.bands.length'), 3, 'the tiers that hold a card, the depth 1 ring and the ring of unnested cards');
 });
 
 test('pressing table draws the block, depth 0 the ring and sector, and each press stores the whole row for the board', async () => {

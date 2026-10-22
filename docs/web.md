@@ -156,8 +156,10 @@ as the fan called **Tiers**.
 
 **Tiers** draws a fan all the way round the centre, but for a narrow seam at
 the top: a band for each tier of the board's
-`hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
-without a tier, the first ring being the cards right under a tier card; each tree gets its
+`hierarchy:` that holds a card, tier 1 innermost, then a ring for each depth that holds a card
+without a tier, the first ring being the cards right under a tier card; a tier or a depth with
+no drawn card has no ring, no arc and no name, and the rings left close up, so a cut that leaves
+out the top tiers pulls the fan in to the tiers it keeps; each tree gets its
 own sector, loose cards with a tier share
 one, and the other loose cards sit in an Unnested block outside the fan, a
 column for each status, when the Unnested option is table (by default they are on a ring

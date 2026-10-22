@@ -344,6 +344,7 @@ module.exports = {
       check('plan: one caption per non-empty depth follows, in depth order', sameList(names(depthCaps), plan.depthNames)
         && sameList(depthCaps.map((c) => c.count), plan.depths.map((ids) => ids.length)) && depthCaps.every((c, i) => c.y < (i ? depthCaps[i - 1].y : (tierCaps[tierCaps.length - 1] || { y: 0 }).y))
         && m.captions.length === tierCaps.length + depthCaps.length, depthCaps);
+      check('plan: no caption stands for a band with no card, so no tier or depth is drawn empty', m.captions.every((c) => c.count > 0), m.captions);
       check('plan: the captions stand up the seam at the top, neighbours on opposite sides of it',
         m.captions.every((c, i) => c.y < 0 && (i % 2 ? c.x > 0 : c.x < 0) && Math.abs(c.x) < 20), m.captions);
 

@@ -26,8 +26,9 @@ const docGraph = () => {
 test('the Graph section says the Tiers layout draws a band per tier, then a ring per depth for the cards without a tier', () => {
   const text = graph();
   assert.match(text, /The Hierarchy draws the \*\*tier fan\*\*, which this entry calls \*\*Tiers\*\*/);
-  assert.match(text, /a \*\*band\*\* for each tier of the board's `hierarchy:`, tier 1 innermost, then a \*\*ring\*\* for each depth that holds a card without a tier/);
-  assert.match(text, /A depth with no such card has no ring/);
+  assert.match(text, /a \*\*band\*\* for each tier of the board's `hierarchy:` that holds a drawn card, tier 1 innermost, then a \*\*ring\*\* for each depth that holds a card without a tier/);
+  assert.match(text, /A depth with no such card has no ring, and neither has a tier with no drawn card/);
+  assert.match(text, /a `slice:` cut that leaves out the top tiers pulls the fan in to the rings it keeps/);
 });
 
 test('the Graph section says a card is in the band of its slice, whatever is hidden, and nesting against the hierarchy is not judged', () => {
@@ -61,7 +62,7 @@ test('the Graph section says each band and ring has a faint guide arc and a capt
   assert.match(text, /a \*\*caption\*\* on the seam with its name \(a tier by its name, a depth as `depth N`\)/);
   assert.doesNotMatch(text, /its name and its card count/);
   assert.match(text, /neighbours on opposite sides of the seam so they never touch/);
-  assert.match(text, /a depth with no card draws nothing/);
+  assert.match(text, /a tier or a depth with no drawn card draws nothing/);
   assert.doesNotMatch(text, /flat edge/);
 });
 
@@ -109,7 +110,7 @@ test('the Hierarchy button\'s title says the fan goes all the way round the cent
 
 test('the web doc\'s Graph section says the same in short', () => {
   const text = docGraph();
-  assert.match(text, /\*\*Tiers\*\* draws a fan all the way round the centre, but for a narrow seam at the top: a band for each tier of the board's `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card without a tier/);
+  assert.match(text, /\*\*Tiers\*\* draws a fan all the way round the centre, but for a narrow seam at the top: a band for each tier of the board's `hierarchy:` that holds a card, tier 1 innermost, then a ring for each depth that holds a card without a tier, the first ring being the cards right under a tier card; a tier or a depth with no drawn card has no ring, no arc and no name, and the rings left close up, so a cut that leaves out the top tiers pulls the fan in to the tiers it keeps/);
   assert.match(text, /each tree gets its own sector, loose cards with a tier share one, and the other loose cards sit in an Unnested block outside the fan, a column for each status/);
   assert.doesNotMatch(text, /on the outer ring/);
 });
