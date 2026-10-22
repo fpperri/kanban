@@ -3435,7 +3435,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // combobox menu still gets first crack at Esc when open — attachCombobox's
   // own keydown listener stops propagation before this document-level
   // listener ever sees the key, so nothing here needs to special-case it.
-  document.addEventListener('keydown', (e) => { // key-guard: exempt (Esc closes the open popup from inside a field too; the selection step it ends in asks keyGuardEscape)
+  // key-guard: exempt (Esc closes the open popup from inside a field too; the selection step it ends in asks keyGuardEscape)
+  document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (moreMenuClose()) { e.preventDefault(); $('#more-btn').focus(); return; }
     if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
@@ -3457,7 +3458,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // implicit form submission); attachCombobox's Enter handling exempts
   // alt-chorded Enter, so the hotkey wins even while a suggestion menu is
   // open. No popup open = plain no-op.
-  document.addEventListener('keydown', (e) => { // key-guard: exempt (acts only on an open fullscreen-capable popup, from a field inside it too)
+  // key-guard: exempt (acts only on an open fullscreen-capable popup, from a field inside it too)
+  document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const type = openFullscreenModalType();
     if (!type) return;
@@ -3474,7 +3476,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // popups click their Apply button, skipped while it's disabled. No
   // save-capable popup open = plain no-op, same shape as Alt+Enter above.
   const SAVE_APPLY_BUTTONS = { bulkSingle: '#bulk-single-apply', bulkSchedule: '#bulk-schedule-apply' };
-  document.addEventListener('keydown', (e) => { // key-guard: exempt (acts only on an open save-capable popup, from a field inside it too)
+  // key-guard: exempt (acts only on an open save-capable popup, from a field inside it too)
+  document.addEventListener('keydown', (e) => {
     const target = saveHotkeyTarget(e, {
       edit: !$('#modal').classList.contains('hidden'),
       bulkSingle: !$('#bulk-single').classList.contains('hidden'),

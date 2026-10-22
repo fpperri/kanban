@@ -9,7 +9,8 @@ const path = require('node:path');
 //
 //   // key-guard: exempt (<reason>)
 //
-// on the listener's line, on the line the handler is declared on, or on the first line of its body.
+// on the listener's line, on the line directly above it, on the line the handler is declared on, or on
+// the first line of its body.
 // Listeners on one element (a box, the palette, a menu) are not scanned.
 
 const WEB = path.join(__dirname, '..', 'web');
@@ -99,10 +100,12 @@ function keyListenerOffenders(files, guardNames) {
           bodyLine = lineText(src, src.indexOf('\n', open) + 1);
         }
       }
-      const marked = [lineText(src, at), declLine, bodyLine].map((l) => MARKER.exec(l)).find(Boolean);
+      const lineStart = src.lastIndexOf('\n', at - 1);
+      const above = lineStart > 0 ? lineText(src, lineStart) : '';
+      const marked = [lineText(src, at), above, declLine, bodyLine].map((l) => MARKER.exec(l)).find(Boolean);
       const called = (body.match(/\bkeyGuard\w*(?=\()/g) || []).filter((n) => guardNames.includes(n));
       if (called.length || marked) continue;
-      const malformed = [lineText(src, at), declLine, bodyLine].some((l) => MARKER_LIKE.test(l));
+      const malformed = [lineText(src, at), above, declLine, bodyLine].some((l) => MARKER_LIKE.test(l));
       offenders.push(`${where}: a document-level ${m[2]} listener neither calls a keyGuard function nor carries "// key-guard: exempt (<reason>)"${malformed ? ' (a key-guard comment is there but not in that shape)' : ''}`);
     }
   }
@@ -139,6 +142,10 @@ test('a marker with a reason, on the listener line or the handler first line, ex
   assert.deepStrictEqual(keyListenerOffenders(onListener, GUARDS), []);
   const onBody = { 'a.js': "document.addEventListener('keydown', (e) => {\n  // key-guard: exempt (acts only while the picker is open)\n  close();\n});\n" };
   assert.deepStrictEqual(keyListenerOffenders(onBody, GUARDS), []);
+  const above = { 'a.js': "// key-guard: exempt (acts only on an open popup)\ndocument.addEventListener('keydown', (e) => {\n  close();\n});\n" };
+  assert.deepStrictEqual(keyListenerOffenders(above, GUARDS), []);
+  const farAbove = { 'a.js': "// key-guard: exempt (acts only on an open popup)\n\ndocument.addEventListener('keydown', (e) => {\n  close();\n});\n" };
+  assert.strictEqual(keyListenerOffenders(farAbove, GUARDS).length, 1);
   const onDecl = { 'a.js': "function onQ(e) { // key-guard: exempt (acts only while a dialog is open)\n  close();\n}\ndocument.addEventListener('keydown', onQ);\n" };
   assert.deepStrictEqual(keyListenerOffenders(onDecl, GUARDS), []);
 });
