@@ -28,10 +28,11 @@
 // name (none without a tier), its card, the lane's cards and its ready cards. A card is ready when it
 // is open, in no loop, and waits for nothing that is not done, in either Dependencies mode. With
 // frontier the lanes with ready cards come first, the most ready first, then the others in outline
-// order; with all, in outline order. A lane with no open dependency (frontier: every card of it
-// that has a dependency is done) or no dependency (all) folds into the strip below, and so does a
-// card with no dependency in a lane that stays, so the strip is the bottom lane. The columns come
-// from the cards in the lanes alone and stand across all of them. A lane is { key, header, ids, x,
+// order; with all, in outline order. A lane holds only cards with a dependency. With frontier it
+// folds into the strip below when none of its cards is open (a lane whose open cards wait only on
+// done cards stays: they are ready now); with all no lane folds. A card with no dependency is in no
+// lane but in the strip, so the strip is the bottom lane and a lane's count is the cards drawn in it.
+// The columns come from the cards in the lanes alone and stand across all of them. A lane is { key, header, ids, x,
 // y, w, h }, with the header { id, tier, count, ready } and its facts; each lane has its own rows.
 
 const GRAPH_FLOW_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
@@ -282,9 +283,9 @@ function graphFlowLaneKey(model, n) {
   return n.rootId;
 }
 
-// The lanes of the cards with a dependency, and the cards of the lanes that fold. A lane is kept when
-// it has an open dependency (frontier: a card with a dependency that is not done) or any dependency
-// (all); the ready lanes come first with frontier.
+// The lanes of the cards with a dependency, and the cards of the lanes that fold. With frontier a lane
+// is kept when one of its cards is not done; with all every lane is kept. The ready lanes come first
+// with frontier.
 function graphFlowLanes(g, model, deps, fr) {
   const outline = new Map(model.nodes.map((n, i) => [n.id, i]));
   const order = [];

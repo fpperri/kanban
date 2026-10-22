@@ -72,7 +72,7 @@ const GRAPH_FLOW_DEPS_LABEL = {
 };
 const GRAPH_FLOW_LANES_LABEL = {
   label: 'Lanes',
-  hint: 'Off: the cards in columns alone. On: each card in the lane of its nearest parent with a tier, else its root, under a header with the type mark of that card, its tier, title, cards and ready cards. Frontier puts the lanes with ready cards first, the most ready first, and folds a lane with no open dependency into the strip; all keeps the outline order and folds a lane with no dependency. A card with no dependency stays in the strip.',
+  hint: 'Off: the cards in columns alone. On: each card in the lane of its nearest parent with a tier, else its root, under a header with the type mark of that card, its tier, title, cards and ready cards. Frontier puts the lanes with ready cards first, the most ready first, and folds a lane into the strip when none of its cards with a dependency is open; all keeps the outline order and folds none. A card with no dependency stays in the strip.',
 };
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
