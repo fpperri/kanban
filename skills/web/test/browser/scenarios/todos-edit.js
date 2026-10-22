@@ -5,7 +5,8 @@
 // the file holding exactly it, and the tile's count and the List follow. Preview draws the text as
 // Markdown, and Ctrl+Shift+V turns it on and off, back to the mode it came from; full screen, the box and
 // the Preview take the height. A save over a list changed on disk is refused with the reason and the text
-// stays in the box; a second save writes it. Text not saved survives a tab switch and a closed palette,
+// stays in the box; the status line says Save again replaces the list and List shows it as it is now, and
+// a second save writes it. Text not saved survives a tab switch and a closed palette,
 // the tab opening on Edit; a text over the size cap is refused; a card with no list starts Edit empty and
 // Save makes the file. Each step waits on the page or on the file, never on a fixed sleep.
 //
@@ -135,6 +136,9 @@ module.exports = {
     check('todos-edit: a save over a list changed on disk is refused with the reason', await waitFor(`/changed on disk/.test(${toastText})`, 4000), await ev(toastText));
     check('todos-edit: the server answered 409', await page.expectRefusedRequest(409, '/api/todos/7'));
     check('todos-edit: nothing was written and the text stays in the box', onDisk('0007.todo.md') === byHand && await ev(`${BOX}.value.endsWith('typed in Edit\\n')`));
+    const CLASH = 'The list changed on disk. Save again to replace it with this text; List shows it as it is now.';
+    check('todos-edit: the status line says Save again replaces the list, and that List shows it as it is now', await waitFor(`document.querySelector('#notes-palette .sp-status').textContent===${JSON.stringify(CLASH)}`, 2500),
+      await ev(`document.querySelector('#notes-palette .sp-status').textContent`));
     await press('#notes-palette .td > .sp-bar .sp-save');
     check('todos-edit: a second save writes it over the list it was told of', await onFile('0007.todo.md', `${SAVED}- [ ] typed in Edit\n`), onDisk('0007.todo.md'));
 

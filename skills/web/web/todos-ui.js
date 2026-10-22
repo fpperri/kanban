@@ -19,8 +19,8 @@
 // A List | Edit | Preview switch sits over it, the scratchpad's switch with List first (its classes and
 // keys). List, the default, is the list above. Edit is the list's whole file as text in the scratchpad's
 // box; Ctrl+Enter or Save writes it with PUT, naming the version the text was read at, so a list changed
-// since is refused with the server's reason, read again, and the text stays in the box (a second save
-// then writes it over the list just read). Preview draws the box's text, saved or not, with markdownInto.
+// since is refused with the server's reason, read again, and the text stays in the box; the status line
+// says a second save replaces the list with the text and that List shows the list as it is now. Preview draws the box's text, saved or not, with markdownInto.
 // Ctrl+Shift+V switches Preview on and off, back to the mode it came from. While the box holds no text of
 // its own it follows the list (a change from List, a hand edit at a refresh); text not yet saved is kept
 // in this page's memory per target until it is reloaded, and the tab opens on Edit while there is some.
@@ -281,7 +281,8 @@ function todosPanel(target) {
 
   // Ctrl+Enter or Save writes the box's text, naming the version it was read at; one change at a time, as
   // the list's. Refused, the reason is said and the text stays; on a clash the list is read again and the
-  // text now names it, so a second save writes it over the list the person has been told of.
+  // text now names it, so a second save writes it over the list; the status line says so, and that List
+  // shows the list as it is now, so the second save is a choice made knowing it.
   const write = async () => {
     if (!list || todosUi.pending > 0) return;
     const sent = textBox.value;
@@ -305,6 +306,7 @@ function todosPanel(target) {
           paintRows();
           base = list.version;
           if (draftOf()) todosUi.drafts.set(target, { text: textBox.value, version: base });
+          status.textContent = 'The list changed on disk. Save again to replace it with this text; List shows it as it is now.';
         } catch (_) { /* the next refresh reads it */ }
       }
     } finally {

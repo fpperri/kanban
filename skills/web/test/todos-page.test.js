@@ -735,6 +735,7 @@ test('a save names the version it read: over a list changed since, nothing is wr
     assert.match(t.toasts[0], /changed on disk/);
     assert.strictEqual(box(t).value, '- [ ] mine\n', 'the draft stays in the box');
     assert.deepStrictEqual(t.rowTexts(), ['one', 'by an agent'], 'the list is read again');
+    assert.strictEqual(t.p.text(t.p.find('.sp-status')), 'The list changed on disk. Save again to replace it with this text; List shows it as it is now.');
     t.p.find('.sp-save').fire('click');
     await t.settle();
     assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] mine\n', 'the reason was said, and the next save writes over the list it read');

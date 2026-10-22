@@ -646,7 +646,8 @@ list. **Edit** is the list's whole file as text, to paste a list, reorder a bloc
 between items; **Ctrl+Enter** or **Save** writes it, and the file then holds exactly that text in its
 own line endings (a list not written yet starts empty, and Save makes the file). A save names the
 version of the list it read: if the list changed meanwhile, nothing is written, the reason is said and
-your text stays in the box, and a second save writes it over the list as it now is. **Preview** draws
+your text stays in the box. The line under the box then says that Save again replaces the list with your
+text and that List shows the list as it is now; a second save writes it over the list. **Preview** draws
 the text, saved or not, as Markdown, read only, and **Ctrl+Shift+V** turns it on and off again, back
 to List or Edit. Text you have not saved stays until you reload the page, and the tab opens on Edit
 while there is some; with none, the box follows the list. A text over 300000 characters is refused. A todo

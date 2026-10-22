@@ -1430,7 +1430,8 @@ to `127.0.0.1` only.
   editing keys and the colours (`textEditAttach`, `mdEditAttach`), and **Ctrl+Enter** or **Save** writes
   it with `PUT`, naming the version the text was read at. Refused (409, 413), the reason is said and the
   text stays in the box; after a 409 the list is read again and the text names it, so a second save
-  writes it over that list. **Preview** draws the box's text, saved or not, through `markdownInto()`,
+  writes it over that list, and the `.sp-status` line says so: "The list changed on disk. Save again to
+  replace it with this text; List shows it as it is now." **Preview** draws the box's text, saved or not, through `markdownInto()`,
   read only; **Ctrl+Shift+V** (`todosPreviewKey`, the Scratchpad's chord) turns it on and off, back to
   List or Edit, and the palette's foot names each mode's keys. Text not yet saved is kept in the page's
   memory per target, with the version it was read at, until the page is reloaded, and the tab opens on

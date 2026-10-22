@@ -78,7 +78,7 @@ test('the docs describe the tab, the ways in, the keys, the count, the refusal o
 test('the docs describe the List | Edit | Preview switch: the whole text, its save, the version rule, the preview and the unsaved text', () => {
   for (const part of ['**List | Edit | Preview**', 'List, the default', '**Edit** is the list\'s whole file as text', '**Ctrl+Enter** or **Save** writes it', 'exactly that text in its own line endings',
     'a list not written yet starts empty, and Save makes the file', 'A save names the version of the list it read', 'nothing is written, the reason is said and your text stays in the box',
-    'a second save writes it over the list as it now is', '**Preview** draws the text, saved or not, as Markdown, read only', '**Ctrl+Shift+V** turns it on and off again, back to List or Edit',
+    'The line under the box then says that Save again replaces the list with your text and that List shows the list as it is now', 'a second save writes it over the list', '**Preview** draws the text, saved or not, as Markdown, read only', '**Ctrl+Shift+V** turns it on and off again, back to List or Edit',
     'until you reload the page', 'the tab opens on Edit while there is some', 'the box follows the list', 'over 300000 characters is refused']) {
     assert.ok(docsTodos.includes(part), part);
   }
@@ -86,7 +86,7 @@ test('the docs describe the List | Edit | Preview switch: the whole text, its sa
 
 test('the web skill describes the switch, the PUT of the whole text and the text a read carries', () => {
   for (const part of ['**List | Edit | Preview**', '`.sp-mode`', '`.sp-text`', '**Edit** is the list\'s whole file as text', '`textEditAttach`', '`mdEditAttach`', '**Ctrl+Enter** or **Save** writes it with `PUT`',
-    'naming the version the text was read at', 'the text stays in the box', 'a second save writes it over that list', '`markdownInto()`', '**Ctrl+Shift+V** (`todosPreviewKey`',
+    'naming the version the text was read at', 'the text stays in the box', 'a second save writes it over that list', 'the `.sp-status` line says so: "The list changed on disk. Save again to replace it with this text; List shows it as it is now."', '`markdownInto()`', '**Ctrl+Shift+V** (`todosPreviewKey`',
     'the tab opens on Edit while there is some', 'the box follows the list', '`{ todos: { target, exists, file, folder?, version, text, lines } }`', 'no byte order mark',
     '`PUT /api/todos/<id>` with `{ text, version }` writes the whole text', 'every line ending the file\'s own', 'a byte order mark kept', 'made in its folder', 'a whole text over it is refused', 'There is no delete route for a list']) {
     assert.ok(webBullet.includes(part), part);
