@@ -54,4 +54,13 @@ async function pinch(page, centre, { from, to, steps = 8 }) {
   await touchEvent(page, 'touchEnd', []);
 }
 
-module.exports = { runSteps, freshStart, tap, swipe, pinch };
+// Runs one refresh of the board now, the one the 5-second poll runs, and waits until the page has applied
+// its payload (the tick skips itself while an interaction holds the page, which this then reports as false).
+async function refreshNow(page) {
+  await page.ev(`(()=>{if(window.__applied===undefined){window.__applied=0;const o=applyBoardData;window.applyBoardData=function(...a){window.__applied++;return o.apply(this,a)}}return true})()`);
+  const before = await page.ev('window.__applied');
+  await page.ev('autoRefreshTick().then(()=>true)');
+  return page.waitFor(`window.__applied>${before}`, 5000);
+}
+
+module.exports = { runSteps, freshStart, tap, swipe, pinch, refreshNow };

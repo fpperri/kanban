@@ -10,6 +10,7 @@ const path = require('node:path');
 // a page global the list does not declare, and every name on the list is read
 // by some runner file.
 const PAGE_GLOBALS = [
+  'applyBoardData',
   'autoRefreshTick',
   'boardControlFocused',
   'calendarAnchor',
