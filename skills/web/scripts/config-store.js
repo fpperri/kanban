@@ -76,6 +76,7 @@ const fs = require('fs');
 const path = require('path');
 const { unquote, quote, scalar } = require('./yaml-list');
 const ids = require('../web/ids');
+const { checkVars, resolvePaths } = require('./path-vars');
 
 const FILE = 'config.yaml';
 
@@ -188,7 +189,8 @@ const LIST_KEYS = ['priorities', 'tags', 'statuses', 'hierarchy'];
 const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] };
+  const varEntries = [];
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [], vars: {}, varNotices: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -265,6 +267,8 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'prefixes') {
         section = opensBlock(top[2]) ? 'prefixes' : null; // block form only; a scalar or inline value answers none
+      } else if (top[1] === 'vars') {
+        section = opensBlock(top[2]) ? 'vars' : null; // block form only; a scalar or inline value answers none
       } else if (top[1] === 'port') {
         // Pinned serving port (web skill, kanban.proj #254). Same
         // top-level-only rule as `name:` — an assignee's own indented
@@ -321,6 +325,11 @@ function parseConfig(text) {
       }
       continue;
     }
+    if (section === 'vars') {
+      const entry = line.match(/^\s+("[^"]*"|'[^']*'|[^\s:]+)\s*:(?:\s+(.*))?$/);
+      if (entry) varEntries.push({ name: scalar(entry[1]), value: entry[2] !== undefined && entry[2].trim()[0] !== '#' ? scalar(entry[2]) : '' });
+      continue;
+    }
     if (section === 'pills') {
       const item = line.match(/^\s+-\s*(.*)$/);
       const pill = item && splitPillEntry(item[1]);
@@ -355,6 +364,9 @@ function parseConfig(text) {
     }
   }
   flush();
+  const checked = checkVars(varEntries);
+  config.vars = checked.vars;
+  config.varNotices = checked.notices;
   return config;
 }
 
@@ -380,9 +392,16 @@ function configFile(dir) {
   return path.join(dir, FILE);
 }
 
+// The parsed config plus `paths`, the logbook, scratchpad and todos paths with the variables and
+// <repo> filled in ('' = off), and `pathNotices`, what the server names on stderr at startup
+// (docs/adr/0022). `logbook`, `scratchpad` and `todos` stay as written, for the gear.
 function readConfig(dir) {
   const file = configFile(dir);
-  return parseConfig(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
+  const config = parseConfig(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');
+  const resolved = resolvePaths(dir, config);
+  config.paths = resolved.paths;
+  config.pathNotices = [...config.varNotices, ...resolved.notices];
+  return config;
 }
 
 function writeConfig(dir, config) {

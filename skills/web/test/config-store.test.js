@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [], vars: {}, varNotices: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -76,7 +76,7 @@ test('serializeConfig round-trips through parseConfig', () => {
 
 test('readConfig returns defaults when config.yaml is absent', () => {
   const dir = tmpBoard();
-  assert.deepStrictEqual(cfg.readConfig(dir), cfg.parseConfig(''));
+  assert.deepStrictEqual(cfg.readConfig(dir), { ...cfg.parseConfig(''), paths: { logbook: '', scratchpad: '', todos: '' }, pathNotices: [] });
 });
 
 // --- `statuses` joins LIST_KEYS — the official column list ----------
