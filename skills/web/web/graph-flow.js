@@ -5,7 +5,8 @@
 // node --test and loaded as a plain <script> in the browser, where it shares one global scope with
 // every other web/*.js, so every top-level name here is GRAPH_FLOW- or graphFlow-prefixed. It reads
 // the Graph model (graph-model.js, graphBuild) and returns places; graph-model.js finishes the layout
-// (bounds) and draws the plan, so nothing here needs graph-model.js and the two load in either order.
+// (bounds) and draws the plan, so nothing here needs graph-model.js. It is the Flow alone: which graph
+// the Graph draws, and the graph= of the address, are the Graph view's (graph-view.js).
 //
 // The Dependencies switch decides the columns:
 //   frontier  the steps until a card is ready, counting only the dependencies that are not done:
@@ -35,60 +36,69 @@
 
 const GRAPH_FLOW_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
-const GRAPH_FLOW_GRAPHS = ['hierarchy', 'flow'];
 const GRAPH_FLOW_DEPS = ['frontier', 'all'];
+// The Flow's sizes, in the Graph's world units.
+//   PITCH        a row of dots: the height one dot is given
+//   SUBW         the width of one stack of dots in a column (a tall column wraps into several stacks)
+//   COLGAP       the gap between two columns
+//   ROWS         the most dots in a stack before it wraps
+//   HEAD         the room above the columns for their headings
+//   LANE_HEAD, LANE_PAD, LANE_GAP   a lane's header, the padding under its rows, the gap between lanes
+//   STRIP_GAP, STRIP_HEAD, STRIP_PITCH, STRIP_MIN   the strip's gap above, heading, dot spacing and least width
+//   ARC          the least horizontal pull of an arrow's curve: it leaves and arrives level, this far from the dots
+//   TITLE_MAX    the characters of a lane card's title kept in its header
+//   MARK_R       the radius of the type mark in a header
 const GRAPH_FLOW_GEO = Object.freeze({
   PITCH: 32, SUBW: 40, COLGAP: 90, ROWS: 14, HEAD: 54, LANE_HEAD: 30, LANE_PAD: 14, LANE_GAP: 14, STRIP_GAP: 56, STRIP_HEAD: 30, STRIP_PITCH: 34, STRIP_MIN: 600, ARC: 48, TITLE_MAX: 56, MARK_R: 7,
 });
 
-// --- the choices and the address ---------------------------------------------------
+// --- the switches and their address parameters --------------------------------------
 
-function mergeGraphFlowDeps(saved) {
+// The Dependencies switch from a value read from storage or an address: anything but `all` is frontier.
+function graphFlowMergeDeps(saved) {
   return GRAPH_FLOW_DEPS.includes(saved) ? saved : 'frontier';
 }
 
-// The Lanes switch as a boolean: on is true or '1', anything else is off.
-function mergeGraphFlowLanes(saved) {
-  return saved === true || saved === '1';
+// The Lanes switch is a boolean everywhere in the code; storage and the address spell it `1` or `0`,
+// and these two are the only places that spelling is read and written. A text that is neither is null.
+function graphFlowLanesFromText(text) {
+  return text === '1' ? true : text === '0' ? false : null;
 }
 
-// What a link's query string says of the Graph: `graph=hierarchy|flow`, `deps=frontier|all` and
-// `lanes=0|1`, each null when absent or not one of those.
+function graphFlowLanesText(laned) {
+  return laned === true ? '1' : '0';
+}
+
+// What a link's query string says of the Flow: `deps=frontier|all` and `lanes=0|1` (as a boolean),
+// each null when absent or not one of those.
 function graphFlowLink(search) {
   let params;
   try { params = new URLSearchParams(search || ''); } catch (e) { params = new URLSearchParams(''); }
-  const graph = params.get('graph');
   const deps = params.get('deps');
-  const lanes = params.get('lanes');
   return {
-    graph: GRAPH_FLOW_GRAPHS.includes(graph) ? graph : null,
     deps: GRAPH_FLOW_DEPS.includes(deps) ? deps : null,
-    lanes: lanes === '1' ? true : lanes === '0' ? false : null,
+    lanes: graphFlowLanesFromText(params.get('lanes')),
   };
 }
 
-// What the address should become once the Graph shows `graph` (with `deps` and `lanes` while it is
-// the Flow): every other parameter stays as it was, and `deps` and `lanes` go with the Flow. The
-// search string to replace the entry with (leading "?", or "" when nothing is left), or null when
-// the address already says it.
-function graphFlowAddress(search, graph, deps, lanes) {
-  const params = new URLSearchParams(search || '');
-  const want = GRAPH_FLOW_GRAPHS.includes(graph) ? graph : 'hierarchy';
+// Make `params` (a URLSearchParams) say the Flow's switches, leaving every other parameter as it
+// was. True when that changed anything.
+function graphFlowSetParams(params, deps, laned) {
   let changed = false;
-  if (params.get('graph') !== want) { params.set('graph', want); changed = true; }
-  if (want === 'flow') {
-    const d = mergeGraphFlowDeps(deps);
-    if (params.get('deps') !== d) { params.set('deps', d); changed = true; }
-    const l = mergeGraphFlowLanes(lanes) ? '1' : '0';
-    if (params.get('lanes') !== l) { params.set('lanes', l); changed = true; }
-  } else {
-    for (const key of ['deps', 'lanes']) {
-      if (params.has(key)) { params.delete(key); changed = true; }
-    }
+  const d = graphFlowMergeDeps(deps);
+  if (params.get('deps') !== d) { params.set('deps', d); changed = true; }
+  const l = graphFlowLanesText(laned);
+  if (params.get('lanes') !== l) { params.set('lanes', l); changed = true; }
+  return changed;
+}
+
+// Take the Flow's switches out of `params`. True when that changed anything.
+function graphFlowDropParams(params) {
+  let changed = false;
+  for (const key of ['deps', 'lanes']) {
+    if (params.has(key)) { params.delete(key); changed = true; }
   }
-  if (!changed) return null;
-  const qs = params.toString();
-  return qs ? `?${qs}` : '';
+  return changed;
 }
 
 // --- the dependency graph of the drawn cards -----------------------------------------
@@ -314,8 +324,8 @@ function graphFlowCellShape(n) {
 //   pos      each card's centre; radius each card's dot, which counts the waits it is in
 //   boxes    what the bounds must hold besides the dots
 function graphFlowPlace(model, opts) {
-  const deps = mergeGraphFlowDeps(opts && opts.deps);
-  const laned = mergeGraphFlowLanes(opts && opts.lanes);
+  const deps = graphFlowMergeDeps(opts && opts.deps);
+  const laned = !!opts && opts.lanes === true;
   const F = GRAPH_FLOW_GEO;
   const g = graphFlowGraph(model);
   const fr = deps === 'frontier' || laned ? graphFlowFrontier(g, (id) => graphFlowDone(model, id)) : null;
@@ -475,17 +485,19 @@ function graphFlowMarks(flow, look) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    GRAPH_FLOW_GRAPHS, GRAPH_FLOW_DEPS, GRAPH_FLOW_GEO,
-    mergeGraphFlowDeps, mergeGraphFlowLanes, graphFlowLink, graphFlowAddress, graphFlowPlace, graphFlowPath, graphFlowMarks,
+    GRAPH_FLOW_DEPS, GRAPH_FLOW_GEO,
+    graphFlowMergeDeps, graphFlowLanesFromText, graphFlowLanesText, graphFlowLink, graphFlowSetParams, graphFlowDropParams,
+    graphFlowPlace, graphFlowPath, graphFlowMarks,
   };
 } else {
-  window.GRAPH_FLOW_GRAPHS = GRAPH_FLOW_GRAPHS;
   window.GRAPH_FLOW_DEPS = GRAPH_FLOW_DEPS;
   window.GRAPH_FLOW_GEO = GRAPH_FLOW_GEO;
-  window.mergeGraphFlowDeps = mergeGraphFlowDeps;
-  window.mergeGraphFlowLanes = mergeGraphFlowLanes;
+  window.graphFlowMergeDeps = graphFlowMergeDeps;
+  window.graphFlowLanesFromText = graphFlowLanesFromText;
+  window.graphFlowLanesText = graphFlowLanesText;
   window.graphFlowLink = graphFlowLink;
-  window.graphFlowAddress = graphFlowAddress;
+  window.graphFlowSetParams = graphFlowSetParams;
+  window.graphFlowDropParams = graphFlowDropParams;
   window.graphFlowPlace = graphFlowPlace;
   window.graphFlowPath = graphFlowPath;
   window.graphFlowMarks = graphFlowMarks;

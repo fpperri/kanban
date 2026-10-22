@@ -103,9 +103,9 @@ test('the panel opens with the Hierarchy | Flow choice, Hierarchy pressed, and H
   const s = await open();
   const panel = s.panel();
   assert.deepStrictEqual(s.kindButtons().map((b) => [b.dataset.graphKind, b.textContent]), [['hierarchy', 'Hierarchy'], ['flow', 'Flow']]);
-  assert.strictEqual(panel.children.find((c) => c.classes.includes('graph-kinds')), panel.children.filter((c) => c.classes.includes('graph-layouts'))[0], 'the choice is the first row of the panel, after the close button');
+  assert.strictEqual(panel.children.find((c) => c.classes.includes('graph-kinds')), panel.children.filter((c) => c.classes.includes('graph-kinds'))[0], 'the choice is the first row of the panel, after the close button');
   assert.deepStrictEqual(pressedKinds(s), ['hierarchy']);
-  assert.strictEqual(s.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(s.run('graphCur.kind'), 'hierarchy');
   assert.strictEqual(byClass(s.host, 'graph-layout-btn').length, 0, 'Force and Status are gone: the Hierarchy offers no layout to pick');
   assert.strictEqual(byClass(s.host, 'graph-options').length, 1);
   assert.strictEqual(byClass(s.host, 'graph-flow-options').length, 0, 'no Dependencies switch beside the Hierarchy');
@@ -157,28 +157,67 @@ test('a press on Hierarchy goes back to the tier fan, keeps the choice and takes
   s.click(kind(s, 'flow'));
   assert.strictEqual(s.run('graphCur.kind'), 'flow');
   s.click(kind(s, 'hierarchy'));
-  assert.strictEqual(s.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(s.run('graphCur.kind'), 'hierarchy');
   assert.deepStrictEqual(pressedKinds(s), ['hierarchy']);
-  assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'tiers');
+  assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'hierarchy');
   assert.strictEqual(search(s), '?graph=hierarchy');
 });
 
 test('a board that kept Force or Status opens on the Hierarchy, and a press on Flow and back keeps it there', async () => {
   for (const gone of ['force', 'status']) {
     const s = await open({ stored: { [key('kanban', 'graph.layout')]: gone } });
-    assert.strictEqual(s.run('graphCur.kind'), 'tiers', gone);
+    assert.strictEqual(s.run('graphCur.kind'), 'hierarchy', gone);
     assert.deepStrictEqual(pressedKinds(s), ['hierarchy'], gone);
     assert.strictEqual(byClass(s.host, 'graph-layout-btn').length, 0, gone);
     s.click(kind(s, 'flow'));
     s.click(kind(s, 'hierarchy'));
-    assert.strictEqual(s.run('graphCur.kind'), 'tiers', gone);
-    assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'tiers', `${gone} is overwritten by the next choice`);
+    assert.strictEqual(s.run('graphCur.kind'), 'hierarchy', gone);
+    assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'hierarchy', `${gone} is overwritten by the next choice`);
   }
+});
+
+test('a board that kept tiers, the old name of the Hierarchy, opens on the Hierarchy and is written back under its new name on the next choice', async () => {
+  const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'tiers' } });
+  assert.strictEqual(s.run('graphCur.kind'), 'hierarchy');
+  assert.deepStrictEqual(pressedKinds(s), ['hierarchy']);
+  assert.deepStrictEqual(s.onLoad, ['/?graph=hierarchy']);
+  s.click(kind(s, 'flow'));
+  s.click(kind(s, 'hierarchy'));
+  assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'hierarchy');
+});
+
+test('the Graph reads graph= of an address itself, and writes it with the switches of the Flow from graph-flow.js', async () => {
+  const s = await open();
+  const kindOf = (search) => s.run(`graphAddressKind(${JSON.stringify(search)})`);
+  assert.strictEqual(kindOf('?view=graph&graph=flow&deps=all'), 'flow');
+  assert.strictEqual(kindOf('?graph=hierarchy'), 'hierarchy');
+  for (const bad of ['?graph=tiers', '?graph=force', '?graph=', '', '?deps=all']) assert.strictEqual(kindOf(bad), null, bad);
+  const addressFor = (search, k, deps, laned) => s.run(`graphAddressFor(${JSON.stringify(search)}, ${JSON.stringify(k)}, ${JSON.stringify(deps)}, ${laned})`);
+  assert.strictEqual(addressFor('', 'flow', 'frontier', false), '?graph=flow&deps=frontier&lanes=0');
+  assert.strictEqual(addressFor('?view=graph&q=a+b&card=7', 'flow', 'all', true), '?view=graph&q=a+b&card=7&graph=flow&deps=all&lanes=1');
+  assert.strictEqual(addressFor('?graph=flow&deps=all&lanes=0&q=x', 'hierarchy', 'all', false), '?graph=hierarchy&q=x');
+  assert.strictEqual(addressFor('?graph=flow&deps=frontier&lanes=0', 'flow', 'all', false), '?graph=flow&deps=all&lanes=0');
+  assert.strictEqual(addressFor('?graph=hierarchy', 'hierarchy', 'frontier', false), null, 'an address that already says it is left alone');
+  assert.strictEqual(addressFor('?graph=flow&deps=all&lanes=0', 'flow', 'all', false), null);
+  assert.strictEqual(addressFor('?graph=flow&deps=all', 'radial', 'all', false), '?graph=hierarchy');
+});
+
+test('an element of a card is found again as the kind it was: a lane header as a header, a dot as a dot', async () => {
+  const s = await open();
+  const root = { querySelector: (sel) => sel };
+  const head = { classList: { contains: (c) => c === 'graph-flow-lane-head' } };
+  const dot = { classList: { contains: () => false } };
+  s.page.ctx.root = root;
+  s.page.ctx.head = head;
+  s.page.ctx.dot = dot;
+  assert.strictEqual(s.run('graphCardEl(root, 12, head)'), '.card-el[data-id="12"].graph-flow-lane-head');
+  assert.strictEqual(s.run('graphCardEl(root, 12, dot)'), '.card-el[data-id="12"]:not(.graph-flow-lane-head)');
+  assert.strictEqual(s.run('graphCardEl(root, 12, null)'), '.card-el[data-id="12"]:not(.graph-flow-lane-head)');
 });
 
 test('an address that names a layout this version does not draw is junk, and leaves the board\'s choice, which reads as the Hierarchy if it was Force or Status', async () => {
   const kept = await open({ search: '?view=graph&graph=force', stored: { [key('kanban', 'graph.layout')]: 'status' } });
-  assert.strictEqual(kept.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(kept.run('graphCur.kind'), 'hierarchy');
   assert.deepStrictEqual(pressedKinds(kept), ['hierarchy']);
   const flow = await open({ search: '?view=graph&graph=status', stored: { [key('kanban', 'graph.layout')]: 'flow' } });
   assert.strictEqual(flow.run('graphCur.kind'), 'flow', 'junk leaves the Flow the board kept');
@@ -191,7 +230,7 @@ test('a board that kept Flow and all opens on them, and another board keeps its 
   assert.strictEqual(s.run('graphCur.kind'), 'flow');
   assert.deepStrictEqual(pressedDeps(s), ['all']);
   const other = await open({ name: 'other', stored: { [key('kanban', 'graph.layout')]: 'flow', [key('other', 'graph.deps')]: 'all' } });
-  assert.strictEqual(other.run('graphCur.kind'), 'tiers', 'the other board kept nothing under its own name');
+  assert.strictEqual(other.run('graphCur.kind'), 'hierarchy', 'the other board kept nothing under its own name');
   assert.strictEqual(other.run('graphLoadDeps()'), 'all');
 });
 
@@ -199,15 +238,15 @@ test('a stored switch or layout this version does not offer reads as the default
   const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.deps')]: 'sideways' } });
   assert.deepStrictEqual(pressedDeps(s), ['frontier']);
   const t = await open({ stored: { [key('kanban', 'graph.layout')]: 'hierarchy' } });
-  assert.strictEqual(t.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(t.run('graphCur.kind'), 'hierarchy');
 });
 
 test('the address wins on a load: graph=flow and deps=all open the Flow on all whatever the board kept, graph=hierarchy leaves the Flow', async () => {
-  const link = await open({ search: '?view=graph&graph=flow&deps=all', stored: { [key('kanban', 'graph.layout')]: 'tiers', [key('kanban', 'graph.deps')]: 'frontier' } });
+  const link = await open({ search: '?view=graph&graph=flow&deps=all', stored: { [key('kanban', 'graph.layout')]: 'hierarchy', [key('kanban', 'graph.deps')]: 'frontier' } });
   assert.strictEqual(link.run('graphCur.kind'), 'flow');
   assert.deepStrictEqual(pressedDeps(link), ['all']);
   const away = await open({ search: '?graph=hierarchy', stored: { [key('kanban', 'graph.layout')]: 'flow' } });
-  assert.strictEqual(away.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(away.run('graphCur.kind'), 'hierarchy');
   assert.deepStrictEqual(pressedKinds(away), ['hierarchy']);
   const bare = await open({ search: '?graph=flow', stored: { [key('kanban', 'graph.deps')]: 'all' } });
   assert.strictEqual(bare.run('graphCur.kind'), 'flow');
@@ -342,7 +381,7 @@ test('a header is selected with the dot of its card, painted in place and on a r
 
 test('lanes are drawn in Flow alone: the Hierarchy has none whatever the board kept', async () => {
   const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.lanes')]: '1' } });
-  assert.strictEqual(s.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(s.run('graphCur.kind'), 'hierarchy');
   assert.strictEqual(laneHeads(s).length, 0);
   assert.strictEqual(byClass(s.host, 'graph-flow-options').length, 0);
 });

@@ -128,8 +128,8 @@ test('a query that matches nothing lights nothing and dims nothing', async () =>
 test('typing does not make the layout again: the Graph draws the same cards, so the layout is the one it has', async () => {
   const s = await open();
   let made = 0;
-  const real = s.page.ctx.graphLayoutTiers;
-  s.page.ctx.graphLayoutTiers = (...args) => { made++; return real(...args); };
+  const real = s.page.ctx.graphLayoutHierarchy;
+  s.page.ctx.graphLayoutHierarchy = (...args) => { made++; return real(...args); };
   for (const text of ['z', 'ze', 'zep', 'zephyr', 'tags:ui', 'renew', '']) s.type(text);
   assert.strictEqual(made, 0);
 });

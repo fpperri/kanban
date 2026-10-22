@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const { graphBuild } = require('../web/graph-model');
 const {
-  GRAPH_FLOW_GEO, mergeGraphFlowDeps, graphFlowLink, graphFlowAddress, graphFlowPlace, graphFlowPath, graphFlowMarks,
+  GRAPH_FLOW_GEO, graphFlowMergeDeps, graphFlowLink, graphFlowPlace, graphFlowPath, graphFlowMarks,
 } = require('../web/graph-flow');
 
 // The Flow layout at its own seam: the columns of both Dependencies modes, the done and the loop
@@ -95,9 +95,9 @@ test('all and frontier agree on a board with nothing done and no loop, but for t
 });
 
 test('a switch that is not one of the two reads as frontier', () => {
-  assert.strictEqual(mergeGraphFlowDeps(undefined), 'frontier');
-  assert.strictEqual(mergeGraphFlowDeps('open'), 'frontier');
-  assert.strictEqual(mergeGraphFlowDeps('all'), 'all');
+  assert.strictEqual(graphFlowMergeDeps(undefined), 'frontier');
+  assert.strictEqual(graphFlowMergeDeps('open'), 'frontier');
+  assert.strictEqual(graphFlowMergeDeps('all'), 'all');
   assert.strictEqual(place([card(1), waits(2, 1)], 'sideways').deps, 'frontier');
 });
 
@@ -281,21 +281,10 @@ test('the marks are a frame and a heading with the count for each column, and th
 
 // --- the address -----------------------------------------------------------------------------
 
-test('the address names the graph and the switch, and anything else reads as nothing', () => {
-  assert.deepStrictEqual(graphFlowLink('?view=graph&graph=flow&deps=all'), { graph: 'flow', deps: 'all', lanes: null });
-  assert.deepStrictEqual(graphFlowLink('?graph=hierarchy'), { graph: 'hierarchy', deps: null, lanes: null });
-  assert.deepStrictEqual(graphFlowLink('?graph=force&deps=open'), { graph: null, deps: null, lanes: null });
-  assert.deepStrictEqual(graphFlowLink(''), { graph: null, deps: null, lanes: null });
-  assert.deepStrictEqual(graphFlowLink(undefined), { graph: null, deps: null, lanes: null });
-});
-
-test('the address becomes graph=flow with the switch, or graph=hierarchy without it, and every other parameter stays', () => {
-  assert.strictEqual(graphFlowAddress('', 'flow', 'frontier'), '?graph=flow&deps=frontier&lanes=0');
-  assert.strictEqual(graphFlowAddress('?view=graph&q=a+b&card=7', 'flow', 'all'), '?view=graph&q=a+b&card=7&graph=flow&deps=all&lanes=0');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=0&q=x', 'hierarchy', 'all'), '?graph=hierarchy&q=x');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=frontier&lanes=0', 'flow', 'all'), '?graph=flow&deps=all&lanes=0');
-  assert.strictEqual(graphFlowAddress('?graph=hierarchy', 'hierarchy', 'frontier'), null, 'an address that already says it is left alone');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=0', 'flow', 'all'), null);
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=0', 'flow', 'sideways'), '?graph=flow&deps=frontier&lanes=0');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all', 'radial'), '?graph=hierarchy');
+test('the address names the Flow\'s Dependencies switch, and anything else reads as nothing', () => {
+  assert.deepStrictEqual(graphFlowLink('?view=graph&graph=flow&deps=all'), { deps: 'all', lanes: null });
+  assert.deepStrictEqual(graphFlowLink('?graph=hierarchy'), { deps: null, lanes: null });
+  assert.deepStrictEqual(graphFlowLink('?graph=force&deps=open'), { deps: null, lanes: null });
+  assert.deepStrictEqual(graphFlowLink(''), { deps: null, lanes: null });
+  assert.deepStrictEqual(graphFlowLink(undefined), { deps: null, lanes: null });
 });

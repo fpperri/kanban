@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  GRAPH_LAYOUTS, mergeGraphLayout, graphBuild, graphLayout, graphLayoutFlow, graphSignature, graphLayoutCacheClear, graphPlan,
+  GRAPH_KINDS, mergeGraphLayout, graphBuild, graphLayout, graphLayoutFlow, graphSignature, graphLayoutCacheClear, graphPlan,
   graphNeighbours, graphRestLit, graphLinkPaths, graphRadius,
 } = require('../web/graph-model');
 const { graphFlowPath, graphFlowMarks } = require('../web/graph-flow');
@@ -27,11 +27,11 @@ const planOf = (m, deps = 'frontier') => {
   return { layout, plan: graphPlan(m, layout, { kind: 'flow', statusClass: (s) => s, titleOf: (c) => c.title, types: TYPES }) };
 };
 
-test('flow is a layout the Graph can be on, beside the one of the Hierarchy, and anything else is Tiers', () => {
-  assert.deepStrictEqual(GRAPH_LAYOUTS, ['tiers']);
+test('flow is a graph the Graph can draw, beside the Hierarchy, and anything else is the Hierarchy', () => {
+  assert.deepStrictEqual(GRAPH_KINDS, ['hierarchy', 'flow']);
   assert.strictEqual(mergeGraphLayout('flow'), 'flow');
-  for (const k of GRAPH_LAYOUTS) assert.strictEqual(mergeGraphLayout(k), k);
-  for (const bad of [undefined, null, '', 'hierarchy', 'Flow', 7]) assert.strictEqual(mergeGraphLayout(bad), 'tiers');
+  assert.strictEqual(mergeGraphLayout('hierarchy'), 'hierarchy');
+  for (const bad of [undefined, null, '', 'tiers', 'Flow', 7]) assert.strictEqual(mergeGraphLayout(bad), 'hierarchy');
 });
 
 test('the layout carries the flow, finishes its bounds round every dot and mark, and is the same layout as graphLayout gives', () => {
@@ -54,8 +54,8 @@ test('the layout is kept for what decides it: the same cards and switch give the
   assert.notStrictEqual(graphLayout(m, 'flow', { deps: 'all' }), frontier);
   assert.notStrictEqual(graphSignature(m, 'flow', { deps: 'all' }), graphSignature(m, 'flow', { deps: 'frontier' }));
   assert.strictEqual(graphSignature(m, 'flow', {}), graphSignature(m, 'flow', { deps: 'frontier' }));
-  assert.notStrictEqual(graphSignature(m, 'flow', {}), graphSignature(m, 'tiers', {}));
-  assert.strictEqual(graphSignature(m, 'tiers', { deps: 'all' }), graphSignature(m, 'tiers', {}), 'the Hierarchy does not read the switch');
+  assert.notStrictEqual(graphSignature(m, 'flow', {}), graphSignature(m, 'hierarchy', {}));
+  assert.strictEqual(graphSignature(m, 'hierarchy', { deps: 'all' }), graphSignature(m, 'hierarchy', {}), 'the Hierarchy does not read the switch');
 });
 
 test('a card done or undone moves the layout, since the signature holds the statuses', () => {
@@ -86,7 +86,7 @@ test('the plan draws a dot for each card in the flow\'s radius and the type\'s m
 test('every link of the model has its path, in the model\'s order, so the plan\'s lines can be found by index', () => {
   const m = model();
   const layout = graphLayout(m, 'flow', { deps: 'frontier' });
-  const paths = graphLinkPaths(m, layout, 'flow');
+  const paths = graphLinkPaths(m, layout);
   assert.strictEqual(paths.length, m.links.length);
   m.links.forEach((l, i) => { if (l.kind === 'wait') assert.strictEqual(paths[i], graphFlowPath(layout.flow, l.from, l.to)); });
 });
@@ -100,7 +100,7 @@ test('the plan carries the marks behind the dots: a frame and a heading for each
 
 test('the plan of a layout of the Hierarchy has no mark of the flow, and a flow layout with no kind given is read as the flow', () => {
   const m = model();
-  for (const kind of GRAPH_LAYOUTS) {
+  for (const kind of ['hierarchy']) {
     const plan = graphPlan(m, graphLayout(m, kind, { statuses: ['todo', 'doing', 'done'] }), { kind, statusClass: (s) => s });
     assert.deepStrictEqual(plan.flow, { rects: [], texts: [], heads: [] }, kind);
   }
@@ -162,7 +162,7 @@ test('the Lanes switch is part of the layout\'s signature and its cache, and onl
   assert.strictEqual(graphLayout(m, 'flow', { deps: 'frontier', lanes: false }), flat, 'off is the default');
   assert.deepStrictEqual(laned.flow.lanes.map((l) => l.key), ['1', '4']);
   assert.notStrictEqual(graphSignature(m, 'flow', { lanes: true }), graphSignature(m, 'flow', {}));
-  assert.strictEqual(graphSignature(m, 'tiers', { lanes: true }), graphSignature(m, 'tiers', {}), 'the Hierarchy does not read the switch');
+  assert.strictEqual(graphSignature(m, 'hierarchy', { lanes: true }), graphSignature(m, 'hierarchy', {}), 'the Hierarchy does not read the switch');
 });
 
 test('a card moved to another tier moves its lane, since the signature holds the slices of the cards in lanes', () => {

@@ -355,8 +355,8 @@ function stamp(plan) {
 test('the view stamps a counted line as a path with its count beside it, and every other line as the path alone', () => {
   const board = makeBoard();
   const model = graphBuild(board.active, { ctx: { board: 'kanban', priorities: [] }, hierarchy: board.hierarchy });
-  const layout = graphLayout(model, 'tiers', { statuses: board.statuses });
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan: { lines: 'folded', dependencies: 'on', order: 'status' } });
+  const layout = graphLayout(model, 'hierarchy', { statuses: board.statuses });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan: { lines: 'folded', dependencies: 'on', order: 'status' } });
   const out = stamp(plan);
   const kids = out.world.children;
   const paths = kids.filter((e) => e.classes && e.classes.includes('graph-link'));
@@ -561,5 +561,5 @@ test('a switch between the graphs with Unnested on is a redraw alone: it works t
   s.page.ctx.renderBoard = (...args) => { repaints++; return real(...args); };
   s.click(graphButton(s, 'hierarchy'));
   assert.strictEqual(repaints, 0);
-  assert.strictEqual(s.run('graphLoadLayout()'), 'tiers');
+  assert.strictEqual(s.run('graphLoadLayout()'), 'hierarchy');
 });

@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const { graphBuild } = require('../web/graph-model');
 const {
-  GRAPH_FLOW_GEO, graphFlowPlace, graphFlowMarks, graphFlowLink, graphFlowAddress, mergeGraphFlowLanes,
+  GRAPH_FLOW_GEO, graphFlowPlace, graphFlowMarks, graphFlowLink, graphFlowSetParams, graphFlowDropParams, graphFlowLanesFromText, graphFlowLanesText,
 } = require('../web/graph-flow');
 
 // The Flow's Lanes switch at its own seam: which lane a card is in, the header's facts, the order of
@@ -269,17 +269,32 @@ test('the switch is read from lanes=0|1 and anything else reads as nothing', () 
   assert.strictEqual(graphFlowLink('?graph=flow&lanes=1').lanes, true);
   assert.strictEqual(graphFlowLink('?graph=flow&lanes=0').lanes, false);
   for (const bad of ['?lanes=2', '?lanes=on', '?lanes=', '', undefined]) assert.strictEqual(graphFlowLink(bad).lanes, null, String(bad));
-  assert.strictEqual(mergeGraphFlowLanes(true), true);
-  assert.strictEqual(mergeGraphFlowLanes('1'), true);
-  assert.strictEqual(mergeGraphFlowLanes('0'), false);
-  for (const bad of [undefined, null, 'yes', 2, '']) assert.strictEqual(mergeGraphFlowLanes(bad), false);
 });
 
-test('the address carries lanes with the Flow and takes it away with the Flow', () => {
-  assert.strictEqual(graphFlowAddress('', 'flow', 'frontier', false), '?graph=flow&deps=frontier&lanes=0');
-  assert.strictEqual(graphFlowAddress('?view=graph&graph=flow&deps=all', 'flow', 'all', true), '?view=graph&graph=flow&deps=all&lanes=1');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=1', 'flow', 'all', false), '?graph=flow&deps=all&lanes=0');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=1', 'flow', 'all', true), null);
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=1&q=x', 'hierarchy', 'all', true), '?graph=hierarchy&q=x');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all', 'flow', 'all'), '?graph=flow&deps=all&lanes=0', 'no lanes given is off');
+test('the switch is a boolean in the code and the text 1 or 0 at the edges, in storage and in the address alike', () => {
+  assert.strictEqual(graphFlowLanesFromText('1'), true);
+  assert.strictEqual(graphFlowLanesFromText('0'), false);
+  for (const bad of [undefined, null, 'yes', true, 2, '']) assert.strictEqual(graphFlowLanesFromText(bad), null, String(bad));
+  assert.strictEqual(graphFlowLanesText(true), '1');
+  for (const off of [false, undefined, null, '1', 1]) assert.strictEqual(graphFlowLanesText(off), '0', String(off));
+});
+
+test('the Flow\'s switches go into the parameters of an address and come out of them, and nothing else is touched', () => {
+  const set = (search, deps, laned) => {
+    const params = new URLSearchParams(search);
+    const changed = graphFlowSetParams(params, deps, laned);
+    return [changed, params.toString()];
+  };
+  assert.deepStrictEqual(set('', 'frontier', false), [true, 'deps=frontier&lanes=0']);
+  assert.deepStrictEqual(set('view=graph&graph=flow&deps=all', 'all', true), [true, 'view=graph&graph=flow&deps=all&lanes=1']);
+  assert.deepStrictEqual(set('graph=flow&deps=all&lanes=1', 'all', false), [true, 'graph=flow&deps=all&lanes=0']);
+  assert.deepStrictEqual(set('graph=flow&deps=all&lanes=1', 'all', true), [false, 'graph=flow&deps=all&lanes=1']);
+  assert.deepStrictEqual(set('graph=flow&deps=all', 'all'), [true, 'graph=flow&deps=all&lanes=0'], 'no lanes given is off');
+  assert.deepStrictEqual(set('deps=all&lanes=1', 'sideways', true), [true, 'deps=frontier&lanes=1']);
+  const drop = (search) => {
+    const params = new URLSearchParams(search);
+    return [graphFlowDropParams(params), params.toString()];
+  };
+  assert.deepStrictEqual(drop('graph=flow&deps=all&lanes=1&q=x'), [true, 'graph=flow&q=x']);
+  assert.deepStrictEqual(drop('graph=hierarchy&q=x'), [false, 'graph=hierarchy&q=x']);
 });

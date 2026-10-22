@@ -22,8 +22,8 @@ function fanOf(options) {
   const model = graphBuild(board.all, {
     ctx: board.ctx, hierarchy: board.config.hierarchy, visibleIds: new Set(board.live.map((c) => c.id)), unnested: fan.unnested,
   });
-  const layout = graphLayout(model, 'tiers', { statuses: board.config.statuses, order: fan.order, unnested: fan.unnested });
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan });
+  const layout = graphLayout(model, 'hierarchy', { statuses: board.config.statuses, order: fan.order, unnested: fan.unnested });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan });
   return { model, plan, fan };
 }
 

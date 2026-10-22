@@ -2,7 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphBuild, graphLayoutTiers, graphPlan, graphFanPlace, graphVisibleIds, graphTipAt,
+  graphBuild, graphLayoutHierarchy, graphPlan, graphFanPlace, graphVisibleIds, graphTipAt,
 } = require('../web/graph-model');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { sliceListOf } = require('../web/slice-run');
@@ -19,8 +19,8 @@ const {
 after(cleanUp);
 
 const planBoard = loadBoard('plan');
-const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
-const planOf = (m) => graphPlan(m, graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' }), OPTS);
+const OPTS = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title };
+const planOf = (m) => graphPlan(m, graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'table' }), OPTS);
 const tips = (plan) => Object.fromEntries(plan.captions.map((c) => [c.name, c.tip]));
 const sorted = (ids) => ids.slice().sort((a, b) => a - b);
 
@@ -40,7 +40,7 @@ test('tips: the split follows the board\'s status order, not the order cards com
   const cards = [card(1, { type: 'goal', status: 'done' }), card(2, { type: 'goal', status: 'backlog' }), card(3, { type: 'goal', status: 'doing' }), card(4, { type: 'goal', status: 'todo' })];
   const plan = planOf(buildOf(cards, ['goal']));
   assert.deepStrictEqual(plan.captions[0].tip.lines, ['4 cards', 'backlog 1 · todo 1 · doing 1 · done 1']);
-  const reversed = graphPlan(buildOf(cards, ['goal']), graphLayoutTiers(buildOf(cards, ['goal']), { statuses: ['done', 'doing', 'todo', 'backlog'], unnested: 'table' }), OPTS);
+  const reversed = graphPlan(buildOf(cards, ['goal']), graphLayoutHierarchy(buildOf(cards, ['goal']), { statuses: ['done', 'doing', 'todo', 'backlog'], unnested: 'table' }), OPTS);
   assert.deepStrictEqual(reversed.captions[0].tip.lines, ['4 cards', 'done 1 · doing 1 · todo 1 · backlog 1']);
 });
 

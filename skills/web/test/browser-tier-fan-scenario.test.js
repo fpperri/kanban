@@ -31,8 +31,9 @@ function drawn(key, archiveOn, extra = [], kind = 'tiers', query = '', unnested 
   const cut = query ? new Set(filterCards(cards, parseSearchQuery(query, board.name), { ...board.ctx, hierarchy: board.config.hierarchy }).map((c) => c.id)) : null;
   const visible = cards.filter((c) => (archiveOn || !c.archived) && (!cut || cut.has(c.id))).map((c) => c.id);
   const model = graphBuild(cards, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible) });
-  const layout = graphLayout(model, kind, { statuses: board.config.statuses, unnested });
-  const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title });
+  const shown = kind === 'tiers' ? 'hierarchy' : kind;
+  const layout = graphLayout(model, shown, { statuses: board.config.statuses, unnested });
+  const plan = graphPlan(model, layout, { kind: shown, statusClass: (s) => s, titleOf: (c) => c.title });
   return { model, layout, plan, place: kind === 'tiers' ? graphFanPlace(model, { statuses: board.config.statuses, unnested }) : null };
 }
 

@@ -2,7 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
-const { graphLayoutTiers, graphPlan } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphPlan } = require('../web/graph-model');
 const { STATUSES, loadBoard, cleanUp, drawnModel } = require('./helpers/fan-boards');
 
 // The search box suggests what a slice: term can say. After `slice:` and after `..`
@@ -160,9 +160,9 @@ test('a hierarchy with a tier written twice, a blank entry or no list at all giv
 // have offered. The plan board is the browser runner's own fixture.
 test('the slice: term in the tip of each caption of the fan is one the box offers on that board', () => {
   const board = loadBoard('plan');
-  const opts = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
+  const opts = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title };
   const model = drawnModel(board);
-  const plan = graphPlan(model, graphLayoutTiers(model, { statuses: STATUSES }), opts);
+  const plan = graphPlan(model, graphLayoutHierarchy(model, { statuses: STATUSES }), opts);
   const terms = plan.captions.map((c) => c.tip.term).filter((t) => t !== null);
   assert.deepStrictEqual(plan.captions.filter((c) => c.tip.term === null).map((c) => c.name), ['unnested'], 'the ring of unnested cards is no slice, so it names none');
   assert.ok(terms.length >= 6, 'the plan board draws its four tiers and some depth rings');

@@ -44,7 +44,7 @@ const board = loadBoard('plan');
 
 function stamp() {
   const model = drawnModel(board);
-  const plan = graphPlan(model, graphLayout(model, 'tiers', { statuses: STATUSES, unnested: 'table' }), { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title });
+  const plan = graphPlan(model, graphLayout(model, 'hierarchy', { statuses: STATUSES, unnested: 'table' }), { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title });
   const sandbox = { document: fakeDocument() };
   vm.createContext(sandbox);
   const helpers = ['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan'].map((n) => fn(n)).join('\n');

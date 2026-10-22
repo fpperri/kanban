@@ -41,8 +41,8 @@ function worldOf(st, over) {
   if (st.cut) visible = board.live.filter((c) => typeOf(c) === 'goal').map((c) => c.id);
   if (st.pill) visible = visible.filter((id) => board.live.find((c) => c.id === id).status !== 'doing');
   const model = drawnModel(board, { visible });
-  const layout = graphLayout(model, 'tiers', { statuses: STATUSES, unnested: st.unnested });
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, types: board.config.types });
+  const layout = graphLayout(model, 'hierarchy', { statuses: STATUSES, unnested: st.unnested });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, types: board.config.types });
   const tints = st.kind === 'tiers' ? (over.tints ? over.tints(plan.tints, plan, layout) : plan.tints) : [];
   return { model, layout, plan, tints, view: graphFit(layout.bounds, STAGE.right, STAGE.bottom) };
 }

@@ -23,7 +23,7 @@ const tree = () => buildOf([
   card(7, { parent: 2 }), card(8, { parent: 2, waiting_for: ['5'] }), card(9),
 ]);
 
-const planOf = (model, fan, kind = 'tiers') => {
+const planOf = (model, fan, kind = 'hierarchy') => {
   const layout = graphLayout(model, kind, { statuses: STATUSES });
   const opts = { kind, statusClass: (s) => s, titleOf: (c) => c.title };
   if (fan) opts.fan = { ...DEFAULTS, ...fan };

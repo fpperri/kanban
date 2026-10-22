@@ -30,8 +30,9 @@ function drawn(key, mode, archiveOn = false, kind = 'tiers') {
   const unnested = kind === 'tiers' ? mode : undefined;
   const visible = board.all.filter((c) => archiveOn || !c.archived).map((c) => c.id);
   const model = graphBuild(board.all, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible), unnested });
-  const layout = graphLayout(model, kind, { statuses: board.config.statuses, unnested });
-  const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title });
+  const shown = kind === 'tiers' ? 'hierarchy' : kind;
+  const layout = graphLayout(model, shown, { statuses: board.config.statuses, unnested });
+  const plan = graphPlan(model, layout, { kind: shown, statusClass: (s) => s, titleOf: (c) => c.title });
   return { model, layout, plan };
 }
 

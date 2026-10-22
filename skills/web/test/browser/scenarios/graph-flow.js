@@ -160,7 +160,7 @@ module.exports = {
     const settled = (heads) => waitFor(`JSON.stringify(${HEADS})===${JSON.stringify(JSON.stringify(heads))}`, 8000);
 
     // --- the choice: Hierarchy first, and unchanged --------------------------------------------------------
-    check('plan: the Graph opens in the Hierarchy, the tier fan', await load('/?view=graph', 'plan') && await waitFor(`${kindIs('tiers')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    check('plan: the Graph opens in the Hierarchy, the tier fan', await load('/?view=graph', 'plan') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
     const kinds = await ev(`[...document.querySelectorAll('#graph-view .view-panel .graph-kind-btn')].map((b)=>[b.dataset.graphKind,b.textContent,b.getAttribute('aria-pressed')])`);
     check('plan: the option panel opens with the Hierarchy | Flow choice, Hierarchy pressed', sameList(kinds, [['hierarchy', 'Hierarchy', 'true'], ['flow', 'Flow', 'false']])
       && await ev(`document.querySelector('${PANEL}').children[1].classList.contains('graph-kinds')`), kinds);
@@ -327,7 +327,7 @@ module.exports = {
     check('plan: a link only for this load: the board still keeps lanes', await ev(STORED('lanes')) === '1');
     check('plan: a link with lanes=1 opens the lanes', await load('/?view=graph&graph=flow&deps=frontier&lanes=1', 'plan') && await flowDrawn('frontier') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}`, 10000));
     await pressOn(KIND('hierarchy'));
-    check('plan: the Hierarchy draws no lane and takes lanes out of the address', await waitFor(`${kindIs('tiers')}&&document.querySelectorAll('#graph-view .graph-flow-lane, #graph-view .graph-flow-lane-head').length===0&&!/[?&]lanes=/.test(${SEARCH})`, 10000), await ev(SEARCH));
+    check('plan: the Hierarchy draws no lane and takes lanes out of the address', await waitFor(`${kindIs('hierarchy')}&&document.querySelectorAll('#graph-view .graph-flow-lane, #graph-view .graph-flow-lane-head').length===0&&!/[?&]lanes=/.test(${SEARCH})`, 10000), await ev(SEARCH));
     await pressOn(KIND('flow'));
     check('plan: the Flow brings the lanes back as they were', await flowDrawn('frontier') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}&&/[?&]lanes=1(&|$)/.test(${SEARCH})`, 10000));
     await pressOn(LANES('off'));
@@ -335,9 +335,10 @@ module.exports = {
 
     // --- remembered, and the address ---------------------------------------------------------------------------
     check('plan: a reload with no parameters keeps Flow and all for the board', await load('/?view=graph', 'plan') && await flowDrawn('all') && await settled(plan.all.heads));
+    check('plan: and the address says what the board remembered, so a link copied after a reload opens the same picture', await waitFor(`/[?&]graph=flow(&|$)/.test(${SEARCH})&&/[?&]deps=all(&|$)/.test(${SEARCH})&&/[?&]lanes=[01](&|$)/.test(${SEARCH})`, 5000), await ev(SEARCH));
     check('plan: a link with graph=flow and deps=frontier opens the Flow on frontier, whatever the board kept',
       await load('/?view=graph&graph=flow&deps=frontier', 'plan') && await flowDrawn('frontier') && await settled(plan.frontier.heads));
-    check('plan: a link with graph=hierarchy opens the Hierarchy', await load('/?view=graph&graph=hierarchy', 'plan') && await waitFor(`${kindIs('tiers')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    check('plan: a link with graph=hierarchy opens the Hierarchy', await load('/?view=graph&graph=hierarchy', 'plan') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
     check('plan: a link only for this load: it keeps what the board remembered', await ev(STORED('layout')) === 'flow' && await ev(STORED('deps')) === 'all');
     check('plan: and a plain reload goes back to the board\'s Flow on all', await load('/?view=graph', 'plan') && await flowDrawn('all'));
     await pressOn(DEPS('frontier'));
@@ -407,7 +408,7 @@ module.exports = {
     await shot('graph-flow-loop');
 
     // --- the other board keeps its own ------------------------------------------------------------------------------
-    check('fixture: another board opens in the Hierarchy: the choice is kept for the board', await load('/?view=graph', 'fixture') && await waitFor(`${kindIs('tiers')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    check('fixture: another board opens in the Hierarchy: the choice is kept for the board', await load('/?view=graph', 'fixture') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
 
     // --- the phone's bottom sheet ---------------------------------------------------------------------------------------
     await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -424,7 +425,7 @@ module.exports = {
     check('plan: a press on on in the sheet draws the lanes', await waitFor(`${kindIs('flow')}&&${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length + 3}`, 10000), await ev(LANE_HEADS));
     await shot('graph-flow-sheet');
     await pressOn(`${PANEL} .graph-kind-btn[data-graph-kind=hierarchy]`);
-    check('plan: a press on Hierarchy in the sheet goes back to the tier fan', await waitFor(`${kindIs('tiers')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    check('plan: a press on Hierarchy in the sheet goes back to the tier fan', await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
     check('plan: the sheet adds no sideways scroll to the view', await ev(`(()=>{const v=document.querySelector('#graph-view');return v.scrollWidth-v.clientWidth<=1})()`));
     await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
     await ev(frames);

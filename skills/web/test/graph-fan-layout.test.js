@@ -2,20 +2,20 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphBuild, graphFanPlace, graphLayoutTiers, graphLayout, graphSignature, graphLayoutCacheClear, graphRadius, graphVisibleIds,
+  graphBuild, graphFanPlace, graphLayoutHierarchy, graphLayout, graphSignature, graphLayoutCacheClear, graphRadius, graphVisibleIds,
 } = require('../web/graph-model');
 const {
   STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');
 
 // The tier fan's geometry: where the positions, bands, sectors and the Unnested
-// block of graphLayoutTiers come to, and what makes its cache key. The place of
+// block of graphLayoutHierarchy come to, and what makes its cache key. The place of
 // each card (graphFanPlace) is pinned in graph-fan.test.js.
 
 after(cleanUp);
 
 const planModel = (opts) => drawnModel(loadBoard('plan'), opts);
-const fanOf = (m) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
+const fanOf = (m) => graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'table' });
 const places = (m) => graphFanPlace(m, { statuses: STATUSES }).places;
 const radius = (l, id) => Math.hypot(l.pos.get(String(id)).x, l.pos.get(String(id)).y);
 const turnOf = (l, p) => {
@@ -313,7 +313,7 @@ test('fan: the bounds hold every dot, ring and the block', () => {
 test('cache: the layout\'s key changes when a card\'s type or the hierarchy changes, and not when only a sticker does', () => {
   graphLayoutCacheClear();
   const cards = (type) => [card(1, { type }), card(2, { parent: 1 }), card(3)];
-  const key = (cs, hierarchy) => graphSignature(buildOf(cs, hierarchy), 'tiers', { statuses: STATUSES });
+  const key = (cs, hierarchy) => graphSignature(buildOf(cs, hierarchy), 'hierarchy', { statuses: STATUSES });
   assert.notStrictEqual(key(cards('goal'), HIERARCHY), key(cards('epic'), HIERARCHY), 'a card\'s type');
   assert.notStrictEqual(key(cards('goal'), HIERARCHY), key(cards('goal'), ['epic', 'goal']), 'the hierarchy\'s order');
   assert.notStrictEqual(key(cards('goal'), HIERARCHY), key(cards('goal'), []), 'the hierarchy itself');
@@ -323,9 +323,9 @@ test('cache: the layout\'s key changes when a card\'s type or the hierarchy chan
   const sticky = cards('goal');
   sticky[2] = { ...sticky[2], blocked: 'no reply', review: true };
   assert.strictEqual(key(cards('goal'), HIERARCHY), key(sticky, HIERARCHY), 'blocked and review change a colour, not a place');
-  const first = graphLayout(buildOf(cards('goal')), 'tiers', { statuses: STATUSES });
-  assert.notStrictEqual(graphLayout(buildOf(cards('epic')), 'tiers', { statuses: STATUSES }), first, 'an edit redraws');
-  assert.strictEqual(graphLayout(buildOf(cards('goal')), 'tiers', { statuses: STATUSES }), first, 'the same cards reuse the layout');
+  const first = graphLayout(buildOf(cards('goal')), 'hierarchy', { statuses: STATUSES });
+  assert.notStrictEqual(graphLayout(buildOf(cards('epic')), 'hierarchy', { statuses: STATUSES }), first, 'an edit redraws');
+  assert.strictEqual(graphLayout(buildOf(cards('goal')), 'hierarchy', { statuses: STATUSES }), first, 'the same cards reuse the layout');
 });
 
 test('fan: the icon a type draws with moves no dot, so editing it does not redraw the fan, yet the widest outline still clears its neighbours', () => {
@@ -342,8 +342,8 @@ test('fan: the icon a type draws with moves no dot, so editing it does not redra
 });
 
 test('cache: a hidden parent changes the key, since it moves its child to another band', () => {
-  const withParent = graphSignature(buildOf([card(2, { parent: 1 }), card(1)], [], [2]), 'tiers', {});
-  const noParent = graphSignature(buildOf([card(2)], [], [2]), 'tiers', {});
+  const withParent = graphSignature(buildOf([card(2, { parent: 1 }), card(1)], [], [2]), 'hierarchy', {});
+  const noParent = graphSignature(buildOf([card(2)], [], [2]), 'hierarchy', {});
   assert.notStrictEqual(withParent, noParent, 'card 2 is drawn as a root in both, but at depth 1 in one and depth 0 in the other');
 });
 

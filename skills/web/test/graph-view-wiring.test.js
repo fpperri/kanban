@@ -7,7 +7,7 @@ const WEB = path.join(__dirname, '..', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const src = read('graph-view.js');
 const css = read('app.css');
-const { graphBuild, graphLayout, graphPlan, GRAPH_LAYOUTS } = require('../web/graph-model');
+const { graphBuild, graphLayout, graphPlan, GRAPH_KINDS } = require('../web/graph-model');
 
 function fn(name) {
   const m = src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -99,14 +99,14 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
   ];
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] } });
   const used = new Set();
-  for (const kind of [...GRAPH_LAYOUTS, 'flow']) {
+  for (const kind of GRAPH_KINDS) {
     const plan = graphPlan(model, graphLayout(model, kind, { statuses: ['todo', 'doing', 'done'] }), {
       selectedIds: new Set([1]), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
     });
     // The fan's marks: guide arcs, captions, the loose caption, the block's frame, title and column captions.
     const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
       ...(plan.block ? [plan.block, plan.block.title, ...plan.block.columns.map((c) => c.caption)] : [])];
-    assert.strictEqual(fan.length > 0, kind === 'tiers', `${kind} draws the fan's marks, and the others do not`);
+    assert.strictEqual(fan.length > 0, kind === 'hierarchy', `${kind} draws the fan's marks, and the others do not`);
     for (const x of [...plan.nodes, ...plan.links, ...fan, ...plan.flow.rects, ...plan.flow.texts]) {
       for (const c of x.cls.split(' ')) if (c.startsWith('graph-')) used.add(c);
     }
@@ -160,7 +160,7 @@ test('filter handlers guard with hasOwnProperty; a re-click of the graph choice 
   assert.match(fn('graphToggleFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
   assert.match(fn('graphSoloFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
   assert.match(fn('graphSetLayoutKind'), /next === was\) return;/);
-  assert.match(fn('wireGraphView'), /graphSetLayoutKind\(kindBtn\.dataset\.graphKind === 'flow' \? 'flow' : 'tiers'\)/);
+  assert.match(fn('wireGraphView'), /graphSetLayoutKind\(kindBtn\.dataset\.graphKind\)/);
   assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });
 
@@ -230,7 +230,7 @@ function drawn(cards, types) {
   vm.createContext(sandbox);
   vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${fn('graphEl')}\n${fn('graphTspan')}\n${fn('graphBuildTip')}\n${fn('graphCaptionEl')}\n${fn('graphDrawPlan')}`, sandbox);
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] }, types });
-  const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
+  const plan = graphPlan(model, graphLayout(model, 'hierarchy'), { statusClass: (s) => s, titleOf: (c) => c.title });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
   const all = [];
   const walk = (el) => { all.push(el); el.children.forEach(walk); };

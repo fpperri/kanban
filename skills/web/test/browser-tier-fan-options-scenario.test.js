@@ -29,8 +29,8 @@ function drawn(key, options, extra = []) {
   const model = graphBuild(cards, {
     ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible), unnested: options.unnested,
   });
-  const layout = graphLayout(model, 'tiers', { statuses: board.config.statuses, order: options.order, unnested: options.unnested });
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan: options });
+  const layout = graphLayout(model, 'hierarchy', { statuses: board.config.statuses, order: options.order, unnested: options.unnested });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan: options });
   const lines = graphFanLines(model, layout.places, options);
   return { model, layout, plan, lines };
 }

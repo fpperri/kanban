@@ -186,6 +186,6 @@ test('what the docs say of the keys and the options is what the page keeps', () 
   assert.ok(view.includes("storageKey(state.projectName, 'graph.layout')"));
   const flow = require('../web/graph-flow');
   assert.deepStrictEqual(flow.GRAPH_FLOW_DEPS, ['frontier', 'all']);
-  assert.deepStrictEqual(flow.GRAPH_FLOW_GRAPHS, ['hierarchy', 'flow']);
+  assert.deepStrictEqual(require('../web/graph-model').GRAPH_KINDS, ['hierarchy', 'flow']);
   assert.strictEqual(flow.GRAPH_FLOW_GEO.ROWS, 14, 'a column wraps past fourteen cards');
 });

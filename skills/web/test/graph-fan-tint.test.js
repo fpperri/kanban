@@ -1,7 +1,7 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { graphLayoutTiers, graphLayout, graphPlan } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphLayout, graphPlan } = require('../web/graph-model');
 const {
   STATUSES, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');
@@ -18,8 +18,8 @@ after(cleanUp);
 
 const planBoard = loadBoard('plan');
 const TYPES = planBoard.config.types;
-const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, types: TYPES };
-const layoutOf = (m, unnested = 'table') => graphLayoutTiers(m, { statuses: STATUSES, unnested });
+const OPTS = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, types: TYPES };
+const layoutOf = (m, unnested = 'table') => graphLayoutHierarchy(m, { statuses: STATUSES, unnested });
 const planOf = (m, opts = OPTS, unnested = 'table') => graphPlan(m, layoutOf(m, unnested), opts);
 const planModel = (opts) => drawnModel(planBoard, opts);
 

@@ -132,8 +132,8 @@ test('a drawn fan gives each named card one leader before its dot, with no style
   const board = makeBoard();
   const model = graphBuild(board.active, { ctx: { board: 'kanban', priorities: [] }, hierarchy: board.hierarchy });
   const fan = { lines: 'folded', dependencies: 'on', order: 'status', names: 'all', unnested: 'outermost' };
-  const plan = graphPlan(model, graphLayout(model, 'tiers', { statuses: board.statuses }), {
-    kind: 'tiers', statusClass: (st) => st, titleOf: (c) => c.title, fan,
+  const plan = graphPlan(model, graphLayout(model, 'hierarchy', { statuses: board.statuses }), {
+    kind: 'hierarchy', statusClass: (st) => st, titleOf: (c) => c.title, fan,
   });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
   assert.strictEqual(out.nameEls.size, plan.nodes.length, 'a label and a leader for every card');

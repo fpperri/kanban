@@ -2,7 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphBuild, graphLayoutTiers, graphLayout, graphPlan, graphFit, graphVisibleIds, graphRadius,
+  graphBuild, graphLayoutHierarchy, graphLayout, graphPlan, graphFit, graphVisibleIds, graphRadius,
 } = require('../web/graph-model');
 const scenario = require('./browser/scenarios/tier-fan');
 const {
@@ -21,8 +21,8 @@ after(cleanUp);
 
 const planBoard = loadBoard('plan');
 const PLAN = scenario.CASES.plan;
-const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
-const layoutOf = (m) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
+const OPTS = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title };
+const layoutOf = (m) => graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'table' });
 const planOf = (m) => graphPlan(m, layoutOf(m), OPTS);
 const planModel = (opts) => drawnModel(planBoard, opts);
 const rim = (l) => (l.bands.length ? l.bands[l.bands.length - 1].r1 : 0);

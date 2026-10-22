@@ -39,12 +39,13 @@ const GRAPH_FLOW = (typeof module !== 'undefined' && module.exports)
   ? require('./graph-flow')
   : window;
 
-// The layouts of the Hierarchy graph; the Flow graph (graph-flow.js) is the layout 'flow' beside them.
-// Anything else a board kept, a layout this version no longer draws included, reads as tiers.
-const GRAPH_LAYOUTS = ['tiers'];
+// The graphs the Graph draws: the Hierarchy (the tier fan) and the Flow (graph-flow.js). Anything a
+// board kept that is not one of them, `tiers` (what the Hierarchy was once called) and a layout this
+// version no longer draws included, reads as the Hierarchy.
+const GRAPH_KINDS = ['hierarchy', 'flow'];
 
 function mergeGraphLayout(saved) {
-  return GRAPH_LAYOUTS.includes(saved) || saved === 'flow' ? saved : 'tiers';
+  return GRAPH_KINDS.includes(saved) ? saved : 'hierarchy';
 }
 
 // The tier fan's option row: each option and what it may be set to, the default
@@ -586,7 +587,7 @@ function graphFanLines(model, places, fan) {
   return lines;
 }
 
-// --- layout: tiers -------------------------------------------------------------
+// --- layout: hierarchy -------------------------------------------------------------
 // The tier fan. The apex is the origin and the fan goes all the way round it but for
 // a narrow seam straight up (the screen's y runs down, so up is -y), from
 // GRAPH_FAN_FROM, just left of the seam, turning counter-clockwise (its angle falling)
@@ -894,7 +895,7 @@ function graphFanRing(model, columns, inner, split, pos, polar) {
   };
 }
 
-function graphLayoutTiers(model, opts) {
+function graphLayoutHierarchy(model, opts) {
   const { nodes } = model;
   const fan = graphFanPlace(model, opts);
   const { places } = fan;
@@ -1040,7 +1041,7 @@ function graphLayoutFlow(model, opts) {
 // kind and the statuses list. Not blocked/review, which only change colour.
 
 // The tier fan places a card by its slice, which its type, the hierarchy and the
-// whole board's nesting decide, so the Tiers key holds each card's type (without
+// whole board's nesting decide, so the Hierarchy's key holds each card's type (without
 // regard to case, as a tier does), its slice and whether it is nested, and the
 // hierarchy's tiers. The Flow does not read them. The signature is also what the
 // view compares to re-fit an untouched view, so it holds what the cards and the hierarchy
@@ -1055,8 +1056,8 @@ function graphTypeKey(type) {
 }
 
 function graphSignature(model, kind, opts) {
-  const fan = kind === 'tiers';
-  const lanes = kind === 'flow' && GRAPH_FLOW.mergeGraphFlowLanes(opts && opts.lanes);
+  const fan = kind === 'hierarchy';
+  const lanes = kind === 'flow' && !!opts && opts.lanes === true;
   const nodes = model.nodes.map((n) => {
     const base = `${n.id}:${n.status}:${n.archived ? 1 : 0}`;
     return fan ? `${base}:${graphTypeKey(n.card.type)}:${n.sliceIndex}:${n.nested ? 1 : 0}` : lanes ? `${base}:${n.sliceIndex}` : base;
@@ -1064,7 +1065,7 @@ function graphSignature(model, kind, opts) {
   const links = model.links.map((l) => `${l.from}>${l.to}${l.kind === 'wait' ? 'w' : 'p'}`).join(',');
   const statuses = ((opts && opts.statuses) || []).join(',');
   const key = [kind, statuses, nodes, links];
-  if (kind === 'flow') key.push(GRAPH_FLOW.mergeGraphFlowDeps(opts && opts.deps), lanes ? 'lanes' : 'flat');
+  if (kind === 'flow') key.push(GRAPH_FLOW.graphFlowMergeDeps(opts && opts.deps), lanes ? 'lanes' : 'flat');
   if (fan || lanes) key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
   if (fan) key.push(mergeGraphFanOptions(opts).unnested);
   return key.join('|');
@@ -1072,7 +1073,7 @@ function graphSignature(model, kind, opts) {
 
 function graphLayoutKey(model, kind, opts) {
   const key = graphSignature(model, kind, opts);
-  return kind === 'tiers' ? `${key}|${mergeGraphFanOptions(opts).order}` : key;
+  return kind === 'hierarchy' ? `${key}|${mergeGraphFanOptions(opts).order}` : key;
 }
 
 function graphLayoutCacheClear() {
@@ -1083,7 +1084,7 @@ function graphLayout(model, kind, opts) {
   const which = mergeGraphLayout(kind);
   const key = graphLayoutKey(model, which, opts);
   if (graphCache.has(key)) return graphCache.get(key);
-  const layout = which === 'flow' ? graphLayoutFlow(model, opts) : graphLayoutTiers(model, opts);
+  const layout = which === 'flow' ? graphLayoutFlow(model, opts) : graphLayoutHierarchy(model, opts);
   graphCache.set(key, layout);
   if (graphCache.size > GRAPH_CACHE_MAX) graphCache.delete(graphCache.keys().next().value);
   return layout;
@@ -1105,7 +1106,7 @@ function graphFit(bounds, width, height, pad = 60, maxK = 2.5) {
 // --- visible ids + zoom --------------------------------------------------------
 // The status pills and the search compose by intersection, like every other
 // view. null means "draw everything". `leftOut` is a set of cards the layout does not
-// draw whatever they match (the Tiers layout's Unnested off, graphUnnestedIds): they
+// draw whatever they match (the Hierarchy's Unnested off, graphUnnestedIds): they
 // are taken out of what is left, so null becomes every other card.
 
 function graphVisibleIds(pool, searchIds, filter, statuses, leftOut) {
@@ -1137,12 +1138,12 @@ const graphRound = (v) => Math.round(v * 100) / 100;
 
 function graphKindOf(layout, kind) {
   if (kind) return kind;
-  return layout.flow ? 'flow' : 'tiers';
+  return layout.flow ? 'flow' : 'hierarchy';
 }
 
 // One path string per model.links entry, in order. Wait links stop at the
 // target's rim so the arrow head is not buried under the dot.
-function graphLinkPaths(model, layout, kind) {
+function graphLinkPaths(model, layout) {
   const curved = layout.rings.length > 0 || layout.spokes.length > 0;
   return model.links.map((l) => {
     const b = model.byId.get(l.to);
@@ -1304,15 +1305,17 @@ function graphFanTints(layout, types) {
   }));
 }
 
+// A dot's tip, and the tip of a Flow lane's header: `#id title (status)`, with `, archived` after it.
+function graphCardTip(n, titleOf) {
+  return `#${n.id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`;
+}
+
 // What the Flow's lane headers read from the model, for graphFlowMarks: the lane card's title and
 // tip, as its dot has them, and its type's mark in the type's colour (null for a round card).
 function graphFlowLook(model, titleOf, types) {
   return {
     titleOf: (id) => titleOf(model.byId.get(id).card),
-    tipOf: (id) => {
-      const n = model.byId.get(id);
-      return `#${id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`;
-    },
+    tipOf: (id) => graphCardTip(model.byId.get(id), titleOf),
     markOf: (id) => {
       const n = model.byId.get(id);
       if (!n.shape || n.shape === 'circle') return null;
@@ -1329,7 +1332,7 @@ function graphPlan(model, layout, opts) {
   const kind = graphKindOf(layout, o.kind);
   // The tier fan names cards by its Names option; with no option row (the Flow, a plan
   // given no options) no card is named and none carries a name.
-  const named = kind === 'tiers' && o.fan
+  const named = kind === 'hierarchy' && o.fan
     ? graphFanNames(model, o.fan.names, { selectedIds: selected, loneCardId: o.loneCardId })
     : null;
 
@@ -1361,15 +1364,15 @@ function graphPlan(model, layout, opts) {
       kidsRing: ring(3),
       flagRing: ring(n.kids > 0 ? 6 : 3),
       cls: cls.join(' '),
-      title: `#${n.id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`,
+      title: graphCardTip(n, titleOf),
       ...(named ? { name: graphFanNameText(titleOf(n.card), n.id) } : {}),
     };
   });
 
   // The tier fan draws its bands as guide arcs and captions, and draws the lines its options
   // ask for (graphFanLines); the Flow, and a fan given no options, draw each relation.
-  const fan = kind === 'tiers' && layout.bands ? layout : null;
-  const paths = graphLinkPaths(model, layout, kind);
+  const fan = kind === 'hierarchy' && layout.bands ? layout : null;
+  const paths = graphLinkPaths(model, layout);
   const drawn = fan && o.fan
     ? graphFanLines(model, fan.places, o.fan)
     : model.links.map((l, i) => ({ from: l.from, to: l.to, kind: l.kind, link: i })).filter((line) => kind !== 'flow' || line.kind === 'wait');
@@ -1405,17 +1408,17 @@ function graphPlan(model, layout, opts) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    GRAPH_LAYOUTS, mergeGraphLayout,
+    GRAPH_KINDS, mergeGraphLayout,
     GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions,
     GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
     graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphFanNames, graphFanNextNames, graphFanNameText,
-    graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutFlow, graphLinkPaths,
+    graphFanPlace, graphFanLines, graphLayoutHierarchy, graphLayoutFlow, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan, graphTipAt,
   };
 } else {
-  window.GRAPH_LAYOUTS = GRAPH_LAYOUTS;
+  window.GRAPH_KINDS = GRAPH_KINDS;
   window.mergeGraphLayout = mergeGraphLayout;
   window.GRAPH_FAN_OPTION_VALUES = GRAPH_FAN_OPTION_VALUES;
   window.GRAPH_FAN_OPTION_DEFAULTS = GRAPH_FAN_OPTION_DEFAULTS;
@@ -1433,7 +1436,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphFanNextNames = graphFanNextNames;
   window.graphFanPlace = graphFanPlace;
   window.graphFanLines = graphFanLines;
-  window.graphLayoutTiers = graphLayoutTiers;
+  window.graphLayoutHierarchy = graphLayoutHierarchy;
   window.graphLayoutFlow = graphLayoutFlow;
   window.graphLinkPaths = graphLinkPaths;
   window.graphLayout = graphLayout;

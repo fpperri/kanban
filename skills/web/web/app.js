@@ -2248,16 +2248,13 @@ function applyBoardData(data) {
 }
 
 // The card's element in the view that shows. The other views stay in the page, hidden, and the Board comes first,
-// so a lookup over the whole document would find a hidden copy. A Flow lane's header is a second element of its card in the
-// Graph: `from`, the element that had the focus, says which of the two to find again.
+// so a lookup over the whole document would find a hidden copy. `from` is the element that had the focus: the Graph
+// has a second element for some cards, and finds again the kind `from` was (graphCardEl).
 function cardElInShownView(id, from) {
-  const root = $(VIEW_CONTAINERS[loadViewMode()]);
+  const mode = loadViewMode();
+  const root = $(VIEW_CONTAINERS[mode]);
   if (!root) return null;
-  const isHead = (e) => !!(e && e.classList && e.classList.contains('graph-flow-lane-head'));
-  const sel = `.card-el[data-id="${id}"]`;
-  const first = root.querySelector(sel);
-  if (!first || isHead(first) === isHead(from)) return first;
-  return root.querySelector(`${sel}${isHead(from) ? '.graph-flow-lane-head' : ':not(.graph-flow-lane-head)'}`);
+  return mode === 'graph' ? graphCardEl(root, id, from) : root.querySelector(`.card-el[data-id="${id}"]`);
 }
 
 async function loadBoard() {
