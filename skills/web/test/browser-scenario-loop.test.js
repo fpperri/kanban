@@ -186,3 +186,27 @@ test('the summary names every scenario with its verdict, then the totals', async
   assert.ok(lines.some((l) => /^FAIL +boom\b.*nope/.test(l)), lines.join('\n'));
   assert.match(lines[lines.length - 1], /1 passed, 1 failed \(2 scenarios, 3 checks\)/);
 });
+
+test('the CPU throttle is 4 on a desk, off on CI, and KANBAN_BROWSER_CPU_THROTTLE overrides either', () => {
+  const { cpuThrottleRate } = require('./browser/harness');
+  assert.strictEqual(cpuThrottleRate({}), 4);
+  assert.strictEqual(cpuThrottleRate({ CI: 'true' }), 1);
+  assert.strictEqual(cpuThrottleRate({ KANBAN_BROWSER_CPU_THROTTLE: '1' }), 1);
+  assert.strictEqual(cpuThrottleRate({ KANBAN_BROWSER_CPU_THROTTLE: '6' }), 6);
+  assert.strictEqual(cpuThrottleRate({ CI: 'true', KANBAN_BROWSER_CPU_THROTTLE: '2' }), 2);
+  assert.strictEqual(cpuThrottleRate({ KANBAN_BROWSER_CPU_THROTTLE: '' }), 4);
+  assert.strictEqual(cpuThrottleRate({ KANBAN_BROWSER_CPU_THROTTLE: 'fast' }), 4);
+  assert.strictEqual(cpuThrottleRate({ CI: 'true', KANBAN_BROWSER_CPU_THROTTLE: '0' }), 1);
+});
+
+test('a scenario gets its timeout times the rate, and the summary names the rate the run used', async () => {
+  const slow = { name: 'slow', board: 'fixture', timeoutMs: 100, run: () => new Promise((r) => setTimeout(r, 250)) };
+  const [plain] = await runScenarios([slow], fakeEnv(), { log: () => {} });
+  assert.match(plain.error, /timed out after 0\.1s/);
+  const [slowed] = await runScenarios([slow], fakeEnv(), { log: () => {}, rate: 4 });
+  assert.strictEqual(slowed.status, 'PASS');
+  const last = (rate) => summaryLines([slowed], { rate }).pop();
+  assert.match(last(4), /CPU throttled 4x\)$/);
+  assert.match(last(1), /CPU not throttled\)$/);
+  assert.match(summaryLines([slowed]).pop(), /checks\)$/);
+});
