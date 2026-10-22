@@ -12,8 +12,8 @@ const { planCards, shownIds, webContext, withBoardPage } = require('./search-tab
 // typed by hand. Each test types into the page's box and reads the menu and the cards.
 
 // The plan board's slices, tiers first: goal, strategy, objective, epic, then the depths
-// 0 to 5, the deepest card with no tier (depth 3 holds no card, and is on the axis).
-const PLAN_SLICES = ['goal', 'strategy', 'objective', 'epic', '0', '1', '2', '3', '4', '5'];
+// 0 and 1, the deepest card with no tier (card 24 is one untiered parent below the epic 22).
+const PLAN_SLICES = ['goal', 'strategy', 'objective', 'epic', '0', '1'];
 
 const menu = (page) => page.byId('qmenu');
 const rows = (page) => byClass(menu(page), 'qitem');
@@ -108,9 +108,9 @@ describe('picking a suggestion completes the term', () => {
       assert.strictEqual(page.byId('q').value, 'slice:goal..objective');
       assert.deepStrictEqual(shownIds(page), [1, 2, 7, 25, 26]);
       typeAt(page, 'slice:');
-      pick(page, 'slice:4');
-      assert.strictEqual(page.byId('q').value, 'slice:4');
-      assert.deepStrictEqual(shownIds(page), [23]);
+      pick(page, 'slice:1');
+      assert.strictEqual(page.byId('q').value, 'slice:1');
+      assert.deepStrictEqual(shownIds(page), [24]);
     });
   });
 
@@ -153,7 +153,7 @@ describe('the menu is the box\'s own', () => {
       keyIn(box, 'ArrowUp');
       assert.deepStrictEqual(highlighted(page), ['slice:goal']);
       keyIn(box, 'ArrowUp');
-      assert.deepStrictEqual(highlighted(page), ['slice:5'], 'Up from the first row wraps to the last');
+      assert.deepStrictEqual(highlighted(page), ['slice:1'], 'Up from the first row wraps to the last');
       keyIn(box, 'ArrowDown');
       assert.ok(keyIn(box, 'Enter').prevented);
       assert.strictEqual(box.value, 'slice:goal');
@@ -186,7 +186,7 @@ describe('a board that declares no hierarchy, and a malformed one', () => {
     const spy = { log: () => {}, info: () => {}, debug: () => {}, warn: record('warn'), error: record('error') };
     withBoardPage('malformed', (page) => {
       typeAt(page, 'slice:');
-      assert.deepStrictEqual(labels(page), ['slice:Goal', 'slice:Epic', 'slice:0', 'slice:1', 'slice:2']);
+      assert.deepStrictEqual(labels(page), ['slice:Goal', 'slice:Epic', 'slice:0']);
       for (const text of ['slice:"', 'slice:..', 'slice:"Goal..', '(slice:', 'slice:|']) assert.doesNotThrow(() => typeAt(page, text), text);
     }, { console: spy });
     assert.deepStrictEqual(logged, []);

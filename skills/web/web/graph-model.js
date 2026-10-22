@@ -131,7 +131,7 @@ function graphBoardOf(cardList, opts) {
   const pool = new Map();
   for (const c of cards) if (!pool.has(c.id)) pool.set(c.id, c);
   const whole = [...pool.values()];
-  const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_NEST.depthMap(whole, ctx));
+  const slices = GRAPH_SLICES.sliceCards(whole, hierarchy, GRAPH_SLICES.sliceDepths(whole, hierarchy, ctx));
   return { ctx, pool, whole, slices, nesting: graphNesting(whole, pool, ctx) };
 }
 

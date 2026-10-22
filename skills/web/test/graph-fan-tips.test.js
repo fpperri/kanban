@@ -32,10 +32,8 @@ test('tips: a tier or depth caption carries the number of cards, the split by st
   assert.deepStrictEqual(t.strategy, { lines: ['2 cards', 'todo 1 · doing 1'], term: 'slice:strategy' });
   assert.deepStrictEqual(t.objective, { lines: ['1 card', 'todo 1'], term: 'slice:objective' });
   assert.deepStrictEqual(t.epic, { lines: ['1 card', 'doing 1'], term: 'slice:epic' });
-  assert.deepStrictEqual(t['depth 1'], { lines: ['4 cards', 'backlog 1 · todo 2 · done 1'], term: 'slice:1' });
-  assert.deepStrictEqual(t['depth 2'], { lines: ['1 card', 'backlog 1'], term: 'slice:2' });
-  assert.deepStrictEqual(t['depth 4'], { lines: ['1 card', 'doing 1'], term: 'slice:4' });
-  assert.deepStrictEqual(t['depth 5'], { lines: ['1 card', 'todo 1'], term: 'slice:5' });
+  assert.deepStrictEqual(t['depth 0'], { lines: ['6 cards', 'backlog 2 · todo 2 · doing 1 · done 1'], term: 'slice:0' });
+  assert.deepStrictEqual(t['depth 1'], { lines: ['1 card', 'todo 1'], term: 'slice:1' });
 });
 
 test('tips: the split follows the board\'s status order, not the order cards come in', () => {
@@ -109,7 +107,8 @@ test('tips: the term in a tip cuts to exactly the cards of its band', () => {
   const plan = planOf(m);
   for (const c of plan.captions) {
     const band = sorted(m.nodes.filter((n) => place.places.get(n.id).band === c.band && place.places.get(n.id).block === null).map((n) => n.id));
-    assert.deepStrictEqual(cut(c.tip.term), band, `${c.name}: ${c.tip.term}`);
+    const loose = c.name === 'depth 0' ? m.nodes.filter((n) => place.places.get(n.id).block !== null).map((n) => n.id) : [];
+    assert.deepStrictEqual(cut(c.tip.term), sorted(band.concat(loose)), `${c.name}: ${c.tip.term}`);
   }
   const fixture = loadBoard('fixture');
   const fm = drawnModel(fixture);

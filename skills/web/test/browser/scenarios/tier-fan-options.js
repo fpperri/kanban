@@ -29,8 +29,9 @@
 // 22, 23, 24 and 25). Folded draws the same seven: no parent has two such children on one
 // ring (card 25 is a goal, and sits in a band of its own). Six cards wait for a drawn card:
 // 4, 6 (three times), 8 and 27. Cards 30 and 31, added under card 7 through the board's
-// API, are two children alone on one ring (depth 3) beside the epic 22, so folded draws one
-// counted line for them and the seven others, and its label reads 2.
+// API, are two children alone on one ring (depth 0, as are the cards 3 to 6, 8 and 23) beside
+// the epic 22, so folded draws one counted line for them and the seven others, and its label
+// reads 2.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // graphCur, graphFanLines, graphLoadOptions, selectedIds, isDragging, boardControlFocused,

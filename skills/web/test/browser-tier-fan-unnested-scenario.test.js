@@ -76,7 +76,9 @@ test('the plan board\'s ring is seated by status as the scenario lists it, and i
   const ringKeys = CASE.plan.ring.map(String);
   const touching = model.links.filter((l) => ringKeys.includes(l.from) || ringKeys.includes(l.to));
   assert.deepStrictEqual(touching.map((l) => [l.from, l.to, l.kind]), [[String(CASE.plan.wait.from), String(CASE.plan.wait.to), 'wait']]);
-  assert.deepStrictEqual(CASE.plan.depthOne.map((id) => model.byId.get(String(id)).depth), [1, 1, 1, 1]);
+  const sliceDepthOf = (id) => model.axis[model.byId.get(String(id)).sliceIndex].depth;
+  assert.deepStrictEqual(CASE.plan.depthZero.map(sliceDepthOf), CASE.plan.depthZero.map(() => 0), 'the nested cards right under a tier card are depth 0, like the unnested ones');
+  assert.deepStrictEqual(CASE.plan.depthOne.map(sliceDepthOf), [1]);
   const withArchive = drawn('plan', 'outermost', true);
   const seats = CASE.plan.ring.concat(CASE.plan.archived);
   const turned = (id) => { const a = Math.atan2(withArchive.layout.pos.get(String(id)).y, withArchive.layout.pos.get(String(id)).x); return a < withArchive.layout.fan.to - 1e-9 ? a + 2 * Math.PI : a; };
@@ -296,7 +298,7 @@ test('each check listed here is in the scenario', async () => {
   has(/plan off: the unnested cards are not drawn/);
   has(/plan off: no relation to a card that is drawn is drawn/);
   has(/plan off: the view frames every dot, every caption and the Unnested block/);
-  has(/plan depth 0: the unnested cards sit on one ring, outside the tier bands and inside depth 1/);
+  has(/plan depth 0: the unnested cards sit on one ring with the nested cards of depth 0, outside the tier bands and inside depth 1/);
   has(/plan depth 0: they share a sector of their own/);
   has(/plan depth 0: the ring is the depth 0 band, its caption depth 0 counts them/);
   has(/plan depth 0: no two captions overlap/);
@@ -347,7 +349,7 @@ test('an off that leaves a relation to the cards, or a selection that keeps a ca
 test('a mode that is forgotten on reload, or that the page does not draw, fails', async () => {
   await failsWith({ forgets: true }, /plan: a reload keeps the mode: off is pressed/, 'the mode is lost');
   await failsWith({ ignoresMode: true }, /plan off: the unnested cards are not drawn/, 'the page draws the ring whatever is pressed');
-  await failsWith({ ignoresMode: true }, /plan depth 0: the unnested cards sit on one ring, outside the tier bands and inside depth 1/, 'and the depth 0 ring');
+  await failsWith({ ignoresMode: true }, /plan depth 0: the unnested cards sit on one ring with the nested cards of depth 0, outside the tier bands and inside depth 1/, 'and the depth 0 ring');
   await failsWith({ ignoresMode: true }, /plan table: the Unnested block is back/, 'and the block');
 });
 

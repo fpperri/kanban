@@ -80,7 +80,7 @@ test('every caption of the fan can be reached by keyboard and carries its tip: t
 test('a caption is its name alone: no count in the text, and no element made for one', () => {
   const v = stamp();
   const texts = v.all.filter((e) => /(^| )graph-(caption|block-title|block-caption)( |$)/.test(e.attrs.class || ''));
-  assert.ok(texts.length >= 14, 'the tier and depth captions, the loose caption, the title and the columns');
+  assert.ok(texts.length >= 12, 'the tier and depth captions, the loose caption, the title and the columns');
   for (const t of texts) {
     assert.strictEqual(t.children.length, 1, `${t.attrs.class}: one tspan, the name`);
     assert.strictEqual(t.children[0].attrs.class, 'graph-caption-name');
@@ -298,7 +298,7 @@ test('a focused caption shows it: its name in the accent on an accent-soft halo,
 test('every caption that can take focus carries a key of its own, which the poll finds it by', () => {
   const v = stamp();
   const keyed = v.all.filter((e) => e.attrs['data-tip'] !== undefined);
-  assert.ok(keyed.length >= 14, 'the bands, the loose caption, the title and the columns');
+  assert.ok(keyed.length >= 12, 'the bands, the loose caption, the title and the columns');
   const keys = keyed.map((e) => e.attrs['data-caption']);
   assert.ok(keys.every((k) => typeof k === 'string' && /^[a-z0-9-]+$/.test(k)), keys.join(' '));
   assert.strictEqual(new Set(keys).size, keys.length, 'no two captions share one');

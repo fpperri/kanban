@@ -156,7 +156,8 @@ per board, with **Tiers** first:
 - **Tiers** draws a fan all the way round the centre, but for a narrow seam at
   the top: a band for each tier of the board's
   `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
-  without a tier; each tree gets its own sector, loose cards with a tier share
+  without a tier, the first ring being the cards right under a tier card; each tree gets its
+  own sector, loose cards with a tier share
   one, and the other loose cards sit in an Unnested block outside the fan, a
   column for each status, when the Unnested option is table (by default they are on a ring
   outside the fan: see the option row below). Each band has a faint arc and a caption with its name
@@ -222,7 +223,7 @@ spaces AND together (`tags:ui status:doing`), and five forms go further, one exa
 - Round brackets group and can nest: `tags:ui (status:doing | status:todo)` is the ui cards in doing or todo.
 - Quotes match a whole value, ignoring case, or any one element of a list: `tags:"grill"` finds a card tagged grill and not one tagged grilling. Quoted text with no field is a phrase in a title, body or tag: `"two words"`.
 - `waiting:` finds the cards waiting for at least one card that is not done, as `blocked:` and `review:` find the stickers.
-- `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier: `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
+- `slice:` cuts every view to a run of slices, the board's tiers (the `hierarchy:` types, top first) and then the depths of the cards with no tier, counted from the nearest tier card above (a card right under an epic is depth 0, its child depth 1, and a root with no tier above it is 0): `slice:objective..2` runs from the objective tier down to depth 2, `slice:goal` is that one slice, and `slice:goal..` and `slice:..objective` leave an end open. A reversed pair is swapped, an end the board does not have is left open, and a board with no hierarchy cuts by depth. It combines like any term: `tags:ui (slice:goal | #12)`.
 
 The box suggests slices as you type: after `slice:` and after `..` a list under the box
 shows the board's slices, the tiers in hierarchy order and then the depth numbers from 0

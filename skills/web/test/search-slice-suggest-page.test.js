@@ -14,17 +14,17 @@ const card = (id, over = {}) => ({
   parent: null, rank: null, file: `/board/${id}.card.md`, archived: false, ...over,
 });
 
-// Goal 1, epic 2 under it, a story 3 under that (depth 2), and an archived card 4
-// under the story (depth 3, a depth only the archived card is at). The axis is goal,
-// epic, then depths 0 to 3.
+// Goal 1, epic 2 under it, a story 3 right under the epic (depth 0), a card 5 under it
+// (depth 1), a card 6 under that (depth 2), and an archived card 4 under 6 (depth 3, a depth
+// only the archived card is at). The axis is goal, epic, then depths 0 to 3.
 const BOARD = {
   projectName: 'kanban',
   statuses: ['backlog', 'todo', 'doing', 'done'],
   priorities: ['High', 'Normal', 'Low'],
   assignees: [], tags: [], types: [], notifications: [],
   hierarchy: ['goal', 'epic'],
-  active: [card(1, { type: 'goal' }), card(2, { type: 'epic', parent: 1 }), card(3, { type: 'story', parent: 2 })],
-  archived: [card(4, { parent: 3, archived: true, status: 'done' })],
+  active: [card(1, { type: 'goal' }), card(2, { type: 'epic', parent: 1 }), card(3, { type: 'story', parent: 2 }), card(5, { parent: 3 }), card(6, { parent: 5 })],
+  archived: [card(4, { parent: 6, archived: true, status: 'done' })],
 };
 
 async function pageWatchingSuggestions(board = BOARD) {
@@ -47,7 +47,7 @@ test('the box asks for the suggestions with the whole board and its hierarchy, s
   page.input.fire('focus');
   const { args, items } = asked.pop();
   assert.deepStrictEqual(args.slice(0, 2), ['slice:', 6]);
-  assert.deepStrictEqual(Array.from(args['2'], (c) => c.id).sort(), ['1', '2', '3', '4'], 'the live cards and the archived card');
+  assert.deepStrictEqual(Array.from(args['2'], (c) => c.id).sort(), ['1', '2', '3', '4', '5', '6'], 'the live cards and the archived card');
   assert.deepStrictEqual(Array.from(args[3].hierarchy), ['goal', 'epic']);
   assert.deepStrictEqual(Array.from(items, (i) => i.label), ['slice:goal', 'slice:epic', 'slice:0', 'slice:1', 'slice:2', 'slice:3']);
 });
@@ -66,5 +66,5 @@ test('a board answer with no hierarchy key, as an older server writes it, sugges
   const { page, asked } = await pageWatchingSuggestions(old);
   page.input.typed('slice:');
   page.input.fire('focus');
-  assert.deepStrictEqual(Array.from(asked.pop().items, (i) => i.label), ['slice:0', 'slice:1', 'slice:2', 'slice:3']);
+  assert.deepStrictEqual(Array.from(asked.pop().items, (i) => i.label), ['slice:0', 'slice:1', 'slice:2', 'slice:3', 'slice:4', 'slice:5']);
 });

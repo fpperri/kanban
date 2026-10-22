@@ -1,7 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { sliceCards } = require('../../web/web/slices');
-const { depthMap } = require('../../web/web/nesting');
+const { sliceCards, sliceDepths } = require('../../web/web/slices');
 const { readConfig } = require('../../web/scripts/config-store');
 const { listActive, listArchived, toJSON } = require('../../web/scripts/card-store');
 const { board: smallBoard } = require('./nesting-view');
@@ -19,18 +18,16 @@ const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from
 
 // The plan board's axis (goal, strategy, objective, epic, then depths) with the
 // cards of each slice, written out from the board's cards (not computed by either
-// side). Cards 19, 20 and 21 are archived; card 19 sits under strategy card 2.
+// side). Cards 19, 20 and 21 are archived; card 19 sits under strategy card 2. A depth counts
+// from the nearest tier card down, so card 23 (right under the epic 22) is depth 0 and its
+// child 24 is depth 1.
 const PLAN_AXIS = [
   { term: 'goal', ids: [1, 25] },
   { term: 'strategy', ids: [2, 26] },
   { term: 'objective', ids: [7] },
   { term: 'epic', ids: [22] },
-  { term: '0', ids: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 27, 28, 29] },
-  { term: '1', ids: [3, 4, 5, 6] },
-  { term: '2', ids: [8, 19] },
-  { term: '3', ids: [] },
-  { term: '4', ids: [23] },
-  { term: '5', ids: [24] },
+  { term: '0', ids: [3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 27, 28, 29] },
+  { term: '1', ids: [24] },
 ];
 
 describe('every card of the plan board is in the same slice on the page as in the web\'s slices module', () => {
@@ -38,7 +35,7 @@ describe('every card of the plan board is in the same slice on the page as in th
     withBoardPage('plan', (page, dir) => {
       const cards = planCards(dir);
       const ctx = webContext(dir);
-      const { axis, byId } = sliceCards(cards, ctx.hierarchy, depthMap(cards, ctx));
+      const { axis, byId } = sliceCards(cards, ctx.hierarchy, sliceDepths(cards, ctx.hierarchy, ctx));
       const named = (s) => (s.kind === 'tier' ? s.key : String(s.depth));
       assert.deepStrictEqual(axis.map(named), PLAN_AXIS.map((s) => s.term), 'the axis the web builds from the board');
       for (const s of axis) {
@@ -56,9 +53,9 @@ describe('every card of the plan board is in the same slice on the page as in th
     withBoardPage('plan', (page, dir) => {
       const cards = planCards(dir);
       const ctx = webContext(dir);
-      const { byId } = sliceCards(cards, ctx.hierarchy, depthMap(cards, ctx));
+      const { byId } = sliceCards(cards, ctx.hierarchy, sliceDepths(cards, ctx.hierarchy, ctx));
       assert.deepStrictEqual(page.plain(page.run('HIERARCHY')), ctx.hierarchy);
-      const onPage = page.plain(page.run('(() => { const cards = DATA.map(searchCard); const { byId } = sliceCards(cards, HIERARCHY, depthMap(cards, { board: BOARD })); return cards.map((c) => [String(c.id), byId.get(String(c.id)).index]); })()'));
+      const onPage = page.plain(page.run('(() => { const cards = DATA.map(searchCard); const { byId } = sliceCards(cards, HIERARCHY, sliceDepths(cards, HIERARCHY, { board: BOARD })); return cards.map((c) => [String(c.id), byId.get(String(c.id)).index]); })()'));
       assert.deepStrictEqual(onPage.sort((a, b) => a[0] - b[0]), cards.map((c) => [String(c.id), byId.get(String(c.id)).index]).sort((a, b) => a[0] - b[0]));
     });
   });
@@ -91,7 +88,7 @@ describe('a malformed board', () => {
       const cards = planCards(dir);
       const ctx = webContext(dir);
       assert.deepStrictEqual(page.plain(page.run('HIERARCHY')), ['Goal', 'goal', 'Epic', 'EPIC'], 'the blank entry is skipped, the rest kept as written');
-      for (const [q, ids] of [['slice:goal', [1]], ['slice:GOAL', [1]], ['slice:Goal', [1]], ['slice:EPIC', [2]], ['slice:epic', [2]], ['slice:goal..epic', [1, 2]], ['slice:epic..goal', [1, 2]], ['slice:2', [3]]]) {
+      for (const [q, ids] of [['slice:goal', [1]], ['slice:GOAL', [1]], ['slice:Goal', [1]], ['slice:EPIC', [2]], ['slice:epic', [2]], ['slice:goal..epic', [1, 2]], ['slice:epic..goal', [1, 2]], ['slice:0', [3, 4, 5]]]) {
         assert.deepStrictEqual(webIds(cards, q, ctx), ids, `the web, against the board: ${q}`);
         assert.deepStrictEqual(search(page, q), ids, q);
       }
@@ -101,8 +98,8 @@ describe('a malformed board', () => {
 });
 
 describe('the depths are built over archived cards too', () => {
-  // Card 1 is a goal, card 2 (archived, no type) sits under it, card 3 (live, no type)
-  // sits under the archived card 2. Without the archived card, card 3 would read as a root.
+  // Card 1 is a goal, card 2 (archived, no type) sits right under it (depth 0), card 3 (live, no
+  // type) sits under the archived card 2. Without the archived card, card 3 would read as a root.
   const board = smallBoard('hierarchy: [goal]\n', [[1, 'todo', 'Top', { type: 'goal' }], [3, 'todo', 'Under the archived card', { parent: 2 }]],
     [[2, 'done', 'Archived middle', { parent: 1 }]]);
 
@@ -112,11 +109,10 @@ describe('the depths are built over archived cards too', () => {
       showArchive(page);
       const cards = listActive(dir).concat(listArchived(dir)).map(toJSON);
       const ctx = { board: 'order', hierarchy: readConfig(dir).hierarchy };
-      assert.deepStrictEqual(webIds(cards, 'slice:2', ctx), [3], 'the web, against the board: card 3 is two parents down');
-      assert.deepStrictEqual(search(page, 'slice:2'), [3]);
-      assert.deepStrictEqual(search(page, 'slice:1'), [2]);
+      assert.deepStrictEqual(webIds(cards, 'slice:1', ctx), [3], 'the web, against the board: card 3 is one untiered parent below the goal');
+      assert.deepStrictEqual(search(page, 'slice:1'), [3]);
+      assert.deepStrictEqual(search(page, 'slice:0'), [2]);
       assert.deepStrictEqual(search(page, 'slice:goal'), [1]);
-      assert.deepStrictEqual(search(page, 'slice:0'), []);
     });
   });
 });
@@ -128,7 +124,7 @@ describe('a queued edit and a slice', () => {
       page.run("queue({ op: 'edit', id: 3, fm: { type: 'goal' } })");
       assert.ok(search(page, 'type:goal').includes(3), 'the queued type shows under type:');
       assert.deepStrictEqual(search(page, 'slice:goal'), [1, 25], 'but not under slice:goal');
-      assert.ok(search(page, 'slice:1').includes(3), 'card 3 is still a depth-1 card');
+      assert.ok(search(page, 'slice:0').includes(3), 'card 3 is still a depth-0 card');
     });
   });
 });

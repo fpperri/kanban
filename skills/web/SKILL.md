@@ -333,13 +333,14 @@ to `127.0.0.1` only.
   keeps the cards from the objective tier down to depth 2. A `|` and a
   bracket count only at a token's edge, so `a|b` and `fix(auth)` stay literal text, and so
   does `waiting:3`, while `blocked: |review:` means `blocked: | review:`. The slices are the board's tiers (the
-  `hierarchy:` types, top first), then the depths of the cards with no tier (parents
-  above, a root is 0), and an end is a tier name in any letter case or a depth number.
+  `hierarchy:` types, top first), then the depths of the cards with no tier (the
+  parents without a tier between a card and its nearest parent with one, or its root when
+  none has: a card right under an epic is 0, its child 1), and an end is a tier name in any letter case or a depth number.
   `slice:goal` is that one slice, `slice:goal..` and `slice:..objective` leave an end
   open, and a reversed pair is swapped (`slice:2..objective` is `slice:objective..2`).
   An end the board does not have is left open, and a single unknown name, `slice:..` and
   a bare `slice:` cut nothing, so half-typing a name never hides every card. A board
-  with no `hierarchy:` cuts by depth (`slice:1` is the depth-1 cards), and a card nested
+  with no `hierarchy:` cuts by depth, the parents above a card (`slice:1` is the depth-1 cards), and a card nested
   against the hierarchy, a goal under an objective, stays in its own tier with no
   warning. Depth is counted over the whole board, archived cards included, so a card is
   in the same slice whatever a view shows. The term combines like any other,
@@ -2143,8 +2144,9 @@ to `127.0.0.1` only.
   centre is the apex and the fan goes all the way round the centre but for a narrow **seam**
   straight up, a **band** for each tier of the
   board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
-  without a tier (a card whose type is not in the hierarchy, or that has none). A depth
-  with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
+  without a tier (a card whose type is not in the hierarchy, or that has none), counted
+  from the nearest tier card above, so the first ring is the cards right under a tier card.
+  A depth with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
   the band of its slice, worked out from the whole board, so a hidden or archived parent
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on

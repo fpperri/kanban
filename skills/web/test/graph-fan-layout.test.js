@@ -67,7 +67,7 @@ test('fan: a tier nobody is in keeps a thin band, and a ring is drawn through ev
   assert.deepStrictEqual(l.bands.map((b) => b.count), [0, 1, 1]);
   const [goal, epic] = l.bands;
   assert.ok(goal.r1 - goal.r0 > 0 && goal.r1 - goal.r0 < epic.r1 - epic.r0, 'the empty band is thinner than one with a card in it');
-  assert.deepStrictEqual(l.rings.map((r) => r.label), ['goal', 'epic', 'depth 1']);
+  assert.deepStrictEqual(l.rings.map((r) => r.label), ['goal', 'epic', 'depth 0']);
   assert.deepStrictEqual(l.rings.map((r) => r.r), l.bands.flatMap((b) => b.rings));
 });
 

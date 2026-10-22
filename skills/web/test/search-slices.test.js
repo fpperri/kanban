@@ -18,8 +18,8 @@ const card = (id, over = {}) => ({
 });
 
 // Hierarchy goal, strategy, epic: no card is a strategy, so the section does not list it.
-// 1 and 2 are goals, 3 an epic under 1, 4 a story under the epic (depth 2), 5 a story with
-// no parent (depth 0, blocked), 6 a task under 5 (depth 1, awaiting review).
+// 1 and 2 are goals, 3 an epic under 1, 5 a story with no parent (depth 0, blocked), 6 a task
+// under 5 (depth 1, awaiting review), 4 a story under 6 (depth 2).
 const makeBoard = (over = {}) => ({
   projectName: 'kanban',
   statuses: ['backlog', 'todo', 'doing', 'done'],
@@ -31,7 +31,7 @@ const makeBoard = (over = {}) => ({
     card(1, { type: 'goal', tags: ['ui'] }),
     card(2, { type: 'goal', status: 'doing' }),
     card(3, { type: 'epic', parent: 1, tags: ['ui'] }),
-    card(4, { type: 'story', parent: 3 }),
+    card(4, { type: 'story', parent: 6 }),
     card(5, { type: 'story', blocked: 'vendor' }),
     card(6, { type: 'task', parent: 5, status: 'doing', review: 'look' }),
   ],

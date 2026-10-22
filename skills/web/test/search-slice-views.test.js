@@ -18,8 +18,8 @@ const card = (id, over = {}) => ({
 });
 
 // The slices, top first: goal 1, strategy 2, objective 3, epic 4, then the depths
-// of the cards with no tier: depth 0 holds 6, depth 1 holds the archived 7,
-// depth 2 holds 8 (under the archived 7), depth 4 holds 5 (under epic 4).
+// of the cards with no tier: depth 0 holds 5 (right under epic 4) and 6, depth 1 holds
+// the archived 7 (under 6), depth 2 holds 8 (under the archived 7).
 const BOARD = {
   projectName: 'kanban',
   statuses: ['backlog', 'todo', 'doing', 'done'],
@@ -36,7 +36,7 @@ const BOARD = {
     card(6, { type: 'task' }),
     card(8, { parent: 7 }),
   ],
-  archived: [card(7, { parent: 1, archived: true, status: 'done' })],
+  archived: [card(7, { parent: 6, archived: true, status: 'done' })],
 };
 const ACTIVE = BOARD.active.map((c) => c.id);
 const ARCHIVED = BOARD.archived.map((c) => c.id);
@@ -48,10 +48,10 @@ const MATCHES = [
   ['slice:goal..objective', [1, 2, 3]],
   ['slice:..strategy', [1, 2]],
   ['slice:Epic', [4]],
-  ['slice:epic..0', [4, 6]],
+  ['slice:epic..0', [4, 5, 6]],
   ['slice:2', [8]],
   ['slice:1', [7]],
-  ['slice:4..', [5]],
+  ['slice:0..', [5, 6, 7, 8]],
   ['slice:nowhere', [1, 2, 3, 4, 5, 6, 7, 8]],
   ['slice:goal..objective | #6', [1, 2, 3, 6], false],
 ];

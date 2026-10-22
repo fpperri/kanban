@@ -35,7 +35,7 @@ test('drawing: the plan board has a caption for each tier band and each depth ri
   const plan = planOf(planModel());
   assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.count]), [
     ['goal', PLAN.tiers[0].length], ['strategy', PLAN.tiers[1].length], ['objective', PLAN.tiers[2].length], ['epic', PLAN.tiers[3].length],
-    ['depth 1', PLAN.depths[0].length], ['depth 2', PLAN.depths[1].length], ['depth 4', PLAN.depths[2].length], ['depth 5', PLAN.depths[3].length],
+    ['depth 0', PLAN.depths[0].length], ['depth 1', PLAN.depths[1].length],
   ]);
 });
 
@@ -44,10 +44,11 @@ test('drawing: a depth ring nobody is on draws no guide arc and no caption', () 
   const l = layoutOf(m);
   const plan = graphPlan(m, l, OPTS);
   const names = plan.captions.map((c) => c.name);
-  assert.ok(!names.includes('depth 0'), 'depth 0 holds only cards in tiers or the Unnested block');
-  assert.ok(!names.includes('depth 3'), 'depth 3 holds only the epic, which is in its tier');
+  assert.ok(!names.includes('depth 2'), 'no card without a tier is two parents below a tier card');
+  const loose = planOf(buildOf([card(1, { type: 'epic' }), card(2), card(3)], ['goal', 'epic']));
+  assert.ok(!loose.captions.some((c) => c.kind === 'depth'), 'depth 0 holds only cards in the Unnested block, which have no ring');
   const bandArcs = plan.guides.filter((g) => !g.sub);
-  assert.strictEqual(bandArcs.length, 8, 'one arc for each of the eight bands');
+  assert.strictEqual(bandArcs.length, 6, 'one arc for each of the six bands');
   assert.deepStrictEqual(bandArcs.map((g) => g.band), l.bands.map((b) => b.index), 'in axis order');
   assert.ok(l.bands[0].rings.length === 2, 'the goal band has two rows: card 25 is a goal nested in the goal 1');
   assert.strictEqual(plan.guides.length, ringsOf(l), 'and a lighter arc through each further row of a band');
@@ -90,7 +91,7 @@ test('drawing: a caption stands on the seam level with its band\'s first ring, a
 test('drawing: a tier nobody is in keeps a faint guide arc and a muted caption with the count 0', () => {
   const m = buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']);
   const plan = planOf(m);
-  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.count, c.muted]), [['goal', 0, true], ['epic', 1, false], ['depth 1', 1, false]]);
+  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.count, c.muted]), [['goal', 0, true], ['epic', 1, false], ['depth 0', 1, false]]);
   assert.deepStrictEqual(plan.guides.map((g) => g.cls.includes('graph-guide-empty')), [true, false, false]);
 });
 
@@ -111,7 +112,7 @@ test('drawing: a muted caption that would run into a caption on its side of the 
     for (let i = 0; i + 1 < column.length; i++) assert.ok(column[i + 1].y - column[i].y >= 14 / l.textScale - 1e-9, 'two captions on a side are a line apart');
   }
   const small = planOf(buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'strategy', 'objective', 'epic']));
-  assert.deepStrictEqual(small.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 1'], 'a small fan has room for them all');
+  assert.deepStrictEqual(small.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0'], 'a small fan has room for them all');
 });
 
 test('drawing: a board without a hierarchy captions the depth rings by depth, and no tier', () => {

@@ -8,8 +8,7 @@ const vm = require('node:vm');
 const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
 const { parseSearchQuery, filterCards, searchSetSlice } = require('../web/search');
-const { sliceCards } = require('../web/slices');
-const { depthMap } = require('../web/nesting');
+const { sliceCards, sliceDepths } = require('../web/slices');
 const { typeIconGlyph, typeIconOf } = require('../web/type-icons');
 const { panelChip } = require('../web/pills');
 const { sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceEntryKey, sliceEntryName } = require('../web/slice-run');
@@ -33,7 +32,7 @@ const load = (key) => {
   const config = readConfig(dir);
   const all = live.concat(listArchived(dir).map(toJSON));
   const ctx = { board: config.name || key, hierarchy: config.hierarchy, priorities: config.priorities };
-  const sliced = sliceCards(all, config.hierarchy, depthMap(all, ctx));
+  const sliced = sliceCards(all, config.hierarchy, sliceDepths(all, config.hierarchy, ctx));
   return { live, all, config, ctx, sliced, list: sliceListOf(sliced, live.map((c) => c.id)) };
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });

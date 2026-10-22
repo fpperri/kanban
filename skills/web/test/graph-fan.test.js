@@ -2,8 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const { graphBuild, graphFanPlace } = require('../web/graph-model');
-const { depthMap } = require('../web/nesting');
-const { sliceCards } = require('../web/slices');
+const { sliceCards, sliceDepths } = require('../web/slices');
 const {
   STATUSES, HIERARCHY, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');
@@ -24,7 +23,7 @@ const planModel = (opts) => drawnModel(load('plan'), opts);
 test('place: each card sits in the band of its slice, the slice function of the whole board', () => {
   const board = load('plan');
   const m = drawnModel(board);
-  const slices = sliceCards(board.all, board.config.hierarchy, depthMap(board.all, board.ctx));
+  const slices = sliceCards(board.all, board.config.hierarchy, sliceDepths(board.all, board.config.hierarchy, board.ctx));
   const { places } = graphFanPlace(m, { statuses: STATUSES });
   assert.ok(m.nodes.length > 20);
   for (const n of m.nodes) assert.strictEqual(places.get(n.id).band, slices.byId.get(n.id).index, `card ${n.id}`);
@@ -33,17 +32,17 @@ test('place: each card sits in the band of its slice, the slice function of the 
 
 test('place: a hidden or an archived parent never moves a card to another band', () => {
   const board = load('plan');
-  const slices = sliceCards(board.all, board.config.hierarchy, depthMap(board.all, board.ctx));
+  const slices = sliceCards(board.all, board.config.hierarchy, sliceDepths(board.all, board.config.hierarchy, board.ctx));
   const live = board.live.map((c) => c.id);
   const bands = (m) => new Map(m.nodes.map((n) => [n.id, graphFanPlace(m, { statuses: STATUSES }).places.get(n.id).band]));
   const hidden = bands(drawnModel(board, { visible: live.filter((id) => id !== 2 && id !== 22) }));
   for (const [id, band] of hidden) assert.strictEqual(band, slices.byId.get(id).index, `card ${id}, parents 2 and 22 hidden`);
-  assert.strictEqual(hidden.get('8'), slices.byId.get('8').index, 'card 8 is at depth 2 although its parent is not drawn');
+  assert.strictEqual(hidden.get('8'), slices.byId.get('8').index, 'card 8 is at depth 0 although its parent is not drawn');
   assert.strictEqual(slices.byId.get('8').kind, 'depth');
-  assert.strictEqual(slices.byId.get('8').depth, 2);
+  assert.strictEqual(slices.byId.get('8').depth, 0);
   const archived = board.all.map((c) => (c.id === '2' || c.id === '22' ? { ...c, archived: true } : c));
   const asArchived = graphBuild(archived, { ctx: board.ctx, hierarchy: board.config.hierarchy, visibleIds: new Set(live.filter((id) => id !== 2 && id !== 22)) });
-  const sliced = sliceCards(archived, board.config.hierarchy, depthMap(archived, board.ctx));
+  const sliced = sliceCards(archived, board.config.hierarchy, sliceDepths(archived, board.config.hierarchy, board.ctx));
   for (const [id, band] of bands(asArchived)) assert.strictEqual(band, sliced.byId.get(id).index, `card ${id}, parents 2 and 22 archived`);
 });
 
@@ -53,17 +52,18 @@ const bandNames = (place) => place.bands.map((b) => (b.slice.kind === 'tier' ? b
 
 test('place: the bands run from tier 1 innermost to the last tier, then the depth rings in depth order', () => {
   const place = graphFanPlace(planModel(), { statuses: STATUSES });
-  assert.deepStrictEqual(bandNames(place), ['goal', 'strategy', 'objective', 'epic', 'depth 1', 'depth 2', 'depth 4', 'depth 5']);
-  assert.deepStrictEqual(place.bands.map((b) => b.count), [2, 2, 1, 1, 4, 1, 1, 1]);
+  assert.deepStrictEqual(bandNames(place), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(place.bands.map((b) => b.count), [2, 2, 1, 1, 6, 1]);
 });
 
 test('place: a depth with no card without a tier gets no ring, and a tier nobody is in keeps a thin band', () => {
   const place = graphFanPlace(planModel(), { statuses: STATUSES });
   const names = bandNames(place);
-  assert.ok(!names.includes('depth 0'), 'depth 0 holds only loose cards, which are in the Unnested block');
-  assert.ok(!names.includes('depth 3'), 'depth 3 holds only the epic, which is in its tier');
+  assert.ok(!names.includes('depth 2'), 'no card without a tier is two parents below a tier card');
+  const loose = graphFanPlace(buildOf([card(1, { type: 'epic' }), card(2), card(3)], ['goal', 'epic']), { statuses: STATUSES });
+  assert.deepStrictEqual(bandNames(loose), ['goal', 'epic'], 'depth 0 holds only loose cards, which are in the Unnested block');
   const sparse = graphFanPlace(buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']), { statuses: STATUSES });
-  assert.deepStrictEqual(bandNames(sparse), ['goal', 'epic', 'depth 1']);
+  assert.deepStrictEqual(bandNames(sparse), ['goal', 'epic', 'depth 0']);
   assert.deepStrictEqual(sparse.bands.map((b) => [b.count, b.subs]), [[0, 0], [1, 1], [1, 1]]);
 });
 
@@ -78,7 +78,7 @@ test('place: a card whose type is outside the hierarchy sits in the ring of its 
   const m = planModel();
   const { places } = graphFanPlace(m, { statuses: STATUSES });
   const axis = m.axis;
-  assert.deepStrictEqual(['23', '24'].map((id) => axis[places.get(id).band].depth), [4, 5], 'a story and a task, by depth');
+  assert.deepStrictEqual(['23', '24'].map((id) => axis[places.get(id).band].depth), [0, 1], 'a story and a task, by depth below the epic');
   assert.strictEqual(axis[places.get('23').band].kind, 'depth');
   assert.strictEqual(places.get('23').block, null, 'a nested card is never in the Unnested block');
 });

@@ -2,8 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { parseConfig } = require('../../web/scripts/config-store');
 const { boardTypeView } = require('../../web/web/type-badge');
-const { sliceCards } = require('../../web/web/slices');
-const { depthMap } = require('../../web/web/nesting');
+const { sliceCards, sliceDepths } = require('../../web/web/slices');
 const { BOARD, withSnapshot } = require('./nesting-fixture');
 const { byClass } = require('./page-harness');
 const { open, sheet, tile, tiles } = require('./nesting-view');
@@ -110,11 +109,11 @@ test('with types off the Map\'s rich row reserves no type line and draws no chip
 
 test('with types off the page\'s slices are the depths, as on the web and as on a board with no hierarchy', () => {
   open(OFF, (page) => {
-    const onPage = page.plain(page.run('(() => { const cards = DATA.map(searchCard); const { axis } = sliceCards(cards, HIERARCHY, depthMap(cards, { board: BOARD })); return axis.map((s) => s.kind); })()'));
+    const onPage = page.plain(page.run('(() => { const cards = DATA.map(searchCard); const { axis } = sliceCards(cards, HIERARCHY, sliceDepths(cards, HIERARCHY, { board: BOARD })); return axis.map((s) => s.kind); })()'));
     assert.ok(onPage.length > 0);
     assert.ok(onPage.every((k) => k === 'depth'));
     const cards = [{ id: '1', type: 'objective' }, { id: '2', type: 'epic', parent: '1' }];
     const web = boardTypeView({ typesOn: false, hierarchy: ['objective', 'epic'] });
-    assert.deepStrictEqual(sliceCards(cards, web.hierarchy, depthMap(cards, { board: 'b' })).axis.map((s) => s.kind), onPage.slice(0, 2));
+    assert.deepStrictEqual(sliceCards(cards, web.hierarchy, sliceDepths(cards, web.hierarchy, { board: 'b' })).axis.map((s) => s.kind), onPage.slice(0, 2));
   });
 });

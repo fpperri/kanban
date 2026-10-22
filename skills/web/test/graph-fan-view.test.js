@@ -62,7 +62,7 @@ test('the fan is stamped from the plan: an arc for each guide, a line for each d
   const v = fanOf('tiers');
   const guides = v.by('graph-guide');
   assert.strictEqual(guides.length, v.plan.guides.length);
-  assert.ok(guides.length >= 8);
+  assert.ok(guides.length >= 7);
   guides.forEach((g, i) => {
     assert.strictEqual(g.tag, 'path');
     assert.strictEqual(g.attrs.d, v.plan.guides[i].d);

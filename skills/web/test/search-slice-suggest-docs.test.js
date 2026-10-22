@@ -42,14 +42,14 @@ test('the skill still says nothing is offered once a token carries a colon, apar
 });
 
 test('the documented suggestions are what the search module offers', () => {
-  const plain = [card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { type: 'objective', parent: 2 }), card(4, { parent: 3 })];
+  const plain = [card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { type: 'objective', parent: 2 }), card(4, { parent: 3 }), card(5, { parent: 4 }), card(6, { parent: 5 }), card(7, { parent: 6 })];
   const ctx = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
   const values = (text) => searchSuggestionItems(text, text.length, plain, ctx).map((i) => i.value);
   assert.ok(values('slice:goal..').includes('slice:goal..objective'), 'the whole cut the skill and the docs write');
-  assert.deepStrictEqual(values('slice:').filter((v) => /^slice:\d/.test(v)), ['slice:0', 'slice:1', 'slice:2', 'slice:3'], 'the depths run from 0 to the deepest card with no tier, which is at depth 3');
+  assert.deepStrictEqual(values('slice:').filter((v) => /^slice:\d/.test(v)), ['slice:0', 'slice:1', 'slice:2', 'slice:3'], 'the depths run from 0 to the deepest card with no tier, which is at depth 3, counted from the objective');
   assert.strictEqual(values('slice:').indexOf('slice:goal'), 0, 'the tiers come first');
 
-  const spaced = [card(1, { type: 'big goal' }), card(2, { parent: 1 }), card(3, { parent: 2 })];
+  const spaced = [card(1, { type: 'big goal' }), card(2, { parent: 1 }), card(3, { parent: 2 }), card(4, { parent: 3 })];
   const quoted = searchSuggestionItems('slice:"big goal..', undefined, spaced, { board: 'kanban', hierarchy: ['big goal'] }).map((i) => i.value);
   assert.ok(quoted.includes('slice:"big goal..2"'), 'the quoted example the skill and the docs write');
 });

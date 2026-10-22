@@ -1,17 +1,18 @@
 'use strict';
 // Pure slicing: which slice each card is in, on one top-to-bottom axis. A slice
 // is a tier of the board's hierarchy, or, for a card whose type is not in it, a
-// depth. No DOM, no storage, and one other module, the id module: the snapshot
-// embeds this file's source verbatim, ids.js ahead of it. Same
-// dual-environment pattern as nesting.js.
+// depth. No DOM, no storage, and two other modules, the id and nesting modules:
+// the snapshot embeds this file's source verbatim, ids.js and nesting.js ahead of
+// it. Same dual-environment pattern as nesting.js.
 //
 // A card here is { id, type }. `hierarchy` is the names as the board wrote them,
 // top first: compared without regard to case, the first of two duplicates wins,
-// blank and non-text entries are skipped. `depths` is the board's depth map
-// (depthMap in nesting.js), built once from every card of the board, so a view
-// that shows only some cards never moves one to another slice.
+// blank and non-text entries are skipped. `depths` is the board's depths below the
+// nearest tier card (sliceDepths below), built once from every card of the board, so a view that
+// shows only some cards never moves one to another slice.
 
 const SLICES_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
+const SLICES_NEST = (typeof module !== 'undefined' && module.exports) ? require('./nesting') : window;
 
 // A card's key in the depth map and in byId: its whole-id string. A value that is no id
 // (the snapshot's queued cards are `n1`, `n2`) keys as its own text.
@@ -36,6 +37,23 @@ function sliceTiers(hierarchy) {
   return tiers;
 }
 
+// A card's type folded to the key a tier is compared by: lower case, trimmed, '' for no type.
+function sliceTypeKey(c) {
+  return typeof c.type === 'string' ? c.type.trim().toLowerCase() : '';
+}
+
+// Every card's depth below the nearest tier card, for the whole board at once: Map id -> the
+// number of parents without a tier between the card and its nearest parent with one, or its
+// root when none has (see Slice in the glossary). A card right under a tier card is 0. Parents
+// above a tier card do not count; a board with no hierarchy reads each card's plain depth
+// (depthMap in nesting.js, whose rules for a missing parent, another board's parent and a
+// loop hold). Built from every card of the board, live and archived, as depthMap is.
+function sliceDepths(cards, hierarchy, ctx) {
+  const tierKeys = new Set(sliceTiers(hierarchy).map((t) => t.key));
+  const isTier = (c) => tierKeys.has(sliceTypeKey(c));
+  return SLICES_NEST.depthMap(cards, ctx, tierKeys.size ? isTier : undefined);
+}
+
 // { axis, byId } over the cards given.
 //   axis: the slices in order, each { index, kind, count } with `name` and `key`
 //     for a tier and `depth` for a depth: every tier of the hierarchy, used or
@@ -54,7 +72,7 @@ function sliceCards(cards, hierarchy, depths) {
   const placed = [];
   let deepest = -1;
   for (const c of cards) {
-    const tier = tierAt.get(typeof c.type === 'string' ? c.type.trim().toLowerCase() : '');
+    const tier = tierAt.get(sliceTypeKey(c));
     if (tier) {
       placed.push([c, tier]);
       continue;
@@ -75,7 +93,8 @@ function sliceCards(cards, hierarchy, depths) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { sliceCards };
+  module.exports = { sliceCards, sliceDepths };
 } else {
   window.sliceCards = sliceCards;
+  window.sliceDepths = sliceDepths;
 }

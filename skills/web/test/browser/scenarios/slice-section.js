@@ -27,35 +27,37 @@
 // strategies 2 and 26, its objective 7 and its epic 22. The card dated in 2031 (28) and the one
 // dated in 2020 (29) both sit at depth 0, so the Calendar draws one of them once the run
 // takes depth 0 in, and none before. Cards 11 and 17 carry the ui tag, and card 12 is at
-// depth 0 too. Each step waits on the page, never on a fixed sleep; a "nothing happened" check
+// depth 0 too. A depth counts from the nearest tier card down: cards 3 to 6, 8 and 23 sit right
+// under a goal, a strategy or the epic, so they are depth 0 as well, and the one card under
+// them, 24, is depth 1. Each step waits on the page, never on a fixed sleep; a "nothing happened" check
 // waits two animation frames. Keys go through the runner's key helper, a real key press.
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 const without = (list, drop) => list.filter((id) => !drop.includes(id));
 
 const LIVE = [...range(1, 18), ...range(22, 29)];
-const DEPTH_ZERO = [...range(9, 18), 27, 28, 29];
+const DEPTH_ZERO = [...range(9, 18), 27, 28, 29, 3, 4, 5, 6, 8, 23].sort((a, b) => a - b);
 
 const CASES = {
   plan: {
     live: LIVE,
-    keys: ['t:goal', 't:strategy', 't:objective', 't:epic', 'd:0', 'd:1', 'd:2', 'd:3', 'd:4', 'd:5'],
-    labels: ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1', 'depth 2', 'depth 3', 'depth 4', 'depth 5'],
-    counts: [2, 2, 1, 1, 13, 4, 1, 0, 1, 1],
-    icons: ['★', '⬢', '◆', '■', '', '', '', '', '', ''],
-    cards: { goal: [1, 25], strategy: [2, 26], objective: [7], epic: [22], 'depth 0': DEPTH_ZERO, 'depth 1': [3, 4, 5, 6], 'depth 2': [8], 'depth 3': [], 'depth 4': [23], 'depth 5': [24] },
+    keys: ['t:goal', 't:strategy', 't:objective', 't:epic', 'd:0', 'd:1'],
+    labels: ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1'],
+    counts: [2, 2, 1, 1, 19, 1],
+    icons: ['★', '⬢', '◆', '■', '', ''],
+    cards: { goal: [1, 25], strategy: [2, 26], objective: [7], epic: [22], 'depth 0': DEPTH_ZERO, 'depth 1': [24] },
     steps: [
-      { name: 'a click on goal, which is in the run as the top end, drops it', gesture: 'click', key: 't:goal', term: 'slice:strategy..', shows: without(LIVE, [1, 25]), pressed: 9 },
-      { name: 'a click on depth 5, now the bottom end, drops it and writes both ends', gesture: 'click', key: 'd:5', term: 'slice:strategy..4', shows: without(LIVE, [1, 25, 24]), pressed: 8 },
-      { name: 'a click on goal, outside the run, grows the run to it and leaves the open top end', gesture: 'click', key: 't:goal', term: 'slice:..4', shows: without(LIVE, [24]), pressed: 9 },
-      { name: 'a click on objective, inside the run and not an end, changes nothing', gesture: 'click', key: 't:objective', term: 'slice:..4', shows: without(LIVE, [24]), pressed: 9 },
+      { name: 'a click on goal, which is in the run as the top end, drops it', gesture: 'click', key: 't:goal', term: 'slice:strategy..', shows: without(LIVE, [1, 25]), pressed: 5 },
+      { name: 'a click on depth 1, now the bottom end, drops it and writes both ends', gesture: 'click', key: 'd:1', term: 'slice:strategy..0', shows: without(LIVE, [1, 25, 24]), pressed: 4 },
+      { name: 'a click on goal, outside the run, grows the run to it and leaves the open top end', gesture: 'click', key: 't:goal', term: 'slice:..0', shows: without(LIVE, [24]), pressed: 5 },
+      { name: 'a click on objective, inside the run and not an end, changes nothing', gesture: 'click', key: 't:objective', term: 'slice:..0', shows: without(LIVE, [24]), pressed: 5 },
       { name: 'a right-click on epic keeps only that slice', gesture: 'right-click', key: 't:epic', term: 'slice:epic', shows: [22], pressed: 1 },
-      { name: 'a click on epic, a run of one, brings every slice back and writes no term', gesture: 'click', key: 't:epic', term: '', shows: LIVE, pressed: 10 },
-      { name: 'a right-click on depth 1 keeps only that depth', gesture: 'right-click', key: 'd:1', term: 'slice:1', shows: [3, 4, 5, 6], pressed: 1 },
+      { name: 'a click on epic, a run of one, brings every slice back and writes no term', gesture: 'click', key: 't:epic', term: '', shows: LIVE, pressed: 6 },
+      { name: 'a right-click on depth 1 keeps only that depth', gesture: 'right-click', key: 'd:1', term: 'slice:1', shows: [24], pressed: 1 },
     ],
     typed: { query: 'slice:objective..epic', pressed: ['objective', 'epic'], inName: 'objective, 1 card, in the run', outName: 'goal, 2 cards, not in the run', unknown: 'slice:nosuch' },
     menuKey: { key: 't:strategy', term: 'slice:strategy', shows: [2, 26] },
-    shiftF10: { key: 'd:2', term: 'slice:2', shows: [8] },
+    shiftF10: { key: 'd:1', term: 'slice:1', shows: [24] },
     keyboard: { enterKey: 't:goal', afterEnter: 'slice:strategy..', afterSpace: '' },
     sweep: {
       start: 'slice:objective..epic',
@@ -72,9 +74,9 @@ const CASES = {
     counts: [11, 5, 2],
   },
   malformed: {
-    labels: ['Goal', 'Epic', 'depth 0', 'depth 1', 'depth 2'],
-    counts: [1, 1, 1, 0, 1],
-    icons: ['', '★', '', '', ''],
+    labels: ['Goal', 'Epic', 'depth 0'],
+    counts: [1, 1, 2],
+    icons: ['', '★', ''],
   },
 };
 
