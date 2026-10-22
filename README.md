@@ -224,17 +224,18 @@ comments say what each line is, and every line can be changed or deleted.
   Prefixes page edits the prefixes. Each change saves at once and rewrites only
   its own list; what else still names a renamed or removed type shows as a
   warning. The Types switch turns the display of types off (display only).
-- **Off until you switch them on:** the logbook (`logbook: logbook`), the
-  scratchpad (`scratchpad: .scratchpad`), todo lists (`todos: .todos`, one
-  Markdown task list per card or group, which may share the scratchpad's
-  folder), groups (`groups: .groups`) and
-  iterations (`iterations: true`) are not in the config. Add a line, or switch
-  them on from the web's gear sheet (This board), and they exist. The logbook,
-  scratchpad and todos paths may hold `<iteration>` (`logbook: sprints/<iteration>/.logbook`),
-  which gives each iteration its own folder, such as `0005.sprint-496`.
+- **The kit:** the logbook (`logbook: .logbook`), the scratchpad
+  (`scratchpad: .scratchpad`), todo lists (`todos: .todos`, one Markdown task
+  list per card or group, which may share the scratchpad's folder), groups
+  (`groups: .groups`) and iterations (`iterations: true`) are on in the starter,
+  so every new board has them from its first card. Delete a line, or switch the feature
+  off from the web's gear sheet (This board), and it is off; a board with none
+  of the lines works as before (ADR 0022). The logbook, scratchpad and todos
+  paths may hold `<iteration>` (`logbook: sprints/<iteration>/.logbook`), which
+  gives each iteration its own folder, such as `0005.sprint-496`.
 
 An existing board gets the same with a script that adds only what the board
-lacks, gives a type the board already has the starter's colour or icon only
+lacks (the five kit lines included, never changing one it has), gives a type the board already has the starter's colour or icon only
 where that entry has none (it never changes a value it has), reports a
 hierarchy that differs and changes no other byte. Run it dry first:
 
@@ -245,7 +246,7 @@ node skills/kanban/scripts/apply-starter.js .kanban
 
 ## More docs
 
-- [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0013, and ADR 0020 on the vendored browser libraries),
+- [`docs/adr/`](docs/adr/) — architecture decision records (ADR 0001–0013, ADR 0020 on the vendored browser libraries, and ADR 0022 on the starter's kit),
   covering why the retired CLI surface was Claude-driven, why `kanban-web` gets a scoped
   local-server exception, hand-rolled widgets, tolerant vocabulary registries,
   archive-column UI parity, the shared interaction grammar, the date triad,
