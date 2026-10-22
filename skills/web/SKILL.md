@@ -2146,8 +2146,7 @@ to `127.0.0.1` only.
   board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
   without a tier (a card whose type is not in the hierarchy, or that has none), counted
   from the nearest tier card above, so the first ring is the cards right under a tier card.
-  A depth
-  with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
+  A depth with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
   the band of its slice, worked out from the whole board, so a hidden or archived parent
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on

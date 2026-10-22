@@ -84,7 +84,7 @@ test('depth map: the first of two cards with one id is the card, as in the nesti
   assert.deepStrictEqual(objectOf(depthMap(cards, CTX)), { 1: 0, 2: 1 });
 });
 
-test('depth map: a card whose parent the cut function names counts as a root, and no cut function leaves the depths as they were', () => {
+test('depth map: a card whose parent satisfies the stop test counts as a root, and no stop test leaves the depths as they were', () => {
   const cards = [card(1, { type: 'epic' }), card(2, { parent: 1 }), card(3, { parent: 2 })];
   assert.deepStrictEqual(objectOf(depthMap(cards, CTX, (c) => c.type === 'epic')), { 1: 0, 2: 0, 3: 1 });
   assert.deepStrictEqual(objectOf(depthMap(cards, CTX)), { 1: 0, 2: 1, 3: 2 });
