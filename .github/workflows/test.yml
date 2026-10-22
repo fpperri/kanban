@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -20,6 +22,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: npm test
+      - if: ${{ !cancelled() }}
+        run: node skills/web/test/docs-pinned-check.js
 
   browser:
     runs-on: ubuntu-latest

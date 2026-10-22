@@ -25,10 +25,13 @@ function jobs(text) {
 }
 const J = jobs(workflow);
 
-// The unit job as it was before the browser job joined it.
+// The unit job as it was before the browser job joined it, with the full-history checkout and the docs check
+// that follow it.
 const UNIT_JOB = `    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -36,13 +39,15 @@ const UNIT_JOB = `    runs-on: ubuntu-latest
         with:
           python-version: '3.11'
       - run: npm test
+      - if: \${{ !cancelled() }}
+        run: node skills/web/test/docs-pinned-check.js
 `;
 
 test('the workflow has a unit job and a browser job, side by side', () => {
   assert.deepStrictEqual(Object.keys(J), ['test', 'browser']);
 });
 
-test('the unit job is unchanged: Node, Python and npm test, and nothing about the browser', () => {
+test('the unit job is Node, Python, npm test and the docs check, and nothing about the browser', () => {
   assert.strictEqual(J.test.replace(/\n+$/, '\n'), UNIT_JOB);
   assert.ok(!/browser/.test(pkg.scripts.test), 'npm test must not run the browser runner');
   assert.strictEqual(pkg.scripts['test:browser'], 'node skills/web/test/browser/run.js');

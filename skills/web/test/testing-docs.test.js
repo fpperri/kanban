@@ -38,6 +38,21 @@ test('every file the testing doc points at exists', () => {
   for (const p of paths) assert.ok(fs.existsSync(path.join(ROOT, p)), `${p} exists`);
 });
 
+test('the testing doc states the docs rule, the CI step that holds it and the escape hatch', () => {
+  assert.match(doc, /## A docs change brings its docs test/);
+  for (const name of ['`skills/web/test/docs-pinned-check.js`', '`docs/*.md`', '`SKILL.md`', '`README.md`', '`skills/**/test/*-docs.test.js`', '`docs-agree.test.js`', 'Docs-test: none, <reason>']) {
+    assert.ok(doc.includes(name), `${name} is in the testing doc`);
+  }
+  assert.match(doc, /push to `main`[^.]*does nothing/);
+});
+
+test('the unit job checks out the whole history and runs the docs check', () => {
+  const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'test.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const unit = workflow.slice(workflow.indexOf('  test:\n'), workflow.indexOf('  browser:\n'));
+  assert.match(unit, /actions\/checkout@v4\s+with:\s+fetch-depth: 0/);
+  assert.match(unit, /run: node skills\/web\/test\/docs-pinned-check\.js/);
+});
+
 test('the testing doc says how to add a step to the phone and phone-flip scenarios', () => {
   for (const name of ['phone-steps/', 'phone-flip-steps/', '`run(page)`', 'skills/web/test/browser/steps.js', '`tap`', '`swipe`', '`pinch`', 'PAGE_GLOBALS']) {
     assert.ok(doc.includes(name), `${name} is in the testing doc`);
