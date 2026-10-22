@@ -38,6 +38,7 @@ const WRITABLE = ['iterations', 'typesOn', 'idDigits', ...Object.keys(FOLDER_KEY
 
 const MAX_ID_DIGITS = 15;
 
+const NO_REPO_REASON = 'This path needs a git root (<repo>) and none was found at or above the board. Set up a git repository there, or change the path by hand in config.yaml.';
 const LOCKED_REASON = 'This folder is outside the board. It was set by hand in config.yaml, and only a hand edit changes it.';
 
 // A folder in config.yaml as the path from the board to it, or null when it leaves the board. The
@@ -79,6 +80,8 @@ function folderState(dir, config, key) {
   const value = config[key];
   const on = value !== '';
   const outside = on && relativeToBoard(dir, value) === null;
+  const noRepo = on && key in config.paths && config.paths[key] === '';
+  if (noRepo) return { on, folder: value, locked: true, reason: NO_REPO_REASON };
   return { on, folder: value, locked: outside, reason: outside ? LOCKED_REASON : '' };
 }
 
@@ -109,15 +112,19 @@ function typeUse(dir, cards) {
 }
 
 // The folder of a feature as an absolute path, whether or not it exists yet; null when it is off.
+// The variables and <repo> are filled in (docs/adr/0023); `groups:` has none.
+const filledPath = (config, key) => (key in config.paths ? config.paths[key] : config[key]);
+
 function folderPath(dir, config, key) {
-  return config[key] === '' ? null : path.resolve(dir, config[key]);
+  const value = filledPath(config, key);
+  return value === '' ? null : path.resolve(dir, value);
 }
 
 // The folder a new write would go to today when the feature's path holds `<iteration>` (docs/adr/0019):
 // the iteration whose dates hold today, else the path with the segment dropped; null for a path
 // without the placeholder.
 function folderToday(dir, config, key) {
-  const value = config[key];
+  const value = filledPath(config, key);
   if (value === '' || !iter.hasPlaceholder(value)) return null;
   return iter.folderOfDay(dir, value, localToday()).abs;
 }

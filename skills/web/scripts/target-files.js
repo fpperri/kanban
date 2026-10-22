@@ -13,6 +13,7 @@ const cfg = require('./config-store');
 const ids = require('../web/ids');
 const { StatusError } = require('./store-common');
 const iter = require('./iteration-folders');
+const { offMessage } = require('./path-vars');
 
 // `key` is the config.yaml key (`scratchpad`), `kind` the word in the file name (`scratchpad` for
 // `0007.scratchpad.md`, `todo` for `0007.todo.md`), `off` the message when the key is absent.
@@ -21,8 +22,8 @@ function targetFiles({ key, kind, off }) {
 
   function mustBeOn(dir) {
     const config = cfg.readConfig(dir);
-    if (!config[key]) throw new StatusError(off, 404);
-    return { value: config[key], digits: config.idDigits };
+    if (!config.paths[key]) throw new StatusError(offMessage(config, key, off), 404);
+    return { value: config.paths[key], digits: config.idDigits };
   }
 
   function checkTarget(target) {
@@ -34,7 +35,9 @@ function targetFiles({ key, kind, off }) {
   const canonicalName = (target, digits) => `${ids.formatId(target, digits)}.${kind}.md`;
 
   // Every file of the folder that is one of ours: { name, target }, by name.
-  function listFiles(folder) {
+  const listFiles = (folder) => iter.memo(`${kind}|${folder}`, () => listFilesNow(folder));
+
+  function listFilesNow(folder) {
     let entries;
     try { entries = fs.readdirSync(folder); } catch (_) { return []; }
     const out = [];
@@ -73,8 +76,8 @@ function targetFiles({ key, kind, off }) {
   // The targets that have a file, in id order, from the file names alone.
   function listTargets(dir) {
     const config = cfg.readConfig(dir);
-    if (!config[key]) return [];
-    return ids.sortIds([...new Set(allFiles(dir, config[key]).map((f) => f.target))]);
+    if (!config.paths[key]) return [];
+    return ids.sortIds([...new Set(allFiles(dir, config.paths[key]).map((f) => f.target))]);
   }
 
   // Delete every file of one target (a card or a group), whatever its padding or folder; how many went. A
@@ -82,9 +85,9 @@ function targetFiles({ key, kind, off }) {
   function deleteTargetFiles(dir, target) {
     const config = cfg.readConfig(dir);
     const id = typeof target === 'string' || typeof target === 'number' ? ids.idKey(target) : null;
-    if (!config[key] || id === null) return 0;
+    if (!config.paths[key] || id === null) return 0;
     let gone = 0;
-    for (const f of allFiles(dir, config[key])) {
+    for (const f of allFiles(dir, config.paths[key])) {
       if (f.target !== id) continue;
       try { fs.unlinkSync(path.join(f.folder.abs, f.name)); gone++; } catch (_) { /* already gone */ }
     }

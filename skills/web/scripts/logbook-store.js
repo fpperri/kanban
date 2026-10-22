@@ -43,6 +43,7 @@ const { validDay } = require('../web/days');
 const { StatusError } = require('./store-common');
 const { writeAtomic } = require('./card-store');
 const iter = require('./iteration-folders');
+const { offMessage } = require('./path-vars');
 
 const FILE_RE = /^(\d{4})\.(\d{2})\.(\d{2})\.(?:([^.]+)\.)?logbook\.md$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -53,8 +54,8 @@ const MAX_NOTE = 20000;
 
 function mustLogbook(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.logbook) throw new StatusError('The logbook is off: config.yaml has no logbook: line.', 404);
-  return { value: config.logbook, digits: config.idDigits };
+  if (!config.paths.logbook) throw new StatusError(offMessage(config, 'logbook', 'The logbook is off: config.yaml has no logbook: line.'), 404);
+  return { value: config.paths.logbook, digits: config.idDigits };
 }
 
 function checkDay(day) {
@@ -96,7 +97,9 @@ function canonicalName(day, target, digits) {
 }
 
 // Every file of the folder that is a day file: { name, day, target }, by name.
-function dayFiles(folder) {
+const dayFiles = (folder) => iter.memo(`logbook|${folder}`, () => dayFilesNow(folder));
+
+function dayFilesNow(folder) {
   let entries;
   try { entries = fs.readdirSync(folder); } catch (_) { return []; }
   const out = [];
@@ -123,7 +126,7 @@ function allDayFiles(dir, value) {
   const out = [];
   for (const folder of iter.readFolders(dir, value)) {
     for (const f of dayFiles(folder.abs)) {
-      out.push({ ...f, label: folder.label, ref: refOf(folder.label, f.name), file: path.join(folder.abs, f.name) });
+      out.push({ ...f, label: folder.label, parts: folder.parts, ref: refOf(folder.label, f.name), file: path.join(folder.abs, f.name) });
     }
   }
   return out;
@@ -376,9 +379,9 @@ function record(e, day, target, file, index) {
 
 function listNotes(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.logbook) return [];
+  if (!config.paths.logbook) return [];
   const out = [];
-  for (const f of allDayFiles(dir, config.logbook)) {
+  for (const f of allDayFiles(dir, config.paths.logbook)) {
     let raw;
     try { raw = fs.readFileSync(f.file, 'utf8'); } catch (_) { continue; }
     parseDayFile(raw).entries.forEach((e, index) => out.push(record(e, f.day, f.target, f.ref, index)));
@@ -444,7 +447,7 @@ function fileOfRef(dir, ref) {
   const have = allDayFiles(dir, value).filter((f) => f.day === day && f.target === target);
   if (!have.length) throw new StatusError('That note is gone.', 409);
   const chosen = have.find((f) => f.ref === ref.file) || have[0];
-  return { file: chosen.file, ref: chosen.ref, label: chosen.label, day, target };
+  return { file: chosen.file, ref: chosen.ref, label: chosen.label, parts: chosen.parts, day, target };
 }
 
 function indexOf(model, entry) {
@@ -502,9 +505,10 @@ function assignNote(dir, ref, to, hooks) {
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
   const seen = { at: found.at, by: found.by, note: found.note };
   iter.checkWritable(value);
-  const here = { label: where.label, abs: path.dirname(where.file) };
+  const here = { label: where.label, abs: path.dirname(where.file), parts: where.parts, segs: [] };
   const aimed = iter.folderOfIterationTarget(dir, value, target);
-  const { folder, file: dest } = aimed ? { folder: aimed, file: fileToWrite(aimed.abs, digits, where.day, target) } : homeOf(dir, value, digits, where.day, target, here, here);
+  const stay = iter.folderOfAssigned(dir, value, here, target);
+  const { folder, file: dest } = aimed ? { folder: aimed, file: fileToWrite(aimed.abs, digits, where.day, target) } : homeOf(dir, value, digits, where.day, target, stay, stay);
   const made = withFile(dest, hooks, (model) => {
     const entry = newEntry(found.at, found.by, found.note, found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)));
     model.entries.push(entry);
@@ -521,9 +525,9 @@ function assignNote(dir, ref, to, hooks) {
 function deleteTargetFiles(dir, target) {
   const config = cfg.readConfig(dir);
   const key = ids.idKey(target);
-  if (!config.logbook || key === null) return 0;
+  if (!config.paths.logbook || key === null) return 0;
   let gone = 0;
-  for (const f of allDayFiles(dir, config.logbook)) {
+  for (const f of allDayFiles(dir, config.paths.logbook)) {
     if (f.target !== key) continue;
     try { fs.unlinkSync(f.file); gone++; } catch (_) { /* already gone */ }
   }

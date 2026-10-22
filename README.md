@@ -232,7 +232,10 @@ comments say what each line is, and every line can be changed or deleted.
   off from the web's gear sheet (This board), and it is off; a board with none
   of the lines works as before (ADR 0022). The logbook, scratchpad and todos
   paths may hold `<iteration>` (`logbook: sprints/<iteration>/.logbook`), which
-  gives each iteration its own folder, such as `0005.sprint-496`.
+  gives each iteration its own folder, such as `0005.sprint-496`. They may also
+  hold `<card>` (a folder per card or group), `<repo>` (the git root that holds
+  the board) and the names of a `vars:` block, which a host that ships the kanban
+  in its own layout sets (ADR 0023).
 
 An existing board gets the same with a script that adds only what the board
 lacks (the five kit lines included, never changing one it has), gives a type the board already has the starter's colour or icon only

@@ -94,7 +94,7 @@ function readPad(dir, target, opts) {
   const { value, digits } = mustScratchpad(dir);
   const key = checkTarget(target);
   const place = placeOf(dir, value, digits, key, (opts && opts.today) || localToday());
-  const folderText = iter.filledIn(value, place.folder.label);
+  const folderText = iter.filledIn(value, place.folder);
   let raw;
   try { raw = fs.readFileSync(path.join(place.folder.abs, place.name), 'utf8'); } catch (_) { return record(key, place.name, false, parsePad(''), folderText); }
   return record(key, place.name, true, parsePad(raw), folderText);

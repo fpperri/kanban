@@ -5,6 +5,7 @@ const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
+const iter = require('./iteration-folders');
 const sp = require('./scratchpad-store');
 const td = require('./todo-store');
 const gs = require('./group-store');
@@ -305,7 +306,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         const config = cfg.readConfig(dir); // one read carries the board name, assignees + official lists
         const groups = gs.readGroups(dir);
         if (groups && groups.skipped.length) console.warn(`[kanban-app] skipping ${groups.skipped.length} group file(s): ${groups.skipped.map((s) => `${s.file} (${s.reason})`).join(', ')}`);
-        return sendJSON(res, 200, {
+        return iter.scoped(() => sendJSON(res, 200, {
           // The BOARD NAME: config.yaml's human-declared `name:` when present,
           // else the parent-folder derivation. Wire name kept as projectName —
           // it is also the localStorage namespace for every per-board view
@@ -329,13 +330,13 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           typesOn: config.typesOn, // false = types off (ADR 0018): the web ignores types and hierarchy; the lists above stay as written
           pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
           archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
-          logbook: config.logbook ? { folder: config.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
-          scratchpad: config.scratchpad ? { folder: config.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
-          todos: config.todos ? { folder: config.todos, targets: td.listTargets(dir), counts: td.counts(dir) } : null, // the folder, the ids that have a list and the open and total of each (ADR 0021); the list itself is read when opened; null = no todos: line, nothing shows
+          logbook: config.paths.logbook ? { folder: config.paths.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
+          scratchpad: config.paths.scratchpad ? { folder: config.paths.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
+          todos: config.paths.todos ? { folder: config.paths.todos, targets: td.listTargets(dir), counts: td.counts(dir) } : null, // the folder, the ids that have a list and the open and total of each (ADR 0021); the list itself is read when opened; null = no todos: line, nothing shows
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
           settings: settings.readSettings(dir, [...active, ...archived]), // the config the gear's This board pages show (ADR 0017)
           iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
-        });
+        }));
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
       const frameAsset = req.method === 'GET' ? frameAssetFile(webDir, p) : null;
@@ -565,11 +566,15 @@ function resolvePort(dir, arg) {
 
 // What the config says that the server cannot use as written, said once at startup on stderr and
 // never fatal: a prefix declared for a card type and again for a groups folder (or twice for
-// anything) keeps its first declaration and ignores the rest.
+// anything) keeps its first declaration and ignores the rest. The same for the `vars:` block and the
+// words in the logbook, scratchpad and todos paths (docs/adr/0023): each is named once, and the server
+// starts all the same.
 function warnConfig(dir) {
-  for (const { prefix, kept, ignored } of cfg.readConfig(dir).prefixClashes) {
+  const config = cfg.readConfig(dir);
+  for (const { prefix, kept, ignored } of config.prefixClashes) {
     console.error(`Kanban app: config.yaml declares prefix \`${prefix}\` twice; keeping \`${kept}\`, \`${ignored}\` is ignored.`);
   }
+  for (const notice of config.pathNotices) console.error(`Kanban app: ${notice}`);
 }
 
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
