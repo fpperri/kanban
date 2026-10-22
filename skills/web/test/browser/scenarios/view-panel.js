@@ -111,7 +111,7 @@ module.exports = {
     await clickOn('#graph-view .graph-kind-btn[data-graph-kind=flow]');
     check('a graph pressed in the reopened panel switches the Graph', await waitFor(`document.querySelector('#graph-view .graph-kind-btn[data-graph-kind=flow]').getAttribute('aria-pressed')==='true'&&!!document.querySelector('#graph-view .graph-kind-flow')`));
     await clickOn('#graph-view .graph-kind-btn[data-graph-kind=hierarchy]');
-    check('and back to the Hierarchy', await waitFor(`!!document.querySelector('#graph-view .graph-kind-tiers')&&!!document.querySelector('#graph-view .view-panel')`));
+    check('and back to the Hierarchy', await waitFor(`!!document.querySelector('#graph-view .graph-kind-hierarchy')&&!!document.querySelector('#graph-view .view-panel')`));
 
     // --- the Map ----------------------------------------------------------------------------------
     await load('/?view=map');
