@@ -27,8 +27,8 @@ const planOf = (m, deps = 'frontier') => {
   return { layout, plan: graphPlan(m, layout, { kind: 'flow', statusClass: (s) => s, titleOf: (c) => c.title, types: TYPES }) };
 };
 
-test('flow is a layout the Graph can be on, beside the three of the Hierarchy, and anything else is Tiers', () => {
-  assert.deepStrictEqual(GRAPH_LAYOUTS, ['tiers', 'force', 'status']);
+test('flow is a layout the Graph can be on, beside the one of the Hierarchy, and anything else is Tiers', () => {
+  assert.deepStrictEqual(GRAPH_LAYOUTS, ['tiers']);
   assert.strictEqual(mergeGraphLayout('flow'), 'flow');
   for (const k of GRAPH_LAYOUTS) assert.strictEqual(mergeGraphLayout(k), k);
   for (const bad of [undefined, null, '', 'hierarchy', 'Flow', 7]) assert.strictEqual(mergeGraphLayout(bad), 'tiers');
@@ -38,7 +38,7 @@ test('the layout carries the flow, finishes its bounds round every dot and mark,
   const m = model();
   const l = graphLayoutFlow(m, { deps: 'all' });
   assert.ok(l.flow && l.flow.columns.length > 0 && l.flow.strip);
-  assert.deepStrictEqual([l.rings, l.spokes, l.titles], [[], [], []]);
+  assert.deepStrictEqual([l.rings, l.spokes], [[], []]);
   for (const p of l.pos.values()) assert.ok(p.x >= l.bounds.x0 && p.x <= l.bounds.x1 && p.y >= l.bounds.y0 && p.y <= l.bounds.y1);
   for (const b of l.flow.boxes) assert.ok(b.x0 >= l.bounds.x0 && b.y0 >= l.bounds.y0 && b.x1 <= l.bounds.x1 && b.y1 <= l.bounds.y1);
   assert.deepStrictEqual(plain(graphLayout(m, 'flow', { deps: 'all' })), plain(l));
@@ -80,7 +80,7 @@ test('the plan draws a dot for each card in the flow\'s radius and the type\'s m
   const links = plan.links.slice().sort(byPair);
   assert.deepStrictEqual(links.map((l) => [l.from, l.to, l.kind, l.arrow]), [['1', '2', 'wait', true], ['2', '3', 'wait', true]], 'the parent line of card 2 is not drawn');
   assert.deepStrictEqual(links.map((l) => l.d), [graphFlowPath(layout.flow, '1', '2'), graphFlowPath(layout.flow, '2', '3')]);
-  assert.deepStrictEqual([plan.rings, plan.guides, plan.captions, plan.tints, plan.dividers, plan.block, plan.looseCaption], [[], [], [], [], [], null, null]);
+  assert.deepStrictEqual([plan.guides, plan.captions, plan.tints, plan.dividers, plan.block, plan.looseCaption], [[], [], [], [], null, null]);
 });
 
 test('every link of the model has its path, in the model\'s order, so the plan\'s lines can be found by index', () => {

@@ -33,11 +33,12 @@ const docFlow = () => {
   return webDoc.slice(start, webDoc.indexOf('A dot takes its status colour', start));
 };
 
-test('the glossary\'s Graph view names its two graphs, and keeps the layouts of the Hierarchy', () => {
+test('the glossary\'s Graph view names its two graphs, and says the Hierarchy is the tier fan alone', () => {
   const text = entry('Graph view');
   assert.match(text, /one of two graphs chosen at the top of its option panel: the \*\*Hierarchy\*\*/);
   assert.match(text, /and the \*\*Flow\*\*, the cards laid out by their dependencies/);
-  assert.match(text, /The Hierarchy has layouts: tiers \(the default\), force or status/);
+  assert.match(text, /The Hierarchy is the tier fan, its one layout \(tiers\): it goes all the way round its centre/);
+  assert.doesNotMatch(text, /force|status layout|layouts: /i);
 });
 
 test('the glossary has Flow: columns by dependencies, the Dependencies switch, the strip, the loop, and what it avoids', () => {
@@ -102,7 +103,7 @@ test('the web skill\'s Graph view says the Graph is one of two graphs, and point
 test('the web skill\'s Graph Flow says the choice, the panel and what the switch is', () => {
   const text = skillBullet('- **Graph Flow**');
   assert.match(text, /The option panel opens with a \*\*Hierarchy \| Flow\*\* choice \(`\.graph-kind-btn`, `aria-pressed` on the one drawn\), Hierarchy first/);
-  assert.match(text, /under Flow the panel holds the zoom and the \*\*Dependencies\*\* switch, and none of Hierarchy's layouts or option row/);
+  assert.match(text, /under Flow the panel holds the zoom and the \*\*Dependencies\*\* switch, and none of Hierarchy's option row/);
   assert.match(text, /the words are the glossary's \*\*Flow\*\* and \*\*Frontier\*\*/);
   assert.match(text, /The \*\*Dependencies\*\* switch is \*\*frontier\*\* \(the default\) or \*\*all\*\*/);
 });
@@ -135,8 +136,8 @@ test('the web skill\'s Graph Flow says what works as in Hierarchy, what lights, 
 
 test('the web skill\'s Graph Flow says where the choice is kept, how the address carries it, and the sheet', () => {
   const text = skillBullet('- **Graph Flow**');
-  assert.match(text, /kept per board in `localStorage` under `graph\.layout` \(`flow`, which a Hierarchy layout name replaces\) and the switch under `graph\.deps`/);
-  assert.match(text, /a value this version does not offer reads as Tiers and frontier/);
+  assert.match(text, /kept per board in `localStorage` under `graph\.layout` \(`flow` or `tiers`\) and the switch under `graph\.deps`/);
+  assert.match(text, /a value this version does not offer, a layout an older version kept included, reads as Tiers and frontier/);
   assert.match(text, /`graph=hierarchy\|flow` and `deps=frontier\|all`: on a load the address wins, and a link's value is kept for that load only until a press/);
   assert.match(text, /a press replaces the page's address \(`history\.replaceState`, no step in Back\) and leaves every other parameter, `deps` going when Hierarchy is chosen/);
   assert.match(text, /On a phone the panel is the \*\*bottom sheet\*\*, with the choice and the switch in it/);

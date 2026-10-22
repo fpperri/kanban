@@ -497,7 +497,7 @@ test('the mode is in the signature the view compares to re-fit an untouched view
   const sig = (kind, unnested) => graphSignature(m, kind, { statuses: STATUSES, unnested });
   assert.strictEqual(new Set(['outermost', 'depth 0', 'table'].map((u) => sig('tiers', u))).size, 3);
   assert.strictEqual(sig('tiers', undefined), sig('tiers', 'outermost'));
-  for (const kind of ['force', 'status']) assert.strictEqual(sig(kind, 'table'), sig(kind, 'outermost'), `${kind} does not read it`);
+  for (const kind of ['flow']) assert.strictEqual(sig(kind, 'table'), sig(kind, 'outermost'), `${kind} does not read it`);
   assert.strictEqual(graphSignature(m, 'tiers', { statuses: STATUSES, unnested: 'table', order: 'rank', lines: 'all' }), sig('tiers', 'table'), 'and nothing else of the row\'s');
 });
 

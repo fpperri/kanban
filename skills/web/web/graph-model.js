@@ -1,7 +1,7 @@
 'use strict';
 // Pure model + layouts for the graph view: which cards are drawn, how they
-// relate (parent / wait relations), and where each one sits under three
-// layouts (tiers, status, force) and the Flow of graph-flow.js. No DOM, no canvas, no clock, no randomness:
+// relate (parent / wait relations), and where each one sits under the tier fan
+// and the Flow of graph-flow.js. No DOM, no canvas, no clock, no randomness:
 // the same cards always give the same positions, so the 5-second poll re-render
 // can reuse them. Same dual-environment pattern as gantt-model.js: unit-testable
 // from node --test AND loaded as a plain <script> in the browser (app.js calls
@@ -40,7 +40,8 @@ const GRAPH_FLOW = (typeof module !== 'undefined' && module.exports)
   : window;
 
 // The layouts of the Hierarchy graph; the Flow graph (graph-flow.js) is the layout 'flow' beside them.
-const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
+// Anything else a board kept, a layout this version no longer draws included, reads as tiers.
+const GRAPH_LAYOUTS = ['tiers'];
 
 function mergeGraphLayout(saved) {
   return GRAPH_LAYOUTS.includes(saved) || saved === 'flow' ? saved : 'tiers';
@@ -414,7 +415,7 @@ function graphFanNameText(title, id) {
 
 // --- layout plumbing -----------------------------------------------------------
 
-function graphFinish(model, pos, rings, spokes, titles, extra) {
+function graphFinish(model, pos, rings, spokes, extra) {
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -428,18 +429,13 @@ function graphFinish(model, pos, rings, spokes, titles, extra) {
     const r = graphRadius(n);
     grow(p.x - r, p.y - r, p.x + r, p.y + r);
   }
-  const fan = extra && extra.fan;
-  for (const r of rings) {
-    if (fan) grow(-r.r, -r.r, r.r, r.r);
-    else grow(r.cx - r.r, -r.r, r.cx + r.r, r.r);
-  }
-  for (const t of titles) grow(t.x, t.y - 16, t.x + 80, t.y + 4);
+  for (const r of rings) grow(-r.r, -r.r, r.r, r.r);
   const { boxes, ...kept } = extra || {};
   for (const b of boxes || []) grow(b.x0, b.y0, b.x1, b.y1);
   const block = kept.block;
   if (block) grow(block.x, block.y, block.x + block.w, block.y + block.h);
   const bounds = Number.isFinite(x0) ? { x0, y0, x1, y1 } : { x0: -100, y0: -100, x1: 100, y1: 100 };
-  return { pos, rings, spokes, titles, bounds, ...kept };
+  return { pos, rings, spokes, bounds, ...kept };
 }
 
 // --- layout: the tier fan ------------------------------------------------------
@@ -1025,78 +1021,9 @@ function graphLayoutTiers(model, opts) {
     x0: c.side === 'right' ? c.x : c.x - c.w, y0: c.y - c.h / 2, x1: c.side === 'right' ? c.x + c.w : c.x, y1: c.y + c.h / 2,
   }));
   if (looseCaption) boxes.push(looseCaption.box);
-  return graphFinish(model, pos, rings, spokes, [], {
+  return graphFinish(model, pos, rings, spokes, {
     bands: grown, sectors, block, fan: { from: GRAPH_FAN_FROM, to: GRAPH_FAN_TO }, places, polar, captions, looseCaption, boxes, textScale: captionScale,
   });
-}
-
-// --- layout: status ------------------------------------------------------------
-// Rings run inside out in REVERSE column order (done innermost, backlog
-// outermost). A ring is a set of tracks: when its cards fit the first track
-// with room to spare they spread around the full circle, otherwise a full track
-// spills to the next one out.
-
-const GRAPH_STATUS_START = 48;
-const GRAPH_STATUS_GAP = 34;
-const GRAPH_CLUMP_SEP = 90;
-const GRAPH_TRACK_TWIST = 0.35;
-
-function graphLayoutStatus(model, opts) {
-  const statuses = GRAPH_COLS.liveStatuses(opts && opts.statuses);
-  const order = statuses.slice().reverse();
-  const ringOf = (n) => GRAPH_COLS.columnForStatus(n.status, statuses);
-  const live = model.nodes.filter((n) => !n.archived);
-  const archived = model.nodes.filter((n) => n.archived);
-  const groups = [{ title: 'live', nodes: live }];
-  if (archived.length) groups.push({ title: 'archive', nodes: archived });
-
-  for (const g of groups) {
-    g.rings = [];
-    g.local = new Map();
-    let r = GRAPH_STATUS_START;
-    for (const s of order) {
-      const ns = g.nodes.filter((n) => ringOf(n) === s)
-        .sort((p, q) => GRAPH_IDS.compareIds(p.rootId, q.rootId) || GRAPH_IDS.compareIds(p.id, q.id));
-      const th = ns.length ? Math.max(...ns.map((n) => 2 * graphRadius(n))) + 6 : 0;
-      const circ = Math.PI * 2 * r;
-      const widths = ns.map((n) => 2 * graphRadius(n) + 4);
-      const sum = widths.reduce((x, y) => x + y, 0);
-      const spread = ns.length && sum <= circ * 0.98 ? (circ - sum) / ns.length : 0;
-      let track = r;
-      let used = 0;
-      let ti = 0;
-      ns.forEach((n, i) => {
-        const w = widths[i];
-        if (!spread && used > 0 && used + w > Math.PI * 2 * track) {
-          track += th;
-          used = 0;
-          ti++;
-        }
-        const ang = -Math.PI / 2 + (used + w / 2 + spread * (i + 0.5)) / track + ti * GRAPH_TRACK_TWIST;
-        used += w;
-        g.local.set(n.id, { x: Math.cos(ang) * track, y: Math.sin(ang) * track });
-      });
-      g.rings.push({ r, status: s, count: ns.length });
-      r = (ns.length ? track + th / 2 : r) + GRAPH_STATUS_GAP;
-    }
-    g.R = r;
-  }
-
-  const total = groups.reduce((s, g) => s + 2 * g.R, 0) + GRAPH_CLUMP_SEP * (groups.length - 1);
-  let x = -total / 2;
-  const pos = new Map();
-  const rings = [];
-  const titles = [];
-  for (const g of groups) {
-    const cx = x + g.R;
-    x += 2 * g.R + GRAPH_CLUMP_SEP;
-    for (const [id, p] of g.local) pos.set(id, { x: cx + p.x, y: p.y });
-    for (const rg of g.rings) {
-      rings.push({ cx, r: rg.r, label: `${rg.status} (${rg.count})`, status: rg.status, count: rg.count });
-    }
-    if (groups.length > 1) titles.push({ x: cx - 24, y: -g.R - 14, text: g.title });
-  }
-  return graphFinish(model, pos, rings, [], titles);
 }
 
 // --- layout: flow --------------------------------------------------------------
@@ -1105,108 +1032,7 @@ function graphLayoutStatus(model, opts) {
 
 function graphLayoutFlow(model, opts) {
   const flow = GRAPH_FLOW.graphFlowPlace(model, { deps: opts && opts.deps });
-  return graphFinish(model, flow.pos, [], [], [], { boxes: flow.boxes, flow });
-}
-
-// --- layout: force -------------------------------------------------------------
-
-const GRAPH_GOLDEN = 2.399963229728653;
-
-function graphForceIterations(n) {
-  return n <= 150 ? 300 : n <= 400 ? 150 : n <= 1000 ? 80 : n <= 2000 ? 40 : 20;
-}
-
-// seed (Map id -> {x, y}) starts the nodes where they are drawn instead of on
-// the golden spiral, so a drag continues from what is on screen.
-function graphForceSim(model, seed) {
-  const nodes = model.nodes.filter((n) => n.deg > 0).sort((a, b) => GRAPH_IDS.compareIds(a.id, b.id));
-  const n = nodes.length;
-  const px = new Float64Array(n);
-  const py = new Float64Array(n);
-  const vx = new Float64Array(n);
-  const vy = new Float64Array(n);
-  const at = new Map();
-  nodes.forEach((node, i) => {
-    at.set(node.id, i);
-    const s = seed && seed.get(node.id);
-    px[i] = s ? s.x : Math.cos(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
-    py[i] = s ? s.y : Math.sin(i * GRAPH_GOLDEN) * 12 * Math.sqrt(i);
-  });
-  const springs = model.links.map((l) => ({ a: at.get(l.from), b: at.get(l.to), want: l.kind === 'parent' ? 55 : 90 }));
-  return { nodes, n, px, py, vx, vy, at, springs, iterations: graphForceIterations(n) };
-}
-
-function graphForceStep(sim, alpha, pin) {
-  const { n, px, py, vx, vy, springs } = sim;
-  const pi = pin && sim.at.has(pin.id) ? sim.at.get(pin.id) : -1;
-  if (pi >= 0) { px[pi] = pin.x; py[pi] = pin.y; vx[pi] = 0; vy[pi] = 0; }
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      let dx = px[j] - px[i];
-      let dy = py[j] - py[i];
-      const d2 = dx * dx + dy * dy + 0.01;
-      if (d2 > 90000) continue;
-      const f = 1800 / d2 * alpha;
-      const d = Math.sqrt(d2);
-      dx /= d;
-      dy /= d;
-      vx[i] -= dx * f; vy[i] -= dy * f;
-      vx[j] += dx * f; vy[j] += dy * f;
-    }
-  }
-  for (const s of springs) {
-    const dx = px[s.b] - px[s.a];
-    const dy = py[s.b] - py[s.a];
-    const d = Math.sqrt(dx * dx + dy * dy) || 1;
-    const f = (d - s.want) * 0.04 * alpha;
-    vx[s.a] += dx / d * f; vy[s.a] += dy / d * f;
-    vx[s.b] -= dx / d * f; vy[s.b] -= dy / d * f;
-  }
-  for (let i = 0; i < n; i++) {
-    vx[i] -= px[i] * 0.004 * alpha;
-    vy[i] -= py[i] * 0.004 * alpha;
-    vx[i] *= 0.6; vy[i] *= 0.6;
-    px[i] += vx[i]; py[i] += vy[i];
-  }
-  if (pi >= 0) { px[pi] = pin.x; py[pi] = pin.y; vx[pi] = 0; vy[pi] = 0; }
-}
-
-function graphForcePositions(sim) {
-  const pos = new Map();
-  sim.nodes.forEach((node, i) => pos.set(node.id, { x: sim.px[i], y: sim.py[i] }));
-  return pos;
-}
-
-function graphLayoutForce(model) {
-  const sim = graphForceSim(model);
-  const loose = model.nodes.filter((n) => n.deg === 0).sort((a, b) => GRAPH_IDS.compareIds(a.id, b.id));
-  let alpha = 1;
-  for (let it = 0; it < sim.iterations; it++) {
-    graphForceStep(sim, alpha, null);
-    alpha *= 0.985;
-  }
-  const pos = graphForcePositions(sim);
-  let far = 0;
-  sim.nodes.forEach((node, i) => {
-    far = Math.max(far, Math.hypot(sim.px[i], sim.py[i]) + graphRadius(node));
-  });
-  const many = loose.length > 16;
-  let base = far + 60;
-  if (many) base = Math.max(base, loose.length * 1.6);
-  loose.forEach((node, i) => {
-    const ang = -Math.PI / 2 + Math.PI * 2 * (i + 0.5) / loose.length;
-    const rad = base + (many && i % 2 ? 24 : 0);
-    pos.set(node.id, { x: Math.cos(ang) * rad, y: Math.sin(ang) * rad });
-  });
-  return graphFinish(model, pos, [], [], []);
-}
-
-// A new layout with some cards moved (a dragged arrangement): layouts are
-// shared through the memo, so the input is never touched.
-function graphWithPositions(layout, model, overrides) {
-  const pos = new Map(layout.pos);
-  for (const [id, p] of overrides) if (pos.has(id)) pos.set(id, { x: p.x, y: p.y });
-  return graphFinish(model, pos, layout.rings, layout.spokes, layout.titles);
+  return graphFinish(model, flow.pos, [], [], { boxes: flow.boxes, flow });
 }
 
 // --- dispatcher + memo ---------------------------------------------------------
@@ -1216,7 +1042,7 @@ function graphWithPositions(layout, model, overrides) {
 // The tier fan places a card by its slice, which its type, the hierarchy and the
 // whole board's nesting decide, so the Tiers key holds each card's type (without
 // regard to case, as a tier does), its slice and whether it is nested, and the
-// hierarchy's tiers. Force and Status do not read them. The signature is also what the
+// hierarchy's tiers. The Flow does not read them. The signature is also what the
 // view compares to re-fit an untouched view, so it holds what the cards and the hierarchy
 // decide, and the Unnested option, which changes what Fit frames; the order of the
 // siblings, which moves dots along their sector and no card to another ring, is added to
@@ -1258,10 +1084,7 @@ function graphLayout(model, kind, opts) {
   const which = mergeGraphLayout(kind);
   const key = graphLayoutKey(model, which, opts);
   if (graphCache.has(key)) return graphCache.get(key);
-  const layout = which === 'status' ? graphLayoutStatus(model, opts)
-    : which === 'force' ? graphLayoutForce(model)
-      : which === 'flow' ? graphLayoutFlow(model, opts)
-        : graphLayoutTiers(model, opts);
+  const layout = which === 'flow' ? graphLayoutFlow(model, opts) : graphLayoutTiers(model, opts);
   graphCache.set(key, layout);
   if (graphCache.size > GRAPH_CACHE_MAX) graphCache.delete(graphCache.keys().next().value);
   return layout;
@@ -1315,25 +1138,13 @@ const graphRound = (v) => Math.round(v * 100) / 100;
 
 function graphKindOf(layout, kind) {
   if (kind) return kind;
-  if (layout.flow) return 'flow';
-  if (layout.rings.some((r) => r.status !== undefined)) return 'status';
-  if (layout.bands) return 'tiers';
-  return layout.rings.length > 0 || layout.spokes.length > 0 ? 'tiers' : 'force';
-}
-
-function graphClumps(layout, kind) {
-  const centres = [];
-  if (kind === 'status') for (const r of layout.rings) if (!centres.includes(r.cx)) centres.push(r.cx);
-  if (!centres.length) centres.push(0);
-  // Status layout: live cards sit in the first clump, archived ones in the second.
-  return { centres, clumpOf: (n) => (kind === 'status' && n.archived && centres.length > 1 ? 1 : 0) };
+  return layout.flow ? 'flow' : 'tiers';
 }
 
 // One path string per model.links entry, in order. Wait links stop at the
 // target's rim so the arrow head is not buried under the dot.
 function graphLinkPaths(model, layout, kind) {
   const curved = layout.rings.length > 0 || layout.spokes.length > 0;
-  const { centres, clumpOf } = graphClumps(layout, graphKindOf(layout, kind));
   return model.links.map((l) => {
     const b = model.byId.get(l.to);
     const pa = layout.pos.get(l.from);
@@ -1348,7 +1159,7 @@ function graphLinkPaths(model, layout, kind) {
       return `${head}L${graphRound(pb.x - (dx / dist) * trim)} ${graphRound(pb.y - (dy / dist) * trim)}`;
     }
     if (curved) {
-      const qx = graphRound((pa.x + pb.x) / 2 * 0.8 + centres[clumpOf(b)] * 0.2);
+      const qx = graphRound((pa.x + pb.x) / 2 * 0.8);
       const qy = graphRound((pa.y + pb.y) / 2 * 0.8);
       return `${head}Q${qx} ${qy} ${graphRound(pb.x)} ${graphRound(pb.y)}`;
     }
@@ -1500,8 +1311,7 @@ function graphPlan(model, layout, opts) {
   const statusClass = o.statusClass || ((s) => String(s).toLowerCase().replace(/[^a-z0-9-]/g, '-'));
   const titleOf = o.titleOf || ((c) => c.title || '');
   const kind = graphKindOf(layout, o.kind);
-  const { clumpOf } = graphClumps(layout, kind);
-  // The tier fan names cards by its Names option; with no option row (Force, Status, a plan
+  // The tier fan names cards by its Names option; with no option row (the Flow, a plan
   // given no options) no card is named and none carries a name.
   const named = kind === 'tiers' && o.fan
     ? graphFanNames(model, o.fan.names, { selectedIds: selected, loneCardId: o.loneCardId })
@@ -1519,7 +1329,6 @@ function graphPlan(model, layout, opts) {
     if (n.waiting) cls.push('is-waiting');
     if (n.review) cls.push('is-review');
     if (n.deg >= 3) cls.push('graph-hub');
-    if (n.deg === 0) cls.push('is-loose');
     if (named && named.has(n.id)) cls.push('graph-named');
     const r = layout.flow ? layout.flow.radius.get(n.id) : graphRadius(n);
     const iconed = n.shape !== undefined && n.shape !== 'circle';
@@ -1541,9 +1350,8 @@ function graphPlan(model, layout, opts) {
     };
   });
 
-  // The tier fan draws its bands as guide arcs and captions instead of full rings, and
-  // draws the lines its options ask for (graphFanLines); every other layout, and a fan
-  // given no options, draws each relation.
+  // The tier fan draws its bands as guide arcs and captions, and draws the lines its options
+  // ask for (graphFanLines); the Flow, and a fan given no options, draw each relation.
   const fan = kind === 'tiers' && layout.bands ? layout : null;
   const paths = graphLinkPaths(model, layout, kind);
   const drawn = fan && o.fan
@@ -1557,12 +1365,9 @@ function graphPlan(model, layout, opts) {
       };
     }
     const l = model.links[line.link];
-    const cross = kind === 'status' && clumpOf(model.byId.get(l.from)) !== clumpOf(model.byId.get(l.to));
-    const cls = `graph-link graph-link-${l.kind}${cross ? ' graph-link-cross' : ''}`;
-    return { from: l.from, to: l.to, kind: l.kind, d: paths[line.link], cls, arrow: l.kind === 'wait' };
+    return { from: l.from, to: l.to, kind: l.kind, d: paths[line.link], cls: `graph-link graph-link-${l.kind}`, arrow: l.kind === 'wait' };
   });
 
-  const rings = fan ? [] : layout.rings.map((r) => ({ cx: graphRound(r.cx), r: graphRound(r.r), label: r.label, cls: 'graph-ring' }));
   const guides = fan ? graphFanGuides(fan) : [];
   const dividers = fan ? graphFanDividers(model, fan) : [];
   const tints = fan ? graphFanTints(fan, o.types) : [];
@@ -1578,9 +1383,8 @@ function graphPlan(model, layout, opts) {
     cls: c.muted ? 'graph-caption graph-caption-muted' : 'graph-caption',
     tip: graphFanTip(c.count, c.split, c.term),
   })) : [];
-  const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
   const flow = layout.flow ? GRAPH_FLOW.graphFlowMarks(layout.flow) : { rects: [], texts: [] };
-  return { nodes, links, rings, titles, guides, tints, captions, dividers, block, looseCaption, flow };
+  return { nodes, links, guides, tints, captions, dividers, block, looseCaption, flow };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1590,8 +1394,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
     graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphFanNames, graphFanNextNames, graphFanNameText,
-    graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce, graphLayoutFlow,
-    graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
+    graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutFlow, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan, graphTipAt,
   };
@@ -1615,13 +1418,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphFanPlace = graphFanPlace;
   window.graphFanLines = graphFanLines;
   window.graphLayoutTiers = graphLayoutTiers;
-  window.graphLayoutStatus = graphLayoutStatus;
-  window.graphLayoutForce = graphLayoutForce;
   window.graphLayoutFlow = graphLayoutFlow;
-  window.graphForceSim = graphForceSim;
-  window.graphForceStep = graphForceStep;
-  window.graphForcePositions = graphForcePositions;
-  window.graphWithPositions = graphWithPositions;
   window.graphLinkPaths = graphLinkPaths;
   window.graphLayout = graphLayout;
   window.graphSignature = graphSignature;

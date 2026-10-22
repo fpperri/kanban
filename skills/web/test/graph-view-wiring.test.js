@@ -84,7 +84,7 @@ test('the Graph top row is the (i) and the option button, the count and the key 
   const app = read('app.js');
   assert.ok(!/function buildFilterPillRow\(/.test(app), 'the per-view pill builder is gone');
   assert.ok(!/REFOCUS_SELECTOR = [^\n]*graph-filter-toggle/.test(app));
-  assert.match(css, /\.graph-layout-btn, \.graph-kind-btn, \.graph-zoom-btn \{/);
+  assert.match(css, /\.graph-kind-btn, \.graph-zoom-btn \{/);
 });
 
 test('app.css defines every .graph-* class the plan, the view and the key emit', () => {
@@ -107,7 +107,7 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
       ...(plan.block ? [plan.block, plan.block.title, ...plan.block.columns.map((c) => c.caption)] : [])];
     assert.strictEqual(fan.length > 0, kind === 'tiers', `${kind} draws the fan's marks, and the others do not`);
-    for (const x of [...plan.nodes, ...plan.links, ...plan.rings, ...fan, ...plan.flow.rects, ...plan.flow.texts]) {
+    for (const x of [...plan.nodes, ...plan.links, ...fan, ...plan.flow.rects, ...plan.flow.texts]) {
       for (const c of x.cls.split(' ')) if (c.startsWith('graph-')) used.add(c);
     }
   }
@@ -138,7 +138,7 @@ test('the transform is O(1): one CSS custom property, no per-label sweeps, one w
   assert.match(body, /style\.setProperty\('--graph-k', String\(k\)\)/);
   assert.match(fn('graphScheduleTransform'), /requestAnimationFrame/);
   assert.ok(!/graphApplyTransform\(\)/.test(fn('graphZoomBy')));
-  for (const sel of ['.graph-node-id', '.graph-ring-label', '.graph-title']) {
+  for (const sel of ['.graph-node-id']) {
     const m = css.match(new RegExp(`${sel.replace('.', '\.')} \{[^}]*\}`, 'g')) || [];
     assert.ok(m.some((r) => /font-size: calc\(\d+px \/ var\(--graph-k/.test(r)), sel);
     assert.ok(m.some((r) => /stroke-width: calc\(4px \/ var\(--graph-k/.test(r)), sel);
@@ -156,11 +156,11 @@ test('render computes before touching the DOM and survives a throw', () => {
   assert.match(body, /catch \(err\)[\s\S]*console\.error/);
 });
 
-test('filter handlers guard with hasOwnProperty; layout re-click and zoom buttons are handled', () => {
+test('filter handlers guard with hasOwnProperty; a re-click of the graph choice and the zoom buttons are handled', () => {
   assert.match(fn('graphToggleFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
   assert.match(fn('graphSoloFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
   assert.match(fn('graphSetLayoutKind'), /next === was\) return;/);
-  assert.match(fn('wireGraphView'), /graphSetLayoutKind\(layoutBtn\.dataset\.layout\)/);
+  assert.match(fn('wireGraphView'), /graphSetLayoutKind\(kindBtn\.dataset\.graphKind === 'flow' \? 'flow' : 'tiers'\)/);
   assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });
 
@@ -198,50 +198,10 @@ test('a lone selected card keeps its relations lit and a selection lights its ca
   assert.match(fn('graphSettleFocus'), /hoveredId/);
 });
 
-test('the node drag is force-only, left button, no modifier, and starts only past the threshold', () => {
-  const body = fn('wireGraphView');
-  assert.match(body, /graphCur\.kind !== 'force' \|\| e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey \|\| e\.altKey\) return/);
-  assert.match(body, /e\.button !== 0/);
-  assert.match(fn('graphDragMove'), /GRAPH_PAN_THRESHOLD\) return;\n    graphBeginDrag\(d\)/);
-  const begin = fn('graphBeginDrag');
-  assert.match(begin, /isDragging = true/);
-  assert.match(begin, /graph-dragging/);
-  assert.match(begin, /graphForceSim\(graphCur\.model, graphCur\.layout\.pos\)/);
-  assert.match(fn('graphDragMove'), /graphWorldPoint\(e\)/);
-  assert.match(fn('graphDragMove'), /Math\.max\(d\.alpha, GRAPH_DRAG_ALPHA\)/);
-  assert.match(fn('graphDragFrame'), /graphForceStep\(d\.sim, d\.alpha, d\.pin\)/);
-  assert.match(fn('graphPaintDrag'), /setAttribute\('transform'/);
-  assert.match(fn('graphPaintDrag'), /graphLinkPaths\(/);
-  assert.ok(!/renderGraphView/.test(fn('graphPaintDrag')), 'no full re-render per frame');
-  assert.ok(src.includes('GRAPH_DRAG_STEPS = 2') && src.includes('GRAPH_COOL_FRAMES = 40'));
-});
-
-test('one rAF loop: renderGraphView and resetGraphViewState stop it; every exit clears isDragging', () => {
-  assert.match(fn('renderGraphView'), /graphStopDrag\(true\)/);
-  assert.ok(fn('renderGraphView').indexOf('graphStopDrag(true)') < fn('renderGraphView').indexOf('graphLoadLayout()'));
-  assert.match(fn('resetGraphViewState'), /graphStopDrag\(false\)/);
-  assert.match(fn('resetGraphViewState'), /graphArrangements\.clear\(\)/);
-  const stop = fn('graphStopDrag');
-  assert.match(stop, /cancelAnimationFrame\(d\.raf\)/);
-  assert.match(stop, /isDragging = false/);
-  assert.match(fn('graphDragKick'), /if \(!d\.raf\)/);
-  const wire = fn('wireGraphView');
-  assert.match(wire, /host\.addEventListener\('pointercancel', finish\)/);
-  assert.match(wire, /host\.addEventListener\('lostpointercapture', finish\)/);
-  assert.match(wire, /graphReleaseDrag\(e\)/);
-  assert.match(fn('graphReleaseDrag'), /graphSwallowNextClick\(\)/);
-  assert.match(fn('graphDragFrame'), /graphStopDrag\(true\)/);
-});
-
-test('dragged positions are committed with their signature and applied only when it still matches', () => {
-  assert.match(fn('graphStopDrag'), /graphArrangements\.set\(d\.sig, positions\)/);
-  const render = fn('renderGraphView');
-    assert.match(render, /kind === 'force' && graphArrangements\.has\(sig\)\) layout = graphWithPositions\(layout, model, graphArrangements\.get\(sig\)\)/);
-});
-
-test('the force layout shows a grab cursor and a drag a grabbing one, from CSS alone', () => {
-  assert.match(css, /\.graph-canvas\.graph-kind-force \.graph-node \{ cursor: grab; \}/);
-  assert.match(css, /\.graph-canvas\.graph-dragging[^{]*\{ cursor: grabbing; \}/);
+test('a card is not dragged: the view holds no drag, force simulation or kept arrangement, and no card shows a grab cursor', () => {
+  assert.doesNotMatch(src, /graphDrag|graphForce|graphArrangements|graphWithPositions|graph-dragging/);
+  assert.doesNotMatch(css, /graph-dragging|graph-kind-force|is-loose/);
+  assert.doesNotMatch(css, /\.graph-node[^{]*\{[^}]*cursor: grab/);
   assert.match(css, /\.graph-canvas \{[^}]*user-select: none/);
   assert.match(src, /classList\.add\(`graph-kind-\$\{kind\}`\)/);
 });
@@ -343,9 +303,9 @@ test('the render passes the board\'s hierarchy to the model, so a card is in the
   assert.match(fn('renderGraphView'), /graphBuild\(pool, \{[^}]*\bhierarchy: state\.hierarchy[^}]*\}\)/);
 });
 
-test('the Tiers button describes the fan: a band per tier, a ring per depth, a sector per tree and the Unnested block', () => {
-  const title = src.match(/tiers: '(Tiers: [^']*)'/);
-  assert.ok(title, 'the Tiers title is a plain string');
+test('the Hierarchy button describes the fan: a band per tier, a ring per depth, a sector per tree and the Unnested block', () => {
+  const title = src.match(/hierarchy: '(Hierarchy: [^']*)'/);
+  assert.ok(title, 'the Hierarchy title is a plain string');
   assert.match(title[1], /a band for each tier/);
   assert.match(title[1], /tier 1 nearest the centre/);
   assert.match(title[1], /a ring for each depth of the cards without a tier/);

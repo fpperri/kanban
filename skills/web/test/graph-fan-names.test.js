@@ -272,12 +272,12 @@ test('a prefixed id leads its name whole, and a long title is cut after it', () 
   assert.strictEqual(names[2], '#_4');
 });
 
-test('only the tier fan has names: a plan with no options, and Force and Status, name no card and carry no name', () => {
+test('only the tier fan has names: a plan with no options, and the Flow, name no card and carry no name', () => {
   const model = drawnModel(BOARDS.plan);
   const none = planOf(model, null);
   assert.deepStrictEqual(namedIn(none), []);
   assert.ok(none.nodes.every((n) => n.name === undefined));
-  for (const kind of ['force', 'status']) {
+  for (const kind of ['flow']) {
     const layout = graphLayout(model, kind, { statuses: BOARDS.plan.config.statuses });
     const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title, fan: { ...DEFAULTS, names: 'all' } });
     assert.deepStrictEqual(namedIn(plan), [], kind);
