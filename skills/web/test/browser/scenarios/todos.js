@@ -102,7 +102,7 @@ module.exports = {
     const file = (name) => path.join(boardDir, '.scratchpad', name);
     const todoFile = () => fs.readFileSync(file('0007.todo.md'), 'utf8').replace(/\r\n/g, '\n');
     const onFile = async (text, ms) => {
-      const end = Date.now() + (ms || 8000);
+      const end = Date.now() + page.scaled(ms || 8000);
       while (Date.now() < end) {
         if (todoFile() === text) return true;
         await page.sleep(50);

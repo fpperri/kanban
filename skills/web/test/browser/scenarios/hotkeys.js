@@ -12,8 +12,8 @@
 // its panel-on-focus checkbox changes that row at once. The list sits inside the sheet without
 // widening it, one key element for each key label.
 //
-// What the list holds is written down in CASES, and
-// skills/web/test/browser-hotkeys-scenario.test.js holds those lists to hotkeys.js, so a
+// The rows and their states the sheet should draw are read from hotkeys.js; CASES holds the states the
+// keys leave behind, and skills/web/test/browser-hotkeys-scenario.test.js holds those to hotkeys.js, so a
 // wrong expectation fails in the unit suite and not only in a browser. Each step waits on the
 // page, never on a fixed sleep; a "nothing happened" check waits two animation frames. Keys go
 // through the runner's key helper, a real key press (? is Shift with the slash key, as a US
@@ -25,13 +25,11 @@
 
 const { HOTKEYS, hotkeyRows } = require('../../../web/hotkeys');
 
-// The keys the page answers, as the list labels them, and the keys that have a state with what each
-// reads before anything is changed: both come from the list in hotkeys.js, so a new key is checked
-// without an edit here.
-const KEYS = HOTKEYS.flatMap((h) => h.keys);
+// What each key that has a state reads before anything is changed comes from the list in hotkeys.js, so a
+// new key is checked without an edit here; hotkeys-sheet.test.js and hotkeys-docs.test.js pin the texts.
 const DEFAULTS = Object.fromEntries(hotkeyRows({}).filter((r) => r.state).map((r) => [r.id, r.state]));
 
-const CASES = { keys: KEYS, defaults: DEFAULTS, afterKeys: { panel: 'panel on focus: off', pill: 'pill: blocked', isolate: 'isolate: on' }, names: 'names: all' };
+const CASES = { defaults: DEFAULTS, afterKeys: { panel: 'panel on focus: off', pill: 'pill: blocked', isolate: 'isolate: on' }, names: 'names: all' };
 
 const SHEET_UP = `!document.getElementById('prefs-sheet').classList.contains('hidden')`;
 const SHEET_SHUT = `document.getElementById('prefs-sheet').classList.contains('hidden')`;
@@ -49,7 +47,6 @@ const BOX = `document.getElementById('search-input')`;
 
 const ROWS = `[...document.querySelectorAll('#hotkeys-list > li.hotkey-row')]`;
 const ROW_IDS = `${ROWS}.map((r)=>r.dataset.hotkey)`;
-const KEY_LABELS = `${ROWS}.flatMap((r)=>[...r.querySelectorAll('.hotkey-key')].map((k)=>k.textContent))`;
 const WHATS = `${ROWS}.map((r)=>{const w=r.querySelector('.hotkey-what');return w?w.textContent.trim():''})`;
 const STATES = `(()=>{const o={};for(const r of ${ROWS}){const s=r.querySelector('.hotkey-state');if(s)o[r.dataset.hotkey]=s.textContent}return o})()`;
 const STATE_OF = (id) => `(()=>{const s=document.querySelector('#hotkeys-list .hotkey-row[data-hotkey="${id}"] .hotkey-state');return s?s.textContent:null})()`;
@@ -110,8 +107,6 @@ module.exports = {
     check('the sheet shows its Hotkeys page, with the heading inside the sheet', await ev(HEADING_IN_VIEW));
 
     // --- what the list holds -------------------------------------------------------------------------------
-    const labels = await ev(KEY_LABELS);
-    check('the list has a key element for every key the page answers', CASES.keys.every((k) => labels.includes(k)), labels);
     check('the sheet draws one row for each entry of the list, in its order', same(await ev(ROW_IDS), HOTKEYS.map((h) => h.id)), await ev(ROW_IDS));
     check('every row is a list item of the Hotkeys list, with a key element drawn for each key label', await ev(KEYS_DRAWN) && await ev(`document.querySelectorAll('#hotkeys-list > li').length===${ROWS}.length`));
     const whats = await ev(WHATS);

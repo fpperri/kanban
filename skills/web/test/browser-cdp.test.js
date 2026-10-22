@@ -392,3 +392,10 @@ test('a scenario begins with the page throttled by the rate, and not at all at r
   await fast.env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
   assert.deepStrictEqual(fast.cdp.calls.filter((c) => c[0] === 'Emulation.setCPUThrottlingRate'), []);
 });
+
+test('a page that runs at a rate sleeps that many times as long', async () => {
+  const { page } = livePage(fakeCdp(), { rate: 4 });
+  const t0 = Date.now();
+  await page.sleep(30);
+  assert.ok(Date.now() - t0 >= 110, 'a 30 ms sleep at rate 4 lasts 120 ms');
+});

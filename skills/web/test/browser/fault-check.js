@@ -72,7 +72,7 @@ function problemsForKilledChrome({ code, out, ms, limitMs, leftovers }) {
 function runRunner(args, tmpRoot) {
   return new Promise((resolve) => {
     const t0 = Date.now();
-    const env = { ...process.env, TMPDIR: tmpRoot, TEMP: tmpRoot, TMP: tmpRoot };
+    const env = { ...process.env, TMPDIR: tmpRoot, TEMP: tmpRoot, TMP: tmpRoot, KANBAN_BROWSER_CPU_THROTTLE: '1' };
     const child = spawn(process.execPath, [RUN_JS, ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     child.stdout.on('data', (d) => { out += d; });

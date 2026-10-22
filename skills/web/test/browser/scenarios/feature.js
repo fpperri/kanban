@@ -149,6 +149,7 @@ module.exports = {
     await clickOn('#prefs-btn');
     check('feature: the gear opens its sheet', await waitFor(`!${SHEET}.classList.contains('hidden')`, 2500) && await waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500));
     const pages = await ev(`({ shown: [...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent), listed: settingsBoardPages.map((p)=>p.title) })`);
+    // The pages and their order are pinned in todos-wiring.test.js, scratchpad-page.test.js and settings-page.test.js; this proves the menu renders the table.
     check('feature: This board lists the pages settingsBoardPages holds, in its order', pages.listed.length > 0 && pages.shown.join() === pages.listed.join(), pages);
     check('feature: the menu says logbook on, scratchpad on and groups on', await ev(menuState('board:logbook')) === 'on' && await ev(menuState('board:scratchpad')) === 'on' && /^on/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:scratchpad')), await ev(menuState('board:groups'))]);
     await clickOn('.prefs-menu-item[data-page="board:groups"]');

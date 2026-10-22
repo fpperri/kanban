@@ -60,7 +60,7 @@ module.exports = {
     const lines = () => config().split(/\r?\n/);
     const has = (line) => lines().includes(line);
     const waitConfig = async (pred, ms = 4000) => {
-      const until = Date.now() + ms;
+      const until = Date.now() + page.scaled(ms);
       while (Date.now() < until) {
         if (pred(config().replace(/\r?\n/g, '\n'))) return true;
         await new Promise((r) => setTimeout(r, 50));
@@ -87,6 +87,7 @@ module.exports = {
     const sections = await ev(`[...document.querySelectorAll('.prefs-section h3')].map((h)=>h.textContent)`);
     check('the menu has This browser and This board', sections.join() === 'This browser,This board', sections);
     const boardPages = await ev(`({ shown: [...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent), listed: settingsBoardPages.map((p)=>p.title) })`);
+    // The pages and their order are pinned in todos-wiring.test.js, scratchpad-page.test.js and settings-page.test.js; this proves the menu renders the table.
     check('This board lists the pages settingsBoardPages holds, in its order', boardPages.listed.length > 0 && boardPages.shown.join() === boardPages.listed.join(), boardPages);
     check('the menu says the logbook is on and the groups on with how many were found', await ev(menuState('board:logbook')) === 'on' && /^on · \d+$/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:groups'))]);
     check('the sheet is wide, with the menu and a page side by side', await ev(`document.getElementById('prefs-panel').classList.contains('is-split')`)

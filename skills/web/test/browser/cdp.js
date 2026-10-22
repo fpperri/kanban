@@ -76,10 +76,10 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
   const live = () => { if (scope.aborted) throw new Error('scenario is over'); };
   const send = async (method, params) => { live(); return cdp.send(method, params); };
   const ev = async (expr) => { live(); return cdp.ev(expr); };
-  const pause = async (ms) => { live(); await sleep(ms); live(); };
 
-  // A wait is given `rate` times its budget when the page runs `rate` times slower; this is the one place that does it.
+  // A wait or a sleep is given `rate` times its time when the page runs `rate` times slower; this is the one place that does it.
   const scaled = (ms) => ms * rate;
+  const pause = async (ms) => { live(); await sleep(scaled(ms)); live(); };
   const waitFor = async (expr, ms = 4000) => {
     const t0 = Date.now();
     while (Date.now() - t0 < scaled(ms)) {
@@ -216,4 +216,4 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
   };
 }
 
-module.exports = { connectCdp, makePage, createBrowserEnv, consoleErrorsFrom, resetHistory };
+module.exports = { CALL_TIMEOUT_MS, connectCdp, makePage, createBrowserEnv, consoleErrorsFrom, resetHistory };

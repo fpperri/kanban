@@ -73,6 +73,28 @@ test('scenario names are unique and each is its file name', () => {
   }
 });
 
+test('no module in a subfolder of the scenarios folder is a scenario, so none is hidden from the runner', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+  const nested = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => walk(path.join(dir, e.name))).filter((f) => f.endsWith('.js'));
+  assert.ok(nested.length > 0, 'the step folders are there');
+  for (const f of nested) {
+    const m = require(f);
+    assert.ok(!(m && typeof m.name === 'string' && typeof m.board === 'string' && typeof m.run === 'function'), `${path.relative(dir, f)} exports a scenario; move it up a folder`);
+  }
+});
+
+test('no scenario or step reads the clock against a literal: a wait of its own budgets with page.scaled, and sleeps go through page.sleep', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+  for (const f of walk(dir).filter((f) => f.endsWith('.js'))) {
+    const lines = code(fs.readFileSync(f, 'utf8')).split(/\r?\n/);
+    lines.forEach((l, i) => {
+      const where = `${path.relative(dir, f)}:${i + 1}`;
+      if (/Date\.now\(\)/.test(l) && /[-+<>]/.test(l.replace(/Date\.now\(\)/, '')) && !/until|end/.test(l.split('Date.now()')[1] || '')) assert.ok(/scaled\(/.test(l), `${where} compares the clock to a time that is not scaled: ${l.trim()}`);
+      if (/setTimeout\(/.test(l)) assert.ok(/setTimeout\(r, 50\)/.test(l), `${where} waits on a timer of its own: ${l.trim()}`);
+    });
+  }
+});
+
 test('every scenario names a known board and has a run function and a sane timeout', () => {
   for (const s of scenarios) {
     assert.ok(BOARDS[s.board], `${s.name}: board ${s.board}`);

@@ -42,6 +42,7 @@ function graphPage() {
     checks,
     picked,
     sleep: async () => {},
+    scaled: (ms) => ms,
     shot: async () => {},
     key: async () => {},
     send: async (method, params) => {
