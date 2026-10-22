@@ -607,7 +607,9 @@ plain). A sixth-level heading stays muted, as it does in the preview, where h4 t
 colour is all that sets h6 apart. The notes palette's note box and the single-line fields stay plain.
 **Colour Markdown while editing** in the preferences sheet turns it off and on, remembered in your browser,
 one choice for every board; off, the boxes are exactly the plain boxes they were. The colours are the
-`--md-edit-*` tokens in `app.css`, one set for each theme.
+`--md-edit-*` tokens in `app.css`, one set for each theme. Bold and italic are blue-greys and a
+mention is a muted terracotta; in the preview, bold takes `--md-preview-bold` and a mention chip
+`--mention`, so a mention reads the same wherever it is drawn.
 
 **Scratchpad** — with a `scratchpad:` line in `config.yaml`, a card or a group has a disposable
 page, kept as `0007.scratchpad.md` in that folder, with optional `refs:` (the notes, files and
