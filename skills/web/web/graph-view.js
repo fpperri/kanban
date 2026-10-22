@@ -24,8 +24,10 @@
 // The Graph draws one of two graphs, chosen at the top of the option panel: Hierarchy (the tier
 // fan above) and Flow (graph-flow.js: the cards in columns by their dependencies, with the Dependencies
 // switch, frontier or all). Flow draws no parent line and keeps every other gesture of the dots: its
-// column headings and strip are marks behind the dots that take no pointer. The choice and the
-// switch are kept per board and in the address (graph=, deps=), the address winning on a load.
+// column headings and strip are marks behind the dots that take no pointer. Its second switch, Lanes,
+// puts the cards in a lane for each tier card, each lane under a header that leads with that card's
+// type mark (drawn here, a mark that takes no pointer yet). The choice and the switches are kept per
+// board and in the address (graph=, deps=, lanes=), the address winning on a load.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
@@ -67,11 +69,16 @@ const GRAPH_FLOW_DEPS_LABEL = {
   label: 'Dependencies',
   hint: 'Frontier: columns by the steps until a card is ready, counting only the dependencies not done; done cards stand faded in the first column and a dependency loop in the last. All: columns by the longest chain of dependencies behind a card, done ones included.',
 };
+const GRAPH_FLOW_LANES_LABEL = {
+  label: 'Lanes',
+  hint: 'Off: the cards in columns alone. On: each card in the lane of its nearest parent with a tier, else its root, under a header with the type mark of that card, its tier, title, cards and ready cards. Frontier puts the lanes with ready cards first, the most ready first, and folds a lane with no open dependency into the strip; all keeps the outline order and folds a lane with no dependency. A card with no dependency stays in the strip.',
+};
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
 let graphLayoutKind = null;
 // The Flow's Dependencies switch, as the Graph holds it.
 let graphFlowDeps = null;
+let graphFlowLanesOn = null;
 let graphStatusFilter = null;
 let graphFanOptions = null;
 // Set when the option panel opened or closed: the next draw frames the cards again in the
@@ -131,10 +138,27 @@ function graphSaveDeps() {
   catch (e) { /* storage unavailable — the switch just won't persist this session */ }
 }
 
-// The address says which graph the Graph draws, and the Dependencies switch while it is the Flow, so a
-// reload or a link opens the same picture. It REPLACES the entry the page is on: a press adds nothing to Back.
+// The Flow's Lanes switch, a boolean: the address's lanes= when it says one, else the one kept for the board.
+function graphLoadLanes() {
+  if (graphFlowLanesOn !== null) return graphFlowLanesOn;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'graph.lanes')); }
+  catch (e) { saved = null; }
+  const link = graphFlowLink(location.search).lanes;
+  graphFlowLanesOn = link === null ? mergeGraphFlowLanes(saved) : link;
+  return graphFlowLanesOn;
+}
+
+function graphSaveLanes() {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.lanes'), graphFlowLanesOn ? '1' : '0'); }
+  catch (e) { /* storage unavailable — the switch just won't persist this session */ }
+}
+
+// The address says which graph the Graph draws, and the Dependencies and Lanes switches while it is the
+// Flow, so a reload or a link opens the same picture. It REPLACES the entry the page is on: a press adds
+// nothing to Back.
 function graphWriteAddress() {
-  const search = graphFlowAddress(location.search, graphLoadLayout() === 'flow' ? 'flow' : 'hierarchy', graphLoadDeps());
+  const search = graphFlowAddress(location.search, graphLoadLayout() === 'flow' ? 'flow' : 'hierarchy', graphLoadDeps(), graphLoadLanes());
   if (search == null) return;
   try { history.replaceState(null, '', location.pathname + search); } catch (e) { /* the address lags until the next press */ }
 }
@@ -159,6 +183,15 @@ function graphSetDeps(to) {
   if (next === graphLoadDeps()) return;
   graphFlowDeps = next;
   graphSaveDeps();
+  graphWriteAddress();
+  renderGraphView();
+}
+
+function graphSetLanes(to) {
+  const next = to === 'on';
+  if (next === graphLoadLanes()) return;
+  graphFlowLanesOn = next;
+  graphSaveLanes();
   graphWriteAddress();
   renderGraphView();
 }
@@ -256,6 +289,7 @@ function graphLeftOut(pool) {
 function resetGraphViewState() {
   graphLayoutKind = null;
   graphFlowDeps = null;
+  graphFlowLanesOn = null;
   graphStatusFilter = null;
   graphFanOptions = null;
   graphRefitNext = false;
@@ -372,31 +406,27 @@ function graphBuildOptionsRow(options) {
   return row;
 }
 
-// The Flow's option row: the Dependencies switch, in the markup of the fan's options, kept per board.
-// Its buttons name their option and value as the fan's do, so a press hands focus back to the button the
-// redraw builds; the click handler tells them apart by the key (deps). A later switch, the lanes, is one
-// more group here.
-function graphBuildFlowRow(deps) {
-  const row = document.createElement('div');
-  row.className = 'graph-options graph-flow-options';
-  row.dataset.keepsSelection = '';
+// One switch of the Flow's option row, in the markup of the fan's options. Its buttons name their option
+// and value as the fan's do, so a press hands focus back to the button the redraw builds; the click
+// handler tells the switches apart by the key (deps, lanes).
+function graphBuildFlowSwitch(def, key, values, current) {
   const group = document.createElement('span');
   group.className = 'graph-option';
-  group.title = GRAPH_FLOW_DEPS_LABEL.hint;
+  group.title = def.hint;
   const label = document.createElement('span');
   label.className = 'graph-option-label';
-  label.textContent = GRAPH_FLOW_DEPS_LABEL.label;
+  label.textContent = def.label;
   group.appendChild(label);
   const seg = document.createElement('span');
   seg.className = 'graph-option-seg';
   seg.setAttribute('role', 'group');
-  seg.setAttribute('aria-label', GRAPH_FLOW_DEPS_LABEL.label);
-  for (const value of GRAPH_FLOW_DEPS) {
-    const on = deps === value;
+  seg.setAttribute('aria-label', def.label);
+  for (const value of values) {
+    const on = current === value;
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `graph-option-btn${on ? ' active' : ''}`;
-    b.dataset.key = 'deps';
+    b.dataset.key = key;
     b.dataset.val = value;
     b.dataset.keepsSelection = '';
     b.setAttribute('aria-pressed', String(on));
@@ -404,14 +434,23 @@ function graphBuildFlowRow(deps) {
     seg.appendChild(b);
   }
   group.appendChild(seg);
-  row.appendChild(group);
+  return group;
+}
+
+// The Flow's option row: the Dependencies and Lanes switches, kept per board.
+function graphBuildFlowRow(deps, lanes) {
+  const row = document.createElement('div');
+  row.className = 'graph-options graph-flow-options';
+  row.dataset.keepsSelection = '';
+  row.appendChild(graphBuildFlowSwitch(GRAPH_FLOW_DEPS_LABEL, 'deps', GRAPH_FLOW_DEPS, deps));
+  row.appendChild(graphBuildFlowSwitch(GRAPH_FLOW_LANES_LABEL, 'lanes', ['off', 'on'], lanes ? 'on' : 'off'));
   return row;
 }
 
 // The option panel's contents (app.js builds the panel itself): the Hierarchy | Flow choice, the zoom,
 // then for Hierarchy the option row of the tier fan and for Flow the Flow's switches. These stood in the
 // top row of the view before.
-function graphBuildPanel(kind, fan, deps) {
+function graphBuildPanel(kind, fan, deps, lanes) {
   const panel = buildViewPanel('graph', 'Graph options');
   const kinds = document.createElement('div');
   kinds.className = 'graph-layouts graph-kinds';
@@ -428,7 +467,7 @@ function graphBuildPanel(kind, fan, deps) {
   zoom.appendChild(graphButton('graph-zoom-btn', 'Fit', 'Fit every card in the panel', { graphAction: 'fit' }));
   panel.appendChild(zoom);
   if (fan) panel.appendChild(graphBuildOptionsRow(fan.options));
-  if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps));
+  if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps, lanes));
   return panel;
 }
 
@@ -774,6 +813,28 @@ function graphDrawPlan(plan) {
     el.textContent = t.text;
     world.appendChild(el);
   }
+  // A lane's header is a plain drawing for now: it takes no pointer, and carries its card's id as
+  // data-id (not as a graph-node) so a later change can make it that card's node. Drawn with the
+  // marks behind the links and the dots. Its text stays one size at any zoom (graphView sets
+  // --graph-k), and the type's mark takes its colour once the Graph is on the page (paintTypeColors).
+  for (const h of plan.flow.heads) {
+    const g = graphEl('g', { transform: `translate(${h.x} ${h.y})` }, 'graph-flow-lane-head');
+    g.setAttribute('data-id', String(h.id));
+    const tip = graphEl('title');
+    tip.textContent = h.title;
+    g.appendChild(tip);
+    const inner = graphEl('g', {}, 'graph-flow-lanehead-in');
+    if (h.icon) {
+      const mark = graphEl('path', { d: h.icon.d, transform: 'translate(7 -4)' }, 'graph-flow-icon');
+      if (h.icon.color) mark.setAttribute('data-type-color', h.icon.color);
+      inner.appendChild(mark);
+    }
+    const text = graphEl('text', { x: h.icon ? 20 : 0, y: 0 }, 'graph-flow-lanehead-text');
+    text.textContent = h.text;
+    inner.appendChild(text);
+    g.appendChild(inner);
+    world.appendChild(g);
+  }
   for (const d of plan.dividers) {
     world.appendChild(fixed(graphEl('line', { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 }, 'graph-divider')));
   }
@@ -838,7 +899,7 @@ function graphDrawPlan(plan) {
 
 function renderGraphView() {
   const host = document.getElementById('graph-view');
-  let kind, filter, fanOptions, deps, model, layout, layoutOpts, plan, sig;
+  let kind, filter, fanOptions, deps, lanes, model, layout, layoutOpts, plan, sig;
   const panelMoved = graphRefitNext;
   graphRefitNext = false;
   try {
@@ -851,7 +912,8 @@ function renderGraphView() {
       ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy, unnested: graphUnnestedNow(),
     });
     deps = kind === 'flow' ? graphLoadDeps() : null;
-    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order, unnested: fanOptions && fanOptions.unnested, deps };
+    lanes = kind === 'flow' ? graphLoadLanes() : null;
+    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order, unnested: fanOptions && fanOptions.unnested, deps, lanes };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
     plan = graphPlan(model, layout, {
@@ -873,7 +935,7 @@ function renderGraphView() {
   const main = document.createElement('div');
   main.className = 'graph-main';
   host.appendChild(main);
-  if (panelOpen) host.appendChild(graphBuildPanel(kind, fan, deps));
+  if (panelOpen) host.appendChild(graphBuildPanel(kind, fan, deps, lanes));
   main.appendChild(graphBuildControls(model.nodes.length, model.links.length, fan, panelOpen));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
@@ -996,7 +1058,7 @@ function wireGraphView(host) {
     if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
     if (option) {
-      keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
+      keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : option.dataset.key === 'lanes' ? graphSetLanes(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
       return;
     }
     const kindBtn = e.target.closest('.graph-kind-btn[data-graph-kind]');

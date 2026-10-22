@@ -137,7 +137,7 @@ test('the row is there with Tiers and nowhere else', async () => {
   const tiers = await open();
   assert.ok(tiers.row());
   const flow = await open({ layout: 'flow' });
-  assert.deepStrictEqual([...new Set(byClass(flow.host, 'graph-option-btn').map((b) => b.dataset.key))], ['deps'], 'the Flow has its Dependencies switch and none of the fan\'s options');
+  assert.deepStrictEqual([...new Set(byClass(flow.host, 'graph-option-btn').map((b) => b.dataset.key))], ['deps', 'lanes'], 'the Flow has its Dependencies and Lanes switches and none of the fan\'s options');
 });
 
 test('every control of the row keeps the selection and holds no poll, and writes no style or handler', async () => {

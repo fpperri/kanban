@@ -195,13 +195,22 @@ behind a dependency loop stands in a last `loop` column. All counts the longest 
 a card, done ones included: `waits for nothing`, `chain 1`, `chain 2`, a loop sharing one column. Each column
 heading carries its card count. Cards with no dependency either way sit in a strip below the columns, titled
 `no dependency either way` with its count. Within a column the cards are ordered to cut the arrows that cross,
-ties by id, and a tall column wraps into side-by-side stacks. A dot keeps its status colour and its type mark,
+ties by id, and a tall column wraps into side-by-side stacks. A **Lanes** switch beside the Dependencies
+switch, **off** by default, groups the cards into lanes: each card with a dependency sits in the lane of its
+nearest parent with a tier, else its root, under a header that leads with that card's type mark in its type
+colour, its tier name (none for a card with no tier), `#id title`, the lane's card count and its ready
+count. A card is ready when it is open, in no loop and waits for nothing that is not done. The columns line
+up across the lanes. With frontier the lanes with ready cards come first, the most ready first, then the
+others in outline order; with all, every lane is in outline order. A lane with no open dependency (frontier)
+or no dependency (all) folds into the strip at the bottom, which then reads `no open dependency` under
+frontier, and so does a card with no dependency in a lane that stays. A header is only drawn: it takes no
+pointer. A dot keeps its status colour and its type mark,
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
 hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its
-parent. A dot cannot be dragged. The choice and the switch are remembered per board in your browser and written
-in the address as `graph=hierarchy|flow` and `deps=frontier|all`: a link's values win on that load, and a press
-replaces the page's address without adding a step to Back. In the phone's bottom sheet the choice and the switch
+parent. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
+in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
+replaces the page's address without adding a step to Back. In the phone's bottom sheet the choice and the switches
 are its first rows.
 
 A dot takes its status colour, grows with its relations, goes hollow when done

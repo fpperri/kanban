@@ -21,16 +21,24 @@
 // its strongly connected parts first (Tarjan, iterative, so a long chain costs no stack), so it
 // never hangs the drawing.
 //
-// The cards are placed in lanes. Today there is one lane without a header, which holds every card
-// with a dependency; a lane is { key, header, ids, y, h } and each lane has its own rows, while the
-// columns stand across all of them.
+// The Lanes switch (off by default) puts the cards in lanes. Off, there is one lane without a header,
+// which holds every card with a dependency. On, each card with a dependency is in the lane of its
+// nearest parent with a tier, else of its root, and the lane's header leads with that card: its tier
+// name (none without a tier), its card, the lane's cards and its ready cards. A card is ready when it
+// is open, in no loop, and waits for nothing that is not done, in either Dependencies mode. With
+// frontier the lanes with ready cards come first, the most ready first, then the others in outline
+// order; with all, in outline order. A lane with no open dependency (frontier: every card of it
+// that has a dependency is done) or no dependency (all) folds into the strip below, and so does a
+// card with no dependency in a lane that stays, so the strip is the bottom lane. The columns come
+// from the cards in the lanes alone and stand across all of them. A lane is { key, header, ids, x,
+// y, w, h }, with the header { id, tier, count, ready } and its facts; each lane has its own rows.
 
 const GRAPH_FLOW_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
 const GRAPH_FLOW_GRAPHS = ['hierarchy', 'flow'];
 const GRAPH_FLOW_DEPS = ['frontier', 'all'];
 const GRAPH_FLOW_GEO = Object.freeze({
-  PITCH: 32, SUBW: 40, COLGAP: 90, ROWS: 14, HEAD: 54, LANE_PAD: 14, STRIP_GAP: 56, STRIP_HEAD: 30, STRIP_PITCH: 34, STRIP_MIN: 600, ARC: 48,
+  PITCH: 32, SUBW: 40, COLGAP: 90, ROWS: 14, HEAD: 54, LANE_HEAD: 30, LANE_PAD: 14, LANE_GAP: 14, STRIP_GAP: 56, STRIP_HEAD: 30, STRIP_PITCH: 34, STRIP_MIN: 600, ARC: 48, TITLE_MAX: 56, MARK_R: 7,
 });
 
 // --- the choices and the address ---------------------------------------------------
@@ -39,24 +47,31 @@ function mergeGraphFlowDeps(saved) {
   return GRAPH_FLOW_DEPS.includes(saved) ? saved : 'frontier';
 }
 
-// What a link's query string says of the Graph: `graph=hierarchy|flow` and `deps=frontier|all`,
-// each null when absent or not one of those.
+// The Lanes switch as a boolean: on is true or '1', anything else is off.
+function mergeGraphFlowLanes(saved) {
+  return saved === true || saved === '1';
+}
+
+// What a link's query string says of the Graph: `graph=hierarchy|flow`, `deps=frontier|all` and
+// `lanes=0|1`, each null when absent or not one of those.
 function graphFlowLink(search) {
   let params;
   try { params = new URLSearchParams(search || ''); } catch (e) { params = new URLSearchParams(''); }
   const graph = params.get('graph');
   const deps = params.get('deps');
+  const lanes = params.get('lanes');
   return {
     graph: GRAPH_FLOW_GRAPHS.includes(graph) ? graph : null,
     deps: GRAPH_FLOW_DEPS.includes(deps) ? deps : null,
+    lanes: lanes === '1' ? true : lanes === '0' ? false : null,
   };
 }
 
-// What the address should become once the Graph shows `graph` (with `deps` while it is the Flow):
-// every other parameter stays as it was, and `deps` goes with the Flow. The search string to
-// replace the entry with (leading "?", or "" when nothing is left), or null when the address
-// already says it.
-function graphFlowAddress(search, graph, deps) {
+// What the address should become once the Graph shows `graph` (with `deps` and `lanes` while it is
+// the Flow): every other parameter stays as it was, and `deps` and `lanes` go with the Flow. The
+// search string to replace the entry with (leading "?", or "" when nothing is left), or null when
+// the address already says it.
+function graphFlowAddress(search, graph, deps, lanes) {
   const params = new URLSearchParams(search || '');
   const want = GRAPH_FLOW_GRAPHS.includes(graph) ? graph : 'hierarchy';
   let changed = false;
@@ -64,9 +79,12 @@ function graphFlowAddress(search, graph, deps) {
   if (want === 'flow') {
     const d = mergeGraphFlowDeps(deps);
     if (params.get('deps') !== d) { params.set('deps', d); changed = true; }
-  } else if (params.has('deps')) {
-    params.delete('deps');
-    changed = true;
+    const l = mergeGraphFlowLanes(lanes) ? '1' : '0';
+    if (params.get('lanes') !== l) { params.set('lanes', l); changed = true; }
+  } else {
+    for (const key of ['deps', 'lanes']) {
+      if (params.has(key)) { params.delete(key); changed = true; }
+    }
   }
   if (!changed) return null;
   const qs = params.toString();
@@ -205,9 +223,11 @@ function graphFlowOrder(cells, g) {
 
 // --- the layout ------------------------------------------------------------------------
 
-function graphFlowColumns(g, model, deps) {
-  const doneOf = (id) => { const n = model.byId.get(id); return n.status === 'done' || n.archived; };
-  const mainIds = g.ids.filter((id) => g.linked.has(id));
+// The columns of the cards in `mainIds` (the cards with a dependency that stand in lanes). `fr` is
+// the frontier of the whole graph; the columns are read from the cards in the lanes alone, so a
+// folded lane leaves no done column of its own.
+function graphFlowColumns(g, model, deps, mainIds, fr) {
+  const doneOf = (id) => graphFlowDone(model, id);
   const colOf = new Map();
   const specs = [];
   if (deps === 'all') {
@@ -216,7 +236,7 @@ function graphFlowColumns(g, model, deps) {
     for (const id of mainIds) { colOf.set(id, chain.get(id)); max = Math.max(max, chain.get(id)); }
     if (mainIds.length) for (let c = 0; c <= max; c++) specs.push({ key: c, label: c === 0 ? 'waits for nothing' : `chain ${c}`, faded: false });
   } else {
-    const { step, loop } = graphFlowFrontier(g, doneOf);
+    const { step, loop } = fr;
     const live = mainIds.filter((id) => !doneOf(id));
     const maxStep = Math.max(0, ...live.filter((id) => step.has(id)).map((id) => step.get(id)));
     const keyOf = (id) => (doneOf(id) ? 'done' : loop.has(id) ? 'loop' : step.get(id));
@@ -229,7 +249,54 @@ function graphFlowColumns(g, model, deps) {
     const at = new Map(specs.map((s, i) => [s.key, i]));
     for (const id of mainIds) colOf.set(id, at.get(keyOf(id)));
   }
-  return { specs, colOf, mainIds };
+  return { specs, colOf };
+}
+
+function graphFlowDone(model, id) {
+  const n = model.byId.get(id);
+  return n.status === 'done' || n.archived;
+}
+
+// --- the lanes ---------------------------------------------------------------------------
+
+// The card whose lane a card is in: its nearest parent with a tier, else its root.
+function graphFlowLaneKey(model, n) {
+  let p = n.parentId;
+  while (p !== null && p !== undefined) {
+    const parent = model.byId.get(p);
+    if (!parent) break;
+    const slice = model.axis[parent.sliceIndex];
+    if (slice && slice.kind === 'tier') return p;
+    p = parent.parentId;
+  }
+  return n.rootId;
+}
+
+// The lanes of the cards with a dependency, and the cards of the lanes that fold. A lane is kept when
+// it has an open dependency (frontier: a card with a dependency that is not done) or any dependency
+// (all); the ready lanes come first with frontier.
+function graphFlowLanes(g, model, deps, fr) {
+  const outline = new Map(model.nodes.map((n, i) => [n.id, i]));
+  const order = [];
+  const byKey = new Map();
+  for (const n of model.nodes) {
+    if (!g.linked.has(n.id)) continue;
+    const key = graphFlowLaneKey(model, n);
+    if (!byKey.has(key)) { byKey.set(key, []); order.push(key); }
+    byKey.get(key).push(n.id);
+  }
+  const lanes = [];
+  const folded = [];
+  for (const key of order) {
+    const ids = byKey.get(key);
+    if (deps === 'frontier' && ids.every((id) => graphFlowDone(model, id))) { folded.push(...ids); continue; }
+    const ready = ids.filter((id) => !graphFlowDone(model, id) && !fr.loop.has(id) && fr.step.get(id) === 0).length;
+    const head = model.byId.get(key);
+    const slice = model.axis[head.sliceIndex];
+    lanes.push({ key, header: { id: key, tier: slice && slice.kind === 'tier' ? slice.name : '', count: ids.length, ready }, ids });
+  }
+  lanes.sort((a, b) => (deps === 'frontier' ? b.header.ready - a.header.ready : 0) || outline.get(a.key) - outline.get(b.key));
+  return { lanes, folded };
 }
 
 // A cell of `n` cards stands in `sub` side-by-side stacks of at most GRAPH_FLOW_GEO.ROWS rows.
@@ -241,20 +308,28 @@ function graphFlowCellShape(n) {
 // The Flow layout of the Graph model: what graph-model.js draws.
 //   columns  { index, key, label, faded, count, ids, x, w, y, h } left to right; x and w frame the
 //            column, which every lane shares
-//   lanes    { key, header, ids, y, h }, top to bottom
-//   strip    null, or { ids, count, label, x, y, w, h }: the cards with no dependency either way
+//   lanes    { key, header, ids, x, y, w, h }, top to bottom; header is null without lanes
+//   strip    null, or { ids, count, label, x, y, w, h }: the cards with no dependency either way and,
+//            with lanes, the cards of the lanes that fold
 //   pos      each card's centre; radius each card's dot, which counts the waits it is in
 //   boxes    what the bounds must hold besides the dots
 function graphFlowPlace(model, opts) {
   const deps = mergeGraphFlowDeps(opts && opts.deps);
+  const laned = mergeGraphFlowLanes(opts && opts.lanes);
   const F = GRAPH_FLOW_GEO;
   const g = graphFlowGraph(model);
-  const { specs, colOf, mainIds } = graphFlowColumns(g, model, deps);
-  const looseIds = g.ids.filter((id) => !g.linked.has(id));
+  const fr = deps === 'frontier' || laned ? graphFlowFrontier(g, (id) => graphFlowDone(model, id)) : null;
+  let lanes;
+  if (laned) lanes = graphFlowLanes(g, model, deps, fr).lanes;
+  else lanes = g.ids.some((id) => g.linked.has(id)) ? [{ key: null, header: null, ids: g.ids.filter((id) => g.linked.has(id)) }] : [];
+  const mainIds = lanes.flatMap((lane) => lane.ids);
+  const inMain = new Set(mainIds);
+  const stripIds = g.ids.filter((id) => !inMain.has(id));
+  const { specs, colOf } = graphFlowColumns(g, model, deps, mainIds, fr);
   const ncols = specs.length;
 
-  const lanes = mainIds.length ? [{ key: null, header: null, ids: mainIds }] : [];
   const cells = [];
+  const laneCells = [];
   lanes.forEach((lane, li) => {
     const byCol = new Map();
     for (const id of lane.ids) {
@@ -262,8 +337,8 @@ function graphFlowPlace(model, opts) {
       if (!byCol.has(c)) byCol.set(c, []);
       byCol.get(c).push(id);
     }
-    lane.cells = [...byCol.entries()].map(([col, ids]) => ({ col, lane: li, ids }));
-    cells.push(...lane.cells);
+    laneCells[li] = [...byCol.entries()].map(([col, ids]) => ({ col, lane: li, ids }));
+    cells.push(...laneCells[li]);
   });
   graphFlowOrder(cells, g);
 
@@ -277,24 +352,30 @@ function graphFlowPlace(model, opts) {
   let x = 0;
   for (let c = 0; c < ncols; c++) { colX.push(x); x += colW[c] + F.COLGAP; }
   const mainW = ncols ? x - F.COLGAP : 0;
+  const left = -F.COLGAP / 2 + 6;
+  const laneW = mainW + F.COLGAP - 12;
 
   const pos = new Map();
+  const headH = laned ? F.LANE_HEAD : 0;
+  const gap = laned ? F.LANE_GAP : 0;
   let y = F.HEAD;
-  for (const lane of lanes) {
-    const rows = Math.max(1, ...lane.cells.map((c) => c.shape.rows));
+  lanes.forEach((lane, li) => {
+    const rows = Math.max(1, ...laneCells[li].map((c) => c.shape.rows));
+    lane.x = left;
+    lane.w = laneW;
     lane.y = y;
-    lane.h = rows * F.PITCH + F.LANE_PAD;
-    for (const cell of lane.cells) {
-      const top = y + (rows - cell.shape.rows) * F.PITCH / 2;
+    lane.h = headH + rows * F.PITCH + F.LANE_PAD;
+    for (const cell of laneCells[li]) {
+      const top = y + headH + (rows - cell.shape.rows) * F.PITCH / 2;
       cell.ids.forEach((id, i) => {
         const stack = Math.floor(i / cell.shape.rows);
         const row = i % cell.shape.rows;
         pos.set(id, { x: colX[cell.col] + stack * F.SUBW + F.SUBW / 2, y: top + row * F.PITCH + F.PITCH / 2 });
       });
     }
-    y += lane.h;
-  }
-  const mainBottom = lanes.length ? y : F.HEAD;
+    y += lane.h + gap;
+  });
+  const mainBottom = lanes.length ? y - gap : F.HEAD;
 
   const boxes = [];
   const columns = specs.map((spec, c) => {
@@ -306,19 +387,20 @@ function graphFlowPlace(model, opts) {
     boxes.push({ x0: col.x, y0: col.y - 20, x1: col.x + col.w, y1: col.y + col.h });
     return col;
   });
+  if (laned) for (const lane of lanes) boxes.push({ x0: lane.x, y0: lane.y, x1: lane.x + lane.w, y1: lane.y + lane.h });
 
   let strip = null;
-  if (looseIds.length) {
+  if (stripIds.length) {
     const top = mainBottom + (lanes.length ? F.STRIP_GAP : 0);
-    const left = -F.COLGAP / 2 + 6;
-    const span = Math.max(mainW + F.COLGAP - 12, lanes.length ? 0 : F.STRIP_MIN);
+    const span = Math.max(laneW, lanes.length ? 0 : F.STRIP_MIN);
     const perRow = Math.max(6, Math.floor((span + F.COLGAP) / F.STRIP_PITCH));
-    const rows = Math.ceil(looseIds.length / perRow);
-    const w = Math.max(span, Math.min(perRow, looseIds.length) * F.STRIP_PITCH + 20);
+    const rows = Math.ceil(stripIds.length / perRow);
+    const w = Math.max(span, Math.min(perRow, stripIds.length) * F.STRIP_PITCH + 20);
     strip = {
-      ids: looseIds, count: looseIds.length, label: 'no dependency either way', x: left, y: top, w, h: F.STRIP_HEAD + rows * F.STRIP_PITCH + 8,
+      ids: stripIds, count: stripIds.length, label: laned && deps === 'frontier' ? 'no open dependency' : 'no dependency either way',
+      x: left, y: top, w, h: F.STRIP_HEAD + rows * F.STRIP_PITCH + 8,
     };
-    looseIds.forEach((id, i) => {
+    stripIds.forEach((id, i) => {
       pos.set(id, { x: left + 24 + (i % perRow) * F.STRIP_PITCH, y: top + F.STRIP_HEAD + Math.floor(i / perRow) * F.STRIP_PITCH + F.STRIP_PITCH / 2 });
     });
     boxes.push({ x0: strip.x, y0: strip.y, x1: strip.x + strip.w, y1: strip.y + strip.h });
@@ -328,7 +410,7 @@ function graphFlowPlace(model, opts) {
   for (const l of model.links) if (l.kind === 'wait') { waits.set(l.from, (waits.get(l.from) || 0) + 1); waits.set(l.to, (waits.get(l.to) || 0) + 1); }
   const radius = new Map(g.ids.map((id) => [id, 5 + Math.sqrt(waits.get(id) || 0) * 2.5]));
 
-  return { deps, columns, lanes, strip, pos, radius, boxes };
+  return { deps, lanes, columns, strip, pos, radius, boxes };
 }
 
 // The arrow from the card waited for to the card that waits: it leaves to the right and arrives from the
@@ -342,33 +424,66 @@ function graphFlowPath(flow, from, to) {
   return `M${rd(a.x)} ${rd(a.y)}C${rd(a.x + dx)} ${rd(a.y)} ${rd(b.x - dx)} ${rd(b.y)} ${rd(b.x - stop)} ${rd(b.y)}`;
 }
 
-// What the view draws behind the dots: a shaded frame and a heading for each column, the strip's frame
-// and heading. Plain data, in the Graph's world.
-function graphFlowMarks(flow) {
+// The text of the cards in `n` for a header: `1 card`, `5 cards`.
+function graphFlowCards(n) {
+  return `${n} card${n === 1 ? '' : 's'}`;
+}
+
+function graphFlowTrim(text, max) {
+  const chars = Array.from(String(text || '').replace(/\s+/g, ' ').trim());
+  return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : chars.join('');
+}
+
+// What the view draws behind the dots: a shaded frame and a heading for each column (with lanes the
+// lanes' frames instead of the columns'), the strip's frame and heading, and a header for each lane.
+// Plain data, in the Graph's world. A header is { id, x, y, tier, text, title, icon }: `id` is the
+// lane's card, `text` leads with the tier name and reads `#id title`, the lane's cards and its ready
+// cards, `icon` the type's mark ({ d, color }) or null. What only the model knows comes from the
+// optional `look`: titleOf(id), tipOf(id) for the header's tip, markOf(id) for the icon.
+function graphFlowMarks(flow, look) {
   const rects = [];
   const texts = [];
+  const heads = [];
+  const lk = look || {};
+  const laned = flow.lanes.some((l) => l.header);
   flow.columns.forEach((c) => {
-    rects.push({ x: c.x, y: c.y, w: c.w, h: c.h, cls: `graph-flow-col${c.index % 2 ? ' graph-flow-col-alt' : ''}${c.faded ? ' graph-flow-faded' : ''}` });
+    if (!laned) rects.push({ x: c.x, y: c.y, w: c.w, h: c.h, cls: `graph-flow-col${c.index % 2 ? ' graph-flow-col-alt' : ''}${c.faded ? ' graph-flow-faded' : ''}` });
     texts.push({ x: c.x + c.w / 2, y: c.y - 12, anchor: 'middle', text: `${c.label} · ${c.count}`, cls: `graph-flow-colhead${c.faded ? ' graph-flow-faded' : ''}` });
   });
+  for (const lane of flow.lanes) {
+    if (!lane.header) continue;
+    const h = lane.header;
+    const title = lk.titleOf ? graphFlowTrim(lk.titleOf(h.id), GRAPH_FLOW_GEO.TITLE_MAX) : '';
+    rects.push({ x: lane.x, y: lane.y, w: lane.w, h: lane.h, cls: 'graph-flow-lane' });
+    heads.push({
+      id: h.id,
+      x: lane.x + 10,
+      y: lane.y + 19,
+      tier: h.tier,
+      text: `${h.tier ? `${h.tier} · ` : ''}#${h.id}${title ? ` ${title}` : ''} · ${graphFlowCards(h.count)} · ${h.ready} ready`,
+      title: lk.tipOf ? lk.tipOf(h.id) : `#${h.id}`,
+      icon: lk.markOf ? lk.markOf(h.id) || null : null,
+    });
+  }
   if (flow.strip) {
     const s = flow.strip;
     rects.push({ x: s.x, y: s.y, w: s.w, h: s.h, cls: 'graph-flow-strip' });
-    texts.push({ x: s.x + 10, y: s.y + 19, anchor: 'start', text: `${s.label} · ${s.count} card${s.count === 1 ? '' : 's'}`, cls: 'graph-flow-striphead' });
+    texts.push({ x: s.x + 10, y: s.y + 19, anchor: 'start', text: `${s.label} · ${graphFlowCards(s.count)}`, cls: 'graph-flow-striphead' });
   }
-  return { rects, texts };
+  return { rects, texts, heads };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_FLOW_GRAPHS, GRAPH_FLOW_DEPS, GRAPH_FLOW_GEO,
-    mergeGraphFlowDeps, graphFlowLink, graphFlowAddress, graphFlowPlace, graphFlowPath, graphFlowMarks,
+    mergeGraphFlowDeps, mergeGraphFlowLanes, graphFlowLink, graphFlowAddress, graphFlowPlace, graphFlowPath, graphFlowMarks,
   };
 } else {
   window.GRAPH_FLOW_GRAPHS = GRAPH_FLOW_GRAPHS;
   window.GRAPH_FLOW_DEPS = GRAPH_FLOW_DEPS;
   window.GRAPH_FLOW_GEO = GRAPH_FLOW_GEO;
   window.mergeGraphFlowDeps = mergeGraphFlowDeps;
+  window.mergeGraphFlowLanes = mergeGraphFlowLanes;
   window.graphFlowLink = graphFlowLink;
   window.graphFlowAddress = graphFlowAddress;
   window.graphFlowPlace = graphFlowPlace;

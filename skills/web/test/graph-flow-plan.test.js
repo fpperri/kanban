@@ -102,7 +102,7 @@ test('the plan of a layout of the Hierarchy has no mark of the flow, and a flow 
   const m = model();
   for (const kind of GRAPH_LAYOUTS) {
     const plan = graphPlan(m, graphLayout(m, kind, { statuses: ['todo', 'doing', 'done'] }), { kind, statusClass: (s) => s });
-    assert.deepStrictEqual(plan.flow, { rects: [], texts: [] }, kind);
+    assert.deepStrictEqual(plan.flow, { rects: [], texts: [], heads: [] }, kind);
   }
   const layout = graphLayout(m, 'flow', { deps: 'all' });
   const plan = graphPlan(m, layout, { statusClass: (s) => s });
@@ -137,4 +137,61 @@ test('a card lights with the cards its dependencies join to it in the flow, and 
   const many = graphRestLit(m, { selectedIds: new Set(['1', '3']), loneCardId: null, linkKind: 'wait' }, lines);
   assert.deepStrictEqual([...many.nodes].sort(), ['1', '3']);
   assert.strictEqual(many.links.size, 0);
+});
+
+// --- the lanes -------------------------------------------------------------------------------
+
+const LANE_TYPES = [{ name: 'goal', icon: 'diamond', color: '#a33' }, { name: 'strategy' }];
+const laneCards = () => [
+  card(1, { type: 'goal', title: 'Ship it' }), card(2, { parent: 1 }), card(3, { parent: 1, waiting_for: ['2'] }),
+  card(4, { type: 'strategy', title: 'Plan' }), card(5, { parent: 4, status: 'doing' }), card(6, { parent: 4, waiting_for: ['5'] }),
+];
+const laneModel = () => graphBuild(laneCards(), { ctx: CTX, types: LANE_TYPES, hierarchy: ['goal', 'strategy'] });
+const lanePlan = (m, lanes = true, deps = 'frontier') => {
+  const layout = graphLayout(m, 'flow', { deps, lanes });
+  return { layout, plan: graphPlan(m, layout, { kind: 'flow', statusClass: (s) => s, titleOf: (c) => c.title, types: LANE_TYPES }) };
+};
+
+test('the Lanes switch is part of the layout\'s signature and its cache, and only for the Flow', () => {
+  graphLayoutCacheClear();
+  const m = laneModel();
+  const flat = graphLayout(m, 'flow', { deps: 'frontier' });
+  const laned = graphLayout(m, 'flow', { deps: 'frontier', lanes: true });
+  assert.notStrictEqual(laned, flat);
+  assert.strictEqual(graphLayout(m, 'flow', { deps: 'frontier', lanes: true }), laned);
+  assert.strictEqual(graphLayout(m, 'flow', { deps: 'frontier', lanes: false }), flat, 'off is the default');
+  assert.deepStrictEqual(laned.flow.lanes.map((l) => l.key), ['1', '4']);
+  assert.notStrictEqual(graphSignature(m, 'flow', { lanes: true }), graphSignature(m, 'flow', {}));
+  assert.strictEqual(graphSignature(m, 'tiers', { lanes: true }), graphSignature(m, 'tiers', {}), 'the Hierarchy does not read the switch');
+});
+
+test('a card moved to another tier moves its lane, since the signature holds the slices of the cards in lanes', () => {
+  const was = graphSignature(laneModel(), 'flow', { lanes: true });
+  const next = laneCards();
+  next[3] = { ...next[3], type: 'task' };
+  const m = graphBuild(next, { ctx: CTX, types: LANE_TYPES, hierarchy: ['goal', 'strategy'] });
+  assert.notStrictEqual(graphSignature(m, 'flow', { lanes: true }), was);
+});
+
+test('the plan carries a header for each lane: the lane card\'s tier, #id title and counts, its tip, and its type\'s mark in the type\'s colour', () => {
+  const { layout, plan } = lanePlan(laneModel());
+  assert.deepStrictEqual(plan.flow.heads.map((h) => h.id), ['1', '4']);
+  const [goal, strategy] = plan.flow.heads;
+  assert.strictEqual(goal.text, 'goal \u00b7 #1 Ship it \u00b7 2 cards \u00b7 1 ready');
+  assert.strictEqual(strategy.text, 'strategy \u00b7 #4 Plan \u00b7 2 cards \u00b7 1 ready');
+  assert.strictEqual(goal.title, '#1 Ship it (todo)');
+  assert.strictEqual(strategy.title, '#4 Plan (todo)');
+  assert.ok(goal.icon && /^M/.test(goal.icon.d) && goal.icon.color === '#a33');
+  assert.strictEqual(strategy.icon, null, 'a type with no icon has no mark');
+  assert.deepStrictEqual([goal.x, goal.y], [layout.flow.lanes[0].x + 10, layout.flow.lanes[0].y + 19]);
+  assert.deepStrictEqual(plan.flow.rects.filter((r) => r.cls === 'graph-flow-lane').length, 2);
+});
+
+test('the lanes draw the same dots and arrows as the flat Flow, and the lane card\'s header is not a dot', () => {
+  const m = laneModel();
+  const flat = lanePlan(m, false).plan;
+  const laned = lanePlan(m, true).plan;
+  assert.deepStrictEqual(laned.nodes.map((n) => n.id), flat.nodes.map((n) => n.id));
+  assert.deepStrictEqual(laned.links.map((l) => [l.from, l.to]), flat.links.map((l) => [l.from, l.to]));
+  assert.deepStrictEqual(flat.flow.heads, []);
 });

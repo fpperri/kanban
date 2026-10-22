@@ -170,12 +170,16 @@ The view that draws every card at once as a dot, one of two graphs chosen at the
 _Avoid_: network, node-link diagram, the Map (that is a different view).
 
 **Flow** (web only):
-The Graph view's second graph, beside the Hierarchy: the board laid out by its dependencies in columns, left to right, one column for each step of a plan, with an arrow from each card waited for to the card that waits, and no parent line. Its Dependencies switch is **frontier** (the default) or all. A card with no dependency either way sits in a strip below the columns, with a count. A dependency loop never hangs it: the loop has a column of its own under frontier.
+The Graph view's second graph, beside the Hierarchy: the board laid out by its dependencies in columns, left to right, one column for each step of a plan, with an arrow from each card waited for to the card that waits, and no parent line. Its Dependencies switch is **frontier** (the default) or all, and its Lanes switch, off by default, groups the cards into **lanes**. A card with no dependency either way sits in a strip below the columns, with a count. A dependency loop never hangs it: the loop has a column of its own under frontier.
 _Avoid_: workflow, pipeline, timeline (that is the Gantt).
 
 **Frontier** (web only):
 The Flow's default reading of its columns: the steps until a card is ready, counting only the dependencies that are not done. The first column holds the done cards, faded; then `ready now` (what can be picked up now), `1 step`, `2 steps` and so on; a card in or behind a dependency loop stands in a last `loop` column. The Flow's other setting, all, counts the longest chain of dependencies behind a card instead, done ones included: `waits for nothing`, `chain 1`, `chain 2`.
 _Avoid_: backlog, queue, critical path.
+
+**Lane** (web only):
+One row of the Flow when its Lanes switch is on: the cards with a dependency whose nearest parent with a tier is the lane's card, or whose root it is when none has one (the slice's own rule). It stands under a header that leads with that card's type mark in its type colour, its tier name (none for a card with no tier), `#id title`, the lane's card count and its ready count; a card is ready when it is open, in no loop and waits for nothing that is not done. The columns stand across every lane. With frontier the lanes with ready cards come first, the most ready first, then the rest in outline order; with all, every lane is in outline order. A lane with no open dependency (frontier) or no dependency (all) folds into the strip at the bottom, and so does a card with no dependency in a lane that stays. Not a status, a group or a tier.
+_Avoid_: swimlane, row, band (how the Graph draws a tier).
 
 **Unnested**:
 A card with no parent and no children. It may still wait for a card or be waited for.

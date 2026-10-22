@@ -1031,7 +1031,7 @@ function graphLayoutTiers(model, opts) {
 // other. `layout.flow` holds the columns, the lanes, the strip and the dots' radii.
 
 function graphLayoutFlow(model, opts) {
-  const flow = GRAPH_FLOW.graphFlowPlace(model, { deps: opts && opts.deps });
+  const flow = GRAPH_FLOW.graphFlowPlace(model, { deps: opts && opts.deps, lanes: opts && opts.lanes });
   return graphFinish(model, flow.pos, [], [], { boxes: flow.boxes, flow });
 }
 
@@ -1056,18 +1056,17 @@ function graphTypeKey(type) {
 
 function graphSignature(model, kind, opts) {
   const fan = kind === 'tiers';
+  const lanes = kind === 'flow' && GRAPH_FLOW.mergeGraphFlowLanes(opts && opts.lanes);
   const nodes = model.nodes.map((n) => {
     const base = `${n.id}:${n.status}:${n.archived ? 1 : 0}`;
-    return fan ? `${base}:${graphTypeKey(n.card.type)}:${n.sliceIndex}:${n.nested ? 1 : 0}` : base;
+    return fan ? `${base}:${graphTypeKey(n.card.type)}:${n.sliceIndex}:${n.nested ? 1 : 0}` : lanes ? `${base}:${n.sliceIndex}` : base;
   }).join(',');
   const links = model.links.map((l) => `${l.from}>${l.to}${l.kind === 'wait' ? 'w' : 'p'}`).join(',');
   const statuses = ((opts && opts.statuses) || []).join(',');
   const key = [kind, statuses, nodes, links];
-  if (kind === 'flow') key.push(GRAPH_FLOW.mergeGraphFlowDeps(opts && opts.deps));
-  if (fan) {
-    key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
-    key.push(mergeGraphFanOptions(opts).unnested);
-  }
+  if (kind === 'flow') key.push(GRAPH_FLOW.mergeGraphFlowDeps(opts && opts.deps), lanes ? 'lanes' : 'flat');
+  if (fan || lanes) key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
+  if (fan) key.push(mergeGraphFanOptions(opts).unnested);
   return key.join('|');
 }
 
@@ -1305,6 +1304,23 @@ function graphFanTints(layout, types) {
   }));
 }
 
+// What the Flow's lane headers read from the model, for graphFlowMarks: the lane card's title and
+// tip, as its dot has them, and its type's mark in the type's colour (null for a round card).
+function graphFlowLook(model, titleOf, types) {
+  return {
+    titleOf: (id) => titleOf(model.byId.get(id).card),
+    tipOf: (id) => {
+      const n = model.byId.get(id);
+      return `#${id} ${titleOf(n.card)} (${n.status}${n.archived ? ', archived' : ''})`;
+    },
+    markOf: (id) => {
+      const n = model.byId.get(id);
+      if (!n.shape || n.shape === 'circle') return null;
+      return { d: GRAPH_ICONS.typeIconOutline(n.shape, GRAPH_FLOW.GRAPH_FLOW_GEO.MARK_R), color: GRAPH_TYPES.typeColor(n.card.type, types) };
+    },
+  };
+}
+
 function graphPlan(model, layout, opts) {
   const o = opts || {};
   const selected = o.selectedIds || new Set();
@@ -1383,7 +1399,7 @@ function graphPlan(model, layout, opts) {
     cls: c.muted ? 'graph-caption graph-caption-muted' : 'graph-caption',
     tip: graphFanTip(c.count, c.split, c.term),
   })) : [];
-  const flow = layout.flow ? GRAPH_FLOW.graphFlowMarks(layout.flow) : { rects: [], texts: [] };
+  const flow = layout.flow ? GRAPH_FLOW.graphFlowMarks(layout.flow, graphFlowLook(model, titleOf, o.types)) : { rects: [], texts: [], heads: [] };
   return { nodes, links, guides, tints, captions, dividers, block, looseCaption, flow };
 }
 
