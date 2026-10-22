@@ -2,7 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphBuild, graphUnnestedIds, graphFanPlace, graphLayoutTiers, graphLayout, graphSignature, graphLayoutCacheClear, graphRadius, graphPlan, graphFit,
+  graphBuild, graphUnnestedIds, graphFanPlace, graphLayoutHierarchy, graphLayout, graphSignature, graphLayoutCacheClear, graphRadius, graphPlan, graphFit,
 } = require('../web/graph-model');
 const {
   STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, rootShapedCards, captionRects, clashes,
@@ -181,7 +181,7 @@ test('depth 0 on the plan board: the 13 cards fill the depth 0 ring beside the s
 
 test('depth 0 draws them on one ring just outside the tier bands and inside depth 1, in their own stretch of the fan', () => {
   const m = drawnModel(loadBoard('plan'));
-  const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'depth 0' });
+  const l = graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'depth 0' });
   assert.strictEqual(l.block, null);
   const rs = PLAN_UNNESTED.map((id) => radius(l, id));
   assert.ok(Math.max(...rs) - Math.min(...rs) < 1e-6, 'one ring');
@@ -210,7 +210,7 @@ test('depth 0 draws them on one ring just outside the tier bands and inside dept
 
 test('depth 0 captions the ring as depth 0 does: depth 0, with the cards of the ring counted in its tip, and no Unnested block', () => {
   const m = drawnModel(loadBoard('plan'));
-  const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'depth 0' });
+  const l = graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'depth 0' });
   const cap = l.captions.find((c) => c.name === 'depth 0');
   assert.strictEqual(cap.count, PLAN_UNNESTED.length + PLAN_NESTED_0.length);
   assert.deepStrictEqual(cap.split, [['backlog', 6], ['todo', 6], ['doing', 3], ['done', 4]]);
@@ -221,7 +221,7 @@ test('depth 0 captions the ring as depth 0 does: depth 0, with the cards of the 
 // --- outermost ----------------------------------------------------------------------------------------
 
 const PLAN_BY_STATUS = [['11', '14', '18', '28'], ['10', '13', '17', '27'], ['9', '15'], ['12', '16', '29']];
-const outermost = (m, extra = {}) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'outermost', ...extra });
+const outermost = (m, extra = {}) => graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'outermost', ...extra });
 const planAll = () => {
   const board = loadBoard('plan');
   return graphBuild(board.all, { ctx: board.ctx, hierarchy: board.config.hierarchy });
@@ -248,10 +248,10 @@ test('outermost: the cards sit on one ring outside every other dot and every ban
 
 test('outermost is the default: a layout asked for no unnested mode draws the ring, and so does a stored mode this version does not offer', () => {
   const m = drawnModel(loadBoard('plan'));
-  const set = new Set(PLAN_UNNESTED.map((id) => radius(graphLayoutTiers(m, { statuses: STATUSES }), id).toFixed(6)));
+  const set = new Set(PLAN_UNNESTED.map((id) => radius(graphLayoutHierarchy(m, { statuses: STATUSES }), id).toFixed(6)));
   assert.strictEqual(set.size, 1);
-  assert.strictEqual(graphLayoutTiers(m, { statuses: STATUSES }).block, null);
-  assert.strictEqual(graphLayoutTiers(m, { statuses: STATUSES, unnested: 'ring' }).block, null);
+  assert.strictEqual(graphLayoutHierarchy(m, { statuses: STATUSES }).block, null);
+  assert.strictEqual(graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'ring' }).block, null);
 });
 
 test('outermost groups the cards by status, in the board\'s order, round the ring from the left of the seam, archived ones last', () => {
@@ -369,8 +369,8 @@ test('outermost: no unnested card, no ring and no caption', () => {
 
 // --- what is drawn --------------------------------------------------------------------------------------
 
-const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
-const planFor = (unnested, m = drawnModel(loadBoard('plan'))) => graphPlan(m, graphLayoutTiers(m, { statuses: STATUSES, unnested }), OPTS);
+const OPTS = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title };
+const planFor = (unnested, m = drawnModel(loadBoard('plan'))) => graphPlan(m, graphLayoutHierarchy(m, { statuses: STATUSES, unnested }), OPTS);
 
 test('outermost draws a guide arc and a caption for the ring beside the bands\', no block, and every dot where the layout put it', () => {
   const table = planFor('table');
@@ -436,7 +436,7 @@ test('in every mode no two captions overlap and Fit lands every dot, caption and
   for (const [name, make] of Object.entries(BOARDS())) {
     for (const mode of MODES) {
       const m = make(mode);
-      const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: mode });
+      const l = graphLayoutHierarchy(m, { statuses: STATUSES, unnested: mode });
       const plan = graphPlan(m, l, OPTS);
       for (const [w, h] of STAGES) {
         const v = graphFit(l.bounds, w, h);
@@ -462,7 +462,7 @@ test('in every mode no two captions overlap and Fit lands every dot, caption and
 test('outermost: the text of the unnested caption is clear of every dot on every board and stage', () => {
   for (const [name, make] of Object.entries(BOARDS())) {
     const m = make('outermost');
-    const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'outermost' });
+    const l = graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'outermost' });
     const plan = graphPlan(m, l, OPTS);
     for (const [w, h] of STAGES) {
       const v = graphFit(l.bounds, w, h);
@@ -485,27 +485,27 @@ test('outermost: the text of the unnested caption is clear of every dot on every
 test('the mode is in the layout\'s cache key: each mode is a layout of its own, the same mode the same one', () => {
   const m = drawnModel(loadBoard('plan'));
   graphLayoutCacheClear();
-  const layouts = new Map(['outermost', 'depth 0', 'table'].map((unnested) => [unnested, graphLayout(m, 'tiers', { statuses: STATUSES, unnested })]));
+  const layouts = new Map(['outermost', 'depth 0', 'table'].map((unnested) => [unnested, graphLayout(m, 'hierarchy', { statuses: STATUSES, unnested })]));
   assert.strictEqual(new Set(layouts.values()).size, 3, 'three modes, three layouts');
-  for (const [unnested, l] of layouts) assert.strictEqual(graphLayout(m, 'tiers', { statuses: STATUSES, unnested }), l, unnested);
-  assert.strictEqual(graphLayout(m, 'tiers', { statuses: STATUSES }), layouts.get('outermost'), 'no mode is the default, outermost');
-  assert.strictEqual(graphLayout(m, 'tiers', { statuses: STATUSES, unnested: 'every' }), layouts.get('outermost'), 'and so is one the row does not offer');
+  for (const [unnested, l] of layouts) assert.strictEqual(graphLayout(m, 'hierarchy', { statuses: STATUSES, unnested }), l, unnested);
+  assert.strictEqual(graphLayout(m, 'hierarchy', { statuses: STATUSES }), layouts.get('outermost'), 'no mode is the default, outermost');
+  assert.strictEqual(graphLayout(m, 'hierarchy', { statuses: STATUSES, unnested: 'every' }), layouts.get('outermost'), 'and so is one the row does not offer');
 });
 
 test('the mode is in the signature the view compares to re-fit an untouched view, since it changes what Fit frames, in Tiers only', () => {
   const m = drawnModel(loadBoard('plan'));
   const sig = (kind, unnested) => graphSignature(m, kind, { statuses: STATUSES, unnested });
-  assert.strictEqual(new Set(['outermost', 'depth 0', 'table'].map((u) => sig('tiers', u))).size, 3);
-  assert.strictEqual(sig('tiers', undefined), sig('tiers', 'outermost'));
-  for (const kind of ['force', 'status']) assert.strictEqual(sig(kind, 'table'), sig(kind, 'outermost'), `${kind} does not read it`);
-  assert.strictEqual(graphSignature(m, 'tiers', { statuses: STATUSES, unnested: 'table', order: 'rank', lines: 'all' }), sig('tiers', 'table'), 'and nothing else of the row\'s');
+  assert.strictEqual(new Set(['outermost', 'depth 0', 'table'].map((u) => sig('hierarchy', u))).size, 3);
+  assert.strictEqual(sig('hierarchy', undefined), sig('hierarchy', 'outermost'));
+  for (const kind of ['flow']) assert.strictEqual(sig(kind, 'table'), sig(kind, 'outermost'), `${kind} does not read it`);
+  assert.strictEqual(graphSignature(m, 'hierarchy', { statuses: STATUSES, unnested: 'table', order: 'rank', lines: 'all' }), sig('hierarchy', 'table'), 'and nothing else of the row\'s');
 });
 
 test('off is the cards leaving the model: its layout is the layout of a board without them, and Fit frames what is left', () => {
   const board = loadBoard('plan');
   const opts = { ctx: board.ctx, hierarchy: board.config.hierarchy };
   const off = graphBuild(board.all.filter((c) => !c.archived), { ...opts, unnested: 'off' });
-  const l = graphLayoutTiers(off, { statuses: STATUSES, unnested: 'off' });
+  const l = graphLayoutHierarchy(off, { statuses: STATUSES, unnested: 'off' });
   assert.strictEqual(l.block, null);
   assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1'], 'no unnested caption');
   for (const id of PLAN_UNNESTED) assert.ok(!l.pos.has(id), `card ${id} has no place`);
@@ -513,13 +513,13 @@ test('off is the cards leaving the model: its layout is the layout of a board wi
   assert.ok(kept.every((id) => !PLAN_UNNESTED.includes(id)));
   const outer = l.bands[l.bands.length - 1];
   assert.ok(l.bounds.x1 <= outer.r1 + 100 && l.bounds.y1 <= outer.r1 + 100, 'the bounds are the fan\'s, with no block beside it');
-  const table = graphLayoutTiers(drawnModel(board), { statuses: STATUSES, unnested: 'table' });
+  const table = graphLayoutHierarchy(drawnModel(board), { statuses: STATUSES, unnested: 'table' });
   assert.ok(l.bounds.x1 < table.bounds.x1, 'Fit frames less than the block made it');
 });
 
 test('table keeps the block as it was, whatever the cards: a column for each status outside the rim, and no ring', () => {
   const m = drawnModel(loadBoard('plan'));
-  const l = graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
+  const l = graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'table' });
   assert.deepStrictEqual(l.block.columns.map((c) => [c.label, c.ids]), [['backlog', ['11', '14', '18', '28']], ['todo', ['10', '13', '17', '27']], ['doing', ['9', '15']], ['done', ['12', '16', '29']]]);
   assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
   const outer = l.bands[l.bands.length - 1].r1;

@@ -67,10 +67,10 @@ module.exports = {
 
     await open('/?q=zephyr&view=graph');
     check('a link opened with q and view=graph shows the graph and the query', (await waitFor(`document.querySelectorAll('.graph-node').length>0`, 10000)) && (await boxText()) === 'zephyr', { box: await boxText() });
-    check('and leaves the address as the link had it', await addressHas({ q: 'zephyr', view: 'graph' }), await addressParams());
+    check('and keeps the parameters of the link, the Graph writing graph=hierarchy beside them', await addressHas({ q: 'zephyr', view: 'graph', graph: 'hierarchy' }), await addressParams());
     await focusBoxAtEnd();
     await typeKeys('x');
-    check('one more keystroke makes q equal the box and keeps view', (await waitFor(`document.getElementById('search-input').value==='zephyrx'`)) && (await addressHas({ q: 'zephyrx', view: 'graph' })), { box: await boxText(), address: await addressParams() });
+    check('one more keystroke makes q equal the box and keeps view', (await waitFor(`document.getElementById('search-input').value==='zephyrx'`)) && (await addressHas({ q: 'zephyrx', view: 'graph', graph: 'hierarchy' })), { box: await boxText(), address: await addressParams() });
 
     await open('/?q=zephyr');
     await boardShows(zephyrIds, 10000);

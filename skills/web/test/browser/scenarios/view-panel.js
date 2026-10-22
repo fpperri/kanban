@@ -1,11 +1,11 @@
 'use strict';
 // The option panel of the Map and of the Graph, on the plan board. One icon button at the
 // top right of each view, the side the panel comes out of, opens and closes a panel on its right:
-// the Graph's layouts, zoom and Options section, the Map's zoom and Options section. The Options
+// the Graph's Hierarchy | Flow choice, zoom and Options section, the Map's zoom and Options section. The Options
 // section is always expanded, with no toggle of its own: the panel is what hides it. The status
 // pills, the Graph's card count and its key stay in the view. The button says whether the panel is open (aria-expanded) and
 // has a label. Open, a control in the panel works as it did in the row it came from (Fit, a
-// layout, the zoom); closed, the panel is gone and the view has its width back, the Graph framed
+// graph choice, the zoom); closed, the panel is gone and the view has its width back, the Graph framed
 // again in it. The choice is kept per view in the browser: a reload keeps it, and one view's
 // choice does not change the other's. With no choice made the screen decides, open at 760 px
 // and wider and closed under it, and the view follows a window that crosses the line. Under
@@ -67,7 +67,7 @@ module.exports = {
     const button = await buttonState('graph');
     check('the icon button is a panel glyph with a label and says the panel is open', !!button && button.expanded === 'true' && button.label === 'Options panel' && button.icon && button.title.length > 10, button);
     check('the button is not inside the panel, and it and the panel keep the selection', !!button && !button.inPanel && button.keeps && button.panelKeeps, button);
-    const layoutsIn = await inPanel('#graph-view .graph-layout-btn');
+    const kindsIn = await inPanel('#graph-view .graph-kind-btn');
     const zoomIn = await inPanel('#graph-view .graph-zoom-btn');
     const optionsIn = await inPanel('#graph-view .graph-options');
     const graphCorner = await ev(corner('graph'));
@@ -80,7 +80,7 @@ module.exports = {
     check('and hides them again', await waitFor(`document.querySelector('#graph-view .graph-info').getBoundingClientRect().height===0`));
     const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
     check('the Options section is always expanded: all its buttons are built, with no toggle', graphOptions.buttons === 15 && graphOptions.toggles === 0, graphOptions);
-    check('the layout buttons, the zoom buttons and the Options section are in the panel', layoutsIn.length === 3 && zoomIn.length === 3 && optionsIn.length === 1 && [...layoutsIn, ...zoomIn, ...optionsIn].every(Boolean), { layoutsIn, zoomIn, optionsIn });
+    check('the Hierarchy | Flow buttons, the zoom buttons and the Options section are in the panel', kindsIn.length === 2 && zoomIn.length === 3 && optionsIn.length === 1 && [...kindsIn, ...zoomIn, ...optionsIn].every(Boolean), { kindsIn, zoomIn, optionsIn });
     const staying = await ev(`['.graph-count','.graph-key'].map((s)=>{const e=document.querySelector('#graph-view '+s);return !!e&&!e.closest('.view-panel')})`);
     check('the card count and the key stay in the view', staying.every(Boolean), staying);
     check('no status pill stands in the Graph', await ev(`document.querySelectorAll('#graph-view .status-pill, #graph-view [class*="-filter-toggle"], #graph-view [class*="-filter-row"]').length===0`));
@@ -108,10 +108,10 @@ module.exports = {
     // --- open again, and a control of the panel still works -----------------------------------------
     await clickOn(toggleOf('graph'));
     check('the button opens the panel again', await waitFor(panelPresent('graph')) && (await buttonState('graph')).expanded === 'true');
-    await clickOn('#graph-view .graph-layout-btn[data-layout=force]');
-    check('a layout pressed in the reopened panel switches the Graph', await waitFor(`document.querySelector('#graph-view .graph-layout-btn[data-layout=force]').getAttribute('aria-pressed')==='true'&&!!document.querySelector('#graph-view .graph-kind-force')`));
-    await clickOn('#graph-view .graph-layout-btn[data-layout=tiers]');
-    check('and back to Tiers', await waitFor(`!!document.querySelector('#graph-view .graph-kind-tiers')&&!!document.querySelector('#graph-view .view-panel')`));
+    await clickOn('#graph-view .graph-kind-btn[data-graph-kind=flow]');
+    check('a graph pressed in the reopened panel switches the Graph', await waitFor(`document.querySelector('#graph-view .graph-kind-btn[data-graph-kind=flow]').getAttribute('aria-pressed')==='true'&&!!document.querySelector('#graph-view .graph-kind-flow')`));
+    await clickOn('#graph-view .graph-kind-btn[data-graph-kind=hierarchy]');
+    check('and back to the Hierarchy', await waitFor(`!!document.querySelector('#graph-view .graph-kind-hierarchy')&&!!document.querySelector('#graph-view .view-panel')`));
 
     // --- the Map ----------------------------------------------------------------------------------
     await load('/?view=map');

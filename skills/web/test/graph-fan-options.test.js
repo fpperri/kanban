@@ -218,7 +218,7 @@ const siblings = () => buildOf([
 ]);
 
 const seats = (model, order, ids) => {
-  const layout = graphLayout(model, 'tiers', { statuses: STATUSES, order });
+  const layout = graphLayout(model, 'hierarchy', { statuses: STATUSES, order });
   return ids.slice().sort((a, b) => layout.polar.get(b).a - layout.polar.get(a).a);
 };
 
@@ -260,7 +260,7 @@ test('order status is the default, and an unknown order reads as it', () => {
   const model = siblings();
   const ids = ['2', '3', '4', '5', '6'];
   const by = (opts) => {
-    const layout = graphLayout(model, 'tiers', opts);
+    const layout = graphLayout(model, 'hierarchy', opts);
     return ids.slice().sort((a, b) => layout.polar.get(b).a - layout.polar.get(a).a);
   };
   assert.deepStrictEqual(by({ statuses: STATUSES }), ['4', '6', '5', '3', '2']);
@@ -269,8 +269,8 @@ test('order status is the default, and an unknown order reads as it', () => {
 
 test('the order moves siblings within their own stretch and nothing else: every card keeps its band, ring and sector', () => {
   const model = siblings();
-  const status = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'status' });
-  const rank = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'rank' });
+  const status = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'status' });
+  const rank = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'rank' });
   assert.deepStrictEqual([...status.places], [...rank.places]);
   assert.deepStrictEqual(status.sectors.map((s) => [s.kind, s.rootId, s.from, s.to]), rank.sectors.map((s) => [s.kind, s.rootId, s.from, s.to]));
   for (const n of model.nodes) assert.strictEqual(status.polar.get(n.id).r, rank.polar.get(n.id).r, `card ${n.id} stays on its ring`);
@@ -282,25 +282,25 @@ test('the order moves siblings within their own stretch and nothing else: every 
 test('the order is in the layout\'s cache key: another order is another layout, the same order the same one', () => {
   const model = siblings();
   graphLayoutCacheClear();
-  const a = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'status' });
-  const b = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'rank' });
+  const a = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'status' });
+  const b = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'rank' });
   assert.notStrictEqual(a, b);
-  assert.strictEqual(graphLayout(model, 'tiers', { statuses: STATUSES, order: 'status' }), a);
-  assert.strictEqual(graphLayout(model, 'tiers', { statuses: STATUSES, order: 'rank' }), b);
+  assert.strictEqual(graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'status' }), a);
+  assert.strictEqual(graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'rank' }), b);
 });
 
 test('the order is not in the signature the view compares to re-fit an untouched view: it seats siblings and frames the same cards', () => {
   const model = siblings();
-  assert.strictEqual(graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status' }), graphSignature(model, 'tiers', { statuses: STATUSES, order: 'rank' }));
-  assert.strictEqual(graphSignature(model, 'tiers', { statuses: STATUSES }), graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status' }));
+  assert.strictEqual(graphSignature(model, 'hierarchy', { statuses: STATUSES, order: 'status' }), graphSignature(model, 'hierarchy', { statuses: STATUSES, order: 'rank' }));
+  assert.strictEqual(graphSignature(model, 'hierarchy', { statuses: STATUSES }), graphSignature(model, 'hierarchy', { statuses: STATUSES, order: 'status' }));
   graphLayoutCacheClear();
-  const status = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'status' });
-  const rank = graphLayout(model, 'tiers', { statuses: STATUSES, order: 'rank' });
+  const status = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'status' });
+  const rank = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'rank' });
   assert.notStrictEqual(status, rank, 'while the layout is still not shared between the two orders');
 });
 
 test('the lines and dependencies are not in the cache key: they only redraw', () => {
   const model = siblings();
-  const base = graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status' });
-  assert.strictEqual(graphSignature(model, 'tiers', { statuses: STATUSES, order: 'status', lines: 'all', dependencies: 'off' }), base);
+  const base = graphSignature(model, 'hierarchy', { statuses: STATUSES, order: 'status' });
+  assert.strictEqual(graphSignature(model, 'hierarchy', { statuses: STATUSES, order: 'status', lines: 'all', dependencies: 'off' }), base);
 });

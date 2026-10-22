@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphPlan, graphFanNames } = require('../web/graph-model');
 const {
   GRAPH_NAME_PAD, GRAPH_NAME_ROW, GRAPH_NAME_POLE, GRAPH_NAME_RAIL, GRAPH_NAME_MARK_PAD, GRAPH_NAME_DETOUR,
   graphNamesPlace, graphNamesKey, graphNamesRim, graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets,
@@ -38,9 +38,9 @@ const ZOOMS = [1, 2, 0.6];
 const ids = (it) => [...it].sort((a, b) => a - b);
 
 const fanOf = (model, { unnested = 'outermost', lines = 'folded', names = 'all' } = {}) => {
-  const layout = graphLayoutTiers(model, { statuses: STATUSES, unnested });
+  const layout = graphLayoutHierarchy(model, { statuses: STATUSES, unnested });
   const fan = { lines, dependencies: 'on', order: 'status', names, unnested };
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan });
   return { layout, plan };
 };
 const nodeOf = (plan, id) => plan.nodes.find((n) => n.id === id);

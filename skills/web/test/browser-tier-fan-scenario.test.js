@@ -31,8 +31,9 @@ function drawn(key, archiveOn, extra = [], kind = 'tiers', query = '', unnested 
   const cut = query ? new Set(filterCards(cards, parseSearchQuery(query, board.name), { ...board.ctx, hierarchy: board.config.hierarchy }).map((c) => c.id)) : null;
   const visible = cards.filter((c) => (archiveOn || !c.archived) && (!cut || cut.has(c.id))).map((c) => c.id);
   const model = graphBuild(cards, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible) });
-  const layout = graphLayout(model, kind, { statuses: board.config.statuses, unnested });
-  const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title });
+  const shown = kind === 'tiers' ? 'hierarchy' : kind;
+  const layout = graphLayout(model, shown, { statuses: board.config.statuses, unnested });
+  const plan = graphPlan(model, layout, { kind: shown, statusClass: (s) => s, titleOf: (c) => c.title });
   return { model, layout, plan, place: kind === 'tiers' ? graphFanPlace(model, { statuses: board.config.statuses, unnested }) : null };
 }
 
@@ -242,7 +243,7 @@ function standIn(over = {}) {
       if (expr === scenario.TABLE_DRAWN) return tables.has(key);
       if (expr === scenario.ZOOMED) return zoomed;
       if (expr === scenario.FITTED) return !zoomed;
-      for (const name of ['tiers', 'force', 'status']) if (expr === scenario.layoutIs(name)) return kind === name;
+      for (const name of ['tiers', 'flow']) if (expr === scenario.layoutIs(name)) return kind === name;
       if (expr === scenario.TIP_HIDDEN) return tipNow() === null;
       const lined = /JSON\.stringify\(\[\.\.\.t\.children\]\.map\(\(p\)=>p\.textContent\)\)===("(?:[^"\\]|\\.)*")\}\)\(\)$/.exec(expr);
       if (lined) {
@@ -317,7 +318,7 @@ function standIn(over = {}) {
       if (expr === scenario.ZOOM_IN) { zoomed = true; framePending = true; return true; }
       if (expr === scenario.FRAMES) { if (!over.framesDoNothing) framePending = false; return true; }
       if (expr === scenario.FIT) { zoomed = !!over.fitDoesNothing; return true; }
-      for (const name of ['tiers', 'force', 'status']) if (expr === scenario.pickLayout(name)) { kind = name; switched += name === 'tiers' ? 1 : 0; return true; }
+      for (const name of ['tiers', 'flow']) if (expr === scenario.pickLayout(name)) { kind = name; switched += name === 'tiers' ? 1 : 0; return true; }
       if (expr === scenario.addLoose(scenario.CASES.plan.extraLoose)) {
         extra = extra.concat([{
           id: '30', title: 'new', status: 'todo', archived: false, parent: null, waiting_for: [], blocked: false, review: false, type: 'objective',
@@ -372,8 +373,7 @@ test('each check listed here is in the scenario', async () => {
   has(/plan: the captions stand up the seam at the top, neighbours on opposite sides of it/);
   has(/plan: in the fan a star-typed card's dot is a star/);
   has(/plan: and a card of the unknown-icon type has a round dot/);
-  has(/plan: force draws no arc, caption, divider or block/);
-  has(/plan: status draws no arc, caption, divider or block/);
+  has(/plan: the flow draws no arc, caption, divider or block/);
   has(/plan: back in Tiers the arcs, captions, dividers and block are back/);
   has(/fixture: the fan shows depth captions and no tier caption/);
   has(/malformed: the fan captions each tier once/);
@@ -579,10 +579,9 @@ test('a star-typed card drawn round, or an unknown icon drawn as a shape, fails'
   assert.ok(failed(shaped).includes('plan: and a card of the unknown-icon type has a round dot'));
 });
 
-test('Force or Status that keep the fan, or Tiers that does not bring it back, fail', async () => {
+test('The Flow that keeps the fan, or Tiers that does not bring it back, fail', async () => {
   const stays = await run({ fanStays: true });
-  assert.ok(failed(stays).includes('plan: force draws no arc, caption, divider or block'), failed(stays).join('; '));
-  assert.ok(failed(stays).includes('plan: status draws no arc, caption, divider or block'));
+  assert.ok(failed(stays).includes('plan: the flow draws no arc, caption, divider or block'), failed(stays).join('; '));
   const gone = await run({ marks: (key, m, { switched }) => {
     if (key === 'plan' && switched) m.block = null;
     return m;
@@ -761,7 +760,7 @@ test('the scenario waits on the page, never on a fixed sleep', () => {
 
 test('every scenario expression parses, so a typo does not wait for CI', () => {
   const exprs = [scenario.DOTS, scenario.BAND_EDGES, scenario.FAN_MARKS, scenario.SECTORS, scenario.SWEEP, scenario.CIRCLE, scenario.RECTS, scenario.TIERS_PRESSED, scenario.DRAWN,
-    scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.FRAMES, scenario.layoutIs('force'), scenario.pickLayout('status'),
+    scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.FRAMES, scenario.layoutIs('flow'), scenario.pickLayout('tiers'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
     scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
     scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.writeBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),

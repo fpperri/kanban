@@ -158,6 +158,7 @@ test('the page keeps its script order: app.js last, graph-view.js right before i
     before('waiting-blocked.js', 'dependency-graph.js');
     before('calendar-model.js', 'gantt-model.js');
     before('gantt-model.js', 'graph-model.js');
+    before('graph-flow.js', 'graph-model.js');
     before('graph-model.js', 'graph-view.js');
     before('graph-model.js', 'graph-names.js');
     before('graph-names.js', 'graph-view.js');

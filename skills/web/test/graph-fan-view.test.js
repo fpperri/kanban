@@ -59,7 +59,7 @@ const fanOf = (kind) => {
 };
 
 test('the fan is stamped from the plan: an arc for each guide, a line for each divider, both hairlines at any zoom', () => {
-  const v = fanOf('tiers');
+  const v = fanOf('hierarchy');
   const guides = v.by('graph-guide');
   assert.strictEqual(guides.length, v.plan.guides.length);
   assert.ok(guides.length >= 7);
@@ -80,7 +80,7 @@ test('the fan is stamped from the plan: an arc for each guide, a line for each d
 });
 
 test('a caption is a text with its name in one tspan, at its place on the seam, its text running away from it', () => {
-  const v = fanOf('tiers');
+  const v = fanOf('hierarchy');
   const captions = v.by('graph-caption').filter((c) => !c.attrs.class.includes('graph-loose-caption'));
   assert.strictEqual(captions.length, v.plan.captions.length);
   captions.forEach((c, i) => {
@@ -96,18 +96,18 @@ test('a caption is a text with its name in one tspan, at its place on the seam, 
 });
 
 test('the loose caption is stamped where the plan puts it, outside the rim, anchored as the plan says', () => {
-  const v = fanOf('tiers');
+  const v = fanOf('hierarchy');
   const [c] = v.by('graph-loose-caption');
   assert.ok(c);
   assert.deepStrictEqual([c.attrs.x, c.attrs.y, c.attrs.dy, c.attrs['text-anchor']], ['x', 'y', 'dy', 'anchor'].map((k) => String(v.plan.looseCaption[k])));
   const lone = buildOf([card(1, { type: 'goal' }), card(2, { type: 'epic' })]);
-  const bottom = stamp(lone, graphLayout(lone, 'tiers', { statuses: STATUSES, unnested: 'table' }), 'tiers').by('graph-loose-caption')[0];
+  const bottom = stamp(lone, graphLayout(lone, 'hierarchy', { statuses: STATUSES, unnested: 'table' }), 'hierarchy').by('graph-loose-caption')[0];
   assert.strictEqual(bottom.attrs['text-anchor'], 'middle', 'a caption under the fan is centred on its point');
   assert.deepStrictEqual(c.children.map((t) => t.textContent), ['Unnested, with a tier']);
 });
 
 test('the Unnested block is a frame, a title and a caption for each column, and its dots are the nodes', () => {
-  const v = fanOf('tiers');
+  const v = fanOf('hierarchy');
   const [frame] = v.by('graph-block-frame');
   assert.strictEqual(frame.tag, 'rect');
   assert.deepStrictEqual([frame.attrs.x, frame.attrs.y, frame.attrs.width, frame.attrs.height], [v.plan.block.x, v.plan.block.y, v.plan.block.w, v.plan.block.h].map(String));
@@ -122,20 +122,15 @@ test('the Unnested block is a frame, a title and a caption for each column, and 
   assert.strictEqual(v.all.filter((e) => (e.attrs.class || '').split(' ').includes('graph-node')).length, v.plan.nodes.length);
 });
 
-test('the force and status layouts stamp none of it, and the status layout keeps its rings and labels', () => {
-  for (const kind of ['force', 'status']) {
-    const v = fanOf(kind);
-    for (const cls of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-loose-caption']) {
-      assert.strictEqual(v.by(cls).length, 0, `${kind}: ${cls}`);
-    }
+test('the flow stamps none of the fan\'s marks', () => {
+  const v = fanOf('flow');
+  for (const cls of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-loose-caption']) {
+    assert.strictEqual(v.by(cls).length, 0, cls);
   }
-  const status = fanOf('status');
-  assert.ok(status.by('graph-ring').length >= 4);
-  assert.ok(status.by('graph-ring-label').length >= 4);
 });
 
 test('the view makes the marks with DOM calls and classes only: no style attribute, no fill or stroke attribute, no markup string', () => {
-  const v = fanOf('tiers');
+  const v = fanOf('hierarchy');
   for (const el of v.all) {
     for (const k of ['style', 'fill', 'stroke']) assert.strictEqual(el.attrs[k], undefined, `${el.tag} ${k}`);
   }
@@ -144,7 +139,7 @@ test('the view makes the marks with DOM calls and classes only: no style attribu
 });
 
 test('app.css has a rule for each class the fan\'s marks use, drawn in tokens and sized for the screen', () => {
-  const v = fanOf('tiers');
+  const v = fanOf('hierarchy');
   const used = new Set();
   for (const el of v.all) for (const c of (el.attrs.class || el.className || '').split(' ')) if (c.startsWith('graph-')) used.add(c);
   for (const c of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-caption-name', 'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-tip']) {

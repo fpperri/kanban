@@ -214,20 +214,20 @@ test('n from a value the row does not offer steps from relevant, the default', (
 test('changing Names does not run the layout again: the same cards under every setting give one cached layout and one signature', () => {
   const model = drawnModel(BOARDS.plan);
   const statuses = BOARDS.plan.config.statuses;
-  const first = graphLayout(model, 'tiers', { statuses, order: 'status', names: 'relevant' });
+  const first = graphLayout(model, 'hierarchy', { statuses, order: 'status', names: 'relevant' });
   for (const names of ['all', 'none', 'relevant', undefined, 'every']) {
-    assert.strictEqual(graphLayout(model, 'tiers', { statuses, order: 'status', names }), first, `names ${names}`);
-    assert.strictEqual(graphSignature(model, 'tiers', { statuses, names }), graphSignature(model, 'tiers', { statuses }), `names ${names}`);
+    assert.strictEqual(graphLayout(model, 'hierarchy', { statuses, order: 'status', names }), first, `names ${names}`);
+    assert.strictEqual(graphSignature(model, 'hierarchy', { statuses, names }), graphSignature(model, 'hierarchy', { statuses }), `names ${names}`);
   }
-  assert.notStrictEqual(graphLayout(model, 'tiers', { statuses, order: 'rank', names: 'relevant' }), first, 'the order is still in the key, so the check above can fail');
+  assert.notStrictEqual(graphLayout(model, 'hierarchy', { statuses, order: 'rank', names: 'relevant' }), first, 'the order is still in the key, so the check above can fail');
 });
 
 // --- the plan carries the names ------------------------------------------------------------------------------------
 
 const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant' };
 const planOf = (model, fan, extra = {}) => {
-  const layout = graphLayout(model, 'tiers', { statuses: ['backlog', 'todo', 'doing', 'done'] });
-  return graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, ...(fan ? { fan: { ...DEFAULTS, ...fan } } : {}), ...extra });
+  const layout = graphLayout(model, 'hierarchy', { statuses: ['backlog', 'todo', 'doing', 'done'] });
+  return graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, ...(fan ? { fan: { ...DEFAULTS, ...fan } } : {}), ...extra });
 };
 const namedIn = (plan) => ids(plan.nodes.filter((n) => n.cls.split(' ').includes('graph-named')).map((n) => n.id));
 
@@ -272,12 +272,12 @@ test('a prefixed id leads its name whole, and a long title is cut after it', () 
   assert.strictEqual(names[2], '#_4');
 });
 
-test('only the tier fan has names: a plan with no options, and Force and Status, name no card and carry no name', () => {
+test('only the tier fan has names: a plan with no options, and the Flow, name no card and carry no name', () => {
   const model = drawnModel(BOARDS.plan);
   const none = planOf(model, null);
   assert.deepStrictEqual(namedIn(none), []);
   assert.ok(none.nodes.every((n) => n.name === undefined));
-  for (const kind of ['force', 'status']) {
+  for (const kind of ['flow']) {
     const layout = graphLayout(model, kind, { statuses: BOARDS.plan.config.statuses });
     const plan = graphPlan(model, layout, { kind, statusClass: (s) => s, titleOf: (c) => c.title, fan: { ...DEFAULTS, names: 'all' } });
     assert.deepStrictEqual(namedIn(plan), [], kind);
