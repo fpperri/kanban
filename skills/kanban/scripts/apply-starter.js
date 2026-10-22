@@ -12,7 +12,11 @@
 //   - hierarchy: added only when the board has none; a different one is reported;
 //   - prefixes: a missing block is added whole, missing entries are added at the
 //     end of an existing block; an entry the board has is never changed, and a
-//     prefix that means something else here is reported.
+//     prefix that means something else here is reported;
+//   - the kit (logbook, scratchpad, todos, groups, iterations): each key with no
+//     top-level line on the board is added, as the starter writes it, at the end
+//     of the file; a line the board has is never changed, and a commented-out
+//     line is not the key.
 // Every other byte stays, and so does the file's line ending. --dry-run prints
 // the lines it would add and writes nothing.
 const fs = require('fs');
@@ -21,6 +25,7 @@ const { parseConfig, groupFolderOf } = require('../../web/scripts/config-store')
 const { scalar } = require('../../web/scripts/yaml-list');
 
 const STARTER_FILE = path.join(__dirname, '..', 'starter-config.yaml');
+const KIT_KEYS = ['logbook', 'scratchpad', 'todos', 'groups', 'iterations'];
 const TOP_KEY = /^(\w+):\s*(.*)$/;
 
 const bareTail = (tail) => { const t = tail.trim(); return t === '' || t[0] === '#'; };
@@ -245,6 +250,14 @@ function merge(raw, utf8, starterText) {
         additions.push(['prefixes', names, added]);
       }
     }
+  }
+
+  for (const key of KIT_KEYS) {
+    if (findHeader(lines, key)) continue;
+    const src = splitLines(starterText);
+    const line = src[findHeader(src, key).index].text;
+    appendBlock([line]);
+    additions.push([key, [], [line]]);
   }
 
   if (appended.length) {

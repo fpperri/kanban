@@ -34,11 +34,11 @@ test('the starter file reads as the plan: seven types, the four-level hierarchy 
   assert.deepStrictEqual(starter.prefixes, {
     G: 'goal', S: 'strategy', O: 'objective', _: '.groups', I: '.groups/iteration', W: '.groups/workflow', DW: '.groups/workflow/dynamic',
   });
-  assert.strictEqual(starter.groups, '');
-  assert.strictEqual(starter.logbook, '');
-  assert.strictEqual(starter.scratchpad, '');
-  assert.strictEqual(starter.todos, '');
-  assert.strictEqual(starter.iterations, false);
+  assert.strictEqual(starter.groups, '.groups');
+  assert.strictEqual(starter.logbook, '.logbook');
+  assert.strictEqual(starter.scratchpad, '.scratchpad');
+  assert.strictEqual(starter.todos, '.todos');
+  assert.strictEqual(starter.iterations, true);
 });
 
 test('a board with no config.yaml gets the starter file as it is', () => {
@@ -71,7 +71,7 @@ test('a config with fpp-style types gets the missing types and keeps its own, co
   assert.deepStrictEqual(cfg.prefixes, starter.prefixes);
 });
 
-const rest = 'hierarchy: [goal, strategy, objective, epic]\nprefixes:\n  G: goal\n  S: strategy\n  O: objective\n  _: .groups\n  I: .groups/iteration\n  W: .groups/workflow\n  DW: .groups/workflow/dynamic\n';
+const rest = 'hierarchy: [goal, strategy, objective, epic]\nprefixes:\n  G: goal\n  S: strategy\n  O: objective\n  _: .groups\n  I: .groups/iteration\n  W: .groups/workflow\n  DW: .groups/workflow/dynamic\nlogbook: x\nscratchpad: x\ntodos: x\ngroups: x\niterations: x\n';
 const others = (names) => names.map((n) => starter.types.find((t) => t.name === n)).flatMap((t) => {
   const lines = [`  - name: ${t.name}`];
   if (t.color) lines.push(`    color: "${t.color}"`);
@@ -278,4 +278,78 @@ test('no directory given is a usage error', () => {
   const r = run();
   assert.strictEqual(r.status, 2);
   assert.match(r.err, /usage/i);
+});
+
+const KITS = ['logbook', 'scratchpad', 'todos', 'groups', 'iterations'];
+const kitValues = { logbook: '.logbook', scratchpad: '.scratchpad', todos: '.todos', groups: '.groups', iterations: true };
+
+test('a board with none of the five feature lines gets all five, at the end, and nothing else changes', () => {
+  const before = 'name: fpp\nnextId: 3\ntypes:\n  - name: epic\n    color: "#58a6ff"\n    icon: square\nhierarchy: [goal, strategy, objective, epic]\n';
+  const dir = board(before);
+  const only = 'name: fpp\nnextId: 3\n';
+  const dirOnly = board(only);
+  const r = run(dirOnly);
+  assert.strictEqual(r.status, 0);
+  const cfg = parseConfig(read(dirOnly));
+  for (const key of KITS) assert.strictEqual(cfg[key], kitValues[key], key);
+  assert.ok(read(dirOnly).startsWith(only));
+  run(dir);
+  for (const key of KITS) assert.strictEqual(parseConfig(read(dir))[key], kitValues[key], key);
+});
+
+test('a feature line the board already has keeps its value, and only the missing ones are added', () => {
+  const before = 'name: fpp\nlogbook: notes\niterations: false\nscratchpad: ../pads\n';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith(before));
+  const cfg = parseConfig(after);
+  assert.strictEqual(cfg.logbook, 'notes');
+  assert.strictEqual(cfg.iterations, false);
+  assert.strictEqual(cfg.scratchpad, '../pads');
+  assert.strictEqual(cfg.todos, '.todos');
+  assert.strictEqual(cfg.groups, '.groups');
+  assert.strictEqual((after.match(/^logbook:/gm) || []).length, 1);
+  assert.strictEqual((after.match(/^iterations:/gm) || []).length, 1);
+});
+
+test('a commented-out feature line is not the key, so the line is added and the comment stays', () => {
+  const before = 'name: fpp\n# logbook: logbook\n#   groups: x\n';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith(before));
+  assert.strictEqual(parseConfig(after).logbook, '.logbook');
+  assert.match(after, /^logbook: \.logbook/m);
+});
+
+test('the dry run lists the feature lines it would add, one summary line for the board, and writes nothing', () => {
+  const before = 'name: fpp\nlogbook: notes\n';
+  const dir = board(before);
+  const r = run('--dry-run', dir);
+  assert.strictEqual(read(dir), before);
+  const summaries = r.out.split('\n').filter((l) => /^[^\s+]/.test(l));
+  assert.strictEqual(summaries.length, 1);
+  assert.match(summaries[0], /would add/);
+  for (const key of ['scratchpad', 'todos', 'groups', 'iterations']) assert.match(r.out, new RegExp(`^\\+ ${key}: `, 'm'), key);
+  assert.doesNotMatch(r.out, /^\+ logbook:/m);
+});
+
+test('the feature lines keep a CRLF file CRLF and add a final line ending when the file has none', () => {
+  const before = 'name: fpp\r\nnextId: 3';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith(before));
+  assert.ok(!/[^\r]\n/.test(after), 'every line ends CRLF');
+  for (const key of KITS) assert.strictEqual(parseConfig(after)[key], kitValues[key], key);
+});
+
+test('a board that has all five lines, or the starter itself, has nothing to add', () => {
+  const lines = 'name: x\nlogbook: a\nscratchpad: b\ntodos: c\ngroups: d\niterations: false\n';
+  const dir = board(lines);
+  run(dir);
+  const once = read(dir);
+  for (const key of KITS) assert.strictEqual((once.match(new RegExp(`^${key}:`, 'gm')) || []).length, 1, key);
+  assert.match(run('--dry-run', dir).out, /nothing to add/);
 });
