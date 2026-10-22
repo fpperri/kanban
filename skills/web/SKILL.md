@@ -1389,6 +1389,17 @@ to `127.0.0.1` only.
   stay the path as written, with `logbookNow` and `scratchpadNow` the folder a new write goes to
   today (`null` for a path without the placeholder); the gear's path bar shows both and the
   folder field accepts a `<iteration>` segment, as in `0005.sprint-496`.
+  The three paths also take a `vars:` block and two more words (docs/adr/0022). A `<name>` that
+  names a variable is replaced by its value, a path relative to the board or absolute; a value
+  may use the built-in words but not another variable. `<repo>` is the git root that holds the
+  board (the nearest folder at or above it with a `.git` entry, a file in a git worktree); with
+  none, a path that uses it reads as off, like an absent line. `<card>` is the target's file name
+  without its extension (`0007.fix-login`, `I0002.zephyr-2`), matched to its folder by the id at
+  its front, and dropped for a note about nothing; an assign puts a note in the new target's
+  folder. A note's `file` and a page's `folder` carry every name filled in. The server names a
+  bad variable, a variable named like a built-in word, a `<word>` that is neither, and a `<repo>`
+  with no git root on stderr at startup. The gear never writes `vars:` and keeps it as it is, and
+  its `paths` give the folder with the variables and `<repo>` filled in.
 - **Todos** — with a `todos:` line in `config.yaml` (the folder of the board's todo lists, see the
   kanban skill's todo section) a card or a group has a todo list, `<padded id>.todo.md`: a GitHub
   Markdown task list (`- [ ] open`, `- [x] done`, children indented two or more spaces or a tab)
@@ -1424,8 +1435,8 @@ to `127.0.0.1` only.
   a file. The `/api/board` payload carries `todos: { folder, targets, counts }`, the ids that have a
   file and `{ id: { open, total } }` for those with an item, or `null`. A todo list means nothing to
   the board: it never changes a card's status, never holds a card out of `doing`, and adds into no
-  roll-up. The path may hold `<iteration>` by the rules above, a list going to the iteration its card
-  or group is in. The mobile snapshot has none.
+  roll-up. The path may hold `<iteration>`, `<card>`, `<repo>` and variables by the rules above, a list
+  going to the iteration its card or group is in. The mobile snapshot has none.
 - **Groups** — with a `groups:` line in `config.yaml` (the folder of the board's group
   files, see the kanban skill's groups section) a card shows **badges** below its title: up to
   two small buttons (`#I2 zephyr-2`) and `+N` for the rest, the dates and the type path (the

@@ -21,7 +21,7 @@ const snapshotSkill = read('skills', 'snapshot', 'SKILL.md');
 const snapshotDocs = read('docs', 'snapshot.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
-const section = flat(kanban.slice(kanban.indexOf('### The todo list: a task list per card or group'), kanban.indexOf('### The iteration in the logbook, scratchpad and todo paths')));
+const section = flat(kanban.slice(kanban.indexOf('### The todo list: a task list per card or group'), kanban.indexOf('### The placeholders in the logbook, scratchpad and todo paths')));
 const webBullet = flat(web.slice(web.indexOf('- **Todos** —'), web.indexOf('- **Groups** —')));
 const docsTodos = flat(docs.slice(docs.indexOf('**Todos** —'), docs.indexOf('**Iteration folders** —')));
 
@@ -34,8 +34,8 @@ test('the kanban skill documents the todo file in one short paragraph: folder ke
   }
   assert.ok(kanban.includes('**`todos` — the folder of the board\'s todo lists.**'), 'the config key is documented');
   assert.strictEqual(parseConfig('todos: .todos\n').todos, '.todos');
-  assert.ok(kanban.includes('### The iteration in the logbook, scratchpad and todo paths'));
-  assert.ok(kanban.includes('`logbook:`, `scratchpad:` and `todos:` may hold `<iteration>`'));
+  assert.ok(kanban.includes('### The placeholders in the logbook, scratchpad and todo paths'));
+  assert.ok(kanban.includes('`logbook:`, `scratchpad:` and `todos:` may hold `<iteration>`, `<card>`, `<repo>`'));
   assert.ok(kanban.includes('A scratchpad or a todo list goes to the iteration its card or group is a member of'));
 });
 

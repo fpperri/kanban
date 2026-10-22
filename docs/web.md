@@ -659,6 +659,22 @@ save a path that starts with `<iteration>`. A write to a path with any other `<w
 refused, since Windows cannot make that folder; reading it stays tolerant. A path without
 `<iteration>` reads as it always did.
 
+**Variables, `<repo>` and `<card>`** — the same three paths take more words, each as a whole
+segment. A `vars:` block of `name: value` lines in `config.yaml` (a name is letters, digits,
+`-` and `_`) names folders once: `vars:` / `cortex: <repo>/.cortex` lets
+`logbook: <cortex>/execution/<iteration>/.logbook` stand for a host's own layout. A value is a
+path relative to the board or absolute, and may use the built-in words but not another
+variable; the server names one that does, and a variable named like a built-in word
+(`iteration`, `repo`, `card`), on stderr at startup and is not stopped by either. `<repo>` is
+the git root that holds the board, the nearest folder at or above it with a `.git` entry (a
+folder, or a file as in a git worktree); with none, the server names the path and that
+feature is off, as if its line were absent. `<card>` is the file name of the card or group a
+note, page or list is about, without its extension (`0007.fix-login`, `I0002.zephyr-2`); the
+folder is matched to its target by the id at the front of its name, so renaming the card keeps
+its folder, and a note about nothing drops the segment. The gear does not write `vars:` and
+keeps the block as it is. Any other `<word>` is a folder name, named on stderr as a likely
+typo.
+
 **Groups** — with a `groups:` line in `config.yaml`, a card shows up to two small group badges
 (`#I2 zephyr-2`, then `+N`) below its title, with the group's dates and type path as a tooltip.
 A badge opens the notes palette on that group's **Group** tab, which edits its name, dates,

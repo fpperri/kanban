@@ -231,7 +231,9 @@ comments say what each line is, and every line can be changed or deleted.
   iterations (`iterations: true`) are not in the config. Add a line, or switch
   them on from the web's gear sheet (This board), and they exist. The logbook,
   scratchpad and todos paths may hold `<iteration>` (`logbook: sprints/<iteration>/.logbook`),
-  which gives each iteration its own folder, such as `0005.sprint-496`.
+  which gives each iteration its own folder, such as `0005.sprint-496`. They may also hold
+  `<card>` (a folder per card or group), `<repo>` (the git root that holds the board) and the
+  names of a `vars:` block, which a host that ships the kanban in its own layout sets.
 
 An existing board gets the same with a script that adds only what the board
 lacks, gives a type the board already has the starter's colour or icon only
