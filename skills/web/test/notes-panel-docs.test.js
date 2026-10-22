@@ -86,8 +86,8 @@ test('Add child… is described: one live card, the form under that card, only t
   assert.match(add, /Only the new card is written, never the parent; clear the Parent field and it saves as an ordinary root card/);
 });
 
-test('the text boxes paragraph names the four boxes and every key', () => {
-  assert.match(textBoxes, /four multiline boxes take editing keys: the notes palette's note box, the box a listed note is edited in, the Scratchpad's box and the card form's description/);
+test('the text boxes paragraph names the five boxes and every key', () => {
+  assert.match(textBoxes, /five multiline boxes take editing keys: the notes palette's note box, the box a listed note is edited in, the Scratchpad's box, the Todos tab's Edit box and the card form's description/);
   assert.match(textBoxes, /\*\*Tab\*\* indents by two spaces \(every selected line, when several are selected\) and \*\*Shift\+Tab\*\* outdents by up to two/);
   assert.match(textBoxes, /\*\*Ctrl\+M\*\* switches Tab to moving focus for keyboard-only use, until the page is reloaded/);
   assert.match(textBoxes, /"Tab indents · Ctrl\+M: Tab moves focus"\), so Tab is never a trap/);
@@ -102,7 +102,7 @@ test('the text boxes paragraph names the four boxes and every key', () => {
 test('it says the palette goes full screen as the card details do, by its header button and Alt+Enter, and not on a phone', () => {
   assert.match(notes, /The palette's header has the card details' full screen button, and `Alt\+Enter` does the same while the palette is the popup that is up/);
   assert.match(notes, /over the card details it toggles the palette, not the details/);
-  assert.match(notes, /the list, the Scratchpad tab's box and its Preview take the height/);
+  assert.match(notes, /the list, the Scratchpad tab's box and its Preview take the height, as the Todos tab's Edit box and Preview do/);
   assert.match(notes, /The choice is kept per board; every key, tab and Esc work as before/);
   assert.match(notes, /With focus in the palette while another popup is up, `Alt\+Enter` does nothing/);
   assert.match(notes, /On a phone \(under 760 px\) the palette is always full screen, as the card details are: the button is not there, a saved choice makes no difference and `Alt\+Enter` does nothing/);
