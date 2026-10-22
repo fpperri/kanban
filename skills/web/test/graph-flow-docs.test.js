@@ -66,6 +66,7 @@ test('the glossary has Lane: the lane card, the header, ready, the order of the 
   assert.match(text, /The columns stand across every lane/);
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the rest in outline order; with all, every lane is in outline order/);
   assert.match(text, /A lane with no open dependency \(frontier\) or no dependency \(all\) folds into the strip at the bottom, and so does a card with no dependency in a lane that stays/);
+  assert.match(text, /The header is that card's node: a click, double click, Enter, hover, focus and the card menu act on it as on the card's dot, and the two are lit and selected together/);
   assert.match(text, /Not a status, a group or a tier/);
   assert.match(text, /_Avoid_: swimlane, row, band/);
 });
@@ -91,7 +92,7 @@ test('the web doc says what the Lanes switch does: which lane, the header, ready
   assert.match(text, /A card is ready when it is open, in no loop and waits for nothing that is not done\. The columns line up across the lanes/);
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order/);
   assert.match(text, /A lane with no open dependency \(frontier\) or no dependency \(all\) folds into the strip at the bottom, which then reads `no open dependency` under frontier, and so does a card with no dependency in a lane that stays/);
-  assert.match(text, /A header is only drawn: it takes no pointer/);
+  assert.match(text, /A header is its card's node: a click, Shift- or Ctrl-click, double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and the header and the dot of its card light and select together/);
 });
 
 test('the web doc says where the strip, the order and the arrows go, and what a dot keeps', () => {
@@ -156,7 +157,7 @@ test('the web skill\'s Graph Flow says the Lanes switch, the lane of a card, the
   assert.match(text, /a column's cards share one x whichever lane they are in, and the lanes' frames \(`\.graph-flow-lane`\) replace the columns' shaded frames/);
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order/);
   assert.match(text, /A lane with no open dependency \(frontier: every card of it with a dependency is done\) or no dependency \(all\) folds into the strip, which then reads `no open dependency` under frontier, and so does a card with no dependency in a lane that stays/);
-  assert.match(text, /A header is a plain drawing for now: it carries its card's id but is not a `\.graph-node`, takes no pointer and no focus, and is not a second dot of its card/);
+  assert.match(text, /A header is its card's node: a `\.graph-node\.card-el\.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots, so every handler of the dots \(click, Shift\/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu\) takes it for that card, with the same items; `graphCur\.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together\. It is not a second dot: the card keeps its one dot/);
 });
 
 test('the web skill\'s Graph Flow says what works as in Hierarchy, what lights, and that a dot is not dragged', () => {

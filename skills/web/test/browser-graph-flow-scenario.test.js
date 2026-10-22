@@ -142,3 +142,12 @@ test('the marks the scenario expects in the headers are those of the types: the 
   assert.ok(strategy.icon && !strategy.color && task.icon && !task.color);
   assert.deepStrictEqual(CASE.lanes.headers.slice(1).map((h) => h.mark), ['', '']);
 });
+
+test('the headers the scenario drives are lane cards that have a dot, and the header of one lights it with its dependencies', () => {
+  const model = modelOf();
+  const lanes = flowOf('frontier', model, true).lanes.filter((l) => l.header).map((l) => Number(l.header.id));
+  assert.ok(lanes.includes(CASE.head.card) && lanes.includes(CASE.head.other), 'both have a header in the lanes');
+  assert.notStrictEqual(CASE.head.card, CASE.head.other);
+  assert.ok(model.byId.has(String(CASE.head.card)) && model.byId.has(String(CASE.head.other)), 'and a dot');
+  assert.deepStrictEqual(sorted(graphNeighbours(model, String(CASE.head.card), 'wait')), CASE.head.lit);
+});

@@ -260,18 +260,37 @@ test('a press on on draws a lane for each tier card with its header, and the pre
   assert.strictEqual(laneHeads(s).length, 0);
 });
 
-test('a lane header is drawn with its card id and type mark, and is a plain drawing: not a node of the Graph', async () => {
+test('a lane header is drawn with its card id and type mark, and is its card\'s node: a graph-node and card-el with a tab stop, and the card keeps its one dot', async () => {
   const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: '1' } });
   const found = laneHeads(s);
   assert.deepStrictEqual(found.map((h) => h.attrs['data-id']), ['10', '20']);
   for (const h of found) {
-    assert.ok(!h.classes.includes('graph-node') && !h.classes.includes('card-el'), 'no handler of the dots finds it');
-    assert.strictEqual(h.attrs.tabindex, undefined, 'it takes no focus');
+    assert.ok(h.classes.includes('graph-node') && h.classes.includes('card-el'), 'every handler of the dots finds it');
+    assert.strictEqual(String(h.attrs.tabindex), '0', 'it is a tab stop');
     assert.ok(byClass(h, 'graph-flow-lanehead-text')[0].textContent.includes(`#${h.attrs['data-id']} Card`));
     const mark = byClass(h, 'graph-flow-icon')[0];
     assert.ok(mark && /^M/.test(mark.attrs.d) && mark.attrs['data-type-color'] === '#a33', 'the mark of the goal type, in its colour');
+    const dots = byClass(s.host, 'graph-node').filter((n) => n.attrs['data-id'] === h.attrs['data-id'] && !n.classes.includes('graph-flow-lane-head'));
+    assert.strictEqual(dots.length, 1, `card ${h.attrs['data-id']} still has its one dot`);
+    assert.strictEqual(byClass(h, 'graph-flow-lanehead-in').length, 1);
   }
-  assert.strictEqual(byClass(s.host, 'graph-node').filter((n) => n.attrs['data-id'] === '10').length, 1, 'card 10 still has its one dot');
+  assert.deepStrictEqual(json(s, '[...graphCur.headEls.keys()]'), ['10', '20']);
+});
+
+test('a header is selected with the dot of its card, painted in place and on a redraw', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: '1' } });
+  const selectedHeads = () => laneHeads(s).filter((h) => h.classes.includes('selected')).map((h) => h.attrs['data-id']);
+  assert.deepStrictEqual(selectedHeads(), []);
+  s.run('selectedIds.add("20"); graphPaintSelection();');
+  assert.deepStrictEqual(selectedHeads(), ['20'], 'a card selected elsewhere paints its header');
+  s.run('selectedIds.clear(); selectedIds.add("10"); graphPaintSelection();');
+  assert.deepStrictEqual(selectedHeads(), ['10'], 'and takes it off the header of another');
+  s.run('selectedIds.clear(); renderGraphView();');
+  assert.deepStrictEqual(selectedHeads(), []);
+  s.run('selectedIds.clear(); selectedIds.add("20"); renderGraphView();');
+  assert.deepStrictEqual(selectedHeads(), ['20'], 'a redraw draws the header of a selected card selected');
+  const dot = byClass(s.host, 'graph-node').find((n) => n.attrs['data-id'] === '20' && !n.classes.includes('graph-flow-lane-head'));
+  assert.ok(dot.classes.includes('selected'), 'the dot of the card is selected with it');
 });
 
 test('lanes are drawn in Flow alone: the Hierarchy has none whatever the board kept', async () => {
