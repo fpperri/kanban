@@ -19,7 +19,7 @@ const searchCtx = { ...board.ctx, hierarchy: board.config.hierarchy };
 const CASE = scenario.CASES.plan;
 const sorted = (list) => [...list].map(Number).sort((a, b) => a - b);
 const modelOf = (visible = board.live.map((c) => c.id)) => graphBuild(board.all, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible) });
-const flowOf = (deps, model = modelOf()) => graphFlowPlace(model, { deps });
+const flowOf = (deps, model = modelOf(), lanes = false) => graphFlowPlace(model, { deps, lanes });
 const headsOf = (flow) => graphFlowMarks(flow).texts.map((t) => t.text);
 const columnsOf = (flow) => flow.columns.map((c) => sorted(c.ids));
 
@@ -117,4 +117,28 @@ test('the loop the scenario adds goes where the scenario says, in frontier and i
   const frontier = headsOf(graphFlowPlace(model, { deps: 'frontier' }));
   assert.deepStrictEqual(frontier, [...CASE.frontier.heads.slice(0, 3), ...CASE.loop.frontier, CASE.frontier.heads.at(-1)]);
   assert.deepStrictEqual(headsOf(graphFlowPlace(model, { deps: 'all' })), [...CASE.loop.all, CASE.all.heads.at(-1)]);
+});
+
+test('the lanes are those of the Flow layout over the plan board: who is in which lane, the headers in order, the headings with lanes', () => {
+  const model = modelOf();
+  const want = CASE.lanes;
+  for (const deps of ['frontier', 'all']) {
+    const flow = flowOf(deps, model, true);
+    assert.deepStrictEqual(flow.lanes.map((l) => sorted(l.ids)), want.ids, deps);
+    const marks = graphFlowMarks(flow, { titleOf: (id) => model.byId.get(id).card.title });
+    assert.deepStrictEqual(marks.heads.map((h) => h.text), want.headers.map((h) => h.text), deps);
+    assert.deepStrictEqual(marks.heads.map((h) => Number(h.id)), want.headers.map((h) => h.id), deps);
+    assert.deepStrictEqual(marks.texts.map((t) => t.text), want[deps], deps);
+    assert.deepStrictEqual(columnsOf(flow), CASE[deps].columns, `${deps}: the lanes keep the columns`);
+    assert.strictEqual(flow.strip.count, CASE.strip, deps);
+  }
+});
+
+test('the marks the scenario expects in the headers are those of the types: the goal has a colour, the strategy and the task a mark without one', () => {
+  const model = modelOf();
+  const type = (id) => board.config.types.find((t) => t.name === model.byId.get(String(id)).card.type);
+  const [goal, strategy, task] = CASE.lanes.headers.map((h) => type(h.id));
+  assert.deepStrictEqual([goal.icon, goal.color], ['star', CASE.lanes.headers[0].mark]);
+  assert.ok(strategy.icon && !strategy.color && task.icon && !task.color);
+  assert.deepStrictEqual(CASE.lanes.headers.slice(1).map((h) => h.mark), ['', '']);
 });

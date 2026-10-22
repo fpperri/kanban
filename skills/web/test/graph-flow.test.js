@@ -282,20 +282,20 @@ test('the marks are a frame and a heading with the count for each column, and th
 // --- the address -----------------------------------------------------------------------------
 
 test('the address names the graph and the switch, and anything else reads as nothing', () => {
-  assert.deepStrictEqual(graphFlowLink('?view=graph&graph=flow&deps=all'), { graph: 'flow', deps: 'all' });
-  assert.deepStrictEqual(graphFlowLink('?graph=hierarchy'), { graph: 'hierarchy', deps: null });
-  assert.deepStrictEqual(graphFlowLink('?graph=force&deps=open'), { graph: null, deps: null });
-  assert.deepStrictEqual(graphFlowLink(''), { graph: null, deps: null });
-  assert.deepStrictEqual(graphFlowLink(undefined), { graph: null, deps: null });
+  assert.deepStrictEqual(graphFlowLink('?view=graph&graph=flow&deps=all'), { graph: 'flow', deps: 'all', lanes: null });
+  assert.deepStrictEqual(graphFlowLink('?graph=hierarchy'), { graph: 'hierarchy', deps: null, lanes: null });
+  assert.deepStrictEqual(graphFlowLink('?graph=force&deps=open'), { graph: null, deps: null, lanes: null });
+  assert.deepStrictEqual(graphFlowLink(''), { graph: null, deps: null, lanes: null });
+  assert.deepStrictEqual(graphFlowLink(undefined), { graph: null, deps: null, lanes: null });
 });
 
 test('the address becomes graph=flow with the switch, or graph=hierarchy without it, and every other parameter stays', () => {
-  assert.strictEqual(graphFlowAddress('', 'flow', 'frontier'), '?graph=flow&deps=frontier');
-  assert.strictEqual(graphFlowAddress('?view=graph&q=a+b&card=7', 'flow', 'all'), '?view=graph&q=a+b&card=7&graph=flow&deps=all');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&q=x', 'hierarchy', 'all'), '?graph=hierarchy&q=x');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=frontier', 'flow', 'all'), '?graph=flow&deps=all');
+  assert.strictEqual(graphFlowAddress('', 'flow', 'frontier'), '?graph=flow&deps=frontier&lanes=0');
+  assert.strictEqual(graphFlowAddress('?view=graph&q=a+b&card=7', 'flow', 'all'), '?view=graph&q=a+b&card=7&graph=flow&deps=all&lanes=0');
+  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=0&q=x', 'hierarchy', 'all'), '?graph=hierarchy&q=x');
+  assert.strictEqual(graphFlowAddress('?graph=flow&deps=frontier&lanes=0', 'flow', 'all'), '?graph=flow&deps=all&lanes=0');
   assert.strictEqual(graphFlowAddress('?graph=hierarchy', 'hierarchy', 'frontier'), null, 'an address that already says it is left alone');
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all', 'flow', 'all'), null);
-  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all', 'flow', 'sideways'), '?graph=flow&deps=frontier');
+  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=0', 'flow', 'all'), null);
+  assert.strictEqual(graphFlowAddress('?graph=flow&deps=all&lanes=0', 'flow', 'sideways'), '?graph=flow&deps=frontier&lanes=0');
   assert.strictEqual(graphFlowAddress('?graph=flow&deps=all', 'radial'), '?graph=hierarchy');
 });

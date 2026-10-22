@@ -2329,7 +2329,7 @@ to `127.0.0.1` only.
   **Hierarchy**, which is all of the above, and **Flow** (see **Graph Flow**).
 - **Graph Flow** — the Graph's second graph, beside **Hierarchy** (the tier fan and its layouts, above). The option
   panel opens with a **Hierarchy | Flow** choice (`.graph-kind-btn`, `aria-pressed` on the one drawn), Hierarchy first;
-  under Flow the panel holds the zoom and the **Dependencies** switch, and none of Hierarchy's layouts or option row.
+  under Flow the panel holds the zoom and the **Dependencies** and **Lanes** switches, and none of Hierarchy's layouts or option row.
   Flow lays the drawn cards out by their dependencies (`waiting_for`, read among the cards drawn) in **columns** from left to right, with no parent line
   and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **frontier**
   (the default) or **all**. **Frontier** counts the steps until a card is ready and only the dependencies that are not done (a card that
@@ -2340,7 +2340,16 @@ to `127.0.0.1` only.
   (`ready now · 4`); the `done` column is faded. A card with **no dependency either way** among the drawn cards sits in a **strip** below the
   columns, in either mode, titled `no dependency either way` with its count (`· 18 cards`). Within a column the cards are ordered to cut the
   arrows that cross (the mean place of what each waits for and what waits for it, two sweeps each way), ties by id, and a column of more than
-  fourteen cards wraps into side-by-side stacks. An **arrow** runs from the card waited for to the card that waits, leaving to the right
+  fourteen cards wraps into side-by-side stacks. The **Lanes** switch (`.graph-option-btn[data-key=lanes]`, `off` or `on`, off by default) groups the
+  cards that are in a column into **lanes**: each card with a dependency is in the lane of its nearest parent with a tier, else of its root (the slice's own rule,
+  read among the cards drawn, so a card whose parent is hidden is a root), under a header (`.graph-flow-lane-head`, with the lane card's `data-id`) that leads with that
+  card's type mark in its type colour (`data-type-color`, painted by `paintTypeColors`), its tier name (none for a card with no tier), `#id title`, the lane's
+  card count and its ready count; a card is ready when it is open, in no loop and waits for nothing that is not done, in either mode. The columns are made of the cards in the
+  lanes alone and stand across them, so a column's cards share one x whichever lane they are in, and the lanes' frames (`.graph-flow-lane`) replace the columns' shaded frames.
+  With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order. A lane with no open
+  dependency (frontier: every card of it with a dependency is done) or no dependency (all) folds into the strip, which then reads `no open dependency` under frontier, and so does a
+  card with no dependency in a lane that stays. A header is a plain drawing for now: it carries its card's id but is not a `.graph-node`, takes no pointer and no focus, and is
+  not a second dot of its card. An **arrow** runs from the card waited for to the card that waits, leaving to the right
   and arriving from the left with its head at the rim; a dot keeps its status colour and its type mark, grows with the waits it is in (a parent
   does not enlarge it), and is faded in frontier when done or archived. A loop, a card that waits for itself and a chain of any
   length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,
@@ -2348,11 +2357,11 @@ to `127.0.0.1` only.
   that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. Hover, focus and a
   lone selected card light the card with the cards its **dependencies** join to it, not its parent or children, and the lit lines are the arrows. A dot
   cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`flow`, which a Hierarchy layout
-  name replaces) and the switch under `graph.deps`; a value this version does not offer reads as Tiers and frontier. The address carries both as
-  `graph=hierarchy|flow` and `deps=frontier|all`: on a load the address wins, and a link's value is kept for that load only until a press;
-  a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` going when Hierarchy is
-  chosen. The choice and the switch are buttons that keep the selection; a press of the switch redraws the Flow and re-frames a view the person has
-  not moved. On a phone the panel is the **bottom sheet**, with the choice and the switch in it. The Flow's pure layout is `web/graph-flow.js` (`graphFlowPlace`),
+  name replaces) and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer reads as Tiers, frontier and lanes off. The address carries them as
+  `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;
+  a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is
+  chosen. The choice and the switches are buttons that keep the selection; a press of a switch redraws the Flow and re-frames a view the person has
+  not moved. On a phone the panel is the **bottom sheet**, with the choice and the switches in it. The Flow's pure layout is `web/graph-flow.js` (`graphFlowPlace`),
   read by `graph-model.js`; the snapshot has no Graph view, so it embeds none of it.
 
 ## Board config: `config.yaml`

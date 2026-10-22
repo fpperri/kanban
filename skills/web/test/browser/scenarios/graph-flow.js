@@ -1,15 +1,22 @@
 'use strict';
 // The Graph's Flow, on the plan board. The option panel opens with a Hierarchy | Flow choice, Hierarchy
 // (the tier fan, with its layouts and options) pressed. Flow lays the board out by its dependencies in
-// columns, with the Dependencies switch beside it, frontier or all, and no lanes yet:
+// columns, with the Dependencies switch beside it, frontier or all, and the Lanes switch, off at first:
 //   frontier  done (faded, first), ready now, 1 step, 2 steps ..., loop; only dependencies not done count.
 //   all       waits for nothing, chain 1, chain 2 ...; done dependencies count.
 // Cards with no dependency either way sit in a strip below the columns, with a count. The arrows run from
 // the card waited for to the card that waits, and there are no parent lines. A dot keeps its status colour
 // and its type mark. Search lighting, the status pills, slice:, isolate, selection, the card menu and the
-// zoom work as in Hierarchy, a lone card lighting with its dependencies. The choice and the switch are kept
-// for the board in the browser and in the address (graph=, deps=), the address winning on a load; and the
-// panel works as the phone's bottom sheet.
+// zoom work as in Hierarchy, a lone card lighting with its dependencies. Lanes on puts each card with a
+// dependency in the lane of its nearest parent with a tier, else its root: under a header with that card's
+// type mark, tier, #id title, cards and ready cards, which is a plain drawing for now (it takes no pointer),
+// and the columns stand across the lanes. The choice and the switches are kept for the board in the browser
+// and in the address (graph=, deps=, lanes=), the address winning on a load; and the panel works as the
+// phone's bottom sheet.
+//
+// The lanes of the plan board: card 1 (a goal) holds 2, 3, 4, 5 and 6, card 2 (a strategy) holds 7 and 8,
+// and card 27 has no parent and is its own lane. Frontier puts the lane of card 1 first (cards 2 and 3 are
+// ready), then card 2's and 27's in outline order; all keeps the outline order.
 //
 // A press is a real click at the centre of the element, as a person makes it, and every wait is on the
 // page, never on a fixed sleep.
@@ -38,6 +45,16 @@ const CASES = {
       columns: [[2, 3, 5, 7], [4, 6, 8, 27]],
     },
     strip: 18,
+    lanes: {
+      ids: [[2, 3, 4, 5, 6], [7, 8], [27]],
+      headers: [
+        { id: 1, text: 'goal · #1 Zephyr platform migration · 5 cards · 2 ready', mark: '#a371f7' },
+        { id: 2, text: 'strategy · #2 Move the zephyr data layer · 2 cards · 1 ready', mark: '' },
+        { id: 27, text: '#27 Ship once the audit is closed · 1 card · 1 ready', mark: '' },
+      ],
+      frontier: ['done · 1', 'ready now · 4', '1 step · 3', 'no open dependency · 18 cards'],
+      all: ['waits for nothing · 4', 'chain 1 · 4', 'no dependency either way · 18 cards'],
+    },
     arrows: ['2>6', '3>4', '3>6', '5>27', '5>6', '7>8'],
     dots: 26,
     done: 5,
@@ -63,11 +80,21 @@ const CASES = {
 const PANEL = '#graph-view .view-panel';
 const KIND = (k) => `#graph-view .graph-kind-btn[data-graph-kind=${k}]`;
 const DEPS = (v) => `#graph-view .graph-option-btn[data-key=deps][data-val=${v}]`;
+const LANES = (v) => `#graph-view .graph-option-btn[data-key=lanes][data-val=${v}]`;
 const LAYOUT = (l) => `#graph-view .graph-layout-btn[data-layout=${l}]`;
 const frames = `new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`;
 
 const DOT_IDS = `[...new Set([...document.querySelectorAll('#graph-view .graph-node')].map((n)=>Number(n.dataset.id)))].sort((a,b)=>a-b)`;
 const HEADS = `[...document.querySelectorAll('#graph-view .graph-flow-colhead, #graph-view .graph-flow-striphead')].map((t)=>t.textContent)`;
+const LANE_HEADS = `[...document.querySelectorAll('#graph-view .graph-flow-lane-head')].map((h)=>({id:Number(h.dataset.id),text:h.querySelector('.graph-flow-lanehead-text').textContent,mark:(()=>{const m=h.querySelector('.graph-flow-icon');return m?(m.dataset.typeColor||''):null})()}))`;
+// The lanes as the page drew them, top to bottom: the dots (by id) inside each frame, where its header sits,
+// and the x of each dot, so the columns can be held to stand across the lanes.
+const LANE_FRAMES = `(()=>{const at=(n)=>{const m=/translate\\(([-\\d.e]+) ([-\\d.e]+)\\)/.exec(n.getAttribute('transform')||'');return m?{x:Number(m[1]),y:Number(m[2])}:null};`
+  + `const dots=[...document.querySelectorAll('#graph-view .graph-node')].map((n)=>({id:Number(n.dataset.id),...at(n)}));`
+  + `const heads=[...document.querySelectorAll('#graph-view .graph-flow-lane-head')].map((h)=>({id:Number(h.dataset.id),...at(h)}));`
+  + `const lanes=[...document.querySelectorAll('#graph-view .graph-flow-lane')].map((r,i)=>{const x=Number(r.getAttribute('x')),w=Number(r.getAttribute('width')),y=Number(r.getAttribute('y')),h=Number(r.getAttribute('height'));`
+  + `return {x,y,w,h,ids:dots.filter((d)=>d.x>x&&d.x<x+w&&d.y>y&&d.y<y+h).map((d)=>d.id).sort((a,b)=>a-b),head:heads[i]?{inside:heads[i].x>=x&&heads[i].x<x+w&&heads[i].y>y&&heads[i].y<y+h}:null}});`
+  + `return {lanes,x:Object.fromEntries(dots.map((d)=>[d.id,Math.round(d.x*100)/100]))}})()`;
 const kindIs = (k) => `graphCur.kind==='${k}'&&document.querySelectorAll('#graph-view .graph-node').length>0`;
 const pressed = (sel) => `(()=>{const b=document.querySelector('${sel}');return !!b&&b.getAttribute('aria-pressed')==='true'})()`;
 const sameList = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -145,7 +172,7 @@ module.exports = {
     // --- Flow, frontier by default -------------------------------------------------------------------------
     await pressOn(KIND('flow'));
     check('plan: a press on Flow draws the Flow, frontier pressed, without a reload', await flowDrawn('frontier'));
-    check('plan: the panel offers the Dependencies switch, frontier then all, and not the layouts of the Hierarchy', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn')].map((b)=>b.textContent))`) === '["frontier","all"]'
+    check('plan: the panel offers the Dependencies switch, frontier then all, and not the layouts of the Hierarchy', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn[data-key=deps]')].map((b)=>b.textContent))`) === '["frontier","all"]'
       && await ev(`document.querySelectorAll('${PANEL} .graph-layout-btn').length===0&&document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-label')[0].textContent==='Dependencies'`));
     check('plan: the Dependencies buttons keep the selection and do not hold the poll', await ev(`[...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn')].every((b)=>b.hasAttribute('data-keeps-selection')&&!b.hasAttribute('data-holds-poll'))`));
     check('plan: the address says graph=flow and deps=frontier, and the board keeps Flow', await waitFor(`/[?&]graph=flow(&|$)/.test(${SEARCH})&&/[?&]deps=frontier(&|$)/.test(${SEARCH})`)
@@ -174,6 +201,43 @@ module.exports = {
     check('plan: in all the done card is not faded', await ev(`${OPACITY(plan.done)}`) === '1');
     check('plan: the address says deps=all and the board keeps it', await waitFor(`/[?&]deps=all(&|$)/.test(${SEARCH})&&/[?&]graph=flow(&|$)/.test(${SEARCH})`) && await ev(STORED('deps')) === 'all', await ev(SEARCH));
     await shot('graph-flow-all');
+
+    // --- lanes -----------------------------------------------------------------------------------------------
+    await pressOn(DEPS('frontier'));
+    await flowDrawn('frontier');
+    check('plan: the panel offers the Lanes switch, off then on, off pressed, and no lane is drawn', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn[data-key=lanes]')].map((b)=>[b.textContent,b.getAttribute('aria-pressed')]))`) === '[["off","true"],["on","false"]]'
+      && await ev(`document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-label')[1].textContent==='Lanes'&&document.querySelectorAll('#graph-view .graph-flow-lane, #graph-view .graph-flow-lane-head').length===0`));
+    await pressOn(LANES('on'));
+    check('plan: a press on on draws the lanes, on pressed, the same dots, and the address and the board say lanes', await waitFor(`${kindIs('flow')}&&${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}`, 10000)
+      && sameList(await dots(), hierarchyDots) && await waitFor(`/[?&]lanes=1(&|$)/.test(${SEARCH})`) && await ev(STORED('lanes')) === '1', await ev(SEARCH));
+    check('plan: the headers lead with the tier, #id title, the cards and the ready cards, in the order of the lanes, ready lanes first',
+      sameList(await ev(LANE_HEADS), plan.lanes.headers), await ev(LANE_HEADS));
+    check('plan: the mark of the lane card type leads each header, in the colour of the type when it has one', (await ev(LANE_HEADS)).every((h, i) => h.mark === plan.lanes.headers[i].mark));
+    check('plan: no column frame is drawn with lanes, and the headings and the strip are', await settled(plan.lanes.frontier) && await ev(`document.querySelectorAll('#graph-view .graph-flow-col').length===0`));
+    const framed = await ev(LANE_FRAMES);
+    check('plan: each lane frames its cards and its header, top to bottom without overlap, above the strip', sameList(framed.lanes.map((l) => l.ids), plan.lanes.ids) && framed.lanes.every((l, i) => l.head && l.head.inside && (!i || l.y >= framed.lanes[i - 1].y + framed.lanes[i - 1].h))
+      && await ev(`(()=>{const l=[...document.querySelectorAll('#graph-view .graph-flow-lane')].at(-1);const s=document.querySelector('#graph-view .graph-flow-strip');return Number(s.getAttribute('y'))>Number(l.getAttribute('y'))+Number(l.getAttribute('height'))})()`), framed.lanes);
+    const colX = (ids) => ids.map((id) => framed.x[id]);
+    check('plan: the columns stand across the lanes: the cards of a column share one x, and the columns run left to right',
+      plan.frontier.columns.every((ids) => new Set(colX(ids)).size === 1) && plan.frontier.columns.every((ids, i) => !i || colX(ids)[0] > colX(plan.frontier.columns[i - 1])[0]), framed.x);
+    check('plan: the same arrows join the same cards in lanes', sameList((await ev(ARROWS)).map((a) => a.pair), plan.arrows));
+    const head = await ev(`(()=>{const h=document.querySelector('#graph-view .graph-flow-lane-head');const r=h.querySelector('.graph-flow-lanehead-text').getBoundingClientRect();return {x:r.left+Math.min(r.width/2,80),y:r.top+r.height/2,pe:getComputedStyle(h).pointerEvents,node:h.classList.contains('graph-node')}})()`);
+    await click(head.x, head.y);
+    check('plan: a header is a plain drawing: a click on it selects nothing and opens no menu, and its card has one dot', head.pe === 'none' && head.node === false
+      && await ev(`selectedIds.size===0&&document.querySelectorAll('#graph-view .graph-node[data-id="1"]').length===1&&document.getElementById('context-menu').classList.contains('hidden')`), head);
+    await shot('graph-flow-lanes');
+    await pressOn(DEPS('all'));
+    check('plan: lanes in all: the same lanes in the same order, the headings of all', await flowDrawn('all') && await settled(plan.lanes.all) && sameList(await ev(LANE_HEADS), plan.lanes.headers) && sameList((await ev(LANE_FRAMES)).lanes.map((l) => l.ids), plan.lanes.ids));
+    check('plan: a reload with no parameters keeps the lanes for the board', await load('/?view=graph', 'plan') && await flowDrawn('all') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}`, 10000));
+    check('plan: a link with lanes=0 opens the Flow without lanes, whatever the board kept', await load('/?view=graph&graph=flow&deps=all&lanes=0', 'plan') && await flowDrawn('all') && await waitFor(`${pressed(LANES('off'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===0&&document.querySelectorAll('#graph-view .graph-flow-col').length>0`, 10000));
+    check('plan: a link only for this load: the board still keeps lanes', await ev(STORED('lanes')) === '1');
+    check('plan: a link with lanes=1 opens the lanes', await load('/?view=graph&graph=flow&deps=frontier&lanes=1', 'plan') && await flowDrawn('frontier') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}`, 10000));
+    await pressOn(KIND('hierarchy'));
+    check('plan: the Hierarchy draws no lane and takes lanes out of the address', await waitFor(`${kindIs('tiers')}&&document.querySelectorAll('#graph-view .graph-flow-lane, #graph-view .graph-flow-lane-head').length===0&&!/[?&]lanes=/.test(${SEARCH})`, 10000), await ev(SEARCH));
+    await pressOn(KIND('flow'));
+    check('plan: the Flow brings the lanes back as they were', await flowDrawn('frontier') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}&&/[?&]lanes=1(&|$)/.test(${SEARCH})`, 10000));
+    await pressOn(LANES('off'));
+    check('plan: a press on off takes the lanes away, and the board and the address say so', await waitFor(`${pressed(LANES('off'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===0&&/[?&]lanes=0(&|$)/.test(${SEARCH})`, 10000) && await ev(STORED('lanes')) === '0' && await settled(plan.frontier.heads));
 
     // --- remembered, and the address ---------------------------------------------------------------------------
     check('plan: a reload with no parameters keeps Flow and all for the board', await load('/?view=graph', 'plan') && await flowDrawn('all') && await settled(plan.all.heads));
@@ -264,9 +328,12 @@ module.exports = {
     await pressOn('#graph-view .view-panel-toggle');
     check('plan: the toggle opens the panel as a sheet over the Graph, with the choice and the switch in it',
       await waitFor(`!!document.querySelector('${PANEL}')`) && await ev(`(()=>{const p=document.querySelector('${PANEL}');const r=p.getBoundingClientRect();return getComputedStyle(p).position==='absolute'&&r.width>=window.innerWidth*0.8&&r.bottom>=window.innerHeight-200&&!!p.querySelector('.graph-kind-btn[data-graph-kind=flow]')&&!!p.querySelector('.graph-option-btn[data-key=deps][data-val=all]')})()`));
+    check('plan: the sheet offers the Lanes switch too', await ev(`!!document.querySelector('${PANEL} .graph-option-btn[data-key=lanes][data-val=on]')`));
     await pressOn(`${PANEL} .graph-option-btn[data-key=deps][data-val=all]`);
     // The loop cards added above are still on the board: two more cards wait for nothing and one is chain 1.
     check('plan: a press on all in the sheet redraws the columns', await waitFor(`${kindIs('flow')}&&${pressed(DEPS('all'))}`) && await settled([...plan.loop.all, plan.all.heads.at(-1)]), { heads: await ev(HEADS), search: await ev(SEARCH), sheet: await ev(`JSON.stringify(document.querySelector('${PANEL}').getBoundingClientRect())`) });
+    await pressOn(`${PANEL} .graph-option-btn[data-key=lanes][data-val=on]`);
+    check('plan: a press on on in the sheet draws the lanes', await waitFor(`${kindIs('flow')}&&${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length + 3}`, 10000), await ev(LANE_HEADS));
     await shot('graph-flow-sheet');
     await pressOn(`${PANEL} .graph-kind-btn[data-graph-kind=hierarchy]`);
     check('plan: a press on Hierarchy in the sheet goes back to the tier fan', await waitFor(`${kindIs('tiers')}&&${pressed(KIND('hierarchy'))}`, 10000));
