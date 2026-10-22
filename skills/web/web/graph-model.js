@@ -1,7 +1,7 @@
 'use strict';
 // Pure model + layouts for the graph view: which cards are drawn, how they
 // relate (parent / wait relations), and where each one sits under three
-// layouts (tiers, status, force). No DOM, no canvas, no clock, no randomness:
+// layouts (tiers, status, force) and the Flow of graph-flow.js. No DOM, no canvas, no clock, no randomness:
 // the same cards always give the same positions, so the 5-second poll re-render
 // can reuse them. Same dual-environment pattern as gantt-model.js: unit-testable
 // from node --test AND loaded as a plain <script> in the browser (app.js calls
@@ -35,11 +35,15 @@ const GRAPH_MAPREL = (typeof module !== 'undefined' && module.exports)
 const GRAPH_TYPES = (typeof module !== 'undefined' && module.exports)
   ? require('./type-badge')
   : window;
+const GRAPH_FLOW = (typeof module !== 'undefined' && module.exports)
+  ? require('./graph-flow')
+  : window;
 
+// The layouts of the Hierarchy graph; the Flow graph (graph-flow.js) is the layout 'flow' beside them.
 const GRAPH_LAYOUTS = ['tiers', 'force', 'status'];
 
 function mergeGraphLayout(saved) {
-  return GRAPH_LAYOUTS.includes(saved) ? saved : 'tiers';
+  return GRAPH_LAYOUTS.includes(saved) || saved === 'flow' ? saved : 'tiers';
 }
 
 // The tier fan's option row: each option and what it may be set to, the default
@@ -267,9 +271,12 @@ function graphRadius(node) {
   return 4 + Math.sqrt(node.deg + (node.kids ? 2 : 0)) * 3;
 }
 
-function graphNeighbours(model, id) {
+// The card and the cards one relation away. With `linkKind` only the relations of that kind count:
+// the Flow draws no parent line, so it lights a card with the dependencies it draws.
+function graphNeighbours(model, id, linkKind) {
   const out = new Set([id]);
   for (const l of model.links) {
+    if (linkKind && l.kind !== linkKind) continue;
     if (l.from === id) out.add(l.to);
     if (l.to === id) out.add(l.from);
   }
@@ -334,8 +341,8 @@ function graphQueryEffect(match, pool, ctx, { isolated = false } = {}) {
 // selection, a typed query's matches included, lights its own cards and the lines
 // between them, so a query that matches one card lights that card alone.
 // `loneCardId` is the selection's one card part, or null.
-function graphRestLit(model, { selectedIds, loneCardId }, lines) {
-  if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId), lines);
+function graphRestLit(model, { selectedIds, loneCardId, linkKind }, lines) {
+  if (loneCardId !== null && loneCardId !== undefined && model.byId.has(loneCardId)) return graphLit(model, graphNeighbours(model, loneCardId, linkKind), lines);
   return graphLit(model, selectedIds, lines);
 }
 
@@ -1092,6 +1099,15 @@ function graphLayoutStatus(model, opts) {
   return graphFinish(model, pos, rings, [], titles);
 }
 
+// --- layout: flow --------------------------------------------------------------
+// The places are graph-flow.js's (graphFlowPlace); here they are finished into a layout like any
+// other. `layout.flow` holds the columns, the lanes, the strip and the dots' radii.
+
+function graphLayoutFlow(model, opts) {
+  const flow = GRAPH_FLOW.graphFlowPlace(model, { deps: opts && opts.deps });
+  return graphFinish(model, flow.pos, [], [], [], { boxes: flow.boxes, flow });
+}
+
 // --- layout: force -------------------------------------------------------------
 
 const GRAPH_GOLDEN = 2.399963229728653;
@@ -1221,6 +1237,7 @@ function graphSignature(model, kind, opts) {
   const links = model.links.map((l) => `${l.from}>${l.to}${l.kind === 'wait' ? 'w' : 'p'}`).join(',');
   const statuses = ((opts && opts.statuses) || []).join(',');
   const key = [kind, statuses, nodes, links];
+  if (kind === 'flow') key.push(GRAPH_FLOW.mergeGraphFlowDeps(opts && opts.deps));
   if (fan) {
     key.push(model.axis.filter((s) => s.kind === 'tier').map((s) => s.name).join(','));
     key.push(mergeGraphFanOptions(opts).unnested);
@@ -1243,7 +1260,8 @@ function graphLayout(model, kind, opts) {
   if (graphCache.has(key)) return graphCache.get(key);
   const layout = which === 'status' ? graphLayoutStatus(model, opts)
     : which === 'force' ? graphLayoutForce(model)
-      : graphLayoutTiers(model, opts);
+      : which === 'flow' ? graphLayoutFlow(model, opts)
+        : graphLayoutTiers(model, opts);
   graphCache.set(key, layout);
   if (graphCache.size > GRAPH_CACHE_MAX) graphCache.delete(graphCache.keys().next().value);
   return layout;
@@ -1297,6 +1315,7 @@ const graphRound = (v) => Math.round(v * 100) / 100;
 
 function graphKindOf(layout, kind) {
   if (kind) return kind;
+  if (layout.flow) return 'flow';
   if (layout.rings.some((r) => r.status !== undefined)) return 'status';
   if (layout.bands) return 'tiers';
   return layout.rings.length > 0 || layout.spokes.length > 0 ? 'tiers' : 'force';
@@ -1320,6 +1339,7 @@ function graphLinkPaths(model, layout, kind) {
     const pa = layout.pos.get(l.from);
     const pb = layout.pos.get(l.to);
     const head = `M${graphRound(pa.x)} ${graphRound(pa.y)}`;
+    if (l.kind === 'wait' && layout.flow) return GRAPH_FLOW.graphFlowPath(layout.flow, l.from, l.to);
     if (l.kind === 'wait') {
       const dx = pb.x - pa.x;
       const dy = pb.y - pa.y;
@@ -1501,7 +1521,7 @@ function graphPlan(model, layout, opts) {
     if (n.deg >= 3) cls.push('graph-hub');
     if (n.deg === 0) cls.push('is-loose');
     if (named && named.has(n.id)) cls.push('graph-named');
-    const r = graphRadius(n);
+    const r = layout.flow ? layout.flow.radius.get(n.id) : graphRadius(n);
     const iconed = n.shape !== undefined && n.shape !== 'circle';
     const reach = iconed ? GRAPH_ICONS.typeIconReach(n.shape, r) : r;
     const ring = (extra) => (iconed ? graphRound(reach + extra) : r + extra);
@@ -1528,7 +1548,7 @@ function graphPlan(model, layout, opts) {
   const paths = graphLinkPaths(model, layout, kind);
   const drawn = fan && o.fan
     ? graphFanLines(model, fan.places, o.fan)
-    : model.links.map((l, i) => ({ from: l.from, to: l.to, kind: l.kind, link: i }));
+    : model.links.map((l, i) => ({ from: l.from, to: l.to, kind: l.kind, link: i })).filter((line) => kind !== 'flow' || line.kind === 'wait');
   const links = drawn.map((line) => {
     if (line.kids) {
       const bus = graphFanBus(fan, line);
@@ -1559,7 +1579,8 @@ function graphPlan(model, layout, opts) {
     tip: graphFanTip(c.count, c.split, c.term),
   })) : [];
   const titles = layout.titles.map((t) => ({ x: graphRound(t.x), y: graphRound(t.y), text: t.text }));
-  return { nodes, links, rings, titles, guides, tints, captions, dividers, block, looseCaption };
+  const flow = layout.flow ? GRAPH_FLOW.graphFlowMarks(layout.flow) : { rects: [], texts: [] };
+  return { nodes, links, rings, titles, guides, tints, captions, dividers, block, looseCaption, flow };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1569,7 +1590,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
     graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphFanNames, graphFanNextNames, graphFanNameText,
-    graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce,
+    graphFanPlace, graphFanLines, graphLayoutTiers, graphLayoutStatus, graphLayoutForce, graphLayoutFlow,
     graphForceSim, graphForceStep, graphForcePositions, graphWithPositions, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan, graphTipAt,
@@ -1596,6 +1617,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.graphLayoutTiers = graphLayoutTiers;
   window.graphLayoutStatus = graphLayoutStatus;
   window.graphLayoutForce = graphLayoutForce;
+  window.graphLayoutFlow = graphLayoutFlow;
   window.graphForceSim = graphForceSim;
   window.graphForceStep = graphForceStep;
   window.graphForcePositions = graphForcePositions;

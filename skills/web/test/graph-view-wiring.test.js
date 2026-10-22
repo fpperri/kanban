@@ -84,7 +84,7 @@ test('the Graph top row is the (i) and the option button, the count and the key 
   const app = read('app.js');
   assert.ok(!/function buildFilterPillRow\(/.test(app), 'the per-view pill builder is gone');
   assert.ok(!/REFOCUS_SELECTOR = [^\n]*graph-filter-toggle/.test(app));
-  assert.match(css, /\.graph-layout-btn, \.graph-zoom-btn \{/);
+  assert.match(css, /\.graph-layout-btn, \.graph-kind-btn, \.graph-zoom-btn \{/);
 });
 
 test('app.css defines every .graph-* class the plan, the view and the key emit', () => {
@@ -99,7 +99,7 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
   ];
   const model = graphBuild(cards, { ctx: { board: 'kanban', priorities: [] } });
   const used = new Set();
-  for (const kind of GRAPH_LAYOUTS) {
+  for (const kind of [...GRAPH_LAYOUTS, 'flow']) {
     const plan = graphPlan(model, graphLayout(model, kind, { statuses: ['todo', 'doing', 'done'] }), {
       selectedIds: new Set([1]), hoveredId: 3, kind, statusClass: (s) => s, titleOf: (c) => c.title,
     });
@@ -107,7 +107,7 @@ test('app.css defines every .graph-* class the plan, the view and the key emit',
     const fan = [...plan.guides, ...plan.captions, ...(plan.looseCaption ? [plan.looseCaption] : []),
       ...(plan.block ? [plan.block, plan.block.title, ...plan.block.columns.map((c) => c.caption)] : [])];
     assert.strictEqual(fan.length > 0, kind === 'tiers', `${kind} draws the fan's marks, and the others do not`);
-    for (const x of [...plan.nodes, ...plan.links, ...plan.rings, ...fan]) {
+    for (const x of [...plan.nodes, ...plan.links, ...plan.rings, ...fan, ...plan.flow.rects, ...plan.flow.texts]) {
       for (const c of x.cls.split(' ')) if (c.startsWith('graph-')) used.add(c);
     }
   }
@@ -159,7 +159,8 @@ test('render computes before touching the DOM and survives a throw', () => {
 test('filter handlers guard with hasOwnProperty; layout re-click and zoom buttons are handled', () => {
   assert.match(fn('graphToggleFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
   assert.match(fn('graphSoloFilter'), /Object\.prototype\.hasOwnProperty\.call\(filter, col\)/);
-  assert.match(fn('wireGraphView'), /=== graphLoadLayout\(\)\) return;/);
+  assert.match(fn('graphSetLayoutKind'), /next === was\) return;/);
+  assert.match(fn('wireGraphView'), /graphSetLayoutKind\(layoutBtn\.dataset\.layout\)/);
   assert.match(fn('wireGraphView'), /zoomBtn\.blur\(\)/);
 });
 
@@ -188,7 +189,7 @@ test('a double click opens the card, Enter opens and Space selects', () => {
 });
 
 test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {
-  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\) \}, graphCur\.lines\)/, 'the lines it lights are the lines drawn');
+  assert.match(fn('graphRestFocus'), /graphRestLit\(graphCur\.model, \{ selectedIds, loneCardId: graphLoneCardId\(\), linkKind: graphLinkKind\(\) \}, graphCur\.lines\)/, 'the lines it lights are the lines drawn');
   assert.match(fn('graphRestFocus'), /graphLightCards\(/);
   assert.match(fn('graphLoneCardId'), /loneCard\(selectionState\.selection\)/);
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);

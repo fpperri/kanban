@@ -1,0 +1,215 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+
+const { loadPage, control, harmless } = require('./helpers/page-vm');
+const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
+
+// The Graph's Hierarchy | Flow choice and the Flow's Dependencies switch in the real page
+// (helpers/page-vm.js runs every script the page loads in one vm): where the choice stands in the
+// option panel, what a press draws, what the board keeps and what the address says, and which of the
+// two wins on a load. The browser runner drives the same panel in Chrome (scenarios/graph-flow.js).
+
+const card = (id, over = {}) => ({
+  id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
+  review: null, tags: [], assignee: null, type: null, start_date: null, end_date: null, due_date: null,
+  parent: null, rank: null, file: `/board/${id}.card.md`, archived: false, ...over,
+});
+
+// Card 1 is done and 2 waits for it; 3 waits for 2; 4 waits for 3 and 5 (5 is ready); 6 waits for nothing
+// and nothing waits for it. Frontier: done 1, ready now 2 and 5, 1 step 3, 2 steps 4, strip 6. All: chain
+// 0 is 1 and 5, 1 is 2, 2 is 3, 3 is 4.
+const makeBoard = (name = 'kanban') => ({
+  projectName: name,
+  statuses: ['backlog', 'todo', 'doing', 'done'],
+  priorities: ['High', 'Normal', 'Low'],
+  hierarchy: ['goal', 'strategy'],
+  assignees: [], tags: [], types: [], notifications: [],
+  active: [
+    card(1, { status: 'done' }), card(2, { waiting_for: [1], status: 'doing' }), card(3, { waiting_for: [2] }),
+    card(4, { waiting_for: [3, 5] }), card(5), card(6),
+  ],
+  archived: [],
+});
+
+const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
+const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
+
+async function open({ stored = {}, name = 'kanban', search = '' } = {}) {
+  const host = recordingElement('div');
+  const elements = { '#graph-view': host };
+  for (const sel of HIDDEN_SURFACES) elements[sel] = hiddenSurface();
+  const all = { [`kanban.${name}.view.mode`]: 'graph', ...stored };
+  const page = await loadPage({
+    board: makeBoard(name), stored: all, search, elements, documentExtras: recordingDocument(),
+  }).start();
+  assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  const address = [];
+  page.ctx.history = {
+    replaceState: (state, title, url) => { address.push(url); page.ctx.location.search = url.slice(url.indexOf('?') === -1 ? url.length : url.indexOf('?')); },
+  };
+  return {
+    page, host, stored: all, name, address,
+    run: (code) => page.run(code),
+    panel: () => byClass(host, 'view-panel')[0] || null,
+    kindButtons: () => byClass(host, 'graph-kind-btn'),
+    click(el) {
+      const target = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (el.matches(sel) ? el : null) : harmless(String(key))) });
+      host.fire('click', { target, stopPropagation() {}, preventDefault() {}, shiftKey: false, ctrlKey: false, metaKey: false });
+    },
+  };
+}
+
+function matcher(el) {
+  el.matches = (sel) => {
+    const classes = [...sel.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
+    const attrs = [...sel.matchAll(/\[data-([\w-]+)(?:="([^"]*)")?\]/g)].map((m) => [m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()), m[2]]);
+    const own = el.classes || [];
+    return classes.every((c) => own.includes(c)) && attrs.every(([k, v]) => (v === undefined ? el.dataset[k] !== undefined : el.dataset[k] === v));
+  };
+  return el;
+}
+
+const kind = (s, name) => matcher(s.kindButtons().find((b) => b.dataset.graphKind === name));
+const depsButton = (s, val) => matcher(byClass(s.host, 'graph-option-btn').find((b) => b.dataset.key === 'deps' && b.dataset.val === val));
+const pressedKinds = (s) => s.kindButtons().filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.graphKind);
+const pressedDeps = (s) => byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'deps' && b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.val);
+const json = (s, code) => JSON.parse(s.run(`JSON.stringify(${code})`));
+const heads = (s) => json(s, 'graphCur.plan.flow.texts').map((t) => t.text);
+const key = (name, feature) => `kanban.${name}.${feature}`;
+const search = (s) => s.page.ctx.location.search;
+
+// --- the choice -----------------------------------------------------------------------
+
+test('the panel opens with the Hierarchy | Flow choice, Hierarchy pressed, and Hierarchy is the tier fan with its layouts and options', async () => {
+  const s = await open();
+  const panel = s.panel();
+  assert.deepStrictEqual(s.kindButtons().map((b) => [b.dataset.graphKind, b.textContent]), [['hierarchy', 'Hierarchy'], ['flow', 'Flow']]);
+  assert.strictEqual(panel.children.find((c) => c.classes.includes('graph-kinds')), panel.children.filter((c) => c.classes.includes('graph-layouts'))[0], 'the choice is the first row of the panel, after the close button');
+  assert.deepStrictEqual(pressedKinds(s), ['hierarchy']);
+  assert.strictEqual(s.run('graphCur.kind'), 'tiers');
+  assert.deepStrictEqual(byClass(s.host, 'graph-layout-btn').map((b) => b.dataset.layout), ['tiers', 'force', 'status']);
+  assert.strictEqual(byClass(s.host, 'graph-options').length, 1);
+  assert.strictEqual(byClass(s.host, 'graph-flow-options').length, 0, 'no Dependencies switch beside the Hierarchy');
+  assert.strictEqual(s.run('graphCur.plan.flow.rects.length'), 0);
+  for (const b of s.kindButtons()) {
+    assert.strictEqual(b.dataset.keepsSelection, '');
+    assert.strictEqual(b.type, 'button');
+    assert.ok(b.title.length > 20, 'each choice explains itself');
+  }
+});
+
+test('a press on Flow draws the board by its dependencies in frontier columns, keeps the choice for the board and writes the address', async () => {
+  const s = await open();
+  s.click(kind(s, 'flow'));
+  assert.strictEqual(s.run('graphCur.kind'), 'flow');
+  assert.deepStrictEqual(pressedKinds(s), ['flow']);
+  assert.deepStrictEqual(heads(s), ['done · 1', 'ready now · 2', '1 step · 1', '2 steps · 1', 'no dependency either way · 1 card']);
+  assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'flow');
+  assert.deepStrictEqual(s.address, ['/?graph=flow&deps=frontier']);
+  assert.strictEqual(byClass(s.host, 'graph-layout-btn').length, 0, 'the layouts of the Hierarchy are not offered beside the Flow');
+  assert.strictEqual(byClass(s.host, 'graph-options').length, 1, 'the fan\'s option row is the Hierarchy\'s');
+  assert.strictEqual(byClass(s.host, 'graph-flow-options').length, 1);
+  assert.ok(s.run(`graphCur.svg.classes.includes('graph-flow-frontier')`), 'the drawing says which columns it has');
+  assert.strictEqual(s.run('graphCur.plan.links.length'), 4, 'one arrow for each dependency');
+  assert.ok(s.run('graphCur.plan.links.every((l) => l.kind === "wait" && l.arrow)'));
+});
+
+test('the Dependencies switch is two buttons, frontier pressed at first, and a press on all redraws the columns and is kept and written', async () => {
+  const s = await open();
+  s.click(kind(s, 'flow'));
+  assert.deepStrictEqual(byClass(s.host, 'graph-flow-options')[0].children.map((g) => byClass(g, 'graph-option-label')[0].textContent), ['Dependencies']);
+  assert.deepStrictEqual(byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'deps').map((b) => [b.dataset.val, b.textContent]), [['frontier', 'frontier'], ['all', 'all']]);
+  assert.deepStrictEqual(pressedDeps(s), ['frontier']);
+  assert.ok(byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'deps').every((b) => b.dataset.keepsSelection === '' && b.dataset.holdsPoll === undefined));
+  s.click(depsButton(s, 'all'));
+  assert.deepStrictEqual(pressedDeps(s), ['all']);
+  assert.deepStrictEqual(heads(s), ['waits for nothing · 2', 'chain 1 · 1', 'chain 2 · 1', 'chain 3 · 1', 'no dependency either way · 1 card']);
+  assert.strictEqual(s.stored[key('kanban', 'graph.deps')], 'all');
+  assert.strictEqual(search(s), '?graph=flow&deps=all');
+  assert.ok(!s.run(`graphCur.svg.classes.includes('graph-flow-frontier')`));
+  assert.ok(s.run(`graphCur.svg.classes.includes('graph-flow-all')`));
+  s.click(depsButton(s, 'all'));
+  assert.strictEqual(s.address.length, 2, 'a press on the pressed button changes nothing');
+  s.click(depsButton(s, 'frontier'));
+  assert.strictEqual(search(s), '?graph=flow&deps=frontier');
+});
+
+test('a press on Hierarchy goes back to the layout the Hierarchy was on, and takes deps out of the address', async () => {
+  const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'force' } });
+  assert.strictEqual(s.run('graphCur.kind'), 'force');
+  s.click(kind(s, 'flow'));
+  assert.strictEqual(s.run('graphCur.kind'), 'flow');
+  s.click(kind(s, 'hierarchy'));
+  assert.strictEqual(s.run('graphCur.kind'), 'force', 'the layout the person had');
+  assert.deepStrictEqual(pressedKinds(s), ['hierarchy']);
+  assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'force');
+  assert.strictEqual(search(s), '?graph=hierarchy');
+  assert.deepStrictEqual(byClass(s.host, 'graph-layout-btn').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.layout), ['force']);
+});
+
+test('a layout button of the Hierarchy keeps working and says Hierarchy in the address', async () => {
+  const s = await open();
+  s.click(matcher(byClass(s.host, 'graph-layout-btn').find((b) => b.dataset.layout === 'status')));
+  assert.strictEqual(s.run('graphCur.kind'), 'status');
+  assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'status');
+  assert.strictEqual(search(s), '?graph=hierarchy');
+});
+
+// --- remembered, and the address --------------------------------------------------------------
+
+test('a board that kept Flow and all opens on them, and another board keeps its own', async () => {
+  const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.deps')]: 'all' } });
+  assert.strictEqual(s.run('graphCur.kind'), 'flow');
+  assert.deepStrictEqual(pressedDeps(s), ['all']);
+  const other = await open({ name: 'other', stored: { [key('kanban', 'graph.layout')]: 'flow', [key('other', 'graph.deps')]: 'all' } });
+  assert.strictEqual(other.run('graphCur.kind'), 'tiers', 'the other board kept nothing under its own name');
+  assert.strictEqual(other.run('graphLoadDeps()'), 'all');
+});
+
+test('a stored switch or layout this version does not offer reads as the defaults', async () => {
+  const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.deps')]: 'sideways' } });
+  assert.deepStrictEqual(pressedDeps(s), ['frontier']);
+  const t = await open({ stored: { [key('kanban', 'graph.layout')]: 'hierarchy' } });
+  assert.strictEqual(t.run('graphCur.kind'), 'tiers');
+});
+
+test('the address wins on a load: graph=flow and deps=all open the Flow on all whatever the board kept, graph=hierarchy leaves the Flow', async () => {
+  const link = await open({ search: '?view=graph&graph=flow&deps=all', stored: { [key('kanban', 'graph.layout')]: 'tiers', [key('kanban', 'graph.deps')]: 'frontier' } });
+  assert.strictEqual(link.run('graphCur.kind'), 'flow');
+  assert.deepStrictEqual(pressedDeps(link), ['all']);
+  const away = await open({ search: '?graph=hierarchy', stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  assert.strictEqual(away.run('graphCur.kind'), 'tiers');
+  assert.deepStrictEqual(pressedKinds(away), ['hierarchy']);
+  const bare = await open({ search: '?graph=flow', stored: { [key('kanban', 'graph.deps')]: 'all' } });
+  assert.strictEqual(bare.run('graphCur.kind'), 'flow');
+  assert.deepStrictEqual(pressedDeps(bare), ['all'], 'a link without deps is the board\'s own');
+  const junk = await open({ search: '?graph=radial&deps=never', stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  assert.strictEqual(junk.run('graphCur.kind'), 'flow', 'an address that says nothing usable leaves the board\'s choice');
+  assert.deepStrictEqual(pressedDeps(junk), ['frontier']);
+});
+
+test('a press writes the address with the parameters it already has kept, and replaces the entry rather than adding one', async () => {
+  const s = await open({ search: '?view=graph&q=wait&card=2' });
+  s.click(kind(s, 'flow'));
+  assert.strictEqual(search(s), '?view=graph&q=wait&card=2&graph=flow&deps=frontier');
+  assert.ok(s.page.ctx.history.replaceState, 'it is replaceState');
+  assert.strictEqual(s.page.run('typeof history.pushState'), 'undefined', 'the test history has no pushState to be called');
+});
+
+// --- the lights ------------------------------------------------------------------------------
+
+test('the Flow lights a card with its dependencies alone, and the Hierarchy with all its relations', async () => {
+  const s = await open();
+  s.click(kind(s, 'flow'));
+  assert.strictEqual(s.run('graphLinkKind()'), 'wait');
+  s.click(kind(s, 'hierarchy'));
+  assert.strictEqual(s.run('graphLinkKind()'), undefined);
+});
+
+test('Flow draws no card twice and every card the board shows, whatever the switch', async () => {
+  const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  for (const deps of ['frontier', 'all']) {
+    s.click(depsButton(s, deps));
+    assert.deepStrictEqual(json(s, 'graphCur.plan.nodes.map((n) => n.id).sort()'), ['1', '2', '3', '4', '5', '6'], deps);
+  }
+});
