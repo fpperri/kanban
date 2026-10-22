@@ -42,10 +42,17 @@ prefixes:
   W: .groups/workflow
   DW: .groups/workflow/dynamic
 
+# Names the kit's paths use. <kanban> is the board's own folder; a host that
+# keeps notes in its own layout points the paths at its folder instead.
+vars:
+  kanban: .   # the board's own folder
+
 # The board's kit. Each line turns a feature on; delete it, or switch it off
-# in the web's gear sheet (This board), and the feature is off.
-logbook: .logbook         # dated notes, one file per day
-scratchpad: .scratchpad   # a disposable page per card or group
-todos: .todos             # a Markdown task list per card or group; may share the scratchpad's folder
+# in the web's gear sheet (This board), and the feature is off. Each card or
+# group gets a folder of its own (<card>), inside the iteration's folder when
+# one applies (<iteration>); with none, that part is left out.
+logbook: <kanban>/.logbook/<iteration>/<card>/        # dated notes, one file per day
+scratchpad: <kanban>/.scratchpad/<iteration>/<card>/  # a disposable page per card or group
+todos: <kanban>/.todo/<iteration>/<card>/             # a Markdown task list per card or group
 groups: .groups           # files that list cards; the I, W and DW prefixes above name folders in it
 iterations: true          # the header's iteration dropdown; needs groups

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseConfig } = require('../scripts/config-store');
+const { parseConfig, readConfig } = require('../scripts/config-store');
 
 const root = path.join(__dirname, '..', '..', '..');
 const SCRIPT = path.join(root, 'skills', 'kanban', 'scripts', 'apply-starter.js');
@@ -35,10 +35,11 @@ test('the starter file reads as the plan: seven types, the four-level hierarchy 
     G: 'goal', S: 'strategy', O: 'objective', _: '.groups', I: '.groups/iteration', W: '.groups/workflow', DW: '.groups/workflow/dynamic',
   });
   assert.strictEqual(starter.groups, '.groups');
-  assert.strictEqual(starter.logbook, '.logbook');
-  assert.strictEqual(starter.scratchpad, '.scratchpad');
-  assert.strictEqual(starter.todos, '.todos');
+  assert.strictEqual(starter.logbook, '<kanban>/.logbook/<iteration>/<card>/');
+  assert.strictEqual(starter.scratchpad, '<kanban>/.scratchpad/<iteration>/<card>/');
+  assert.strictEqual(starter.todos, '<kanban>/.todo/<iteration>/<card>/');
   assert.strictEqual(starter.iterations, true);
+  assert.deepStrictEqual(starter.vars, { kanban: '.' });
 });
 
 test('a board with no config.yaml gets the starter file as it is', () => {
@@ -281,7 +282,7 @@ test('no directory given is a usage error', () => {
 });
 
 const KITS = ['logbook', 'scratchpad', 'todos', 'groups', 'iterations'];
-const kitValues = { logbook: '.logbook', scratchpad: '.scratchpad', todos: '.todos', groups: '.groups', iterations: true };
+const kitValues = { logbook: '<kanban>/.logbook/<iteration>/<card>/', scratchpad: '<kanban>/.scratchpad/<iteration>/<card>/', todos: '<kanban>/.todo/<iteration>/<card>/', groups: '.groups', iterations: true };
 
 test('a board with none of the five feature lines gets all five, at the end, and nothing else changes', () => {
   const before = 'name: fpp\nnextId: 3\ntypes:\n  - name: epic\n    color: "#58a6ff"\n    icon: square\nhierarchy: [goal, strategy, objective, epic]\n';
@@ -307,7 +308,7 @@ test('a feature line the board already has keeps its value, and only the missing
   assert.strictEqual(cfg.logbook, 'notes');
   assert.strictEqual(cfg.iterations, false);
   assert.strictEqual(cfg.scratchpad, '../pads');
-  assert.strictEqual(cfg.todos, '.todos');
+  assert.strictEqual(cfg.todos, kitValues.todos);
   assert.strictEqual(cfg.groups, '.groups');
   assert.strictEqual((after.match(/^logbook:/gm) || []).length, 1);
   assert.strictEqual((after.match(/^iterations:/gm) || []).length, 1);
@@ -319,8 +320,8 @@ test('a commented-out feature line is not the key, so the line is added and the 
   run(dir);
   const after = read(dir);
   assert.ok(after.startsWith(before));
-  assert.strictEqual(parseConfig(after).logbook, '.logbook');
-  assert.match(after, /^logbook: \.logbook/m);
+  assert.strictEqual(parseConfig(after).logbook, kitValues.logbook);
+  assert.match(after, /^logbook: <kanban>\/\.logbook/m);
 });
 
 test('the dry run lists the feature lines it would add, one summary line for the board, and writes nothing', () => {
@@ -352,4 +353,56 @@ test('a board that has all five lines, or the starter itself, has nothing to add
   const once = read(dir);
   for (const key of KITS) assert.strictEqual((once.match(new RegExp(`^${key}:`, 'gm')) || []).length, 1, key);
   assert.match(run('--dry-run', dir).out, /nothing to add/);
+});
+
+// The kit's paths name <kanban>, the board's own folder, so a board that gets one of those lines gets
+// the variable too (docs/adr/0024).
+
+test('a board with none of the path lines gets a vars block with kanban, before them, and the paths resolve to the board', () => {
+  const before = 'name: fpp\nnextId: 3\n';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith(before));
+  assert.ok(after.indexOf('vars:\n  kanban: .') < after.indexOf('logbook:'), after);
+  const cfg = readConfig(dir);
+  assert.deepStrictEqual(cfg.vars, { kanban: '.' });
+  assert.strictEqual(cfg.paths.logbook, './.logbook/<iteration>/<card>/');
+  assert.strictEqual(cfg.paths.todos, './.todo/<iteration>/<card>/');
+  assert.deepStrictEqual(cfg.varNotices, []);
+});
+
+test('a board with a vars block of its own gets kanban at its end, and its own entries stay', () => {
+  const before = 'name: fpp\nvars:\n  cortex: ../.cortex   # the host\nnextId: 3\n';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.ok(after.startsWith('name: fpp\nvars:\n  cortex: ../.cortex   # the host\n  kanban: .'), after);
+  assert.strictEqual((after.match(/^vars:/gm) || []).length, 1);
+  assert.deepStrictEqual(parseConfig(after).vars, { cortex: '../.cortex', kanban: '.' });
+});
+
+test('a kanban variable the board has keeps its value, and no second one is added', () => {
+  const before = 'name: fpp\nvars:\n  kanban: ../notes\n';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.strictEqual((after.match(/^\s+kanban:/gm) || []).length, 1);
+  assert.strictEqual(readConfig(dir).paths.logbook, '../notes/.logbook/<iteration>/<card>/');
+});
+
+test('a board that has the three path lines gets no variable', () => {
+  const before = 'name: fpp\nlogbook: .logbook\nscratchpad: .scratchpad\ntodos: .todos\n';
+  const dir = board(before);
+  run(dir);
+  const after = read(dir);
+  assert.doesNotMatch(after, /^vars:/m);
+  assert.strictEqual(parseConfig(after).logbook, '.logbook');
+});
+
+test('the dry run lists the vars block it would add', () => {
+  const dir = board('name: fpp\n');
+  const r = run('--dry-run', dir);
+  assert.match(r.out, /^\+ vars:$/m);
+  assert.match(r.out, /^\+ {3}kanban: \.\s+# /m);
 });

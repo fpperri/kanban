@@ -107,8 +107,8 @@ test('the hotkeys list names t and the keys of an item, and the tab keys reach t
   assert.match(byId['text-indent'].what, /the Todos tab's Edit box/);
 });
 
-test('the README lists the todo lists among the features that are off until switched on', () => {
-  assert.ok(flat(readme).includes('todo lists (`todos: .todos`'));
+test('the README lists the todo lists among the kit the starter turns on', () => {
+  assert.ok(flat(readme).includes('todo lists (`todos: <kanban>/.todo/<iteration>/<card>/`'));
   assert.ok(flat(readme).includes('The logbook, scratchpad and todos paths may hold `<iteration>`'));
 });
 
