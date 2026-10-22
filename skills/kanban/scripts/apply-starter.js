@@ -16,7 +16,11 @@
 //   - the kit (logbook, scratchpad, todos, groups, iterations): each key with no
 //     top-level line on the board is added, as the starter writes it, at the end
 //     of the file; a line the board has is never changed, and a commented-out
-//     line is not the key.
+//     line is not the key;
+//   - vars: a kit line that is added brings each starter variable it names
+//     (`<kanban>`) that the board lacks, in a `vars:` block added whole before
+//     the kit lines or at the end of the board's own; a variable the board has
+//     keeps its value.
 // Every other byte stays, and so does the file's line ending. --dry-run prints
 // the lines it would add and writes nothing.
 const fs = require('fs');
@@ -252,9 +256,44 @@ function merge(raw, utf8, starterText) {
     }
   }
 
+  // A kit line that is added brings the starter's variables it names (`<kanban>`) that the board lacks.
+  const src = splitLines(starterText);
+  const varLines = new Map();
+  const varsHeader = findHeader(src, 'vars');
+  if (varsHeader) {
+    for (let j = varsHeader.index + 1; j <= blockOf(src, varsHeader).last; j++) {
+      const entry = /^[ \t]+([A-Za-z0-9_-]+):/.exec(src[j].text);
+      if (entry) varLines.set(entry[1], src[j].text.trim());
+    }
+  }
+  const wantedVars = [];
   for (const key of KIT_KEYS) {
     if (findHeader(lines, key)) continue;
-    const src = splitLines(starterText);
+    const line = src[findHeader(src, key).index].text;
+    for (const [, word] of line.matchAll(/(?:^|[\s\\/])<([A-Za-z0-9_-]+)>(?=[\\/]|\s|$)/g)) {
+      if (varLines.has(word) && !Object.hasOwn(config.vars, word) && !wantedVars.includes(word)) wantedVars.push(word);
+    }
+  }
+  if (wantedVars.length) {
+    const header = findHeader(lines, 'vars');
+    if (!header) {
+      const added = ['vars:', ...wantedVars.map((v) => `  ${varLines.get(v)}`)];
+      appendBlock(added);
+      additions.push(['vars', wantedVars, added]);
+    } else {
+      const block = blockOf(lines, header);
+      if (block.unindented || !bareTail(header.tail)) {
+        notes.push(`vars is not a block of name: value lines; left alone (missing: ${joinList(wantedVars)})`);
+      } else {
+        const added = wantedVars.map((v) => `${block.indent}${varLines.get(v)}`);
+        insertAfter(block.last, added);
+        additions.push(['vars', wantedVars, added]);
+      }
+    }
+  }
+
+  for (const key of KIT_KEYS) {
+    if (findHeader(lines, key)) continue;
     const line = src[findHeader(src, key).index].text;
     appendBlock([line]);
     additions.push([key, [], [line]]);

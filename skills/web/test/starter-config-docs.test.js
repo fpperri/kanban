@@ -101,9 +101,10 @@ test('ADR 0022 records the change and the README points to it', () => {
 });
 
 test('the starter file turns the five features on, each line with its meaning', () => {
-  assert.strictEqual(starter.logbook, '.logbook');
-  assert.strictEqual(starter.scratchpad, '.scratchpad');
-  assert.strictEqual(starter.todos, '.todos');
+  assert.strictEqual(starter.logbook, '<kanban>/.logbook/<iteration>/<card>/');
+  assert.strictEqual(starter.scratchpad, '<kanban>/.scratchpad/<iteration>/<card>/');
+  assert.strictEqual(starter.todos, '<kanban>/.todo/<iteration>/<card>/');
+  assert.deepStrictEqual(starter.vars, { kanban: '.' });
   assert.strictEqual(starter.groups, '.groups');
   assert.strictEqual(starter.iterations, true);
   for (const key of ['logbook', 'scratchpad', 'todos', 'groups', 'iterations']) {

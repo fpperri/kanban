@@ -209,8 +209,12 @@ the `hierarchy` `[goal, strategy, objective, epic]`, and the `prefixes`
 `G: goal`, `S: strategy`, `O: objective`, `_: .groups`, `I: .groups/iteration`,
 `W: .groups/workflow` and `DW: .groups/workflow/dynamic`. A card made before a
 prefix is declared keeps its plain number. It also holds the board's kit, five
-lines that turn features on: `logbook: .logbook`, `scratchpad: .scratchpad`,
-`todos: .todos`, `groups: .groups` and `iterations: true`. The starter writes
+lines that turn features on: `logbook: <kanban>/.logbook/<iteration>/<card>/`,
+`scratchpad: <kanban>/.scratchpad/<iteration>/<card>/`,
+`todos: <kanban>/.todo/<iteration>/<card>/`, `groups: .groups` and
+`iterations: true`, and the `vars:` block they name, `kanban: .` (the board's
+own folder), so each card or group keeps its notes, page and list in a folder
+of its own, inside its iteration's folder when one applies. The starter writes
 the logbook, scratchpad, todo lists, groups and iterations lines for a new
 board, and the script below adds the missing ones to an existing board when a
 human asks; an AI servicing a board never invents them otherwise. A board turns
@@ -237,7 +241,10 @@ node <SCRIPTS_DIR>/apply-starter.js <kanban-dir>...             # adds them
   something else is reported); each of the five kit keys that has no top-level
   line (a commented-out line is not the key), added at the end of the file as
   the starter writes it, and never a value the board already has (`logbook:
-  notes` and `iterations: false` stay). It keeps every other byte and the
+  notes` and `iterations: false` stay); and, when a kit line it adds names
+  `<kanban>` and the board has no such variable, `kanban: .` in a `vars:` block
+  (added before the kit lines, or at the end of the board's own; a `kanban` the
+  board has keeps its value). It keeps every other byte and the
   file's line ending, creates `config.yaml` from the starter when a board has none, and
   takes several board directories in one run, one summary line each.
 
