@@ -143,7 +143,7 @@ function siblingBelow(rows, i) {
 // ---------- reading ----------
 
 function folderOf(value, place) {
-  return iter.filledIn(value, place.folder.label);
+  return iter.filledIn(value, place.folder);
 }
 
 // A file that starts with a byte order mark reads past it, and a write puts it back.

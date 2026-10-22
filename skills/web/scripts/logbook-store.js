@@ -123,7 +123,7 @@ function allDayFiles(dir, value) {
   const out = [];
   for (const folder of iter.readFolders(dir, value)) {
     for (const f of dayFiles(folder.abs)) {
-      out.push({ ...f, label: folder.label, ref: refOf(folder.label, f.name), file: path.join(folder.abs, f.name) });
+      out.push({ ...f, label: folder.label, parts: folder.parts, ref: refOf(folder.label, f.name), file: path.join(folder.abs, f.name) });
     }
   }
   return out;
@@ -444,7 +444,7 @@ function fileOfRef(dir, ref) {
   const have = allDayFiles(dir, value).filter((f) => f.day === day && f.target === target);
   if (!have.length) throw new StatusError('That note is gone.', 409);
   const chosen = have.find((f) => f.ref === ref.file) || have[0];
-  return { file: chosen.file, ref: chosen.ref, label: chosen.label, day, target };
+  return { file: chosen.file, ref: chosen.ref, label: chosen.label, parts: chosen.parts, day, target };
 }
 
 function indexOf(model, entry) {
@@ -502,9 +502,10 @@ function assignNote(dir, ref, to, hooks) {
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
   const seen = { at: found.at, by: found.by, note: found.note };
   iter.checkWritable(value);
-  const here = { label: where.label, abs: path.dirname(where.file) };
+  const here = { label: where.label, abs: path.dirname(where.file), parts: where.parts, segs: [] };
   const aimed = iter.folderOfIterationTarget(dir, value, target);
-  const { folder, file: dest } = aimed ? { folder: aimed, file: fileToWrite(aimed.abs, digits, where.day, target) } : homeOf(dir, value, digits, where.day, target, here, here);
+  const stay = iter.folderOfAssigned(dir, value, here, target);
+  const { folder, file: dest } = aimed ? { folder: aimed, file: fileToWrite(aimed.abs, digits, where.day, target) } : homeOf(dir, value, digits, where.day, target, stay, stay);
   const made = withFile(dest, hooks, (model) => {
     const entry = newEntry(found.at, found.by, found.note, found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)));
     model.entries.push(entry);

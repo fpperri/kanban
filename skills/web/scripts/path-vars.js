@@ -42,11 +42,11 @@ function checkVars(entries) {
     if (!NAME_RE.test(name)) notices.push(`config.yaml vars: "${name}" is not a name (letters, digits, - and _); it is ignored.`);
     else if (BUILTINS.includes(name)) notices.push(`config.yaml vars: \`${name}\` is a built-in word (<${BUILTINS.join('>, <')}>), not a variable; it is ignored.`);
     else if (value === '') notices.push(`config.yaml vars: \`${name}\` has no value; it is ignored.`);
-    else if (!(name in vars)) vars[name] = value.replace(/[\\/]+$/, '');
+    else if (!Object.hasOwn(vars, name)) vars[name] = value.replace(/[\\/]+$/, '');
   }
   for (const [name, value] of Object.entries(vars)) {
     for (const [, , word] of value.matchAll(SEGMENT_RE)) {
-      if (word in vars) notices.push(`config.yaml vars: \`${name}\` uses <${word}>, which is a variable; a variable is not expanded inside a variable, so <${word}> is left as written.`);
+      if (Object.hasOwn(vars, word)) notices.push(`config.yaml vars: \`${name}\` uses <${word}>, which is a variable; a variable is not expanded inside a variable, so <${word}> is left as written.`);
     }
   }
   return { vars, notices };
@@ -83,9 +83,9 @@ function resolvePaths(dir, config) {
     });
     const filled = fillWords(raw, (word) => {
       if (word === 'repo') return withRepo('<repo>');
-      if (word in config.vars) {
+      if (Object.hasOwn(config.vars, word)) {
         for (const [, , inner] of config.vars[word].matchAll(SEGMENT_RE)) {
-          if (!BUILTINS.includes(inner) && !(inner in config.vars) && !unknown.includes(inner)) unknown.push(inner);
+          if (!BUILTINS.includes(inner) && !Object.hasOwn(config.vars, inner) && !unknown.includes(inner)) unknown.push(inner);
         }
         return withRepo(config.vars[word]);
       }
