@@ -201,9 +201,11 @@ nearest parent with a tier, else its root, under a header that leads with that c
 colour, its tier name (none for a card with no tier), `#id title`, the lane's card count and its ready
 count. A card is ready when it is open, in no loop and waits for nothing that is not done. The columns line
 up across the lanes. With frontier the lanes with ready cards come first, the most ready first, then the
-others in outline order; with all, every lane is in outline order. A lane with no open dependency (frontier)
-or no dependency (all) folds into the strip at the bottom, which then reads `no open dependency` under
-frontier, and so does a card with no dependency in a lane that stays. A header is its card's node: a click, Shift- or Ctrl-click,
+others in outline order; with all, every lane is in outline order. With frontier a lane folds into the strip
+at the bottom, which then reads `no open dependency`, when none of its cards with a dependency is open; a
+lane whose open cards wait only on done cards stays, since those cards are ready now. With all no lane folds.
+A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it, not
+every card under its lane card. A header is its card's node: a click, Shift- or Ctrl-click,
 double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
 the header and the dot of its card light and select together. A dot keeps its status colour and its type mark,
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
@@ -211,7 +213,8 @@ and grows with the dependencies it is in; in frontier the done ones are faded. S
 hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its
 parent. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
 in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
-replaces the page's address without adding a step to Back. In the phone's bottom sheet the choice and the switches
+replaces the page's address without adding a step to Back. A load writes the address the same way, from the link and
+what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the choice and the switches
 are its first rows.
 
 A dot takes its status colour, grows with its relations, goes hollow when done

@@ -53,23 +53,22 @@ test('the glossary has Flow: columns by dependencies, the Dependencies switch, t
 
 test('the glossary has Frontier: the steps until a card is ready, only the dependencies not done, and the columns', () => {
   const text = entry('Frontier');
-  assert.match(text, /the steps until a card is ready, counting only the dependencies that are not done/);
-  assert.match(text, /The first column holds the done cards, faded; then `ready now` \(what can be picked up now\), `1 step`, `2 steps`/);
-  assert.match(text, /a card in or behind a dependency loop stands in a last `loop` column/);
-  assert.match(text, /all, counts the longest chain of dependencies behind a card instead, done ones included: `waits for nothing`, `chain 1`, `chain 2`/);
+  assert.match(text, /the steps until a card is ready, counting only the dependencies that are not done, so a card whose every dependency is done is ready now/);
+  assert.match(text, /Done cards come first, faded; a card in or behind a dependency loop comes last/);
+  assert.match(text, /all, counts the longest chain of dependencies behind a card instead, done ones included/);
+  assert.doesNotMatch(text, /`/, 'the glossary keeps the meaning, and the labels of the columns are the web doc\'s');
 });
 
-test('the glossary has Lane: the lane card, the header, ready, the order of the lanes, the fold, and what it avoids', () => {
+test('the glossary has Lane: the lane card, the count, ready, the fold with its exception, and what it avoids, and no label or gesture', () => {
   const text = entry('Lane');
-  assert.match(text, /One row of the Flow when its Lanes switch is on: the cards with a dependency whose nearest parent with a tier is the lane's card, or whose root it is when none has one \(the slice's own rule\)/);
-  assert.match(text, /header that leads with that card's type mark in its type colour, its tier name \(none for a card with no tier\), `#id title`, the lane's card count and its ready count/);
-  assert.match(text, /a card is ready when it is open, in no loop and waits for nothing that is not done/);
+  assert.match(text, /A group of the Flow's cards when its Lanes switch is on: the cards with a dependency whose nearest parent with a tier is the lane's card, or whose root it is when none has one \(the slice's own rule\)/);
   assert.match(text, /The columns stand across every lane/);
-  assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the rest in outline order; with all, every lane is in outline order/);
-  assert.match(text, /A lane with no open dependency \(frontier\) or no dependency \(all\) folds into the strip at the bottom, and so does a card with no dependency in a lane that stays/);
-  assert.match(text, /The header is that card's node: a click, double click, Enter, hover, focus and the card menu act on it as on the card's dot, and the two are lit and selected together/);
+  assert.match(text, /A lane counts the cards drawn in it, and its ready cards: a card is ready when it is open, in no loop and waits for nothing that is not done/);
+  assert.match(text, /A card with no dependency is in no lane/);
+  assert.match(text, /Under frontier a lane folds into the strip when none of its cards with a dependency is open; a lane whose open cards wait only on done cards stays, since they are ready now\. Under all no lane folds/);
   assert.match(text, /Not a status, a group or a tier/);
   assert.match(text, /_Avoid_: swimlane, row, band/);
+  assert.doesNotMatch(text, /`|header|type mark|click|Enter|outline order|most ready/, 'the header, the gestures and the order of the lanes are the web doc\'s');
 });
 
 test('the web doc says the Graph is one of two graphs, Hierarchy opening first', () => {
@@ -92,7 +91,8 @@ test('the web doc says what the Lanes switch does: which lane, the header, ready
   assert.match(text, /under a header that leads with that card's type mark in its type colour, its tier name \(none for a card with no tier\), `#id title`, the lane's card count and its ready count/);
   assert.match(text, /A card is ready when it is open, in no loop and waits for nothing that is not done\. The columns line up across the lanes/);
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order/);
-  assert.match(text, /A lane with no open dependency \(frontier\) or no dependency \(all\) folds into the strip at the bottom, which then reads `no open dependency` under frontier, and so does a card with no dependency in a lane that stays/);
+  assert.match(text, /With frontier a lane folds into the strip at the bottom, which then reads `no open dependency`, when none of its cards with a dependency is open; a lane whose open cards wait only on done cards stays, since those cards are ready now\. With all no lane folds/);
+  assert.match(text, /A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it, not every card under its lane card/);
   assert.match(text, /A header is its card's node: a click, Shift- or Ctrl-click, double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and the header and the dot of its card light and select together/);
 });
 
@@ -115,6 +115,7 @@ test('the web doc says the choice and the switches are remembered, in the addres
   const text = docFlow();
   assert.match(text, /remembered per board in your browser and written in the address as `graph=hierarchy\|flow`, `deps=frontier\|all` and `lanes=0\|1`/);
   assert.match(text, /a link's values win on that load, and a press replaces the page's address without adding a step to Back/);
+  assert.match(text, /A load writes the address the same way, from the link and what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture/);
   assert.match(text, /In the phone's bottom sheet the choice and the switches are its first rows/);
 });
 
@@ -157,7 +158,8 @@ test('the web skill\'s Graph Flow says the Lanes switch, the lane of a card, the
   assert.match(text, /a card is ready when it is open, in no loop and waits for nothing that is not done, in either mode/);
   assert.match(text, /a column's cards share one x whichever lane they are in, and the lanes' frames \(`\.graph-flow-lane`\) replace the columns' shaded frames/);
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order/);
-  assert.match(text, /A lane with no open dependency \(frontier: every card of it with a dependency is done\) or no dependency \(all\) folds into the strip, which then reads `no open dependency` under frontier, and so does a card with no dependency in a lane that stays/);
+  assert.match(text, /With frontier a lane folds into the strip when none of its cards with a dependency is open \(every such card is done\), and the strip then reads `no open dependency`; a lane whose open cards wait only on done cards stays, since those cards are ready now\. With all no lane folds/);
+  assert.match(text, /A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it \(`header\.count`\), not every card under its lane card/);
   assert.match(text, /A header is its card's node: a `\.graph-node\.card-el\.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots, so every handler of the dots \(click, Shift\/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu\) takes it for that card, with the same items; `graphCur\.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together\. It is not a second dot: the card keeps its one dot/);
 });
 
@@ -171,8 +173,9 @@ test('the web skill\'s Graph Flow says what works as in Hierarchy, what lights, 
 
 test('the web skill\'s Graph Flow says where the choice is kept, how the address carries it, and the sheet', () => {
   const text = skillBullet('- **Graph Flow**');
-  assert.match(text, /kept per board in `localStorage` under `graph\.layout` \(`flow` or `tiers`\) and the switches under `graph\.deps` and `graph\.lanes` \(`1` or `0`\)/);
-  assert.match(text, /a value this version does not offer, a layout an older version kept included, reads as Tiers, frontier and lanes off/);
+  assert.match(text, /kept per board in `localStorage` under `graph\.layout` \(`hierarchy` or `flow`\) and the switches under `graph\.deps` and `graph\.lanes` \(`1` or `0`\)/);
+  assert.match(text, /a value this version does not offer, `tiers` \(what an older version called the Hierarchy\) and a layout an older version kept included, reads as Hierarchy, frontier and lanes off/);
+  assert.match(text, /every draw of the Graph writes the address too \(`graphWriteAddress`, a no-op once it says the picture\), so a Graph that opened from the board's memory says so and a link copied after a plain reload opens the same picture/);
   assert.match(text, /`graph=hierarchy\|flow`, `deps=frontier\|all` and `lanes=0\|1`: on a load the address wins, and a link's value is kept for that load only until a press/);
   assert.match(text, /a press replaces the page's address \(`history\.replaceState`, no step in Back\) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is chosen/);
   assert.match(text, /On a phone the panel is the \*\*bottom sheet\*\*, with the choice and the switches in it/);
