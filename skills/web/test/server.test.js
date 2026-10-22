@@ -3194,6 +3194,21 @@ test('warnConfig: names a prefix declared twice, keeping the first, and says not
   assert.deepStrictEqual(quiet, []);
 });
 
+test('warnConfig: names each variable, built-in word, unknown <word> and <repo> without a git root that the paths cannot use', () => {
+  const dir = tmpBoard();
+  fs.writeFileSync(path.join(dir, 'config.yaml'), 'vars:\n  card: x\n  a: one\n  b: <a>/two\nlogbook: <b>/l\nscratchpad: s/<typo>\ntodos: <repo>/t\n');
+  const seen = [];
+  const real = console.error;
+  console.error = (m) => seen.push(m);
+  try { warnConfig(dir); } finally { console.error = real; }
+  assert.strictEqual(seen.length, 4, seen.join('|'));
+  assert.ok(seen.every((m) => m.startsWith('Kanban app: ')));
+  assert.ok(seen.some((m) => /`card`.*built-in/.test(m)));
+  assert.ok(seen.some((m) => /`b`.*<a>/.test(m)));
+  assert.ok(seen.some((m) => /scratchpad.*<typo>/.test(m)));
+  assert.ok(seen.some((m) => /todos.*<repo>.*off/.test(m)));
+});
+
 test('resolvePort: a CLI argument beats the pin', () => {
   const dir = tmpBoard();
   fs.writeFileSync(path.join(dir, 'config.yaml'), 'port: 47811\n');

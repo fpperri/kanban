@@ -565,11 +565,15 @@ function resolvePort(dir, arg) {
 
 // What the config says that the server cannot use as written, said once at startup on stderr and
 // never fatal: a prefix declared for a card type and again for a groups folder (or twice for
-// anything) keeps its first declaration and ignores the rest.
+// anything) keeps its first declaration and ignores the rest. The same for the `vars:` block and the
+// words in the logbook, scratchpad and todos paths (docs/adr/0022): each is named once, and the server
+// starts all the same.
 function warnConfig(dir) {
-  for (const { prefix, kept, ignored } of cfg.readConfig(dir).prefixClashes) {
+  const config = cfg.readConfig(dir);
+  for (const { prefix, kept, ignored } of config.prefixClashes) {
     console.error(`Kanban app: config.yaml declares prefix \`${prefix}\` twice; keeping \`${kept}\`, \`${ignored}\` is ignored.`);
   }
+  for (const notice of config.pathNotices) console.error(`Kanban app: ${notice}`);
 }
 
 // Board-directory discovery for a missing CLI arg: `.kanban/` is the
