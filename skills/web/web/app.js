@@ -2252,8 +2252,12 @@ function applyBoardData(data) {
 // Graph: `from`, the element that had the focus, says which of the two to find again.
 function cardElInShownView(id, from) {
   const root = $(VIEW_CONTAINERS[loadViewMode()]);
-  const head = !!(from && from.classList && from.classList.contains('graph-flow-lane-head'));
-  return root ? root.querySelector(`.card-el[data-id="${id}"]${head ? '.graph-flow-lane-head' : ':not(.graph-flow-lane-head)'}`) : null;
+  if (!root) return null;
+  const isHead = (e) => !!(e && e.classList && e.classList.contains('graph-flow-lane-head'));
+  const sel = `.card-el[data-id="${id}"]`;
+  const first = root.querySelector(sel);
+  if (!first || isHead(first) === isHead(from)) return first;
+  return root.querySelector(`${sel}${isHead(from) ? '.graph-flow-lane-head' : ':not(.graph-flow-lane-head)'}`);
 }
 
 async function loadBoard() {

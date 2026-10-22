@@ -576,10 +576,11 @@ function fakeGraph(page) {
   const model = page.run('graphBuild(state.active, { ctx: nestingCtx() })');
   const links = model.links.map(() => el());
   const svg = el();
-  svg.querySelectorAll = () => [...nodes.values(), ...links].filter((e) => e.names.has('graph-near'));
-  page.ctx.__fake = { svg, nodeEls: nodes, linkEls: links, model };
+  const heads = new Map([['1', [el()]]]);
+  svg.querySelectorAll = () => [...nodes.values(), ...[...heads.values()].flat(), ...links].filter((e) => e.names.has('graph-near'));
+  page.ctx.__fake = { svg, nodeEls: nodes, headEls: heads, linkEls: links, model };
   page.run('graphCur = __fake');
-  return { svg, nodes, links, model };
+  return { svg, nodes, links, model, heads };
 }
 
 test('a lighting dims the canvas and marks exactly its cards and the lines between them, and the next lighting replaces it', async () => {
@@ -592,9 +593,11 @@ test('a lighting dims the canvas and marks exactly its cards and the lines betwe
   assert.strictEqual(f.svg.names.has('graph-dim'), true);
   assert.deepStrictEqual(lit(), [1, 2]);
   assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 1, 'the one line between 1 and 2');
+  assert.strictEqual(f.heads.get('1')[0].names.has('graph-near'), true, 'the header of a lit card is lit with its dot');
   s.page.ctx.__lit = s.page.run("graphLit(__fake.model, new Set(['5']))");
   s.page.run('graphLightCards(__lit)');
   assert.deepStrictEqual(lit(), [5], 'the first set is gone');
+  assert.strictEqual(f.heads.get('1')[0].names.has('graph-near'), false, 'and so is the header of a card no longer lit');
   assert.strictEqual(f.links.filter((e) => e.names.has('graph-near')).length, 0);
   s.page.run('graphLightCards(null)');
   assert.strictEqual(f.svg.names.has('graph-dim'), false, 'nothing to light dims nothing');

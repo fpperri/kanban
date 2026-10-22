@@ -1553,9 +1553,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-flow-lanehead-in { transform: scale(calc(1 / var(--graph-k, 1))); pointer-events: all; }
 .graph-flow-lanehead-text { fill: var(--ink); font-weight: 600; font-size: 13px; paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; stroke-width: 4px; }
 .graph-flow-icon { fill: currentColor; color: var(--ink); stroke: none; }
-.graph-flow-lane-head.selected .graph-flow-lanehead-text, .graph-flow-lane-head:focus-visible .graph-flow-lanehead-text { fill: var(--accent); }
-.graph-flow-lane-head.hover-highlight .graph-flow-lanehead-text { text-decoration: underline; }
-.graph-flow-lane-head:focus-visible .graph-flow-lanehead-text { text-decoration: underline dashed; }
+.graph-flow-lane-head.selected .graph-flow-lanehead-text, .graph-flow-lane-head.hover-highlight .graph-flow-lanehead-text, .graph-flow-lane-head:focus-visible .graph-flow-lanehead-text { fill: var(--accent); }
+.graph-flow-lane-head:focus-visible { filter: drop-shadow(0 0 3px var(--accent)); }
 .graph-canvas.graph-flow-frontier .graph-node.is-done, .graph-canvas.graph-flow-frontier .graph-node.archived { opacity: 0.4; }
 
 .graph-node { cursor: pointer; color: var(--st-archive); outline: none; }

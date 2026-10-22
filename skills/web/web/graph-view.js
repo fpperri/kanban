@@ -633,8 +633,7 @@ function graphLightCards(lit) {
   if (!graphCur || !lit) return;
   graphCur.svg.classList.add('graph-dim');
   for (const id of lit.nodes) {
-    graphCur.nodeEls.get(id).classList.add('graph-near');
-    for (const h of graphCur.headEls.get(id) || []) h.classList.add('graph-near');
+    for (const el of [graphCur.nodeEls.get(id), ...(graphCur.headEls.get(id) || [])]) el.classList.add('graph-near');
   }
   for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
