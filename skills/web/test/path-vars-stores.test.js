@@ -51,3 +51,42 @@ test('with no git root the feature that uses <repo> is off and writes nothing, t
   td.addTodo(dir, '7', { text: 'a', version: td.readTodos(dir, '7').version });
   assert.deepStrictEqual(list(path.join(dir, '.todos')), ['0007.todo.md']);
 });
+
+test('the refusal for a repo-less path says it needs a git root, in each store', () => {
+  const { dir } = repoBoard('name: t\nlogbook: <repo>/.logbook\nscratchpad: <repo>/.pads\ntodos: <repo>/.todos\n', { git: false });
+  const said = (fn) => { try { fn(); } catch (e) { return e.message; } return ''; };
+  for (const message of [
+    said(() => lb.addNote(dir, { day: '2026-10-16', target: '', note: 'x' })),
+    said(() => sp.readPad(dir, '7')),
+    said(() => td.readTodos(dir, '7')),
+  ]) assert.match(message, /needs a git root.*none was found/);
+});
+
+test('a folder made by a write is seen on the next read, inside and after a scoped read', () => {
+  const { dir } = repoBoard('name: t\nscratchpad: pads/<card>\n');
+  fs.writeFileSync(path.join(dir, '0007.a.card.md'), '---\nid: 7\nstatus: todo\n---\n# a\n');
+  const iter = require('../scripts/iteration-folders');
+  iter.scoped(() => assert.deepStrictEqual(sp.listTargets(dir), []));
+  sp.writePad(dir, '7', 'x');
+  assert.deepStrictEqual(sp.listTargets(dir), ['7']);
+  iter.scoped(() => {
+    assert.deepStrictEqual(sp.listTargets(dir), ['7']);
+    assert.deepStrictEqual(sp.listTargets(dir), ['7']);
+  });
+});
+
+test('within one scope the same folders are listed once', () => {
+  const { dir } = repoBoard('name: t\nscratchpad: pads/<card>\n');
+  const iter = require('../scripts/iteration-folders');
+  fs.mkdirSync(path.join(dir, 'pads', '0007.a'), { recursive: true });
+  const real = fs.readdirSync;
+  const reads = (fn) => {
+    let calls = 0;
+    fs.readdirSync = (...a) => { calls++; return real(...a); };
+    try { iter.scoped(fn); } finally { fs.readdirSync = real; }
+    return calls;
+  };
+  const once = reads(() => sp.listTargets(dir));
+  assert.ok(once > 0);
+  assert.strictEqual(reads(() => { sp.listTargets(dir); sp.listTargets(dir); sp.listTargets(dir); }), once);
+});

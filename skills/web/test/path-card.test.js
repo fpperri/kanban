@@ -145,3 +145,37 @@ test('a path with no <card> reads and writes as it always did', () => {
   assert.deepStrictEqual(list(at(dir, 'pads')), ['0007.scratchpad.md']);
   assert.strictEqual(pad.folder, undefined);
 });
+
+test('cards 7 and 70, G7 and 7, and a group and a card with one number each get their own folder', () => {
+  const dir = tmpBoard('name: t\nscratchpad: pads/<card>\ngroups: .groups\n');
+  card(dir, '0007.seven.card.md', 7);
+  card(dir, '0070.seventy.card.md', 70);
+  card(dir, 'G0007.goal-seven.card.md', 'G7');
+  group(dir, 'I0007.group-seven.md', 'I7');
+  for (const id of ['7', '70', 'G7', 'I7']) sp.writePad(dir, id, id);
+  assert.deepStrictEqual(list(at(dir, 'pads')), ['0007.seven', '0070.seventy', 'G0007.goal-seven', 'I0007.group-seven']);
+  for (const id of ['7', '70', 'G7', 'I7']) assert.strictEqual(sp.readPad(dir, id).body, id);
+  assert.strictEqual(list(at(dir, 'pads', '0007.seven')).length, 1);
+});
+
+test('a file name cannot add a separator or a .. segment to the path', () => {
+  const dir = tmpBoard('name: t\nscratchpad: pads/<card>/s\ngroups: .groups\n');
+  card(dir, '..card.md', 7);
+  card(dir, '....card.md', 8);
+  group(dir, '...md', 'I2');
+  const outside = path.dirname(dir);
+  for (const id of ['7', '8', 'I2']) {
+    const pad = sp.writePad(dir, id, 'x');
+    assert.ok(!pad.folder.split('/').some((s) => s === '..' || s === '.'), pad.folder);
+    assert.ok(path.relative(at(dir, 'pads'), at(dir, ...pad.folder.split('/'))).split(path.sep)[0] !== '..', pad.folder);
+  }
+  assert.deepStrictEqual(list(outside).filter((n) => n === 's'), []);
+  assert.strictEqual(list(at(dir, 'pads')).length, 3);
+});
+
+test('a variable value is the owner\'s own: <card> filling never adds to it', () => {
+  const dir = tmpBoard('name: t\nvars:\n  base: ../sibling/pads\nscratchpad: <base>/<card>\n');
+  card(dir, '0007.a.card.md', 7);
+  sp.writePad(dir, '7', 'x');
+  assert.deepStrictEqual(list(path.join(path.dirname(dir), 'sibling', 'pads')), ['0007.a']);
+});

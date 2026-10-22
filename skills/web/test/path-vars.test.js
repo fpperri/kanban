@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const cfg = require('../scripts/config-store');
+const { offMessage } = require('../scripts/path-vars');
 
 // The `vars:` block and the built-in word <repo> in the logbook:, scratchpad: and todos: paths
 // (docs/adr/0023). readConfig answers `paths`, the three paths with the variables and <repo> filled
@@ -84,7 +85,7 @@ test('a placeholder is a whole segment only: a variable inside a longer name sta
 });
 
 test('an unknown <word> stays an ordinary folder name and is named', () => {
-  const { dir } = board('name: t\nlogbook: logs/<sprint>/x\nscratchpad: <iteration>/<card>/s\n');
+  const { dir } = board('name: t\nlogbook: logs/<sprint>/x\nscratchpad: s/<iteration>/<card>\n');
   const config = cfg.readConfig(dir);
   assert.strictEqual(config.paths.logbook, 'logs/<sprint>/x');
   assert.strictEqual(config.pathNotices.length, 1);
@@ -138,4 +139,43 @@ test('with no git root a path that uses <repo> is off and named; the others stay
   assert.strictEqual(config.paths.todos, '.todos');
   assert.strictEqual(config.pathNotices.filter((n) => /logbook/.test(n) && /<repo>/.test(n)).length, 1);
   assert.strictEqual(config.pathNotices.filter((n) => /scratchpad/.test(n) && /<repo>/.test(n)).length, 1);
+});
+
+test('a variable declared twice keeps the first and is named', () => {
+  const { dir } = board('name: t\nvars:\n  a: one\n  a: two\nlogbook: <a>/x\n');
+  const config = cfg.readConfig(dir);
+  assert.strictEqual(config.paths.logbook, 'one/x');
+  assert.strictEqual(config.pathNotices.length, 1);
+  assert.match(config.pathNotices[0], /`a`.*declared twice.*keeping the first/);
+});
+
+test('a value that is only a separator is ignored and named, not silently empty', () => {
+  const { dir } = board('name: t\nvars:\n  root: /\n  back: ' + '\\' + '\nlogbook: <root>/x\n');
+  const config = cfg.readConfig(dir);
+  assert.deepStrictEqual(config.vars, {});
+  assert.ok(config.pathNotices.some((n) => /`root`.*only a separator/.test(n)), config.pathNotices.join('|'));
+  assert.ok(config.pathNotices.some((n) => /`back`.*only a separator/.test(n)));
+});
+
+test('a comment line inside vars: is skipped, not reported', () => {
+  const { dir } = board('name: t\nvars:\n  # x: y\n  #z: w\n  a: one\n    # indented more\nlogbook: <a>/x\n');
+  const config = cfg.readConfig(dir);
+  assert.deepStrictEqual(config.vars, { a: 'one' });
+  assert.deepStrictEqual(config.pathNotices, []);
+});
+
+test('a path that starts with <card> or <iteration> is named, since the board folder would be scanned', () => {
+  const { dir } = board('name: t\nvars:\n  lead: <card>\ntodos: <card>\nlogbook: <iteration>/log\nscratchpad: <lead>/s\n');
+  const config = cfg.readConfig(dir);
+  for (const key of ['todos', 'logbook', 'scratchpad']) {
+    assert.ok(config.pathNotices.some((n) => n.includes(`${key}:`) && /starts with/.test(n)), `${key}: ${config.pathNotices.join('|')}`);
+  }
+  assert.strictEqual(config.paths.todos, '<card>');
+});
+
+test('the off message for a path that needs <repo> says so', () => {
+  const { dir } = board('name: t\nlogbook: <repo>/.logbook\n');
+  const config = cfg.readConfig(dir);
+  assert.match(offMessage(config, 'logbook', 'The logbook is off: no logbook: line'), /needs a git root.*none was found/);
+  assert.strictEqual(offMessage(cfg.readConfig(board('name: t\n').dir), 'logbook', 'The logbook is off: no logbook: line'), 'The logbook is off: no logbook: line');
 });

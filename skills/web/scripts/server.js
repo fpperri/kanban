@@ -5,6 +5,7 @@ const path = require('path');
 const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
+const iter = require('./iteration-folders');
 const sp = require('./scratchpad-store');
 const td = require('./todo-store');
 const gs = require('./group-store');
@@ -305,7 +306,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         const config = cfg.readConfig(dir); // one read carries the board name, assignees + official lists
         const groups = gs.readGroups(dir);
         if (groups && groups.skipped.length) console.warn(`[kanban-app] skipping ${groups.skipped.length} group file(s): ${groups.skipped.map((s) => `${s.file} (${s.reason})`).join(', ')}`);
-        return sendJSON(res, 200, {
+        return iter.scoped(() => sendJSON(res, 200, {
           // The BOARD NAME: config.yaml's human-declared `name:` when present,
           // else the parent-folder derivation. Wire name kept as projectName —
           // it is also the localStorage namespace for every per-board view
@@ -335,7 +336,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
           settings: settings.readSettings(dir, [...active, ...archived]), // the config the gear's This board pages show (ADR 0017)
           iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
-        });
+        }));
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
       const frameAsset = req.method === 'GET' ? frameAssetFile(webDir, p) : null;

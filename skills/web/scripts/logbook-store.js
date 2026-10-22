@@ -43,6 +43,7 @@ const { validDay } = require('../web/days');
 const { StatusError } = require('./store-common');
 const { writeAtomic } = require('./card-store');
 const iter = require('./iteration-folders');
+const { offMessage } = require('./path-vars');
 
 const FILE_RE = /^(\d{4})\.(\d{2})\.(\d{2})\.(?:([^.]+)\.)?logbook\.md$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -53,7 +54,7 @@ const MAX_NOTE = 20000;
 
 function mustLogbook(dir) {
   const config = cfg.readConfig(dir);
-  if (!config.paths.logbook) throw new StatusError('The logbook is off: config.yaml has no logbook: line.', 404);
+  if (!config.paths.logbook) throw new StatusError(offMessage(config, 'logbook', 'The logbook is off: config.yaml has no logbook: line.'), 404);
   return { value: config.paths.logbook, digits: config.idDigits };
 }
 
@@ -96,7 +97,9 @@ function canonicalName(day, target, digits) {
 }
 
 // Every file of the folder that is a day file: { name, day, target }, by name.
-function dayFiles(folder) {
+const dayFiles = (folder) => iter.memo(`logbook|${folder}`, () => dayFilesNow(folder));
+
+function dayFilesNow(folder) {
   let entries;
   try { entries = fs.readdirSync(folder); } catch (_) { return []; }
   const out = [];

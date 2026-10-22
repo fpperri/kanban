@@ -104,6 +104,27 @@ function folderNames(parentAbs) {
 // dropped and for a path without a placeholder). Under a placeholder the named folders come first, the
 // dropped one last.
 function readFolders(dir, value) {
+  return memo(`folders|${path.resolve(dir)}|${value}`, () => readFoldersNow(dir, value));
+}
+
+// A scope lets one build of a page (the /api/board payload) list each folder once, however many
+// stores ask. Nothing outlives it, and the stores' writes happen outside one, so a folder a write made
+// is there on the next read. Lists a scope hands out are shared: callers must not change them.
+let scope = null;
+
+function scoped(fn) {
+  if (scope !== null) return fn();
+  scope = new Map();
+  try { return fn(); } finally { scope = null; }
+}
+
+function memo(key, compute) {
+  if (scope === null) return compute();
+  if (!scope.has(key)) scope.set(key, compute());
+  return scope.get(key);
+}
+
+function readFoldersNow(dir, value) {
   if (!hasPlaceholder(value)) return [{ label: '', abs: path.resolve(dir, value), segs: [], parts: {} }];
   const all = segmentsOf(value);
   const out = [];
@@ -213,4 +234,4 @@ function checkWritable(value) {
   if (odd) throw new StatusError('A folder name here holds < or >, which Windows does not allow, and only <iteration> and <card> are placeholders.', 400);
 }
 
-module.exports = { PLACEHOLDER, CARD, hasPlaceholder, readFolders, folderOfNote, folderOfPad, folderOfDay, folderOfIterationTarget, folderOfAssigned, filledIn, checkWritable };
+module.exports = { scoped, memo, PLACEHOLDER, CARD, hasPlaceholder, readFolders, folderOfNote, folderOfPad, folderOfDay, folderOfIterationTarget, folderOfAssigned, filledIn, checkWritable };

@@ -41,8 +41,10 @@ function checkVars(entries) {
   for (const { name, value } of entries) {
     if (!NAME_RE.test(name)) notices.push(`config.yaml vars: "${name}" is not a name (letters, digits, - and _); it is ignored.`);
     else if (BUILTINS.includes(name)) notices.push(`config.yaml vars: \`${name}\` is a built-in word (<${BUILTINS.join('>, <')}>), not a variable; it is ignored.`);
+    else if (Object.hasOwn(vars, name)) notices.push(`config.yaml vars: \`${name}\` is declared twice; keeping the first, the later one is ignored.`);
     else if (value === '') notices.push(`config.yaml vars: \`${name}\` has no value; it is ignored.`);
-    else if (!Object.hasOwn(vars, name)) vars[name] = value.replace(/[\\/]+$/, '');
+    else if (value.replace(/[\\/]+$/, '') === '') notices.push(`config.yaml vars: \`${name}\` is only a separator, which names no folder to put in a path; it is ignored.`);
+    else vars[name] = value.replace(/[\\/]+$/, '');
   }
   for (const [name, value] of Object.entries(vars)) {
     for (const [, , word] of value.matchAll(SEGMENT_RE)) {
@@ -92,6 +94,9 @@ function resolvePaths(dir, config) {
       if (!BUILTINS.includes(word) && !unknown.includes(word)) unknown.push(word);
       return undefined;
     });
+    if (/^<(?:iteration|card)>(?:[\\/]|$)/.test(filled)) {
+      notices.push(`config.yaml ${key}: starts with a placeholder, so the board folder itself would be scanned for folders and files written beside the cards; put a folder name before it.`);
+    }
     for (const word of unknown) notices.push(`config.yaml ${key}: <${word}> is not a variable or a built-in word, so it is read as an ordinary folder name; check it for a typo.`);
     if (off) {
       notices.push(`config.yaml ${key}: uses <repo>, but no folder at or above the board has a .git entry; ${FEATURE[key]} is off.`);
@@ -103,4 +108,13 @@ function resolvePaths(dir, config) {
   return { paths, notices };
 }
 
-module.exports = { findRepo, checkVars, resolvePaths, BUILTINS, PATH_KEYS };
+const OFF_SUBJECT = { logbook: 'The logbook is', scratchpad: 'The scratchpad is', todos: 'Todo lists are' };
+
+// Why a feature is off, for a refusal: its path needs <repo> and there is no git root, else `absent`
+// (the message for a config with no such line).
+function offMessage(config, key, absent) {
+  if (config[key] !== '' && config.paths[key] === '') return `${OFF_SUBJECT[key]} off: its path needs a git root (<repo>) and none was found.`;
+  return absent;
+}
+
+module.exports = { offMessage, findRepo, checkVars, resolvePaths, BUILTINS, PATH_KEYS };

@@ -326,6 +326,7 @@ function parseConfig(text) {
       continue;
     }
     if (section === 'vars') {
+      if (/^\s*#/.test(line)) continue;
       const entry = line.match(/^\s+("[^"]*"|'[^']*'|[^\s:]+)\s*:(?:\s+(.*))?$/);
       if (entry) varEntries.push({ name: scalar(entry[1]), value: entry[2] !== undefined && entry[2].trim()[0] !== '#' ? scalar(entry[2]) : '' });
       continue;

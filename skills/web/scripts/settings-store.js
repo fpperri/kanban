@@ -38,6 +38,7 @@ const WRITABLE = ['iterations', 'typesOn', 'idDigits', ...Object.keys(FOLDER_KEY
 
 const MAX_ID_DIGITS = 15;
 
+const NO_REPO_REASON = 'This path needs a git root (<repo>) and none was found at or above the board. Set up a git repository there, or change the path by hand in config.yaml.';
 const LOCKED_REASON = 'This folder is outside the board. It was set by hand in config.yaml, and only a hand edit changes it.';
 
 // A folder in config.yaml as the path from the board to it, or null when it leaves the board. The
@@ -79,6 +80,8 @@ function folderState(dir, config, key) {
   const value = config[key];
   const on = value !== '';
   const outside = on && relativeToBoard(dir, value) === null;
+  const noRepo = on && key in config.paths && config.paths[key] === '';
+  if (noRepo) return { on, folder: value, locked: true, reason: NO_REPO_REASON };
   return { on, folder: value, locked: outside, reason: outside ? LOCKED_REASON : '' };
 }
 

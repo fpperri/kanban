@@ -13,6 +13,7 @@ const cfg = require('./config-store');
 const ids = require('../web/ids');
 const { StatusError } = require('./store-common');
 const iter = require('./iteration-folders');
+const { offMessage } = require('./path-vars');
 
 // `key` is the config.yaml key (`scratchpad`), `kind` the word in the file name (`scratchpad` for
 // `0007.scratchpad.md`, `todo` for `0007.todo.md`), `off` the message when the key is absent.
@@ -21,7 +22,7 @@ function targetFiles({ key, kind, off }) {
 
   function mustBeOn(dir) {
     const config = cfg.readConfig(dir);
-    if (!config.paths[key]) throw new StatusError(off, 404);
+    if (!config.paths[key]) throw new StatusError(offMessage(config, key, off), 404);
     return { value: config.paths[key], digits: config.idDigits };
   }
 
@@ -34,7 +35,9 @@ function targetFiles({ key, kind, off }) {
   const canonicalName = (target, digits) => `${ids.formatId(target, digits)}.${kind}.md`;
 
   // Every file of the folder that is one of ours: { name, target }, by name.
-  function listFiles(folder) {
+  const listFiles = (folder) => iter.memo(`${kind}|${folder}`, () => listFilesNow(folder));
+
+  function listFilesNow(folder) {
     let entries;
     try { entries = fs.readdirSync(folder); } catch (_) { return []; }
     const out = [];
