@@ -23,18 +23,13 @@
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // graphLoadOptions.
 
-const { HOTKEYS } = require('../../../web/hotkeys');
+const { HOTKEYS, hotkeyRows } = require('../../../web/hotkeys');
 
-// The keys the page answers, as the list labels them.
-const KEYS = ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?'];
-// The keys that have a state, by the id of their row, and what each reads before anything is changed.
-const DEFAULTS = {
-  names: 'names: relevant',
-  slice: 'slice: all',
-  pill: 'pill: off',
-  isolate: 'isolate: off',
-  panel: 'panel on focus: on',
-};
+// The keys the page answers, as the list labels them, and the keys that have a state with what each
+// reads before anything is changed: both come from the list in hotkeys.js, so a new key is checked
+// without an edit here.
+const KEYS = HOTKEYS.flatMap((h) => h.keys);
+const DEFAULTS = Object.fromEntries(hotkeyRows({}).filter((r) => r.state).map((r) => [r.id, r.state]));
 
 const CASES = { keys: KEYS, defaults: DEFAULTS, afterKeys: { panel: 'panel on focus: off', pill: 'pill: blocked', isolate: 'isolate: on' }, names: 'names: all' };
 

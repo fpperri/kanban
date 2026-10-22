@@ -24,10 +24,10 @@ test('the scenario is in the runner, on the plan board, with time for its steps'
   assert.ok(scenario.timeoutMs >= 60000);
 });
 
-test('the keys the scenario looks for are the keys the page answers, and each is a label in the list', () => {
-  assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
+test('the keys the scenario looks for are every key label the list holds, read from the list', () => {
   const labels = HOTKEYS.flatMap((h) => h.keys);
-  assert.deepStrictEqual(CASES.keys.filter((k) => !labels.includes(k)), []);
+  assert.ok(labels.length > 0);
+  assert.deepStrictEqual(CASES.keys, labels);
 });
 
 test('the defaults the scenario expects are what the list reads for a page nothing has changed', () => {
