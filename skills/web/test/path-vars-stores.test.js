@@ -7,7 +7,7 @@ const lb = require('../scripts/logbook-store');
 const sp = require('../scripts/scratchpad-store');
 const td = require('../scripts/todo-store');
 
-// The logbook, scratchpad and todos stores follow the `vars:` block and <repo> (docs/adr/0022).
+// The logbook, scratchpad and todos stores follow the `vars:` block and <repo> (docs/adr/0023).
 
 function repoBoard(config, { git = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-path-stores-'));

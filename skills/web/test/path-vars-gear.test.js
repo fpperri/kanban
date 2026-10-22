@@ -6,7 +6,7 @@ const path = require('node:path');
 const ss = require('../scripts/settings-store');
 
 // The gear never writes `vars:` and keeps the block byte for byte through every write it does
-// (docs/adr/0022).
+// (docs/adr/0023).
 
 const VARS = '# where the host keeps things\nvars:\n  cortex: <repo>/.cortex   # the host\'s folder\n  notes: "../shared notes"\n';
 

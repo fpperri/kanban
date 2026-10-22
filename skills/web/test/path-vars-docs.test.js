@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// The docs say what ADR 0022 decided: a `vars:` block, `<repo>` and `<card>` in the logbook, scratchpad and
+// The docs say what ADR 0023 decided: a `vars:` block, `<repo>` and `<card>` in the logbook, scratchpad and
 // todos paths. The rules live in path-vars.js and iteration-folders.js and are tested there; these tests pin
 // that the places a person or an agent reads say them.
 
@@ -45,8 +45,8 @@ test('the web doc and skill say the same, and the README names the words', () =>
   assert.match(readme, /`vars:`/);
 });
 
-test('ADR 0022 amends 0019', () => {
-  const name = fs.readdirSync(path.join(ROOT, 'docs', 'adr')).find((f) => f.startsWith('0022-'));
+test('ADR 0023 amends 0019', () => {
+  const name = fs.readdirSync(path.join(ROOT, 'docs', 'adr')).find((f) => f.startsWith('0023-'));
   const adr = read('docs', 'adr', name);
   assert.match(adr, /^Date: 2026-10-21 · Status: accepted · Amends: 0019$/m);
 });

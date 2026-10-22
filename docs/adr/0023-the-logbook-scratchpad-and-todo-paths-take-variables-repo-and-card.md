@@ -1,4 +1,4 @@
-# 0022. The logbook, scratchpad and todo paths take variables, `<repo>` and `<card>`
+# 0023. The logbook, scratchpad and todo paths take variables, `<repo>` and `<card>`
 
 Date: 2026-10-21 · Status: accepted · Amends: 0019
 

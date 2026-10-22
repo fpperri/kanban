@@ -394,7 +394,7 @@ function configFile(dir) {
 
 // The parsed config plus `paths`, the logbook, scratchpad and todos paths with the variables and
 // <repo> filled in ('' = off), and `pathNotices`, what the server names on stderr at startup
-// (docs/adr/0022). `logbook`, `scratchpad` and `todos` stay as written, for the gear.
+// (docs/adr/0023). `logbook`, `scratchpad` and `todos` stay as written, for the gear.
 function readConfig(dir) {
   const file = configFile(dir);
   const config = parseConfig(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '');

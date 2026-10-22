@@ -7,7 +7,7 @@ const lb = require('../scripts/logbook-store');
 const sp = require('../scripts/scratchpad-store');
 const td = require('../scripts/todo-store');
 
-// The path of the logbook, scratchpad or todos may hold <card> (docs/adr/0022): the target's file
+// The path of the logbook, scratchpad or todos may hold <card> (docs/adr/0023): the target's file
 // name without its extension, matched to its target by the id at the front of the folder's name.
 
 function tmpBoard(config) {

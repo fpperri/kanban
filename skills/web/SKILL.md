@@ -1389,7 +1389,7 @@ to `127.0.0.1` only.
   stay the path as written, with `logbookNow` and `scratchpadNow` the folder a new write goes to
   today (`null` for a path without the placeholder); the gear's path bar shows both and the
   folder field accepts a `<iteration>` segment, as in `0005.sprint-496`.
-  The three paths also take a `vars:` block and two more words (docs/adr/0022). A `<name>` that
+  The three paths also take a `vars:` block and two more words (docs/adr/0023). A `<name>` that
   names a variable is replaced by its value, a path relative to the board or absolute; a value
   may use the built-in words but not another variable. `<repo>` is the git root that holds the
   board (the nearest folder at or above it with a `.git` entry, a file in a git worktree); with

@@ -1,6 +1,6 @@
 'use strict';
 // The `<iteration>` and `<card>` placeholders of the `logbook:`, `scratchpad:` and `todos:` paths
-// (docs/adr/0019, docs/adr/0022). A path segment that is exactly `<iteration>` stands for the folder
+// (docs/adr/0019, docs/adr/0023). A path segment that is exactly `<iteration>` stands for the folder
 // of one iteration, named as the iteration's group file is named without `.md` (`0005.sprint-496`); a
 // segment that is exactly `<card>` stands for the folder of one target, named as its card file is named
 // without `.card.md` (`0007.fix-login`) or its group file without `.md` (`I0002.zephyr-2`). The

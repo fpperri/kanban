@@ -109,7 +109,7 @@ function typeUse(dir, cards) {
 }
 
 // The folder of a feature as an absolute path, whether or not it exists yet; null when it is off.
-// The variables and <repo> are filled in (docs/adr/0022); `groups:` has none.
+// The variables and <repo> are filled in (docs/adr/0023); `groups:` has none.
 const filledPath = (config, key) => (key in config.paths ? config.paths[key] : config[key]);
 
 function folderPath(dir, config, key) {

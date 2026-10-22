@@ -566,7 +566,7 @@ function resolvePort(dir, arg) {
 // What the config says that the server cannot use as written, said once at startup on stderr and
 // never fatal: a prefix declared for a card type and again for a groups folder (or twice for
 // anything) keeps its first declaration and ignores the rest. The same for the `vars:` block and the
-// words in the logbook, scratchpad and todos paths (docs/adr/0022): each is named once, and the server
+// words in the logbook, scratchpad and todos paths (docs/adr/0023): each is named once, and the server
 // starts all the same.
 function warnConfig(dir) {
   const config = cfg.readConfig(dir);

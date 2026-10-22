@@ -1,6 +1,6 @@
 'use strict';
 // The words a board's `logbook:`, `scratchpad:` and `todos:` paths may hold between slashes
-// (docs/adr/0022, amending docs/adr/0019). A segment that is exactly `<name>` is a placeholder:
+// (docs/adr/0023, amending docs/adr/0019). A segment that is exactly `<name>` is a placeholder:
 //   <iteration>, <card>  built-in, filled in per write and per read by iteration-folders.js
 //   <repo>               built-in, the git root that holds the board, filled in here
 //   <name>               a variable of the config's `vars:` block, replaced here by its value

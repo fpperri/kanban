@@ -6,7 +6,7 @@ const path = require('node:path');
 const cfg = require('../scripts/config-store');
 
 // The `vars:` block and the built-in word <repo> in the logbook:, scratchpad: and todos: paths
-// (docs/adr/0022). readConfig answers `paths`, the three paths with the variables and <repo> filled
+// (docs/adr/0023). readConfig answers `paths`, the three paths with the variables and <repo> filled
 // in ('' = off), and `pathNotices`, what the server says on stderr at startup.
 
 function tmp() {
