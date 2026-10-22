@@ -18,7 +18,7 @@ function fn(name) {
   return m[0];
 }
 
-function gesturePage({ view = 'board', click = {}, dragging = {}, matched = null } = {}) {
+function gesturePage({ view = 'board', click = {}, dragging = {}, matched = null, surface = null } = {}) {
   const calls = { open: [] };
   const sandbox = {
     ...require('../web/selection'),
@@ -27,6 +27,7 @@ function gesturePage({ view = 'board', click = {}, dragging = {}, matched = null
     ...require('../web/search-enter'),
     searchEnterMatchIds: () => matched,
     openCard: (id) => { calls.open.push(id); },
+    document: {}, keyGuardSurface: () => surface,
     isDragging: false, ganttDrag: null, calTimeDrag: null,
     calls,
   };
@@ -130,6 +131,16 @@ test('nothing opens from empty space, or while a drag is under way', () => {
     const busy = gesturePage({ click: SELECTS, dragging });
     busy.onCardOpenKey(enter(targetIn({ isCard: true })));
     assert.deepStrictEqual(busy.calls.open, [], JSON.stringify(dragging));
+  }
+});
+
+test('Enter opens nothing behind an open popup: the key guard surface check turns it off', () => {
+  for (const surface of ['menu', 'dialog', 'notifications', 'preferences']) {
+    const page = gesturePage({ click: SELECTS, matched: new Set(['7']), surface });
+    const e = enter(targetIn({ isCard: true }));
+    page.onCardOpenKey(e);
+    assert.deepStrictEqual(page.calls.open, [], surface);
+    assert.strictEqual(e.defaultPrevented, false, surface);
   }
 });
 

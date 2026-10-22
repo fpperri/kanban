@@ -159,5 +159,5 @@ window.addEventListener('DOMContentLoaded', () => {
   const root = menuNestRoot();
   root.addEventListener('mouseover', onMenuNestOver);
   root.addEventListener('click', onMenuNestClick);
-  document.addEventListener('keydown', onMenuNestKey, true);
+  document.addEventListener('keydown', onMenuNestKey, true); // key-guard: exempt (acts only while the menu is open and focus is inside it)
 });
