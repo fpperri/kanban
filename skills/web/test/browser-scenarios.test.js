@@ -59,10 +59,40 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-enter, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a card-menu-nest, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint, a view-panel, an ids, a notes, a notes-calendar, a groups, a groups-autojoin, an iterations, a settings, a types-page, a markdown, a scratchpad, a todos, a markdown-edit, an iteration-paths, a delete, a feature, a phone and a phone-flip scenario, with unique names', () => {
+test('the runner finds every scenario file in the scenarios folder, in file-name order, and no other module', () => {
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'index.js').sort();
+  assert.ok(files.length > 0);
+  assert.deepStrictEqual(scenarios.map((s) => s.name + '.js'), files);
+});
+
+test('scenario names are unique and each is its file name', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-enter', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'card-menu-nest', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids', 'notes', 'notes-calendar', 'groups', 'groups-autojoin', 'iterations', 'settings', 'types-page', 'markdown', 'scratchpad', 'todos', 'markdown-edit', 'iteration-paths', 'delete', 'feature', 'phone', 'phone-flip']);
   assert.strictEqual(new Set(names).size, names.length);
+  for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'index.js')) {
+    assert.strictEqual(require(path.join(dir, f)).name, f.slice(0, -3), f);
+  }
+});
+
+test('no module in a subfolder of the scenarios folder is a scenario, so none is hidden from the runner', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+  const nested = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => walk(path.join(dir, e.name))).filter((f) => f.endsWith('.js'));
+  assert.ok(nested.length > 0, 'the step folders are there');
+  for (const f of nested) {
+    const m = require(f);
+    assert.ok(!(m && typeof m.name === 'string' && typeof m.board === 'string' && typeof m.run === 'function'), `${path.relative(dir, f)} exports a scenario; move it up a folder`);
+  }
+});
+
+test('no scenario or step reads the clock against a literal: a wait of its own budgets with page.scaled, and sleeps go through page.sleep', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+  for (const f of walk(dir).filter((f) => f.endsWith('.js'))) {
+    const lines = code(fs.readFileSync(f, 'utf8')).split(/\r?\n/);
+    lines.forEach((l, i) => {
+      const where = `${path.relative(dir, f)}:${i + 1}`;
+      if (/Date\.now\(\)/.test(l) && /[-+<>]/.test(l.replace(/Date\.now\(\)/, '')) && !/until|end/.test(l.split('Date.now()')[1] || '')) assert.ok(/scaled\(/.test(l), `${where} compares the clock to a time that is not scaled: ${l.trim()}`);
+      if (/setTimeout\(/.test(l)) assert.ok(/setTimeout\(r, 50\)/.test(l), `${where} waits on a timer of its own: ${l.trim()}`);
+    });
+  }
 });
 
 test('every scenario names a known board and has a run function and a sane timeout', () => {

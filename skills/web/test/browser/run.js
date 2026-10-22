@@ -25,6 +25,12 @@
 // --plugin serves the boards with the server of another checkout of the plugin, and the
 //         page that server serves, so a scenario can show that a board written for this
 //         plugin opens on an older one (CI runs the smoke scenario on main's checkout).
+// CPU:    the page's JavaScript is slowed with Emulation.setCPUThrottlingRate, and every
+//         scenario timeout and wait (waitFor, waitUntil, the runner's own) is lengthened by
+//         the same factor, so a local pass predicts a CI pass. Locally the factor is 4;
+//         when the CI environment variable is set (GitHub does) it is 1, off.
+//         KANBAN_BROWSER_CPU_THROTTLE=<rate> overrides either, and =1 turns it off locally.
+//         The first line of the run and the last line of the summary say which factor it used.
 // --fault throw:<name> makes that scenario throw; --fault kill-chrome kills
 //         Chrome mid-run. They exist for fault-check.js, which proves both are
 //         reported and cleaned up.
@@ -40,15 +46,16 @@ const net = require('net');
 const path = require('path');
 const {
   EXIT, DEFAULT_TIMEOUT_MS, parseArgs, serverScriptOf, selectScenarios, chromeArgs, createRegistry, runScenarios, withFault,
-  exitCodeFor, summaryLines, boardsOf, sleep, startChromeUntilPage,
+  exitCodeFor, summaryLines, boardsOf, sleep, startChromeUntilPage, cpuThrottleRate,
 } = require('./harness');
-const { connectCdp, createBrowserEnv } = require('./cdp');
+const { CALL_TIMEOUT_MS, connectCdp, createBrowserEnv } = require('./cdp');
 const { BOARDS, materialize } = require('./boards');
 const scenarios = require('./scenarios');
 
 const IS_WIN = process.platform === 'win32';
 const WATCHDOG_MS = 300000;
 const KILL_CHROME_AFTER_MS = 1500;
+const RATE = cpuThrottleRate();
 
 function findChrome() {
   const env = process.env.CHROME_PATH;
@@ -110,7 +117,7 @@ async function startServer(serverJs, key, boardDir, port) {
   await waitUntil(async () => {
     if (exited(rec)) throw new Error(`the ${key} server exited early: ${rec.out}`);
     try { return (await fetch(`${base}/`, { signal: AbortSignal.timeout(2000) })).status === 200; } catch (e) { return false; }
-  }, 15000, `the ${key} server to answer HTTP 200`);
+  }, 15000 * RATE, `the ${key} server to answer HTTP 200`);
   const board = await (await fetch(`${base}/api/board`, { signal: AbortSignal.timeout(5000) })).json();
   if (board.projectName !== BOARDS[key].name) {
     throw new Error(`port ${port} is serving board '${board.projectName}', not the ${key} board '${BOARDS[key].name}'`);
@@ -128,7 +135,7 @@ async function startChrome(chrome, root) {
       return { rec, port };
     },
   });
-  const cdp = await connectCdp(page.webSocketDebuggerUrl);
+  const cdp = await connectCdp(page.webSocketDebuggerUrl, { callTimeoutMs: CALL_TIMEOUT_MS * RATE });
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
   await cdp.send('Log.enable');
@@ -142,6 +149,7 @@ async function main(argv) {
     console.log(scenarios.map((s) => s.name).join('\n'));
     return EXIT.OK;
   }
+  console.log(RATE > 1 ? `Browser run: page CPU throttled ${RATE}x, every timeout and wait lengthened ${RATE}x` : 'Browser run: page CPU not throttled');
   const serverJs = serverScriptOf(args.plugin);
   const chrome = findChrome();
   if (!chrome) {
@@ -167,7 +175,7 @@ async function main(argv) {
   const { rec: chromeRec, cdp } = await startChrome(chrome, root);
 
   const env = createBrowserEnv({
-    cdp, boards, shotsDir: args.shots, chromeExited: chromeRec.exited,
+    cdp, boards, shotsDir: args.shots, chromeExited: chromeRec.exited, rate: RATE,
     resetBoard: (key) => materialize(key, dirs[key], { port: ports[key] }),
   });
   if (args.fault && args.fault.kind === 'kill-chrome') {
@@ -183,8 +191,8 @@ async function main(argv) {
     };
   }
 
-  const results = await runScenarios(picked, env, { timeoutMs: DEFAULT_TIMEOUT_MS });
-  for (const line of summaryLines(results)) console.log(line);
+  const results = await runScenarios(picked, env, { timeoutMs: DEFAULT_TIMEOUT_MS, rate: RATE });
+  for (const line of summaryLines(results, { rate: RATE })) console.log(line);
   cdp.close();
   return exitCodeFor(results);
 }
@@ -203,7 +211,7 @@ const fatal = (e) => {
 };
 process.on('uncaughtException', fatal);
 process.on('unhandledRejection', fatal);
-setTimeout(() => fatal(new Error(`the run took longer than ${WATCHDOG_MS / 1000}s`)), WATCHDOG_MS).unref();
+setTimeout(() => fatal(new Error(`the run took longer than ${WATCHDOG_MS * RATE / 1000}s`)), WATCHDOG_MS * RATE).unref();
 
 main(process.argv.slice(2)).then(finish, (e) => {
   console.error(`HARNESS ERROR: ${e && e.message ? e.message : e}`);

@@ -54,3 +54,10 @@ test('the testing doc says how to add a step to the phone and phone-flip scenari
   assert.match(doc, /clean page/);
   assert.match(doc, /puts back any card/);
 });
+
+test('the testing doc says which waits the CPU throttle lengthens, and how to turn it off', () => {
+  for (const name of ['KANBAN_BROWSER_CPU_THROTTLE', '`page.scaled(ms)`', '`page.sleep`', 'DevTools call timeout', 'watchdog', 'wait for a board server', '`CI` environment variable', 'first line of a run']) {
+    assert.ok(doc.includes(name), `${name} is in the testing doc`);
+  }
+  assert.match(doc, /Nothing registers it/);
+});

@@ -1,59 +1,15 @@
 'use strict';
-// The scenarios the browser runner knows, in the order a plain run takes them.
-// A scenario is { name, board, alsoBoards?, timeoutMs?, run(page) }; it starts
-// from a cleared browser and its board's cards as they were, so the order does
-// not matter and any one can be run alone with --only.
+// The scenarios the browser runner knows: every .js file in this folder but this one, in
+// file-name order, so a new scenario is found by being added and nothing else lists it.
+// A scenario is { name, board, alsoBoards?, timeoutMs?, run(page) } and its name is its
+// file name. It starts from a cleared browser and its board's cards as they were, so the
+// order does not matter and any one can be run alone with --only. A module that is not a
+// scenario belongs in a subfolder (phone-steps/ holds the phone scenario's steps), not here.
 
-module.exports = [
-  require('./search-box'),
-  require('./search-enter'),
-  require('./search-address'),
-  require('./search-grammar'),
-  require('./graph'),
-  require('./key-guard'),
-  require('./card-click'),
-  require('./selection'),
-  require('./graph-lights'),
-  require('./preferences'),
-  require('./config-keys'),
-  require('./type-icons'),
-  require('./smoke'),
-  require('./calendar-jump'),
-  require('./card-menu'),
-  require('./card-menu-nest'),
-  require('./slice-term'),
-  require('./tier-fan'),
-  require('./tier-fan-options'),
-  require('./fan-names'),
-  require('./fan-name-rows'),
-  require('./tier-fan-unnested'),
-  require('./esc-steps'),
-  require('./search-panel'),
-  require('./empty-space'),
-  require('./board-pills'),
-  require('./slice-section'),
-  require('./pill-step'),
-  require('./isolate'),
-  require('./isolate-link'),
-  require('./hotkeys'),
-  require('./open-keeps-pills'),
-  require('./band-tint'),
-  require('./view-panel'),
-  require('./ids'),
-  require('./notes'),
-  require('./notes-calendar'),
-  require('./groups'),
-  require('./groups-autojoin'),
-  require('./iterations'),
-  require('./settings'),
-  require('./types-page'),
-  require('./markdown'),
-  require('./scratchpad'),
-  require('./todos'),
-  require('./markdown-edit'),
-  require('./iteration-paths'),
-  require('./delete'),
-  require('./feature'),
-  require('./phone'),
-  require('./phone-flip'),
-];
+const fs = require('fs');
+const path = require('path');
+
+module.exports = fs.readdirSync(__dirname)
+  .filter((f) => f.endsWith('.js') && f !== 'index.js')
+  .sort()
+  .map((f) => require(path.join(__dirname, f)));

@@ -4,13 +4,11 @@
 // and the section is hidden on the Board. With a status off and the panel closed the search chip shows
 // the count; with the Status section starts folded preference on, the section opens folded.
 
-const { tap } = require('../../steps');
-
-const REFRESH_MS = 6000;
+const { tap, refreshNow } = require('../../steps');
 
 module.exports = {
   async run(page) {
-    const { ev, send, open, waitFor, check, sleep } = page;
+    const { ev, send, open, waitFor, check } = page;
     const SECTION = `document.getElementById('search-statuses-section')`;
     const pillSel = (col) => `#search-statuses .status-pill[data-col="${col}"]`;
     const pressed = (col) => `document.querySelector(${JSON.stringify(pillSel(col))}).getAttribute('aria-pressed')`;
@@ -40,7 +38,7 @@ module.exports = {
 
     await tapPill('done');
     check('a tap on Done switches it', await waitFor(`${pressed('done')}==='false'`, 5000));
-    await sleep(REFRESH_MS);
+    check('the board refreshes', await refreshNow(page));
     check('it holds through the 5-second refresh', await ev(`${pressed('done')}==='false'`));
 
     await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);

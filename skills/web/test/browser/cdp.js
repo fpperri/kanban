@@ -72,15 +72,17 @@ function connectCdp(wsUrl, { WebSocketImpl = WebSocket, callTimeoutMs = CALL_TIM
 // Everything a scenario does to the browser goes through its page. Once the
 // scenario is over (done, timed out or Chrome lost), every call throws, so a
 // scenario that was cut off unwinds instead of carrying on against the next one.
-function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenario = 'scenario' }) {
+function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenario = 'scenario', rate = 1 }) {
   const live = () => { if (scope.aborted) throw new Error('scenario is over'); };
   const send = async (method, params) => { live(); return cdp.send(method, params); };
   const ev = async (expr) => { live(); return cdp.ev(expr); };
-  const pause = async (ms) => { live(); await sleep(ms); live(); };
 
+  // A wait or a sleep is given `rate` times its time when the page runs `rate` times slower; this is the one place that does it.
+  const scaled = (ms) => ms * rate;
+  const pause = async (ms) => { live(); await sleep(scaled(ms)); live(); };
   const waitFor = async (expr, ms = 4000) => {
     const t0 = Date.now();
-    while (Date.now() - t0 < ms) {
+    while (Date.now() - t0 < scaled(ms)) {
       live();
       try { if (await cdp.ev(expr)) return true; } catch (e) { live(); /* page not ready */ }
       await sleep(40);
@@ -95,7 +97,7 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
       && String(e.params.entry.text).includes(`status of ${status}`) && String(e.params.entry.url || '').includes(urlPart);
     const t0 = Date.now();
     let dropped = cdp.dropEvents(match);
-    while (!dropped && Date.now() - t0 < ms) {
+    while (!dropped && Date.now() - t0 < scaled(ms)) {
       live();
       await sleep(40);
       dropped = cdp.dropEvents(match);
@@ -104,7 +106,7 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
   };
   const waitUntil = async (fn, ms, what) => {
     const t0 = Date.now();
-    while (Date.now() - t0 < ms) {
+    while (Date.now() - t0 < scaled(ms)) {
       live();
       if (await fn()) return;
       await sleep(100);
@@ -133,7 +135,7 @@ function makePage({ cdp, base, bases = {}, scope, check, shotsDir = null, scenar
   };
 
   return {
-    base, baseOf, bases, scope, check, send, ev, sleep: pause, waitFor, waitUntil, expectRefusedRequest, centre, mouse, click, key, rightClick, shot,
+    base, baseOf, bases, scope, check, send, ev, sleep: pause, rate, scaled, waitFor, waitUntil, expectRefusedRequest, centre, mouse, click, key, rightClick, shot,
     shotsOn: !!shotsDir,
     open: (pathAndQuery, boardKey) => send('Page.navigate', { url: `${boardKey ? baseOf(boardKey) : base}${pathAndQuery}` }),
   };
@@ -171,7 +173,7 @@ async function resetHistory(cdp, ms) {
 // order scenarios run in not matter. Chrome keeps at most 50 history entries,
 // so without the reset a scenario that counts history steps late in a run
 // would see none added.
-function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExited, historyResetMs = 3000 }) {
+function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExited, historyResetMs = 3000, rate = 1 }) {
   const gone = Promise.race([
     chromeExited.then((why) => `Chrome ${why}`),
     cdp.closed,
@@ -184,7 +186,7 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
         if (!boards[k]) throw new Error(`scenario '${sc.name}' names board '${k}', which the run did not start`);
       }
       await cdp.send('Page.navigate', { url: 'about:blank' });
-      await resetHistory(cdp, historyResetMs);
+      await resetHistory(cdp, historyResetMs * rate);
       for (const k of keys) {
         await cdp.send('Storage.clearDataForOrigin', { origin: new URL(boards[k].base).origin, storageTypes: 'all' });
         await resetBoard(k);
@@ -193,10 +195,9 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       // and the names outside its rim, which the fit leaves no room for.
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
       await cdp.send('Emulation.setEmulatedMedia', { features: [] });
-      // A slow machine, on request: KANBAN_BROWSER_CPU_THROTTLE=4 runs the page four times slower, to find the step
-      // that only passes because the page is fast (CI's runner is slower than a desk).
-      const throttle = Number(process.env.KANBAN_BROWSER_CPU_THROTTLE);
-      if (throttle > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
+      // A slow machine: the page's JavaScript runs `rate` times slower (see cpuThrottleRate in harness.js), to find the
+      // step that only passes because the page is fast (CI's runner is slower than a desk).
+      if (rate > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate });
       // The phone scenario turns touch on; no other scenario starts with it.
       await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
       // A tab nobody has clicked in is not focused, and a focus() on one of its elements fires no focus event. Focus
@@ -204,7 +205,7 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
       await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
       cdp.takeEvents();
       const bases = Object.fromEntries(keys.map((k) => [k, boards[k].base]));
-      return makePage({ cdp, base: boards[sc.board].base, bases, scope: ctx.scope, check: ctx.check, shotsDir, scenario: sc.name });
+      return makePage({ cdp, base: boards[sc.board].base, bases, scope: ctx.scope, check: ctx.check, shotsDir, scenario: sc.name, rate });
     },
     async end(sc, rec) {
       if (rec.status !== 'FAIL' || !shotsDir) return;
@@ -215,4 +216,4 @@ function createBrowserEnv({ cdp, boards, resetBoard, shotsDir = null, chromeExit
   };
 }
 
-module.exports = { connectCdp, makePage, createBrowserEnv, consoleErrorsFrom, resetHistory };
+module.exports = { CALL_TIMEOUT_MS, connectCdp, makePage, createBrowserEnv, consoleErrorsFrom, resetHistory };

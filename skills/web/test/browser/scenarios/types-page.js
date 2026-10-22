@@ -11,7 +11,7 @@
 // Copy button; the Logbook page of this board, switched off, shows none. Each step waits on the
 // page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): state, settingsUi.
+// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): settingsBoardPages, state, settingsUi.
 
 const fs = require('fs');
 const path = require('path');
@@ -43,7 +43,7 @@ module.exports = {
     const configPath = path.join(boardDir, 'config.yaml');
     const config = () => fs.readFileSync(configPath, 'utf8').replace(/\r\n/g, '\n');
     const waitConfig = async (pred, ms = 4000) => {
-      const until = Date.now() + ms;
+      const until = Date.now() + page.scaled(ms);
       while (Date.now() < until) {
         if (pred(config())) return true;
         await new Promise((r) => setTimeout(r, 50));
@@ -62,8 +62,9 @@ module.exports = {
     await clickOn('#prefs-btn');
     await waitFor(SHEET_UP, 2500);
     await waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500);
-    const boardPages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent).join()`);
-    check('This board lists Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters in that order', boardPages === 'Logbook,Scratchpad,Todos,Groups,Types,Prefixes,Counters', boardPages);
+    const boardPages = await ev(`({ shown: [...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent), listed: settingsBoardPages.map((p)=>p.title) })`);
+    // The pages and their order are pinned in todos-wiring.test.js, scratchpad-page.test.js and settings-page.test.js; this proves the menu renders the table.
+    check('This board lists the pages settingsBoardPages holds, in its order', boardPages.listed.length > 0 && boardPages.shown.join() === boardPages.listed.join(), boardPages);
 
     // --- the Types page --------------------------------------------------------------------------
     await clickOn(item('board:types'));

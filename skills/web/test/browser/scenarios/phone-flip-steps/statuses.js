@@ -5,12 +5,13 @@
 // right-click solos; with every status off the section still shows and one tap brings cards back; on
 // the Board the section is hidden; a tap and a right-click leave a selection unchanged.
 
+const { refreshNow } = require('../../steps');
+
 const WIDTH = 1440;
-const REFRESH_MS = 6000;
 
 module.exports = {
   async run(page) {
-    const { ev, send, open, waitFor, centre, click, rightClick, check, sleep } = page;
+    const { ev, send, open, waitFor, centre, click, rightClick, check } = page;
     const SECTION = `document.getElementById('search-statuses-section')`;
     const pillSel = (col) => `#search-statuses .status-pill[data-col="${col}"]`;
     const pressed = `JSON.stringify([...document.querySelectorAll('#search-statuses .status-pill')].filter((b)=>b.getAttribute('aria-pressed')==='true').map((b)=>b.dataset.col))`;
@@ -45,7 +46,7 @@ module.exports = {
     await tapPill('done');
     check('a tap on Done in the section switches it off, and the Gantt holds no pill of its own',
       await waitFor(`document.querySelector(${JSON.stringify(pillSel('done'))}).getAttribute('aria-pressed')==='false'&&!document.querySelector('#gantt-view .status-pill')`, 5000));
-    await sleep(REFRESH_MS);
+    check('the board refreshes', await refreshNow(page));
     check('it holds through the 5-second refresh, focus still on the pill',
       await ev(`document.querySelector(${JSON.stringify(pillSel('done'))}).getAttribute('aria-pressed')==='false'&&document.activeElement===document.querySelector(${JSON.stringify(pillSel('done'))})`));
 

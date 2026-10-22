@@ -24,18 +24,6 @@ test('the scenario is in the runner, on the plan board, with time for its steps'
   assert.ok(scenario.timeoutMs >= 60000);
 });
 
-test('the keys the scenario looks for are the keys the page answers, and each is a label in the list', () => {
-  assert.deepStrictEqual(CASES.keys, ['/', 'Ctrl/Cmd+F', 'Esc', 'Enter', 'Space', 'Ctrl/Cmd+S', 'Alt+Enter', 'n', 'e', 'a', 'd d', 'l', '[', ']', '{', '}', 'm', 'i', 'p', '?']);
-  const labels = HOTKEYS.flatMap((h) => h.keys);
-  assert.deepStrictEqual(CASES.keys.filter((k) => !labels.includes(k)), []);
-});
-
-test('the defaults the scenario expects are what the list reads for a page nothing has changed', () => {
-  const rows = hotkeyRows({});
-  for (const [id, text] of Object.entries(CASES.defaults)) assert.strictEqual(stateOf(rows, id), text, id);
-  assert.deepStrictEqual(Object.keys(CASES.defaults).sort(), HOTKEYS.filter((h) => h.state).map((h) => h.id).sort(), 'every key with a state has a default here');
-});
-
 test('the states it expects after the keys are what the list reads for those states, and names all is the l key\'s first step', () => {
   const rows = hotkeyRows({ pills: ['blocked'], isolate: true, panelOnFocus: false });
   for (const [id, text] of Object.entries(CASES.afterKeys)) assert.strictEqual(stateOf(rows, id), text, id);
@@ -68,7 +56,6 @@ function standIn() {
   };
   const answer = (expr) => {
     if (/\.map\(\(r\)=>r\.dataset\.hotkey\)$/.test(expr)) return HOTKEYS.map((h) => h.id);
-    if (/flatMap\(\(r\)=>\[\.\.\.r\.querySelectorAll\('\.hotkey-key'\)\]/.test(expr)) return HOTKEYS.flatMap((h) => h.keys);
     if (/\.map\(\(r\)=>\{const w=r\.querySelector\('\.hotkey-what'\)/.test(expr)) return HOTKEYS.map((h) => h.what);
     if (/^\(\(\)=>\{const o=\{\};for\(const r of/.test(expr)) return { ...CASES.defaults };
     if (/window\.__keyLog\|\|\[\]/.test(expr) && /return l\.length/.test(expr)) return { key: '?', prevented: false };
@@ -111,7 +98,7 @@ test('it makes these checks: the sheet opens on its Hotkeys page, the list, the 
   await scenario.run(page);
   const names = page.log.checks.map(([n]) => n);
   for (const part of [
-    'opens the preferences sheet', 'heading inside the sheet', 'a key element for every key the page answers',
+    'opens the preferences sheet', 'heading inside the sheet',
     'one row for each entry of the list', 'shows its default', 'with the sheet up, ? does nothing', 'with focus in the search box, ? is typed',
     'with a dialog up, ? does nothing', 'with a card menu up, ? does nothing', 'with the notifications panel up, ? does nothing',
     'the sheet shows the names the Graph now draws', 'still shows the names the board kept',

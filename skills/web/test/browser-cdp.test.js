@@ -215,7 +215,7 @@ test('shot saves a numbered screenshot named for its scenario, and does nothing 
 });
 
 // The browser side of the scenario loop.
-function envFixture({ resetBoard = () => {}, shotsDir = null, chromeExited = new Promise(() => {}), refuseReset = 0, historyResetMs } = {}) {
+function envFixture({ resetBoard = () => {}, shotsDir = null, chromeExited = new Promise(() => {}), refuseReset = 0, historyResetMs, rate } = {}) {
   const order = [];
   const cdp = fakeCdp();
   const send = cdp.send;
@@ -234,7 +234,7 @@ function envFixture({ resetBoard = () => {}, shotsDir = null, chromeExited = new
     cdp, shotsDir, chromeExited,
     boards: { fixture: { base: 'http://127.0.0.1:7001' }, plan: { base: 'http://127.0.0.1:7002' } },
     resetBoard: (key) => { order.push(`reset:${key}`); return resetBoard(key); },
-    historyResetMs,
+    historyResetMs, rate,
   });
   return { env, cdp, order };
 }
@@ -369,4 +369,33 @@ test('expectRefusedRequest takes the named refusal out of the console errors and
   assert.strictEqual(await page.expectRefusedRequest(422, '/api/cards/4', 50), true);
   assert.deepStrictEqual(consoleErrorsFrom(events).length, 2, 'the 500 and the other card\'s 422 are still errors');
   assert.strictEqual(await page.expectRefusedRequest(422, '/api/cards/4', 50), false, 'a refusal that never came is not found');
+});
+
+test('a page that runs at a rate gives waitFor and waitUntil that many times their budget', async () => {
+  let n = 0;
+  const flip = () => ++n >= 8;
+  const { page } = livePage(fakeCdp({ ev: flip }), { rate: 5 });
+  assert.strictEqual(page.rate, 5);
+  assert.strictEqual(page.scaled(100), 500);
+  assert.strictEqual(await page.waitFor('x', 100), true, 'eight polls of 40 ms need more than 100 ms, less than 500');
+  const never = livePage(fakeCdp({ ev: false }), { rate: 2 }).page;
+  const t0 = Date.now();
+  assert.strictEqual(await never.waitFor('x', 100), false);
+  assert.ok(Date.now() - t0 >= 190, 'a budget of 100 ms at rate 2 waits 200 ms');
+});
+
+test('a scenario begins with the page throttled by the rate, and not at all at rate 1', async () => {
+  const slow = envFixture({ rate: 4 });
+  await slow.env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
+  assert.deepStrictEqual(slow.cdp.calls.filter((c) => c[0] === 'Emulation.setCPUThrottlingRate'), [['Emulation.setCPUThrottlingRate', { rate: 4 }]]);
+  const fast = envFixture();
+  await fast.env.begin({ name: 'smoke', board: 'plan' }, { check() {}, scope: { aborted: false } });
+  assert.deepStrictEqual(fast.cdp.calls.filter((c) => c[0] === 'Emulation.setCPUThrottlingRate'), []);
+});
+
+test('a page that runs at a rate sleeps that many times as long', async () => {
+  const { page } = livePage(fakeCdp(), { rate: 4 });
+  const t0 = Date.now();
+  await page.sleep(30);
+  assert.ok(Date.now() - t0 >= 110, 'a 30 ms sleep at rate 4 lasts 120 ms');
 });

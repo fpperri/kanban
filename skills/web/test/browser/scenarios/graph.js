@@ -29,7 +29,7 @@ module.exports = {
     const waitWorld = async (pred, ms = 4000) => {
       const t0 = Date.now();
       let w = await world();
-      while (Date.now() - t0 < ms) {
+      while (Date.now() - t0 < page.scaled(ms)) {
         w = await world();
         if (w && pred(w)) return w;
         await sleep(40);
@@ -47,7 +47,7 @@ module.exports = {
     const settled = async (ms = 6000) => {
       let prev = await snap();
       const t0 = Date.now();
-      while (Date.now() - t0 < ms) {
+      while (Date.now() - t0 < page.scaled(ms)) {
         await sleep(120);
         const cur = await snap();
         const d = Math.max(...Object.keys(cur).map((k) => (prev[k] ? Math.hypot(cur[k].x - prev[k].x, cur[k].y - prev[k].y) : 99)));
@@ -197,7 +197,7 @@ module.exports = {
     check('isDragging is true during a node drag', await waitFor(`isDragging===true`));
     let mid = null;
     const t0 = Date.now();
-    while (Date.now() - t0 < 3000) {
+    while (Date.now() - t0 < page.scaled(3000)) {
       mid = await centre(`.graph-node[data-id="${hubInfo.id}"] .graph-dot`);
       if (Math.hypot(mid.x - endX, mid.y - endY) < 4) break;
       await sleep(40);

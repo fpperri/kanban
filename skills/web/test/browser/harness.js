@@ -26,6 +26,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const EXIT = { OK: 0, FAILED: 1, NO_BROWSER: 2, HARNESS: 3 };
 
+// How much slower than the machine the page's JavaScript runs, and so how much longer every wait is given.
+// KANBAN_BROWSER_CPU_THROTTLE=<rate> sets it (1 is off); with it unset a run on CI (GitHub sets CI) is
+// not throttled and any other run is slowed 4 times, because CI's runner is slower than a desk and a step
+// that only passes on a fast page should fail where it is written.
+const LOCAL_CPU_THROTTLE = 4;
+function cpuThrottleRate(env = process.env) {
+  const set = Number(env.KANBAN_BROWSER_CPU_THROTTLE);
+  if (env.KANBAN_BROWSER_CPU_THROTTLE !== undefined && env.KANBAN_BROWSER_CPU_THROTTLE !== '' && set >= 1) return set;
+  return env.CI ? 1 : LOCAL_CPU_THROTTLE;
+}
+
 // --- command line ----------------------------------------------------------------
 
 function parseFault(text) {
@@ -308,7 +319,8 @@ async function runOne(sc, env, opts, log) {
     rec.checks.push({ name, ok: !!ok });
     log(`${ok ? 'PASS' : 'FAIL'}  [${sc.name}] ${name}${ok || detail === undefined ? '' : `  ${JSON.stringify(detail)}`}`);
   };
-  const timeoutMs = sc.timeoutMs || opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const rate = opts.rate || 1;
+  const timeoutMs = (sc.timeoutMs || opts.timeoutMs || DEFAULT_TIMEOUT_MS) * rate;
   const t0 = Date.now();
   let timer;
   log(`== ${sc.name}  (board ${boardsOf(sc).join(', ')})`);
@@ -335,7 +347,7 @@ async function runOne(sc, env, opts, log) {
   rec.ms = Date.now() - t0;
   rec.status = rec.error || rec.checks.some((c) => !c.ok) ? 'FAIL' : 'PASS';
   let graceTimer;
-  const grace = new Promise((resolve) => { graceTimer = setTimeout(resolve, END_GRACE_MS); });
+  const grace = new Promise((resolve) => { graceTimer = setTimeout(resolve, END_GRACE_MS * rate); });
   await Promise.race([Promise.resolve().then(() => env.end(sc, rec)).catch(() => {}), grace]);
   clearTimeout(graceTimer);
   return rec;
@@ -367,7 +379,7 @@ function exitCodeFor(results) {
   return results.length && results.every((r) => r.status === 'PASS') ? EXIT.OK : EXIT.FAILED;
 }
 
-function summaryLines(results) {
+function summaryLines(results, opts = {}) {
   const lines = ['', 'Scenarios'];
   const width = Math.max(10, ...results.map((r) => r.name.length));
   for (const r of results) {
@@ -376,12 +388,13 @@ function summaryLines(results) {
   }
   const failed = results.filter((r) => r.status === 'FAIL').length;
   const checks = results.reduce((n, r) => n + r.checks.length, 0);
-  lines.push(`${results.length - failed} passed, ${failed} failed (${results.length} scenarios, ${checks} checks)`);
+  const throttle = opts.rate === undefined ? '' : opts.rate > 1 ? `, CPU throttled ${opts.rate}x` : ', CPU not throttled';
+  lines.push(`${results.length - failed} passed, ${failed} failed (${results.length} scenarios, ${checks} checks${throttle})`);
   return lines;
 }
 
 module.exports = {
-  EXIT, DEFAULT_TIMEOUT_MS, parseArgs, serverScriptOf, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
+  EXIT, DEFAULT_TIMEOUT_MS, cpuThrottleRate, parseArgs, serverScriptOf, selectScenarios, noSandboxWanted, chromeArgs, keyEvents, contextMenuExpr,
   isAlive, killTree, createRegistry, sleep, boardsOf, waitForPageTarget, startChromeUntilPage,
   runScenarios, withFault, exitCodeFor, summaryLines,
 };
