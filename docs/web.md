@@ -203,8 +203,9 @@ count. A card is ready when it is open, in no loop and waits for nothing that is
 up across the lanes. With frontier the lanes with ready cards come first, the most ready first, then the
 others in outline order; with all, every lane is in outline order. A lane with no open dependency (frontier)
 or no dependency (all) folds into the strip at the bottom, which then reads `no open dependency` under
-frontier, and so does a card with no dependency in a lane that stays. A header is only drawn: it takes no
-pointer. A dot keeps its status colour and its type mark,
+frontier, and so does a card with no dependency in a lane that stays. A header is its card's node: a click, Shift- or Ctrl-click,
+double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
+the header and the dot of its card light and select together. A dot keeps its status colour and its type mark,
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
 hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its

@@ -26,7 +26,8 @@
 // switch, frontier or all). Flow draws no parent line and keeps every other gesture of the dots: its
 // column headings and strip are marks behind the dots that take no pointer. Its second switch, Lanes,
 // puts the cards in a lane for each tier card, each lane under a header that leads with that card's
-// type mark (drawn here, a mark that takes no pointer yet). The choice and the switches are kept per
+// type mark. A header is that card's node (a .graph-node, graphDrawPlan): the dot's handlers act on it,
+// and it is lit and selected with the dot. The choice and the switches are kept per
 // board and in the address (graph=, deps=, lanes=), the address winning on a load.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
@@ -631,7 +632,9 @@ function graphLightCards(lit) {
   graphClearFocus();
   if (!graphCur || !lit) return;
   graphCur.svg.classList.add('graph-dim');
-  for (const id of lit.nodes) graphCur.nodeEls.get(id).classList.add('graph-near');
+  for (const id of lit.nodes) {
+    for (const el of [graphCur.nodeEls.get(id), ...(graphCur.headEls.get(id) || [])]) el.classList.add('graph-near');
+  }
   for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
 
@@ -752,6 +755,7 @@ function graphQueueNames() {
 function graphPaintSelection() {
   if (!graphCur) return;
   for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', selectedIds.has(nid));
+  for (const [nid, els] of graphCur.headEls) for (const h of els) h.classList.toggle('selected', selectedIds.has(nid));
   graphPaintNames();
   graphRestFocus();
 }
@@ -813,28 +817,6 @@ function graphDrawPlan(plan) {
     el.textContent = t.text;
     world.appendChild(el);
   }
-  // A lane's header is a plain drawing for now: it takes no pointer, and carries its card's id as
-  // data-id (not as a graph-node) so a later change can make it that card's node. Drawn with the
-  // marks behind the links and the dots. Its text stays one size at any zoom (graphView sets
-  // --graph-k), and the type's mark takes its colour once the Graph is on the page (paintTypeColors).
-  for (const h of plan.flow.heads) {
-    const g = graphEl('g', { transform: `translate(${h.x} ${h.y})` }, 'graph-flow-lane-head');
-    g.setAttribute('data-id', String(h.id));
-    const tip = graphEl('title');
-    tip.textContent = h.title;
-    g.appendChild(tip);
-    const inner = graphEl('g', {}, 'graph-flow-lanehead-in');
-    if (h.icon) {
-      const mark = graphEl('path', { d: h.icon.d, transform: 'translate(7 -4)' }, 'graph-flow-icon');
-      if (h.icon.color) mark.setAttribute('data-type-color', h.icon.color);
-      inner.appendChild(mark);
-    }
-    const text = graphEl('text', { x: h.icon ? 20 : 0, y: 0 }, 'graph-flow-lanehead-text');
-    text.textContent = h.text;
-    inner.appendChild(text);
-    g.appendChild(inner);
-    world.appendChild(g);
-  }
   for (const d of plan.dividers) {
     world.appendChild(fixed(graphEl('line', { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 }, 'graph-divider')));
   }
@@ -861,6 +843,34 @@ function graphDrawPlan(plan) {
     }
     return p;
   });
+  // A lane's header is its card's node: it wears the dot's classes (graph-node, card-el) and its data-id,
+  // so every handler that finds a `.graph-node` (click, double click, Enter, Space, hover, focus) and the
+  // card menu take it for that card. Drawn after the links and before the dots, so a dot wins where the two
+  // meet. Its text stays one size at any zoom (graphView sets --graph-k), and the type's mark takes its
+  // colour once the Graph is on the page (paintTypeColors). graphCur.headEls holds them by card, to light
+  // and select them with the dots.
+  const headEls = new Map();
+  for (const h of plan.flow.heads) {
+    const cls = `graph-node card-el graph-flow-lane-head${selectedIds.has(h.id) ? ' selected' : ''}${isHoverHighlighted(hoveredId, h.id) ? ' hover-highlight' : ''}`;
+    const g = graphEl('g', { transform: `translate(${h.x} ${h.y})`, tabindex: 0 }, cls);
+    g.setAttribute('data-id', String(h.id));
+    const tip = graphEl('title');
+    tip.textContent = h.title;
+    g.appendChild(tip);
+    const inner = graphEl('g', {}, 'graph-flow-lanehead-in');
+    if (h.icon) {
+      const mark = graphEl('path', { d: h.icon.d, transform: 'translate(7 -4)' }, 'graph-flow-icon');
+      if (h.icon.color) mark.setAttribute('data-type-color', h.icon.color);
+      inner.appendChild(mark);
+    }
+    const text = graphEl('text', { x: h.icon ? 20 : 0, y: 0 }, 'graph-flow-lanehead-text');
+    text.textContent = h.text;
+    inner.appendChild(text);
+    g.appendChild(inner);
+    world.appendChild(g);
+    if (!headEls.has(h.id)) headEls.set(h.id, []);
+    headEls.get(h.id).push(g);
+  }
   const nodeEls = new Map();
   const nameEls = new Map();
   for (const n of plan.nodes) {
@@ -894,7 +904,7 @@ function graphDrawPlan(plan) {
   stage.appendChild(svg);
   const tip = graphBuildTip();
   stage.appendChild(tip);
-  return { stage, svg, world, arrow, linkEls, nodeEls, nameEls, tip };
+  return { stage, svg, world, arrow, linkEls, nodeEls, headEls, nameEls, tip };
 }
 
 function renderGraphView() {
@@ -961,7 +971,7 @@ function renderGraphView() {
   view.sig = sig;
   graphCur = {
     kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
-    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
+    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
   if (refit) Object.assign(view, graphFrameFit(graphCur), { touched: false });
   graphPaintNames();

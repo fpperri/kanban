@@ -2338,8 +2338,9 @@ to `127.0.0.1` only.
   lanes alone and stand across them, so a column's cards share one x whichever lane they are in, and the lanes' frames (`.graph-flow-lane`) replace the columns' shaded frames.
   With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order. A lane with no open
   dependency (frontier: every card of it with a dependency is done) or no dependency (all) folds into the strip, which then reads `no open dependency` under frontier, and so does a
-  card with no dependency in a lane that stays. A header is a plain drawing for now: it carries its card's id but is not a `.graph-node`, takes no pointer and no focus, and is
-  not a second dot of its card. An **arrow** runs from the card waited for to the card that waits, leaving to the right
+  card with no dependency in a lane that stays. A header is its card's node: a `.graph-node.card-el.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots,
+  so every handler of the dots (click, Shift/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu) takes it for that card, with the same items;
+  `graphCur.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together. It is not a second dot: the card keeps its one dot. An **arrow** runs from the card waited for to the card that waits, leaving to the right
   and arriving from the left with its head at the rim; a dot keeps its status colour and its type mark, grows with the waits it is in (a parent
   does not enlarge it), and is faded in frontier when done or archived. A loop, a card that waits for itself and a chain of any
   length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,

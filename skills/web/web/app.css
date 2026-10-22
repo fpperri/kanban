@@ -1548,12 +1548,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-flow-colhead { font-size: calc(12px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-flow-striphead { font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-flow-faded { opacity: 0.4; }
-/* With lanes: a frame for each lane, and its header (a plain drawing; the mark takes the type's colour) */
+/* With lanes: a frame for each lane, and its header, which is its card's node (the mark takes the type's colour) */
 .graph-flow-lane { fill: var(--surface); stroke: var(--line); stroke-width: 1px; opacity: 0.8; pointer-events: none; }
-.graph-flow-lane-head, .graph-flow-lanehead-in { pointer-events: none; }
-.graph-flow-lanehead-in { transform: scale(calc(1 / var(--graph-k, 1))); }
+.graph-flow-lanehead-in { transform: scale(calc(1 / var(--graph-k, 1))); pointer-events: all; }
 .graph-flow-lanehead-text { fill: var(--ink); font-weight: 600; font-size: 13px; paint-order: stroke; stroke: var(--paper); stroke-linejoin: round; stroke-width: 4px; }
 .graph-flow-icon { fill: currentColor; color: var(--ink); stroke: none; }
+.graph-flow-lane-head.selected .graph-flow-lanehead-text, .graph-flow-lane-head.hover-highlight .graph-flow-lanehead-text, .graph-flow-lane-head:focus-visible .graph-flow-lanehead-text { fill: var(--accent); }
+.graph-flow-lane-head:focus-visible { filter: drop-shadow(0 0 3px var(--accent)); }
 .graph-canvas.graph-flow-frontier .graph-node.is-done, .graph-canvas.graph-flow-frontier .graph-node.archived { opacity: 0.4; }
 
 .graph-node { cursor: pointer; color: var(--st-archive); outline: none; }

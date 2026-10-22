@@ -1638,7 +1638,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const focusedId = focused ? focused.dataset.id : null;
     const pointerId = hoveredId;
     renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column, and the Map or the Graph once
-    const again = focusedId === null ? null : cardElInShownView(focusedId);
+    const again = focusedId === null ? null : cardElInShownView(focusedId, focused);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   });
@@ -2239,7 +2239,7 @@ function applyBoardData(data) {
     if (again) again.focus({ preventScroll: true });
   }
   if (focusedCard) {
-    const again = cardElInShownView(focusedCardId);
+    const again = cardElInShownView(focusedCardId, focusedCard);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
@@ -2248,10 +2248,16 @@ function applyBoardData(data) {
 }
 
 // The card's element in the view that shows. The other views stay in the page, hidden, and the Board comes first,
-// so a lookup over the whole document would find a hidden copy.
-function cardElInShownView(id) {
+// so a lookup over the whole document would find a hidden copy. A Flow lane's header is a second element of its card in the
+// Graph: `from`, the element that had the focus, says which of the two to find again.
+function cardElInShownView(id, from) {
   const root = $(VIEW_CONTAINERS[loadViewMode()]);
-  return root ? root.querySelector(`.card-el[data-id="${id}"]`) : null;
+  if (!root) return null;
+  const isHead = (e) => !!(e && e.classList && e.classList.contains('graph-flow-lane-head'));
+  const sel = `.card-el[data-id="${id}"]`;
+  const first = root.querySelector(sel);
+  if (!first || isHead(first) === isHead(from)) return first;
+  return root.querySelector(`${sel}${isHead(from) ? '.graph-flow-lane-head' : ':not(.graph-flow-lane-head)'}`);
 }
 
 async function loadBoard() {
