@@ -7,7 +7,8 @@ const { createServer } = require('../scripts/server');
 
 // The todo lists through the server's HTTP API on a temporary board (docs/adr/0021): the board payload
 // names the folder, the targets that have a list and their counts; GET reads a list; POST adds, PATCH
-// ticks or edits, DELETE removes and POST .../move reorders an item, each naming the version it read;
+// ticks or edits, DELETE removes and POST .../move reorders an item, and PUT writes the whole text, each
+// naming the version it read;
 // and the delete flow takes a card's or a group's list only when asked.
 
 const CONFIG = ['name: t', 'nextId: 30', 'groups: .groups', 'scratchpad: .both', 'todos: .both', 'prefixes:', '  I: .groups/iteration', ''].join('\n');
@@ -159,9 +160,44 @@ test('a request that is wrong answers its status and writes nothing', async () =
     assert.strictEqual((await req(base, 'POST', '/api/todos/7', { text: 'a\nb', version: v })).status, 400);
     assert.strictEqual((await req(base, 'PATCH', '/api/todos/7', { index: 4, done: true, version: v })).status, 404);
     assert.strictEqual((await req(base, 'POST', '/api/todos/7/move', { index: 0, by: 3, version: v })).status, 400);
-    assert.strictEqual((await req(base, 'PUT', '/api/todos/7', { version: v })).status, 404, 'the list has no whole-file write: a hand edit is the whole-file write');
   });
   assert.strictEqual(read(dir, '.both/0007.todo.md'), '- [ ] a\n');
+});
+
+test('PUT writes the whole text, naming the version it read, in the file\'s own line endings; a stale version is a 409, none a 400, too long a 413', async () => {
+  const dir = tmpBoard({ files: { '.both/0007.todo.md': '- [ ] a\r\n- [ ] b\r\n' } });
+  await withServer(dir, async (base) => {
+    const first = (await req(base, 'GET', '/api/todos/7')).json.todos;
+    assert.strictEqual(first.text, '- [ ] a\n- [ ] b\n', 'a read carries the whole text with plain new lines');
+    const r = await req(base, 'PUT', '/api/todos/7', { text: '# pasted\n- [x] b\n- [ ] a\n', version: first.version });
+    assert.deepStrictEqual([r.status, texts(r), r.json.todos.text], [200, ['= # pasted', 'x0 b', 'o0 a'], '# pasted\n- [x] b\n- [ ] a\n']);
+    assert.strictEqual(read(dir, '.both/0007.todo.md'), '# pasted\r\n- [x] b\r\n- [ ] a\r\n');
+    assert.deepStrictEqual((await req(base, 'GET', '/api/board')).json.todos.counts, { 7: { open: 1, total: 2 } });
+    const stale = await req(base, 'PUT', '/api/todos/7', { text: 'mine', version: first.version });
+    assert.strictEqual(stale.status, 409);
+    assert.match(stale.json.error, /changed on disk/);
+    assert.strictEqual((await req(base, 'PUT', '/api/todos/7', { text: 'mine' })).status, 400);
+    const v = (await req(base, 'GET', '/api/todos/7')).json.todos.version;
+    const long = await req(base, 'PUT', '/api/todos/7', { text: 'x'.repeat(300001), version: v });
+    assert.strictEqual(long.status, 413);
+    assert.match(long.json.error, /too long/);
+    assert.strictEqual(read(dir, '.both/0007.todo.md'), '# pasted\r\n- [x] b\r\n- [ ] a\r\n');
+    assert.strictEqual((await req(base, 'PUT', '/api/todos/7/move', { text: 'x', version: v })).status, 404, 'the whole text has the one route');
+  });
+});
+
+test('PUT for a target with no list makes the file, and the next board lists it', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    const v = (await req(base, 'GET', '/api/todos/3')).json.todos.version;
+    const r = await req(base, 'PUT', '/api/todos/3', { text: '- [ ] new\n', version: v });
+    assert.deepStrictEqual([r.status, r.json.todos.exists], [200, true]);
+    assert.strictEqual(read(dir, '.both/0003.todo.md'), '- [ ] new\n');
+    assert.deepStrictEqual((await req(base, 'GET', '/api/board')).json.todos.targets, ['3']);
+  });
+  await withServer(tmpBoard({ config: 'name: t\n' }), async (base) => {
+    assert.strictEqual((await req(base, 'PUT', '/api/todos/3', { text: 'x', version: '' })).status, 404, 'todo lists off');
+  });
 });
 
 test('request text never builds a path: an id with dots or slashes is no route and nothing is written outside the folder', async () => {
