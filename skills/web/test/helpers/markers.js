@@ -73,7 +73,7 @@ function graphButtonTags() {
   const sandbox = { document: { createElement: fakeNode } };
   vm.runInNewContext(fn('graphButton', graphSrc), sandbox);
   return [
-    sandbox.graphButton('graph-layout-btn', 'Tiers', 'title', { layout: 'tiers' }),
+    sandbox.graphButton('graph-kind-btn', 'Hierarchy', 'title', { graphKind: 'hierarchy' }),
     sandbox.graphButton('graph-zoom-btn', '+', 'title', { graphAction: 'in' }),
   ].map((b) => b.tagText);
 }

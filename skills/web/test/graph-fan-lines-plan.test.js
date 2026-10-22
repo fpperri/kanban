@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphLayout, graphPlan, graphLit, graphRestLit, GRAPH_LAYOUTS,
+  graphLayout, graphPlan, graphLit, graphRestLit,
 } = require('../web/graph-model');
 const { card, buildOf } = require('./helpers/fan-boards');
 
@@ -48,12 +48,9 @@ test('dependencies off draws no arrow and keeps the parent lines', () => {
   assert.deepStrictEqual(kinds(planOf(model, { lines: 'off', dependencies: 'off' }).plan), { parent: 0, wait: 0 });
 });
 
-test('a plan with no options draws every relation, as the Force and Status layouts always do', () => {
+test('a plan with no options draws every relation', () => {
   const model = tree();
   assert.deepStrictEqual(kinds(planOf(model, null).plan), { parent: 7, wait: 2 });
-  for (const kind of GRAPH_LAYOUTS.filter((k) => k !== 'tiers')) {
-    assert.deepStrictEqual(kinds(planOf(model, { lines: 'off', dependencies: 'off' }, kind).plan), { parent: 7, wait: 2 }, `${kind} reads no option`);
-  }
 });
 
 test('an arrow is a dashed line with a head; a parent line, counted or not, has none', () => {
