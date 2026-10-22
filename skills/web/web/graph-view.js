@@ -1209,11 +1209,7 @@ function wireGraphView(host) {
     if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
     if (option) {
-      keepControlFocus(option, () => {
-        if (option.dataset.key === 'deps') graphSetDeps(option.dataset.val);
-        else if (option.dataset.key === 'lanes') graphSetLanes(option.dataset.val);
-        else graphSetOption(option.dataset.key, option.dataset.val);
-      });
+      keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : option.dataset.key === 'lanes' ? graphSetLanes(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
       return;
     }
     const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
