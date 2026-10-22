@@ -56,6 +56,11 @@ function paletteDocument(holder) {
     el.getBoundingClientRect = () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
     el.style = { setProperty(k, v) { this[k] = v; }, removeProperty(k) { delete this[k]; } };
     el.value = '';
+    // A text area's value is an accessor, as the browser's is, so a script that watches it can wrap it.
+    if (tag === 'textarea') {
+      let held = '';
+      Object.defineProperty(el, 'value', { configurable: true, enumerable: true, get: () => held, set: (v) => { held = String(v); } });
+    }
     el.hidden = false;
     el.isConnected = true;
     // A text area needs 20px a line and 12px of padding; a line wraps at 40 characters.

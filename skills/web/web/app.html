@@ -542,6 +542,11 @@
             <label class="prefs-check"><input type="checkbox" id="prefs-statuses-folded" data-keeps-selection data-holds-poll> Status section starts folded</label>
             <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
           </section>
+          <section class="prefs-group" aria-labelledby="prefs-editing-title">
+            <h3 id="prefs-editing-title">Editing</h3>
+            <p class="prefs-hint">The card form's description and the Scratchpad's Edit box show headings, bold, links, code and the rest in colour while you type. The text, the keys and the box do not change; off, the boxes are plain.</p>
+            <label class="prefs-check"><input type="checkbox" id="prefs-md-colour" data-keeps-selection data-holds-poll> Colour Markdown while editing</label>
+          </section>
         </section>
         <section class="prefs-page" data-page="browser:hotkeys">
           <p class="prefs-eyebrow">This browser</p>
@@ -627,6 +632,8 @@
 <script src="/menu-nest-ui.js"></script>
 <script src="/text-edit.js"></script>
 <script src="/text-edit-ui.js"></script>
+<script src="/markdown-edit.js"></script>
+<script src="/markdown-edit-ui.js"></script>
 <script src="/scratchpad-ui.js"></script>
 <script src="/todos-ui.js"></script>
 <script src="/iterations-ui.js"></script>

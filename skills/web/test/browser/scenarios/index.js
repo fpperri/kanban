@@ -50,6 +50,7 @@ module.exports = [
   require('./markdown'),
   require('./scratchpad'),
   require('./todos'),
+  require('./markdown-edit'),
   require('./iteration-paths'),
   require('./delete'),
   require('./feature'),

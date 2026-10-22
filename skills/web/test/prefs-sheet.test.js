@@ -160,7 +160,7 @@ function fakeEl(id, classes = []) {
 function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const colState = require('../web/column-state');
   const writes = {};
-  const log = { renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], switches: [], focused: null, shown: [], went: [] };
+  const log = { colour: [], renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], switches: [], focused: null, shown: [], went: [] };
   const sheet = fakeEl('prefs-sheet', ['modal-backdrop', 'hidden']);
   const gear = fakeEl('prefs-btn');
   gear.setAttribute('aria-expanded', 'false');
@@ -170,6 +170,7 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const statusesFolded = fakeEl('prefs-statuses-folded');
   const slicesFolded = fakeEl('prefs-slices-folded');
   const panelOnFocus = fakeEl('prefs-panel-on-focus');
+  const mdColour = fakeEl('prefs-md-colour');
   const opts = [];
   const opt = (pref, value, extra = {}) => {
     const o = fakeEl(`${pref}-${value}`);
@@ -185,8 +186,8 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   sheet.querySelectorAll = (sel) => { assert.strictEqual(sel, '.prefs-opt'); return opts; };
   const more = fakeEl('more-btn');
   const owner = log;
-  for (const e of [sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, ...opts]) e.owner = owner;
-  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#more-btn': more, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus };
+  for (const e of [sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, mdColour, ...opts]) e.owner = owner;
+  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#more-btn': more, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus, '#prefs-md-colour': mdColour };
   const sandbox = {
     state: { projectName: 'shop' },
     ...colState,
@@ -202,17 +203,18 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
     foldSearchSlices: (folded) => { log.sliceFolds.push(folded); },
     foldSearchStatuses: (folded) => { log.statusFolds.push(folded); },
     applySearchPanelSwitch: (on, openNow) => { log.switches.push([on, openNow]); },
+    mdEditSetOn: (on) => { log.colour.push(on); },
     settingsShow: (page) => { log.shown.push(page); },
     settingsGo: (page) => { log.went.push(page); },
     currentDetailId: detailOpen ? 4 : null,
-    sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, opts, writes, log,
+    sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, mdColour, opts, writes, log,
   };
   vm.createContext(sandbox);
   const memo = (re, what) => { const m = appSrc.match(re); assert.ok(m, what); return m[0]; };
   vm.runInContext([
     memo(/^let rollupBarMode = null;$/m, 'bar memo'), memo(/^let prefsMemo = null;$/m, 'prefs memo'),
     fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('prefsStorage'), fn('loadPrefsState'), fn('savePrefsState'), fn('countArchivedLeaves'),
-    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setPanelOnFocus'),
+    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setPanelOnFocus'), fn('setMdColour'),
     fn('prefOptionOn'), fn('syncPrefsSheet'), fn('openPrefsSheet'), fn('closePrefsSheet'), fn('onPrefsSheetClick'),
   ].join('\n'), sandbox);
   return sandbox;
@@ -629,4 +631,29 @@ test('the sheet\'s rules are in the stylesheet: a slide in from the right, a ful
   for (const cls of ['prefs-btn', 'prefs-backdrop', 'prefs-sheet', 'prefs-head', 'prefs-group', 'prefs-row', 'prefs-seg', 'prefs-opt', 'prefs-check', 'prefs-hint']) {
     assert.match(block, new RegExp(`\\.${cls}\\b`), `${cls} has a rule`);
   }
+});
+
+test('the sheet shows the Markdown boxes as coloured to start, and as not when this browser kept that, on every board', () => {
+  const none = sheetPage();
+  none.openPrefsSheet();
+  assert.strictEqual(none.mdColour.checked, true);
+  const kept = sheetPage({ stored: { 'kanban.md-colour': 'false' } });
+  kept.openPrefsSheet();
+  assert.strictEqual(kept.mdColour.checked, false);
+  const other = sheetPage({ stored: { 'kanban.md-colour': 'false' } });
+  other.state.projectName = 'lab';
+  other.openPrefsSheet();
+  assert.strictEqual(other.mdColour.checked, false, "the choice is the browser's, not a board's");
+});
+
+test('choosing to colour or not saves one browser-wide key and tells the boxes, leaving the prefs entry of a board and the board alone', () => {
+  const p = sheetPage();
+  p.setMdColour(false);
+  assert.deepStrictEqual(Object.keys(p.writes), ['kanban.md-colour']);
+  assert.strictEqual(p.writes['kanban.md-colour'], 'false');
+  assert.deepStrictEqual(p.log.colour, [false]);
+  p.setMdColour(true);
+  assert.strictEqual(p.writes['kanban.md-colour'], 'true');
+  assert.deepStrictEqual(p.log.colour, [false, true]);
+  assert.strictEqual(p.log.renders, 0, 'nothing on the board is repainted');
 });

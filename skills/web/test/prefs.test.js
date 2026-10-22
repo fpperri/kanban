@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { PREFS_FEATURE, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs } = require('../web/prefs');
+const { PREFS_FEATURE, MD_COLOUR_KEY, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs, loadMdColour, saveMdColour } = require('../web/prefs');
 
 // The preferences kept in the browser per board: what a plain click on a card
 // does in each view, whether archived leaves count as done, whether the
@@ -262,4 +262,30 @@ test('a change the sheet cannot make is dropped: a bad choice, the Graph set to 
   assert.deepStrictEqual(next, prefs, 'what was chosen stays chosen');
   assert.deepStrictEqual(prefsWith(prefs, null), prefs);
   assert.deepStrictEqual(prefsWith(prefs, {}), prefs);
+});
+
+test('whether the Markdown boxes are coloured is one choice for the whole browser: one key with no board in it, on by default', () => {
+  assert.strictEqual(MD_COLOUR_KEY, 'kanban.md-colour');
+  assert.strictEqual(loadMdColour(storageOf()), true);
+  const storage = storageOf();
+  saveMdColour(storage, false);
+  assert.deepStrictEqual(Object.keys(storage.items), ['kanban.md-colour']);
+  assert.strictEqual(loadMdColour(storage), false);
+  saveMdColour(storage, true);
+  assert.strictEqual(loadMdColour(storage), true);
+});
+
+test('the Markdown-colour choice is not part of the prefs entry of a board, saved or read', () => {
+  assert.ok(!('mdColour' in prefsDefaults()));
+  assert.ok(!('mdColour' in mergePrefs(JSON.stringify({ mdColour: false }))));
+  assert.ok(!('mdColour' in prefsWith(prefsDefaults(), { mdColour: false })));
+});
+
+test('a stored value that is not false, text that does not parse and storage that throws all leave the boxes coloured', () => {
+  for (const bad of ['"false"', '0', 'null', '{', 'nonsense']) assert.strictEqual(loadMdColour(storageOf({ 'kanban.md-colour': bad })), true, bad);
+  const broken = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
+  assert.strictEqual(loadMdColour(broken), true);
+  assert.doesNotThrow(() => saveMdColour(broken, false));
+  assert.strictEqual(loadMdColour(null), true);
+  assert.doesNotThrow(() => saveMdColour(null, false));
 });
