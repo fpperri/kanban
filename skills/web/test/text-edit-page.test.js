@@ -5,7 +5,7 @@ const path = require('node:path');
 const { openPalette, note } = require('./helpers/palette-page');
 
 // The multiline boxes' keys in the real page (helpers/palette-page.js): Tab and the Markdown keys in the
-// notes palette's note box, a note's edit box, the Scratchpad's box and the card form's description, the
+// notes palette's note box, a note's edit box, the Scratchpad's box, the Todos tab's Edit box and the card form's description, the
 // Ctrl+M switch, and the fields they leave alone. The rules are text-edit.js, tested apart; the browser
 // runner drives the same in Chrome (scenarios/notes.js).
 
@@ -251,4 +251,15 @@ test('in the Scratchpad\'s Edit mode, which has the box, Tab indents and the Mar
   press(box, 'Tab');
   assert.strictEqual(box.value, 'a  b');
   assert.ok(panel.querySelector('.sp-preview'), 'the preview is its own element, not the box');
+});
+
+test('the Todos tab\'s Edit box takes the same keys: todosPanel attaches it, and Tab nests an item', async () => {
+  const p = await open({ todos: { folder: 'todos', targets: [], counts: {} } });
+  const panel = p.page.run("todosPanel('7')");
+  const box = panel.querySelector('.sp-text');
+  assert.strictEqual(box.dataset.textEdit, '1');
+  fill(p, box, '- [ ] one\n- [ ] two', 10);
+  press(box, 'Tab');
+  assert.strictEqual(box.value, '- [ ] one\n  - [ ] two');
+  assert.strictEqual(panel.querySelector('.td-add').dataset.textEdit, undefined, 'the single-line box that adds keeps the browser\'s Tab');
 });

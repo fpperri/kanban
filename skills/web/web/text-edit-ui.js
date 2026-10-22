@@ -1,6 +1,6 @@
 'use strict';
 // The multiline text boxes' keys on the page: the notes palette's note box and a note's edit box, the
-// Scratchpad tab's box and the card form's description each call textEditAttach(box) once, and Tab then
+// Scratchpad tab's box, the Todos tab's Edit box and the card form's description each call textEditAttach(box) once, and Tab then
 // indents, Shift+Tab outdents and Ctrl+B, Ctrl+I, Ctrl+U, Alt+S, Ctrl+E, Ctrl+K, Ctrl+Shift+7,
 // Ctrl+Shift+8 and Ctrl+Shift+. format Markdown (text-edit.js has the rules; hotkeys.js lists the keys).
 // A key the box handles has its browser action stopped, here and only while the box has focus: Ctrl+U

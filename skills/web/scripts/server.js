@@ -377,7 +377,8 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       }
 
       // the todo lists (ADR 0021): GET reads a list; POST adds an item, PATCH ticks or edits one, DELETE
-      // removes one and POST .../move reorders one, POST .../indent and .../outdent change its level, each naming the version it read (a clash is a 409)
+      // removes one and POST .../move reorders one, POST .../indent and .../outdent change its level, and PUT
+      // writes the whole text (the tab's Edit), each naming the version it read (a clash is a 409)
       const tm = p.match(new RegExp(`^/api/todos/(${ids.ID_SOURCE})(/move|/indent|/outdent)?$`));
       if (tm) {
         const body = req.method === 'GET' ? {} : await readBody(req);
@@ -385,6 +386,7 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
         if (!tm[2] && req.method === 'POST') return sendJSON(res, 201, { todos: td.addTodo(dir, tm[1], body) });
         if (!tm[2] && req.method === 'PATCH') return sendJSON(res, 200, { todos: td.setTodo(dir, tm[1], body) });
         if (!tm[2] && req.method === 'DELETE') return sendJSON(res, 200, { todos: td.deleteTodo(dir, tm[1], body) });
+        if (!tm[2] && req.method === 'PUT') return sendJSON(res, 200, { todos: td.writeTodos(dir, tm[1], body) });
         if (tm[2] === '/move' && req.method === 'POST') return sendJSON(res, 200, { todos: td.moveTodo(dir, tm[1], body) });
         if (tm[2] === '/indent' && req.method === 'POST') return sendJSON(res, 200, { todos: td.indentTodo(dir, tm[1], body) });
         if (tm[2] === '/outdent' && req.method === 'POST') return sendJSON(res, 200, { todos: td.outdentTodo(dir, tm[1], body) });

@@ -124,7 +124,7 @@ test('the preview and the card details paint their headings in --md-preview-head
 test('the web skill names the layer, the tokenizer, the kinds, the bounds and every token', () => {
   const bullet = flat(web.slice(web.indexOf('- **Coloured Markdown boxes** —'), web.indexOf('- **Scratchpad** —')));
   assert.ok(bullet.length > 1500, 'the bullet is found');
-  for (const part of ['mdEditAttach', 'markdown-edit-ui.js', 'markdownEditSpans', 'markdown-edit.js', '#f-body', '.sp-text', '`display: contents`', 'mdEditSetOn', 'setMdColour', 'ResizeObserver',
+  for (const part of ['mdEditAttach', 'markdown-edit-ui.js', 'markdownEditSpans', 'markdown-edit.js', '#f-body', '.sp-text', 'the Todos tab\'s Edit box','`display: contents`', 'mdEditSetOn', 'setMdColour', 'ResizeObserver',
     '4000 characters', '400000 characters', 'forced-colors', 'CanvasText', 'requestAnimationFrame', 'One `ResizeObserver`', 'kanban.md-colour', 'dotted', 'never a weight, style or size', 'theme-contrast.test.js', ...TOKENS.map((t) => `\`${t}\``)]) {
     assert.ok(bullet.includes(part), part);
   }
@@ -136,7 +136,7 @@ test('the web skill names the layer, the tokenizer, the kinds, the bounds and ev
 test('the docs say what the boxes show, that only colour changes, where it is turned off and which boxes stay plain', () => {
   const para = flat(docs.slice(docs.indexOf('**Coloured Markdown** —'), docs.indexOf('**Scratchpad** —')));
   assert.ok(para.length > 900, 'the paragraph is found');
-  for (const part of ['description', 'Scratchpad\'s Edit box', 'headings', 'links (a dotted line under them', 'card mentions', 'colour and nothing else', 'wraps exactly where it would in a plain box',
+  for (const part of ['description', 'Scratchpad\'s Edit box', 'the Todos tab\'s Edit box', 'headings', 'links (a dotted line under them', 'card mentions', 'colour and nothing else', 'wraps exactly where it would in a plain box',
     'Undo', 'Ctrl+S and Ctrl+Enter', 'a table without its delimiter row', 'note box', '**Colour Markdown while editing**', 'remembered in your browser, one choice for every board', '`--md-edit-*`', 'sixth-level heading', 'stays muted']) {
     assert.ok(para.includes(part), part);
   }

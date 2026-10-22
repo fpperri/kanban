@@ -46,9 +46,13 @@ function scratchEl(tag, className, text) {
 // Ctrl+Shift+V (VS Code's preview key) switches the open Scratchpad tab between Edit and Preview, from the
 // box or anywhere else in the palette: notesOnPaletteKey hands it every key. In a plain text box it pastes
 // as Ctrl+V does, so taking it costs nothing; on any other tab, with the page not yet loaded or with any
-// other modifier it is the browser's.
+// other modifier it is the browser's. The Todos tab's Preview reads the same chord (todos-ui.js todosPreviewKey).
+function scratchPreviewChord(e) {
+  return !!e.key && e.key.toLowerCase() === 'v' && (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && !e.repeat;
+}
+
 function scratchPreviewKey(e) {
-  if (!e.key || e.key.toLowerCase() !== 'v' || !(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || e.repeat) return false;
+  if (!scratchPreviewChord(e)) return false;
   if (notesUi.tab !== 'scratch' || !scratchUi.toggle) return false;
   if (!scratchUi.toggle()) return false;
   e.preventDefault();

@@ -49,7 +49,7 @@ test('the folder is the one todos: names, relative to the board; none when the l
 test('a target with no file reads as an empty list that does not exist yet, and reading creates nothing', () => {
   const dir = tmpBoard();
   const list = td.readTodos(dir, '7');
-  assert.deepStrictEqual({ ...list, version: typeof list.version }, { target: '7', exists: false, file: '0007.todo.md', version: 'string', lines: [] });
+  assert.deepStrictEqual({ ...list, version: typeof list.version }, { target: '7', exists: false, file: '0007.todo.md', version: 'string', text: '', lines: [] });
   assert.ok(!fs.existsSync(path.join(dir, '.todos')));
 });
 
@@ -408,4 +408,72 @@ test('todos and the scratchpad may share a folder: each store reads only its own
   assert.deepStrictEqual(fs.readdirSync(path.join(dir, '.both')).sort(), ['0007.scratchpad.md', '0008.scratchpad.md', '0009.todo.md']);
   assert.strictEqual(sp.deleteTargetFiles(dir, '9'), 0);
   assert.ok(fs.existsSync(path.join(dir, '.both', '0009.todo.md')));
+});
+
+// ---------- the whole text (the tab's Edit) ----------
+
+test('a read carries the file\'s whole text with plain new lines and no byte order mark, empty for a list not written yet', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '\uFEFF# plan\r\n- [ ] a\r\n\r\n  notes\r\n- [x] b' });
+  assert.strictEqual(td.readTodos(dir, '7').text, '# plan\n- [ ] a\n\n  notes\n- [x] b');
+  assert.strictEqual(td.readTodos(dir, '3').text, '');
+});
+
+// a whole-text write that names the version just read
+const writeText = (dir, t, text) => td.writeTodos(dir, t, { text, version: td.readTodos(dir, t).version });
+
+test('a whole-text write makes the file exactly that text, in the file\'s own line endings, and answers the list as it now reads', () => {
+  const crlf = tmpBoard(undefined, { [FILE]: '- [ ] a\r\n- [ ] b\r\n' });
+  const made = writeText(crlf, '7', '# plan\n- [ ] b\n  - [x] b1\n\nloose words\n- [ ] a');
+  assert.strictEqual(read(crlf, FILE), '# plan\r\n- [ ] b\r\n  - [x] b1\r\n\r\nloose words\r\n- [ ] a');
+  assert.deepStrictEqual(shape(made), ['= # plan', 'o b', '>x b1', '= loose words', 'o a']);
+  assert.strictEqual(made.text, '# plan\n- [ ] b\n  - [x] b1\n\nloose words\n- [ ] a');
+  assert.strictEqual(made.version, td.readTodos(crlf, '7').version);
+  const lf = tmpBoard(undefined, { [FILE]: '- [ ] a\n' });
+  writeText(lf, '7', '- [ ] one\r\n- [ ] two\n');
+  assert.strictEqual(read(lf, FILE), '- [ ] one\n- [ ] two\n', 'a CRLF in the text is the file\'s ending too');
+});
+
+test('a whole-text write over a list that changed since it was read is refused with 409 and writes nothing; one with no version or no text with 400', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n' });
+  const stale = td.readTodos(dir, '7').version;
+  fs.writeFileSync(path.join(dir, FILE), '- [ ] a\n- [ ] by hand\n');
+  assert.throws(() => td.writeTodos(dir, '7', { text: 'mine\n', version: stale }), (e) => e instanceof StatusError && e.status === 409 && /changed on disk/.test(e.message));
+  refused(() => td.writeTodos(dir, '7', { text: 'mine\n' }), 400);
+  const v = td.readTodos(dir, '7').version;
+  refused(() => td.writeTodos(dir, '7', { text: 12, version: v }), 400);
+  refused(() => td.writeTodos(dir, '7', { version: v }), 400);
+  refused(() => td.writeTodos(dir, '7', null), 400);
+  assert.strictEqual(read(dir, FILE), '- [ ] a\n- [ ] by hand\n');
+});
+
+test('a whole text over the size limit is refused with 413, even over a file already past it, and writes nothing', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '- [ ] a\n' });
+  assert.throws(() => writeText(dir, '7', 'x'.repeat(td.MAX_FILE + 1)), (e) => e instanceof StatusError && e.status === 413 && /too long/.test(e.message));
+  writeText(dir, '7', 'x'.repeat(td.MAX_FILE));
+  assert.strictEqual(read(dir, FILE).length, td.MAX_FILE, 'the limit itself fits');
+  const crlf = tmpBoard(undefined, { [FILE]: '- [ ] a\r\n' });
+  refused(() => writeText(crlf, '7', 'y\n'.repeat(td.MAX_FILE / 2)), 413); // the limit is on the file as written, its line endings included
+  assert.strictEqual(read(crlf, FILE), '- [ ] a\r\n');
+  const over = tmpBoard(undefined, { [FILE]: 'z'.repeat(td.MAX_FILE + 10) });
+  refused(() => writeText(over, '7', 'z'.repeat(td.MAX_FILE + 5)), 413);
+  assert.strictEqual(read(over, FILE).length, td.MAX_FILE + 10);
+});
+
+test('a whole-text write for a target with no list makes the file in its folder, named by the board\'s idDigits', () => {
+  const dir = tmpBoard();
+  assert.ok(!fs.existsSync(path.join(dir, '.todos')));
+  const made = writeText(dir, '7', '- [ ] first\n- [ ] second\n');
+  assert.deepStrictEqual(fs.readdirSync(path.join(dir, '.todos')), ['0007.todo.md']);
+  assert.strictEqual(read(dir, FILE), '- [ ] first\n- [ ] second\n');
+  assert.strictEqual(made.exists, true);
+  writeText(dir, 'I2', 'group notes');
+  assert.strictEqual(read(dir, '.todos/I0002.todo.md'), 'group notes');
+});
+
+test('a whole-text write keeps a byte order mark, and the text read back is the text written', () => {
+  const dir = tmpBoard(undefined, { [FILE]: '\uFEFF- [ ] one\r\n' });
+  const made = writeText(dir, '7', '- [x] one\n- [ ] two\n');
+  assert.strictEqual(read(dir, FILE), '\uFEFF- [x] one\r\n- [ ] two\r\n');
+  assert.strictEqual(made.text, '- [x] one\n- [ ] two\n');
+  assert.deepStrictEqual(td.counts(dir), { 7: { open: 1, total: 2 } });
 });

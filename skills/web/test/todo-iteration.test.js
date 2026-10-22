@@ -87,8 +87,18 @@ test('a list not written yet reads as empty and names the folder a write would u
   const dir = tmpBoard();
   iteration(dir, '5', '0005.sprint-496', '2026-10-12', '2026-10-23', [7]);
   const read = td.readTodos(dir, '7', { today: TODAY });
-  assert.deepStrictEqual({ ...read, version: 0 }, { target: '7', exists: false, file: '0007.todo.md', folder: 'lists/0005.sprint-496/.todos', version: 0, lines: [] });
+  assert.deepStrictEqual({ ...read, version: 0 }, { target: '7', exists: false, file: '0007.todo.md', folder: 'lists/0005.sprint-496/.todos', version: 0, text: '', lines: [] });
   assert.deepStrictEqual(lists(dir), []);
+});
+
+test('a whole-text write for a list not written yet makes it in the folder a first write would use', () => {
+  const dir = tmpBoard();
+  iteration(dir, '5', '0005.sprint-496', '2026-10-12', '2026-10-23', [7]);
+  const opts = { today: TODAY };
+  const made = td.writeTodos(dir, '7', { text: '- [ ] pasted\n', version: td.readTodos(dir, '7', opts).version }, opts);
+  assert.deepStrictEqual(list(at(dir, 'lists', '0005.sprint-496', '.todos')), ['0007.todo.md']);
+  assert.strictEqual(made.folder, 'lists/0005.sprint-496/.todos');
+  assert.strictEqual(fs.readFileSync(at(dir, 'lists', '0005.sprint-496', '.todos', '0007.todo.md'), 'utf8'), '- [ ] pasted\n');
 });
 
 test('reading finds a list in any folder, and lists and counts every target of every folder', () => {

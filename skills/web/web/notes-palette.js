@@ -35,7 +35,7 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
-// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, todosOn, todosPanel, todosHints, todosOnBoard, wireDatePickButton, attachCombobox, loadViewMode,
+// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, scratchPreviewKey, todosOn, todosPanel, todosHints, todosOnBoard, todosPreviewKey, wireDatePickButton, attachCombobox, loadViewMode,
 // loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
 
 const notesUi = {
@@ -586,6 +586,13 @@ function notesPaintPreview() {
   u.prev.replaceChildren(notesEl('span', 'np-prev-key', '↵'), notesEl('span', 'np-prev-text', text), notesEl('span', 'np-prev-hint', 'Shift+↵ new line'));
 }
 
+// One key of the palette's foot: the key, then what it does. The Todos tab repaints its own with it.
+function notesHint(key, what) {
+  const s = notesEl('span');
+  s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`));
+  return s;
+}
+
 function notesPaint() {
   const u = notesUi;
   if (!u.sub) return;
@@ -598,7 +605,7 @@ function notesPaint() {
   const panel = u.tab !== 'notes';
   for (const el of [u.when, u.input, u.prev, u.filterRow, u.rangeRow]) el.hidden = panel;
   if (!panel) { notesGrow(); notesPaintPick(); notesPaintRange(); }
-  const hint = (key, what) => { const s = notesEl('span'); s.append(notesEl('kbd', '', key), document.createTextNode(` ${what}`)); return s; };
+  const hint = notesHint;
   if (panel) {
     notesPaintBody();
     const hints = u.tab === 'scratch' ? [hint('Ctrl+↵', 'save'), hint('Esc', 'close')] : u.tab === 'todos' ? todosHints().map(([key, what]) => hint(key, what)) : [hint('Esc', 'close')];
@@ -1116,7 +1123,7 @@ function notesEscape(fromFilter = false) {
 
 function notesOnPaletteKey(e) {
   if (!notesUi.sub) return; // a palette that has closed keeps no keys: a box that still holds the focus must not swallow the page's Esc
-  if (notesTabKey(e) || scratchPreviewKey(e)) return;
+  if (notesTabKey(e) || scratchPreviewKey(e) || todosPreviewKey(e)) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();

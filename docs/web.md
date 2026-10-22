@@ -430,8 +430,8 @@ back button.
   end of the search box, the same choice the arrow and the `p` key flip, so each shows
   what the others did. Turning it off closes the panel; turning it on here leaves the
   panel closed until the box is focused.
-- *Colour Markdown while editing* is on by default. The card form's description and the
-  Scratchpad's Edit box show their Markdown in colour as you type (see **Coloured
+- *Colour Markdown while editing* is on by default. The card form's description, the
+  Scratchpad's Edit box and the Todos tab's Edit box show their Markdown in colour as you type (see **Coloured
   Markdown** below); off, they are plain boxes. Unlike the settings above it is one choice
   for the whole browser, every board, not one per board.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
@@ -575,13 +575,13 @@ note, `e` edits it, `a` assigns it to another card (or to none) and `d d` delete
 header has the card details' full screen button, and `Alt+Enter` does the same while the palette is the
 popup that is up, from any box of it (over the card details it toggles the palette, not the details):
 full screen it fills the window, and the list, the Scratchpad tab's box and its Preview take the
-height. The choice is kept per board; every key, tab and Esc work as before. With focus in the palette
+height, as the Todos tab's Edit box and Preview do. The choice is kept per board; every key, tab and Esc work as before. With focus in the palette
 while another popup is up, `Alt+Enter` does nothing. On a phone (under 760 px) the palette is always full screen, as the card details are: the button is not
 there, a saved choice makes no difference and `Alt+Enter` does nothing. Without a
 `logbook:` line nothing of this shows. The Graph's names step with `l`.
 
-**Text boxes** — four multiline boxes take editing keys: the notes palette's note box, the box a
-listed note is edited in, the Scratchpad's box and the card form's description. **Tab** indents by two
+**Text boxes** — five multiline boxes take editing keys: the notes palette's note box, the box a
+listed note is edited in, the Scratchpad's box, the Todos tab's Edit box and the card form's description. **Tab** indents by two
 spaces (every selected line, when several are selected) and **Shift+Tab** outdents by up to two;
 **Ctrl+M** switches Tab to moving focus for keyboard-only use, until the page is reloaded; a small hint
 in the box always says which Tab it is now and what Ctrl+M changes ("Tab indents · Ctrl+M: Tab moves
@@ -596,8 +596,8 @@ actions (view source, the address bar) are stopped only while one of these boxes
 Shift+Enter, Ctrl+Enter and Ctrl+S keep what they do in each box, and the single-line fields (the
 filter, the time, a combobox) keep the browser's Tab.
 
-**Coloured Markdown** — the card form's description and the Scratchpad's Edit box draw what you
-type in colour: headings, **bold**, *italic*, ~~strike~~ (struck through), `inline code` and fenced
+**Coloured Markdown** — the card form's description, the Scratchpad's Edit box and the Todos tab's
+Edit box draw what you type in colour: headings, **bold**, *italic*, ~~strike~~ (struck through), `inline code` and fenced
 blocks, links (a dotted line under them, as in the preview), the marks of lists, quotes, rules and tables, the `<u>`, `<details>` and
 `<summary>` tags, and card mentions (`` `webapp#12 Title` `` and a bare `#12`) on the chip's ground. It is
 colour and nothing else: no weight, style or size changes, so a line wraps exactly where it would in
@@ -640,7 +640,17 @@ among its siblings, **Tab** indents it (it becomes the last child of the item ab
 there is no bulk clear. A held key acts once, and a change is ignored while another is on its way. An item's text is drawn as inline Markdown, and a line of the file that is
 not an item shows muted and read only. The list is read again when the board refreshes, so an
 edit by hand or by an agent shows, and every change names the version of the list it read: a list
-changed meanwhile is refused with the reason and read again, and nothing is overwritten. A todo
+changed meanwhile is refused with the reason and read again, and nothing is overwritten. A
+**List | Edit | Preview** switch sits over the tab, as on the Scratchpad: List, the default, is the
+list. **Edit** is the list's whole file as text, to paste a list, reorder a block or add notes
+between items; **Ctrl+Enter** or **Save** writes it, and the file then holds exactly that text in its
+own line endings (a list not written yet starts empty, and Save makes the file). A save names the
+version of the list it read: if the list changed meanwhile, nothing is written, the reason is said and
+your text stays in the box. The line under the box then says that Save again replaces the list with your
+text and that List shows the list as it is now; a second save writes it over the list. **Preview** draws
+the text, saved or not, as Markdown, read only, and **Ctrl+Shift+V** turns it on and off again, back
+to List or Edit. Text you have not saved stays until you reload the page, and the tab opens on Edit
+while there is some; with none, the box follows the list. A text over 300000 characters is refused. A todo
 list means nothing to the board: it never changes a card's status or holds a card out of `doing`,
 and adds into no parent's roll-up. The delete popup's **Its todo list** box is unticked. Without a
 `todos:` line nothing of this shows. The mobile snapshot has no todo lists.

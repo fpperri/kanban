@@ -16,12 +16,24 @@
 // keys name), and a held key acts once. The board payload carries the open and total of each list (state.todos.counts), which the tiles
 // and badges draw; the delete popup reads state.todos.targets.
 //
+// A List | Edit | Preview switch sits over it, the scratchpad's switch with List first (its classes and
+// keys). List, the default, is the list above. Edit is the list's whole file as text in the scratchpad's
+// box; Ctrl+Enter or Save writes it with PUT, naming the version the text was read at, so a list changed
+// since is refused with the server's reason, read again, and the text stays in the box; the status line
+// says a second save replaces the list with the text and that List shows the list as it is now. Preview draws the box's text, saved or not, with markdownInto.
+// Ctrl+Shift+V switches Preview on and off, back to the mode it came from. While the box holds no text of
+// its own it follows the list (a change from List, a hand edit at a refresh); text not yet saved is kept
+// in this page's memory per target until it is reloaded, and the tab opens on Edit while there is some.
+//
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads, except settingsAddBoardPage which it calls at load: $, state, api, toast, loadBoard, menuSubject,
-// hideContextMenu, openNotes, notesLabel, notesAimedCard, NOTES_DETAIL,
-// keyGuardOff, markdownInto, settingsFeatureNodes, settingsAddBoardPage.
+// hideContextMenu, openNotes, notesLabel, notesAimedCard, notesHint, NOTES_DETAIL, notesUi,
+// keyGuardOff, markdownInto, textEditAttach, mdEditAttach, scratchKeyName, scratchPreviewChord,
+// settingsFeatureNodes, settingsAddBoardPage.
 
-const todosUi = { refresh: null, parent: null, pending: 0, editing: 0 };
+// `mode` is the shown one of 'list', 'edit' and 'preview', `back` the one Preview goes back to; `drafts`
+// holds { text, version } per target for text not yet saved.
+const todosUi = { refresh: null, parent: null, pending: 0, editing: 0, mode: 'list', back: 'list', toggle: null, drafts: new Map() };
 
 function todosOn() {
   return !!state.todos;
@@ -38,9 +50,30 @@ function todoEl(tag, className, text) {
   return el;
 }
 
-// The keys the palette's footer names on the Todos tab.
+// The keys the palette's footer names on the Todos tab, for the mode shown.
 function todosHints() {
+  if (todosUi.mode === 'edit') return [['Ctrl+↵', 'save'], [scratchKeyName(), 'preview'], ['Esc', 'close']];
+  if (todosUi.mode === 'preview') return [[scratchKeyName(), todosUi.back === 'edit' ? 'edit' : 'list'], ['Esc', 'close']];
   return [['↵', 'add'], ['␣', 'tick'], ['e', 'edit'], ['d d', 'delete'], ['Alt+↑↓', 'move'], ['⇥', 'indent'], ['Esc', 'close']];
+}
+
+// A switch of mode repaints the foot's keys; a change on its way keeps its saving… after them.
+function todosPaintHints() {
+  const foot = notesUi.foot;
+  if (!foot || notesUi.tab !== 'todos') return;
+  const saving = foot.querySelector('.td-saving');
+  foot.replaceChildren(...todosHints().map(([key, what]) => notesHint(key, what)), ...(saving ? [saving] : []));
+}
+
+// Ctrl+Shift+V (Cmd+Shift+V) switches the open Todos tab's Preview on and off, from anywhere in the
+// palette, as on the Scratchpad (scratchPreviewKey): notesOnPaletteKey hands it every key.
+function todosPreviewKey(e) {
+  if (!scratchPreviewChord(e)) return false;
+  if (notesUi.tab !== 'todos' || !todosUi.toggle) return false;
+  if (!todosUi.toggle()) return false;
+  e.preventDefault();
+  e.stopPropagation();
+  return true;
 }
 
 // ---------- the count on a tile or a badge ----------
@@ -88,10 +121,45 @@ function todosPanel(target) {
   const rows = todoEl('div', 'td-list');
   rows.setAttribute('role', 'list');
   rows.setAttribute('aria-label', 'Todos');
-  wrap.append(path, bar, rows, empty, live, hint);
+  const pane = todoEl('div', 'td-pane'); // List: the box that adds and the rows
+  pane.append(bar, rows, empty);
+
+  // Edit and Preview: the scratchpad's box, preview and Save row.
+  const keyName = scratchKeyName();
+  const modes = todoEl('div', 'sp-modes');
+  modes.setAttribute('role', 'group');
+  modes.setAttribute('aria-label', 'List, edit or preview');
+  const modeButtons = [['list', 'List', 'The list, item by item'], ['edit', 'Edit', 'The whole file as text'], ['preview', 'Preview', `Preview (${keyName})`]].map(([name, label, title]) => {
+    const b = todoEl('button', 'sp-mode', label);
+    b.type = 'button';
+    b.title = title;
+    b.dataset.mode = name;
+    b.disabled = name !== 'list'; // until the list has loaded
+    modes.append(b);
+    return b;
+  });
+  const previewButton = modeButtons[2];
+  previewButton.dataset.key = keyName; // drawn after the name by the stylesheet, as on the Scratchpad
+  previewButton.setAttribute('aria-keyshortcuts', 'Control+Shift+V Meta+Shift+V');
+  const textBox = todoEl('textarea', 'sp-text');
+  Object.assign(textBox, { spellcheck: false, disabled: true, placeholder: 'Loading…' });
+  textBox.setAttribute('aria-label', 'Todo list text');
+  textEditAttach(textBox);
+  const view = todoEl('div', 'sp-preview detail-body');
+  view.setAttribute('tabindex', '0');
+  view.setAttribute('aria-label', 'Todo list preview');
+  const save = todoEl('button', 'sp-save', 'Save');
+  save.type = 'button';
+  save.disabled = true;
+  const status = todoEl('span', 'sp-status');
+  status.setAttribute('aria-live', 'polite');
+  const saveBar = todoEl('div', 'sp-bar');
+  saveBar.append(save, todoEl('span', 'np-muted', 'Ctrl+Enter saves'), status);
+  wrap.append(path, modes, pane, mdEditAttach(textBox), view, saveBar, live, hint); // the box is drawn in colour (markdown-edit-ui.js)
   todosUi.parent = null;
 
   let list = null;
+  let base = null; // the version the box's text was read at: what a save names
   const rowEls = () => [...rows.querySelectorAll('.td-row')];
   const focusRow = (row) => { if (row) row.focus(); };
   // The row at that line of the file, else the next one below it, else the last: where the focus goes
@@ -154,6 +222,104 @@ function todosPanel(target) {
     if (saving) saving.hidden = !on;
   };
 
+  // ---------- Edit and Preview ----------
+
+  const draftOf = () => todosUi.drafts.get(target) || null;
+  // The box follows the list while it holds no text of its own; text not yet saved keeps the version it
+  // was read at, so its save is refused when the list has changed since.
+  const follow = () => {
+    if (draftOf()) return;
+    base = list.version;
+    if (textBox.value === list.text) return;
+    const at = Math.min(textBox.selectionStart, list.text.length);
+    textBox.value = list.text;
+    if (document.activeElement === textBox) textBox.setSelectionRange(at, at);
+    if (todosUi.mode === 'preview') markdownInto(view, textBox.value);
+  };
+  const setList = (fresh) => { list = fresh; follow(); };
+
+  const show = (mode, byKey) => {
+    const here = document.activeElement;
+    const hiding = here === textBox || pane.contains(here); // the focus is on what the switch hides
+    if (mode !== 'preview') todosUi.back = mode;
+    todosUi.mode = mode;
+    pane.hidden = mode !== 'list';
+    textBox.hidden = mode !== 'edit';
+    view.hidden = mode !== 'preview';
+    saveBar.hidden = mode === 'list';
+    if (mode === 'preview') markdownInto(view, textBox.value); // after it is shown: a diagram is measured where it is drawn
+    for (const b of modeButtons) {
+      b.classList.toggle('on', b.dataset.mode === mode);
+      b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+    }
+    todosPaintHints();
+    if (mode === 'list' && !add.disabled) add.focus({ preventScroll: true });
+    else if (mode === 'edit' && !textBox.disabled) {
+      textBox.focus({ preventScroll: true });
+      if (byKey) textBox.setSelectionRange(textBox.value.length, textBox.value.length);
+    } else if (mode === 'preview' && hiding) view.focus({ preventScroll: true }); // the palette's keys need the focus somewhere inside
+  };
+  const toggle = () => {
+    if (!wrap.isConnected) { // the palette dropped this panel: the key is the browser's again
+      if (todosUi.toggle === toggle) todosUi.toggle = null;
+      return false;
+    }
+    if (previewButton.disabled) return false;
+    show(todosUi.mode === 'preview' ? todosUi.back : 'preview', true);
+    return true;
+  };
+  todosUi.toggle = toggle;
+  for (const b of modeButtons) b.addEventListener('click', () => show(b.dataset.mode));
+  show(draftOf() ? 'edit' : 'list');
+
+  textBox.addEventListener('input', () => {
+    status.textContent = '';
+    if (!list) return;
+    if (textBox.value === list.text) { todosUi.drafts.delete(target); base = list.version; }
+    else todosUi.drafts.set(target, { text: textBox.value, version: base });
+  });
+
+  // Ctrl+Enter or Save writes the box's text, naming the version it was read at; one change at a time, as
+  // the list's. Refused, the reason is said and the text stays; on a clash the list is read again and the
+  // text now names it, so a second save writes it over the list; the status line says so, and that List
+  // shows the list as it is now, so the second save is a choice made knowing it.
+  const write = async () => {
+    if (!list || todosUi.pending > 0) return;
+    const sent = textBox.value;
+    todosUi.pending = 1;
+    busy(true);
+    save.disabled = true;
+    try {
+      const answer = await api('PUT', url, { text: sent, version: base });
+      if (textBox.value === sent) todosUi.drafts.delete(target);
+      else todosUi.drafts.set(target, { text: textBox.value, version: answer.todos.version }); // typed while it was saving
+      base = answer.todos.version;
+      setList(answer.todos);
+      paintRows();
+      status.textContent = 'Saved';
+      try { await loadBoard(); } catch (e) { toast(e.message); }
+    } catch (e) {
+      toast(e.message);
+      if (e.status === 409) {
+        try {
+          setList((await api('GET', url)).todos);
+          paintRows();
+          base = list.version;
+          if (draftOf()) todosUi.drafts.set(target, { text: textBox.value, version: base });
+          status.textContent = 'The list changed on disk. Save again to replace it with this text; List shows it as it is now.';
+        } catch (_) { /* the next refresh reads it */ }
+      }
+    } finally {
+      todosUi.pending = 0;
+      busy(false);
+      save.disabled = false;
+    }
+  };
+  save.addEventListener('click', write);
+  textBox.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); write(); }
+  });
+
   // One change at a time: while one is on its way another is ignored, since its answer renumbers the lines
   // the keys name. A clash with a hand edit is said and the list read again. The promise answers whether the
   // change was made.
@@ -174,7 +340,7 @@ function todosPanel(target) {
     const run = async () => {
       try {
         const answer = await api(method, url + suffix, { ...body, version: list.version });
-        list = answer.todos;
+        setList(answer.todos);
         const at = answer.todos.at;
         paintRows(after && focusedIndex() === from ? after(answer.todos, at) : undefined);
         try { await loadBoard(); } catch (e) { toast(e.message); }
@@ -182,7 +348,7 @@ function todosPanel(target) {
       } catch (e) {
         toast(e.message);
         if (e.status === 409) {
-          try { list = (await api('GET', url)).todos; paintRows(); } catch (_) { /* the next refresh reads it */ }
+          try { setList((await api('GET', url)).todos); paintRows(); } catch (_) { /* the next refresh reads it */ }
         }
         return false;
       } finally {
@@ -336,11 +502,17 @@ function todosPanel(target) {
   const load = async () => {
     try {
       list = (await api('GET', url)).todos;
+      const draft = draftOf();
+      if (draft) { textBox.value = draft.text; base = draft.version; } else follow();
       paintRows();
       add.disabled = false;
+      textBox.disabled = false;
+      textBox.placeholder = 'The whole list as Markdown: - [ ] open, - [x] done, children indented under their item';
+      save.disabled = false;
+      for (const b of modeButtons) b.disabled = false;
       const here = document.activeElement;
       const opener = here && here.classList && here.classList.contains('np-trigger'); // the count that opened the tab
-      if (wrap.isConnected && (!here || here === document.body || opener || notesUi.el.contains(here))) add.focus({ preventScroll: true });
+      if (wrap.isConnected && (!here || here === document.body || opener || notesUi.el.contains(here))) (todosUi.mode === 'edit' ? textBox : add).focus({ preventScroll: true });
     } catch (e) {
       path.textContent = e.message;
     }
@@ -352,7 +524,7 @@ function todosPanel(target) {
     try {
       const fresh = (await api('GET', url)).todos;
       if (todosUi.pending > 0 || todosUi.editing > 0 || fresh.version === list.version) return;
-      list = fresh;
+      setList(fresh);
       paintRows();
     } catch (_) { /* the next refresh tries again */ }
   };

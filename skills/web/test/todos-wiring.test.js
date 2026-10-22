@@ -70,12 +70,13 @@ test('the delete popup tells the plan whether the board keeps todo lists and whi
   assert.match(deleteUi, /todosOn: todosOn\(\), todos: todoTargets\(\)/);
 });
 
-test('the tab reads and writes through /api/todos only: GET, POST, PATCH, DELETE and .../move, never a whole-file PUT', () => {
-  assert.deepStrictEqual([...new Set([...ui.matchAll(/api\('([A-Z]+)', url/g)].map((m) => m[1]))].sort(), ['GET']);
+test('the tab reads and writes through /api/todos only: GET, POST, PATCH, DELETE and .../move for the list, and one PUT of the whole text for Edit', () => {
+  assert.deepStrictEqual([...new Set([...ui.matchAll(/api\('([A-Z]+)', url/g)].map((m) => m[1]))].sort(), ['GET', 'PUT']);
   assert.deepStrictEqual([...ui.matchAll(/send\('([A-Z]+)', '([^']*)'/g)].map((m) => `${m[1]} ${m[2]}`).sort(), ['DELETE ', 'PATCH ', 'PATCH ', 'POST ', 'POST /move']);
   assert.match(ui, /const url = `\/api\/todos\/\$\{encodeURIComponent\(target\)\}`;/);
   assert.match(ui, /\{ \.\.\.body, version: list\.version \}/);
-  assert.doesNotMatch(ui, /'PUT'/);
+  assert.strictEqual((ui.match(/'PUT'/g) || []).length, 1);
+  assert.match(ui, /api\('PUT', url, \{ text: sent, version: base \}\)/, 'the text names the version it was read at, not the list\'s latest');
 });
 
 test('a path shows the folder the board names for it, the one its path has when the path holds <iteration> (ADR 0019)', () => {

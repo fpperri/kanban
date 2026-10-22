@@ -1288,8 +1288,8 @@ to `127.0.0.1` only.
   and retries once when it changed meanwhile, then answers 409; unknown keys and the body of
   a day file survive every write. A note's `by` is kept as written (one trimmed line, any
   text; a blank one is `@human`), never refused for not being a handle. The Graph's names step moved to `l` to free `n`.
-- **Text boxes** — the notes palette's note box and a listed note's edit box, the Scratchpad's box
-  and the card form's description (`#f-body`) each call `textEditAttach(box)` (text-edit-ui.js)
+- **Text boxes** — the notes palette's note box and a listed note's edit box, the Scratchpad's box,
+  the Todos tab's Edit box and the card form's description (`#f-body`) each call `textEditAttach(box)` (text-edit-ui.js)
   once; single-line fields are never attached. The rules are `textEditKey(text, start, end, event)`
   (text-edit.js, pure): **Tab** indents two spaces at the cursor or on every selected line (a
   selection inside one line is replaced, a blank line stays blank, a selection ending at the start
@@ -1314,10 +1314,10 @@ to `127.0.0.1` only.
   (VS Code's); `#text-edit-hint` shows while an attached box has focus and says which Tab it is now and
   what Ctrl+M changes (WCAG 2.1.2: Tab is never a trap); the mode is a module
   variable, kept nowhere. Enter, Shift+Enter, Ctrl+Enter and Ctrl+S are not read by these boxes'
-  keys, so each keeps its own meaning (Enter writes a note, Ctrl+Enter saves a scratchpad, Ctrl+S
+  keys, so each keeps its own meaning (Enter writes a note, Ctrl+Enter saves a scratchpad or a todo list's text, Ctrl+S
   saves the form); none of the new keys clashes with an existing hotkey.
-- **Coloured Markdown boxes** — the card form's description (`#f-body`) and the Scratchpad's Edit box
-  (`.sp-text`) call `mdEditAttach(box)` (markdown-edit-ui.js) once, after `textEditAttach`; the notes
+- **Coloured Markdown boxes** — the card form's description (`#f-body`), the Scratchpad's Edit box
+  and the Todos tab's Edit box (both `.sp-text`) call `mdEditAttach(box)` (markdown-edit-ui.js) once, after `textEditAttach`; the notes
   palette's boxes and the single-line fields are never attached. `markdownEditSpans(text)`
   (markdown-edit.js, pure, tested in Node) returns the sorted, non-overlapping `{ from, to, kind }` spans
   to colour, reading the text a line at a time as markdown.js does: `heading` (the whole `#` line, the
@@ -1424,19 +1424,36 @@ to `127.0.0.1` only.
   `markdownInto(el, text, { inline: true })`, the one renderer's inline marks with no block; a line
   of the file that is not an item shows muted and read only. The list is read when the tab opens and
   read again, redrawn only if it changed, whenever the board refreshes (not while an item is being
-  edited or a write is on its way). The server's `GET /api/todos/<id>` answers
-  `{ todos: { target, exists, file, folder?, version, lines } }`, each line `{ index, item: true,
+  edited or a write is on its way). A **List | Edit | Preview** switch sits over the tab, the
+  Scratchpad's switch with List first (its `.sp-mode`, `.sp-text`, `.sp-preview` and `.sp-bar`):
+  **List**, the default, is the list; **Edit** is the list's whole file as text in a box that takes the
+  editing keys and the colours (`textEditAttach`, `mdEditAttach`), and **Ctrl+Enter** or **Save** writes
+  it with `PUT`, naming the version the text was read at. Refused (409, 413), the reason is said and the
+  text stays in the box; after a 409 the list is read again and the text names it, so a second save
+  writes it over that list, and the `.sp-status` line says so: "The list changed on disk. Save again to
+  replace it with this text; List shows it as it is now." **Preview** draws the box's text, saved or not, through `markdownInto()`,
+  read only; **Ctrl+Shift+V** (`todosPreviewKey`, the Scratchpad's chord) turns it on and off, back to
+  List or Edit, and the palette's foot names each mode's keys. Text not yet saved is kept in the page's
+  memory per target, with the version it was read at, until the page is reloaded, and the tab opens on
+  Edit while there is some; with none, the box follows the list (a change from List, a hand edit at a
+  refresh). The server's `GET /api/todos/<id>` answers
+  `{ todos: { target, exists, file, folder?, version, text, lines } }` (`text` the whole file with plain
+  new lines and no byte order mark), each line `{ index, item: true,
   depth, done, text }` or `{ index, item: false, text }` (a blank line is left out, `index` is the
   line number in the file); `POST /api/todos/<id>` with `{ text, parent?, version }` adds an item
   (201; `parent` is the line of the item it goes under), `PATCH` with `{ index, done?, text?, version }`
   ticks or edits, `DELETE` with `{ index, version }` removes an item with its children and the lines indented under it, and
-  `POST /api/todos/<id>/move` with `{ index, by: -1 | 1, version }` moves it among its siblings, and `POST /api/todos/<id>/indent` and `/outdent` with `{ index, version }` change its level (a child's indent follows the file's own style, spaces or a tab); each
+  `POST /api/todos/<id>/move` with `{ index, by: -1 | 1, version }` moves it among its siblings, and `POST /api/todos/<id>/indent` and `/outdent` with `{ index, version }` change its level (a child's indent follows the file's own style, spaces or a tab), and
+  `PUT /api/todos/<id>` with `{ text, version }` writes the whole text (the file then holds exactly that
+  text, every line ending the file's own, its first or else a new line, and a byte order mark kept; a
+  list not written yet is made in its folder); each
   answers `{ todos }` as the file now reads, with `at`, the line of the item added or moved. Every
   write names the `version` it read and is refused with 409 when the file has changed since, and with
-  400 when it names none (a write changes the one line it is about and keeps every other byte,
+  400 when it names none (an item write changes the one line it is about and keeps every other byte,
   line endings included). 404 with todo lists off or for an item that is not on that line, 400 for
-  an id or text that is wrong, 413 for a list over 300000 characters or an item over 2000. There is
-  no whole-file write and no delete route for a list: only the delete popup's **Its todo list** takes
+  an id or text that is wrong, 413 for a list over 300000 characters or an item over 2000 (an item
+  write may still change a file already over the limit; a whole text over it is refused). There is no
+  delete route for a list: only the delete popup's **Its todo list** takes
   a file. The `/api/board` payload carries `todos: { folder, targets, counts }`, the ids that have a
   file and `{ id: { open, total } }` for those with an item, or `null`. A todo list means nothing to
   the board: it never changes a card's status, never holds a card out of `doing`, and adds into no
