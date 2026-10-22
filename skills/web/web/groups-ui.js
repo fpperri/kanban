@@ -457,7 +457,7 @@ function onGroupsEscape(e) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  document.addEventListener('keydown', onGroupsEscape, true);
+  document.addEventListener('keydown', onGroupsEscape, true); // key-guard: exempt (acts only while the group dialog is open)
   $('#group-dialog-close').addEventListener('click', closeGroupDialog);
   $('#group-dialog').addEventListener('click', (e) => { if (e.target.id === 'group-dialog') closeGroupDialog(); });
   document.addEventListener('click', (e) => {

@@ -36,6 +36,18 @@ Scenarios drive the real page in headless Chrome over the DevTools Protocol, eac
 
 Docs are held to the code by tests that read them as text. The pattern: a `*-docs.test.js` file reads `SKILL.md`, `docs/web.md`, `docs/snapshot.md`, `GLOSSARY.md` or the README, takes the section by its heading or its bold lead, and asserts the words the code makes true (and the words it made false are gone). `skills/web/test/docs-agree.test.js` and `skills/snapshot/test/docs-agree.test.js` pin the places where two docs once disagreed. A feature that changes behaviour a doc states changes the doc and its test in the same commit. `docs/testing.md` itself is pinned by `skills/web/test/testing-docs.test.js`.
 
+## A docs change brings its docs test
+
+The rule above is held by the `tests` workflow. Its unit job checks out the whole history and, after `npm test`, runs `skills/web/test/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches `docs/*.md`, any `SKILL.md`, any `skills/**/references/*.md`, `README.md` or `GLOSSARY.md` and touches no `skills/**/test/*-docs.test.js` and no `docs-agree.test.js`, the step fails and names the doc that changed. On a push to `main` there is no pull request base and it does nothing.
+
+For a change the tests cannot say anything about (a typo, a reworded sentence no test reads), a line in any commit message of the pull request lets it through:
+
+```
+Docs-test: none, <reason>
+```
+
+The reason is required and the line stands alone; the placeholder `<reason>` left as it is does not count. The script's decision is unit-tested with fixtures in `skills/web/test/docs-pinned-check.test.js`; run it by hand with `node skills/web/test/docs-pinned-check.js --base origin/main`.
+
 ## Snapshot tests
 
 The snapshot editor is built by a Python script, `skills/snapshot/scripts/build_editor.py`. Its tests (`skills/snapshot/test/`) run it in two ways: by reading the script as text and pulling out a marked block, or by running it with `execFileSync('python', [buildScript, board, '--out', file])` on a temp board and reading the HTML it wrote, which `page-harness.js` then loads in a vm. A `*-parity.test.js` file runs the same input through the Python and the web's JavaScript and compares the answers. Python's `__pycache__/` is ignored; do not commit it.

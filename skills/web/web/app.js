@@ -3435,6 +3435,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // combobox menu still gets first crack at Esc when open — attachCombobox's
   // own keydown listener stops propagation before this document-level
   // listener ever sees the key, so nothing here needs to special-case it.
+  // key-guard: exempt (Esc closes the open popup from inside a field too; the selection step it ends in asks keyGuardEscape)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (moreMenuClose()) { e.preventDefault(); $('#more-btn').focus(); return; }
@@ -3457,6 +3458,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // implicit form submission); attachCombobox's Enter handling exempts
   // alt-chorded Enter, so the hotkey wins even while a suggestion menu is
   // open. No popup open = plain no-op.
+  // key-guard: exempt (acts only on an open fullscreen-capable popup, from a field inside it too)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const type = openFullscreenModalType();
@@ -3474,6 +3476,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // popups click their Apply button, skipped while it's disabled. No
   // save-capable popup open = plain no-op, same shape as Alt+Enter above.
   const SAVE_APPLY_BUTTONS = { bulkSingle: '#bulk-single-apply', bulkSchedule: '#bulk-schedule-apply' };
+  // key-guard: exempt (acts only on an open save-capable popup, from a field inside it too)
   document.addEventListener('keydown', (e) => {
     const target = saveHotkeyTarget(e, {
       edit: !$('#modal').classList.contains('hidden'),
@@ -6132,6 +6135,7 @@ function applyCardClick(action, id, cue) {
 // card never reaches the Calendar's create gesture, which skips cards.
 function onCardOpenKey(e) {
   if (e.key !== 'Enter' || e.repeat) return;
+  if (keyGuardSurface(document) !== null) return;
   if (isDragging || ganttDrag || calTimeDrag) return;
   const el = e.target.closest('.card-el');
   if (!el || e.target.closest('.graph-node, button, select, input, a, .rollup')) return;
@@ -7073,7 +7077,7 @@ document.addEventListener('click', (e) => {
 // close / search clear) no matter where focus sits (input, 📅 button, or a popover
 // button), and stopPropagation keeps that handler from also firing on the
 // same press.
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e) => { // key-guard: exempt (acts only while the date picker is open, which Esc closes from its field)
   if (e.key !== 'Escape' || !datePickerFor) return;
   const input = datePickerFor;
   closeDatePicker();
@@ -7090,6 +7094,6 @@ document.addEventListener('scroll', closeDatePicker, true);
 // Text-selection guard scoped to the gesture: tiles are only
 // unselectable while shift is actually held, so their text stays copyable the
 // rest of the time. blur clears the class in case keyup lands off-window.
-window.addEventListener('keydown', (e) => { if (e.key === 'Shift') document.body.classList.add('shift-held'); });
-window.addEventListener('keyup', (e) => { if (e.key === 'Shift') document.body.classList.remove('shift-held'); });
+window.addEventListener('keydown', (e) => { if (e.key === 'Shift') document.body.classList.add('shift-held'); }); // key-guard: exempt (sets a class and acts on nothing)
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift') document.body.classList.remove('shift-held'); }); // key-guard: exempt (clears a class and acts on nothing)
 window.addEventListener('blur', () => document.body.classList.remove('shift-held'));
