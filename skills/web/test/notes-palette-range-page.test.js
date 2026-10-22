@@ -519,12 +519,13 @@ test('the range follows the filter, the author switch and the layout', async () 
 
 test('day lines show whenever more than one day is listed', async () => {
   const p = await open();
+  const named = (day) => p.page.run(`notesDayText('${day}', localTodayStr())`); // the 22nd reads "Thu 22 · today" on the day itself
   p.openCard('7');
   p.rangeBtn('week').click();
-  assert.deepStrictEqual(p.all('.np-nday').map((d) => p.text(d)), ['Thu 22', 'Mon 19']);
+  assert.deepStrictEqual(p.all('.np-nday').map((d) => p.text(d)), [named('2026-10-22'), named('2026-10-19')]);
   p.rangeBtn('day').click();
   p.step(1).click();
-  assert.deepStrictEqual(p.all('.np-nday').map((d) => p.text(d)), ['Thu 22'], 'a day that is not today is still named');
+  assert.deepStrictEqual(p.all('.np-nday').map((d) => p.text(d)), [named('2026-10-22')], 'a day that is not today is still named');
 });
 
 test('the range is set each time the palette opens and is not remembered', async () => {
