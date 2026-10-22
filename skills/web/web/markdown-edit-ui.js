@@ -1,6 +1,6 @@
 'use strict';
-// The colours of the Markdown boxes on the page: the card form's description and the Scratchpad's Edit
-// box call mdEditAttach(box) once, and the text in them is then drawn in colour (markdown-edit.js has
+// The colours of the Markdown boxes on the page: the card form's description and the Scratchpad's and the
+// Todos tab's Edit boxes call mdEditAttach(box) once, and the text in them is then drawn in colour (markdown-edit.js has
 // the rules, the --md-edit-* tokens in app.css the colours).
 //
 // A coloured copy of the text sits behind the textarea in a <pre> that takes the textarea's font, padding,
@@ -21,8 +21,8 @@
 //
 // Colour Markdown while editing is a switch in the preferences sheet (app.js keeps it for the whole
 // browser, mdEditSetOn applies it). While it is off the wrapper has no box of its own and the textarea sits
-// in the page as it always did. A box the page has dropped (the Scratchpad's panel is rebuilt each time
-// its tab opens) is let go of the next time a box is attached or the switch is flipped.
+// in the page as it always did. A box the page has dropped (the Scratchpad's and the Todos tab's panels are
+// rebuilt each time their tab opens) is let go of the next time a box is attached or the switch is flipped.
 //
 // mdEditAttach returns the node to put in the page where the textarea went: the wrapper, which holds the
 // textarea. Called with the textarea already in the page it takes its place there and the caller keeps

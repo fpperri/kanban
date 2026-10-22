@@ -2030,9 +2030,9 @@ button.np-note-card:hover { color: var(--accent); }
 .notes-palette.fullscreen { transform: none; border-width: 0; height: 100dvh; }
 .notes-palette.fullscreen .np-body { display: flex; flex-direction: column; }
 .notes-palette.fullscreen .np-notes, .notes-palette.fullscreen .gp { flex: 0 0 auto; }
-.notes-palette.fullscreen .sp { flex: 1 0 auto; }
+.notes-palette.fullscreen .sp, .notes-palette.fullscreen .td { flex: 1 0 auto; }
 .notes-palette.fullscreen .sp-text { flex: 1 1 auto; resize: none; }
-.notes-palette.fullscreen .sp > .md-edit.on { flex: 1 1 auto; } /* the coloured copy's wrapper takes the height the box would, as .modal-desc's does */
+.notes-palette.fullscreen .sp > .md-edit.on, .notes-palette.fullscreen .td > .md-edit.on { flex: 1 1 auto; } /* the coloured copy's wrapper takes the height the box would, as .modal-desc's does */
 .notes-palette.fullscreen .sp-preview { flex: 1 1 auto; max-height: none; }
 @media (max-width: 759.98px) {
   .np-bar, .np-body { padding-left: 16px; padding-right: 16px; }
@@ -2103,6 +2103,9 @@ button.np-note-card:hover { color: var(--accent); }
 .sp-status { color: var(--accent); }
 /* The Todos tab (todos-ui.js): the box where Enter adds, the "under:" chip when it adds a child, and the rows. */
 .td { display: flex; flex-direction: column; gap: 8px; font-size: 0.85em; min-width: 0; }
+/* The List | Edit | Preview switch: List is .td-pane, Edit and Preview are the Scratchpad's box, preview and Save row. */
+.td-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.td-pane[hidden], .td > .sp-bar[hidden] { display: none; }
 .td-title { margin: 0; color: var(--ink-strong); font-weight: 600; overflow-wrap: anywhere; }
 .td-path { margin: 0; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; overflow-wrap: anywhere; }
 .td-bar { display: flex; align-items: center; gap: 6px; min-width: 0; }

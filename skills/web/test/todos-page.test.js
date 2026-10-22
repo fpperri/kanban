@@ -672,3 +672,249 @@ test('the card menu has a Todos… entry that opens the tab for one card, and no
     assert.strictEqual(t.p.page.run('notesUi.sub'), null);
   } finally { t.close(); }
 });
+
+// ---------- the List | Edit | Preview switch ----------
+
+const modes = (t) => t.p.all('.sp-mode').map((b) => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : ''));
+const mode = (t, name) => t.p.all('.sp-mode').find((b) => b.textContent === name);
+const box = (t) => t.p.find('.sp-text');
+const shown = (t) => ({ list: !t.p.find('.td-pane').hidden, edit: !box(t).hidden, preview: !t.p.find('.sp-preview').hidden, save: !t.p.find('.sp-bar').hidden });
+const typeBox = (t, text) => { box(t).value = text; box(t).fire('input', { type: 'input' }); };
+const chord = (t, over = {}) => {
+  const e = { key: 'V', code: 'KeyV', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false, repeat: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...over };
+  t.p.pal().fire('keydown', e);
+  return e;
+};
+const foot = (t) => t.p.text(t.p.find('.np-foot'));
+
+test('the tab has a List | Edit | Preview switch over the list: List is the default, and the list is as it was', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    assert.deepStrictEqual(modes(t), ['List*', 'Edit', 'Preview']);
+    assert.deepStrictEqual(shown(t), { list: true, edit: false, preview: false, save: false });
+    assert.deepStrictEqual(t.rowTexts(), ['one']);
+    assert.strictEqual(t.p.doc.activeElement, t.add(), 'the box that adds has the focus, as before');
+    assert.match(foot(t), /add/);
+  } finally { t.close(); }
+});
+
+test('Edit shows the whole file as text; Ctrl+Enter writes exactly that in the file\'s own line endings, and the list and the counts follow', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '# plan\r\n- [ ] one\r\n- [x] two\r\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    assert.deepStrictEqual(modes(t), ['List', 'Edit*', 'Preview']);
+    assert.deepStrictEqual(shown(t), { list: false, edit: true, preview: false, save: true });
+    assert.strictEqual(box(t).value, '# plan\n- [ ] one\n- [x] two\n');
+    assert.strictEqual(t.p.doc.activeElement, box(t));
+    assert.match(foot(t), /save/);
+    typeBox(t, '# plan\n- [x] one\n- [ ] two\n- [ ] three\n\nnotes between\n');
+    const e = t.p.press(box(t), 'Enter', { ctrlKey: true });
+    assert.strictEqual(e.defaultPrevented, true);
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '# plan\r\n- [x] one\r\n- [ ] two\r\n- [ ] three\r\n\r\nnotes between\r\n');
+    assert.strictEqual(t.p.text(t.p.find('.sp-status')), 'Saved');
+    assert.strictEqual(t.p.page.run("todoCountButton('7')").textContent, '2/3', 'the tile counts the new list');
+    assert.deepStrictEqual(t.rowTexts(), ['one', 'two', 'three'], 'the list behind the switch is the new one');
+    assert.deepStrictEqual(t.toasts, []);
+  } finally { t.close(); }
+});
+
+test('a save names the version it read: over a list changed since, nothing is written, the reason shows and the draft stays; Save again writes it', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    typeBox(t, '- [ ] mine\n');
+    t.write('.pads/0007.todo.md', '- [ ] one\n- [ ] by an agent\n');
+    t.p.find('.sp-save').fire('click');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n- [ ] by an agent\n');
+    assert.strictEqual(t.toasts.length, 1);
+    assert.match(t.toasts[0], /changed on disk/);
+    assert.strictEqual(box(t).value, '- [ ] mine\n', 'the draft stays in the box');
+    assert.deepStrictEqual(t.rowTexts(), ['one', 'by an agent'], 'the list is read again');
+    t.p.find('.sp-save').fire('click');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] mine\n', 'the reason was said, and the next save writes over the list it read');
+  } finally { t.close(); }
+});
+
+test('a draft is not overwritten when the board refreshes, and a save over the change is still refused', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    typeBox(t, '- [ ] mine\n');
+    t.write('.pads/0007.todo.md', '- [ ] one\n- [ ] by hand\n');
+    await t.p.page.run('loadBoard()');
+    await t.settle();
+    assert.strictEqual(box(t).value, '- [ ] mine\n');
+    assert.deepStrictEqual(t.rowTexts(), ['one', 'by hand']);
+    t.p.press(box(t), 'Enter', { ctrlKey: true });
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n- [ ] by hand\n', 'the draft was read before the hand edit');
+    assert.match(t.toasts.join(), /changed on disk/);
+  } finally { t.close(); }
+});
+
+test('with no draft the box follows the file: a hand edit shows when the board refreshes', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    t.write('.pads/0007.todo.md', '- [ ] one\n- [ ] by hand\n');
+    await t.p.page.run('loadBoard()');
+    await t.settle();
+    assert.strictEqual(box(t).value, '- [ ] one\n- [ ] by hand\n');
+    typeBox(t, '- [ ] one\n- [ ] by hand\n- [ ] mine\n');
+    t.p.press(box(t), 'Enter', { ctrlKey: true });
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n- [ ] by hand\n- [ ] mine\n');
+  } finally { t.close(); }
+});
+
+test('a list write made from List while Edit holds no draft carries the box along', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    t.pressRow(t.rows()[0], ' ');
+    await t.settle();
+    mode(t, 'Edit').fire('click');
+    assert.strictEqual(box(t).value, '- [x] one\n');
+  } finally { t.close(); }
+});
+
+test('Preview draws the box\'s text, the unsaved draft included, as Markdown with the card body\'s renderer, and hides the box', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '# Plan\n- [ ] one\n' } });
+  try {
+    await t.open();
+    mode(t, 'Preview').fire('click');
+    assert.deepStrictEqual(modes(t), ['List', 'Edit', 'Preview*']);
+    assert.deepStrictEqual(shown(t), { list: false, edit: false, preview: true, save: true });
+    assert.match(t.p.find('.sp-preview').innerHTML, /^<h1>Plan<\/h1>/);
+    assert.ok(t.p.find('.sp-preview').classes.includes('detail-body'), 'drawn as a card body is');
+    mode(t, 'Edit').fire('click');
+    typeBox(t, '**typed** since');
+    mode(t, 'Preview').fire('click');
+    assert.strictEqual(t.p.find('.sp-preview').innerHTML, '<p><strong>typed</strong> since</p>');
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '# Plan\n- [ ] one\n', 'nothing written');
+  } finally { t.close(); }
+});
+
+test('Ctrl+Shift+V switches Preview on and off, back to the mode it came from, and the foot names each mode\'s keys', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '# Plan\n' } });
+  try {
+    await t.open();
+    const on = chord(t);
+    assert.strictEqual(on.defaultPrevented, true);
+    assert.deepStrictEqual(modes(t), ['List', 'Edit', 'Preview*']);
+    assert.match(t.p.find('.sp-preview').innerHTML, /<h1>Plan<\/h1>/);
+    assert.match(foot(t), /list/);
+    chord(t);
+    assert.deepStrictEqual(modes(t), ['List*', 'Edit', 'Preview']);
+    assert.strictEqual(t.p.doc.activeElement, t.add());
+    mode(t, 'Edit').fire('click');
+    chord(t, { ctrlKey: false, metaKey: true });
+    assert.deepStrictEqual(modes(t), ['List', 'Edit', 'Preview*'], 'Cmd+Shift+V is the same key');
+    assert.match(foot(t), /edit/);
+    chord(t);
+    assert.deepStrictEqual(modes(t), ['List', 'Edit*', 'Preview']);
+    assert.strictEqual(t.p.doc.activeElement, box(t));
+    assert.strictEqual(box(t).selectionStart, box(t).value.length, 'back in the box at the end of its text');
+    for (const over of [{ shiftKey: false }, { altKey: true }, { repeat: true }]) {
+      assert.strictEqual(chord(t, over).defaultPrevented, false, JSON.stringify(over));
+    }
+    assert.deepStrictEqual(modes(t), ['List', 'Edit*', 'Preview']);
+    const preview = mode(t, 'Preview');
+    assert.strictEqual(preview.dataset.key, 'Ctrl+Shift+V');
+    assert.strictEqual(preview.getAttribute('aria-keyshortcuts'), 'Control+Shift+V Meta+Shift+V');
+  } finally { t.close(); }
+});
+
+test('the list\'s keys do nothing from the Edit box: nothing is sent and the box keeps them', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n- [ ] two\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    for (const [key, over] of [[' '], ['d'], ['d'], ['e'], ['c'], ['ArrowDown', { altKey: true }], ['Enter']]) {
+      const e = t.pressRow(box(t), key, over);
+      assert.strictEqual(e.defaultPrevented, false, key);
+    }
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n- [ ] two\n');
+    assert.strictEqual(t.p.page.run('todosUi.pending'), 0);
+  } finally { t.close(); }
+});
+
+test('an unsaved draft survives a tab switch and a closed palette, and the tab opens on Edit while there is one', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    typeBox(t, 'not saved yet');
+    t.p.page.run("notesSetTab('notes')");
+    t.p.page.run("notesSetTab('todos')");
+    await t.settle();
+    assert.deepStrictEqual(modes(t), ['List', 'Edit*', 'Preview']);
+    assert.strictEqual(box(t).value, 'not saved yet');
+    t.p.page.run('notesClose()');
+    await t.open();
+    assert.strictEqual(box(t).value, 'not saved yet');
+    await t.open('3');
+    assert.deepStrictEqual(modes(t), ['List*', 'Edit', 'Preview'], 'a draft is its own list\'s');
+    await t.open();
+    typeBox(t, '- [ ] one\n');
+    t.p.page.run('notesClose()');
+    await t.open();
+    assert.deepStrictEqual(modes(t), ['List*', 'Edit', 'Preview'], 'a box put back as the file is no draft');
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n');
+  } finally { t.close(); }
+});
+
+test('a text over the list\'s size cap is refused with the reason and stays in the box', async () => {
+  const t = await setup({ files: { '.pads/0007.todo.md': '- [ ] one\n' } });
+  try {
+    await t.open();
+    mode(t, 'Edit').fire('click');
+    typeBox(t, 'x'.repeat(300001));
+    t.p.find('.sp-save').fire('click');
+    await t.settle();
+    assert.match(t.toasts.join(), /too long/);
+    assert.strictEqual(box(t).value.length, 300001);
+    assert.strictEqual(t.read('.pads/0007.todo.md'), '- [ ] one\n');
+  } finally { t.close(); }
+});
+
+test('a target with no list starts Edit empty, and Save makes the file in the target\'s folder', async () => {
+  const t = await setup();
+  try {
+    await t.open('3');
+    mode(t, 'Edit').fire('click');
+    assert.strictEqual(box(t).value, '');
+    typeBox(t, '- [ ] pasted one\n- [ ] pasted two\n');
+    t.p.find('.sp-save').fire('click');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/0003.todo.md'), '- [ ] pasted one\n- [ ] pasted two\n');
+    assert.strictEqual(t.p.text(t.p.find('.td-path')), '.pads/0003.todo.md');
+    assert.strictEqual(t.p.page.run("todoCountButton('3')").textContent, '2/2');
+  } finally { t.close(); }
+});
+
+test('a group\'s list saves from Edit, and the count by its badge follows', async () => {
+  const t = await setup({
+    config: `${CONFIG}groups: .groups\nprefixes:\n  I: .groups/iteration\n`,
+    files: { '.groups/iteration/0001.sprint.md': '---\nid: I1\nname: sprint\ncards: [7]\n---\n', '.pads/I0001.todo.md': '- [ ] group item\n' },
+  });
+  try {
+    await t.open('I1');
+    mode(t, 'Edit').fire('click');
+    typeBox(t, '- [x] group item\n- [ ] another\n');
+    t.p.find('.sp-save').fire('click');
+    await t.settle();
+    assert.strictEqual(t.read('.pads/I0001.todo.md'), '- [x] group item\n- [ ] another\n');
+    const badge = t.p.page.run("groupBadges('7')");
+    assert.strictEqual(badge.walk().filter((e) => e.classes && e.classes.includes('card-todos')).map((e) => e.textContent).join(), '1/2');
+  } finally { t.close(); }
+});

@@ -1,5 +1,5 @@
 'use strict';
-// The colours of the Markdown boxes (the card form's description and the Scratchpad's Edit box), apart
+// The colours of the Markdown boxes (the card form's description and the Scratchpad's and the Todos tab's Edit boxes), apart
 // from the DOM: given the text, the spans to colour, as { from, to, kind } sorted and never overlapping,
 // the text between them being plain. markdown-edit-ui.js paints them; the colours are the --md-edit-*
 // tokens in app.css, one per kind.

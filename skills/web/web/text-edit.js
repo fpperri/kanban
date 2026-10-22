@@ -1,6 +1,6 @@
 'use strict';
 // The keys of the page's multiline text boxes (the notes palette's note box and a note's edit box, the
-// Scratchpad's box, the card form's description), apart from the DOM: given the text, the selection and
+// Scratchpad's box, the Todos tab's Edit box, the card form's description), apart from the DOM: given the text, the selection and
 // the key, the edit to make. text-edit-ui.js applies it.
 //
 // Tab indents by two spaces (the lines a selection spans, or the cursor's place) and Shift+Tab takes up
