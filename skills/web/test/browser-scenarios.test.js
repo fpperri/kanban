@@ -59,10 +59,18 @@ const SEARCH_BOX_CHECKS = [
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
-test('the runner knows a search-box, a search-enter, a search-address, a search-grammar, a graph, a key-guard, a card-click, a selection, a graph-lights, a preferences, a config-keys, a type-icons, a smoke, a calendar-jump, a card-menu, a card-menu-nest, a slice-term, a tier-fan, a tier-fan-options, a fan-names, a fan-name-rows, a tier-fan-unnested, an esc-steps, a search-panel, an empty-space, a board-pills, a slice-section, a pill-step, an isolate, an isolate-link, a hotkeys, an open-keeps-pills, a band-tint, a view-panel, an ids, a notes, a notes-calendar, a groups, a groups-autojoin, an iterations, a settings, a types-page, a markdown, a scratchpad, a todos, a markdown-edit, an iteration-paths, a delete, a feature, a phone and a phone-flip scenario, with unique names', () => {
+test('the runner finds every scenario file in the scenarios folder, in file-name order, and no other module', () => {
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'index.js').sort();
+  assert.ok(files.length > 0);
+  assert.deepStrictEqual(scenarios.map((s) => s.name + '.js'), files);
+});
+
+test('scenario names are unique and each is its file name', () => {
   const names = scenarios.map((s) => s.name);
-  assert.deepStrictEqual(names, ['search-box', 'search-enter', 'search-address', 'search-grammar', 'graph', 'key-guard', 'card-click', 'selection', 'graph-lights', 'preferences', 'config-keys', 'type-icons', 'smoke', 'calendar-jump', 'card-menu', 'card-menu-nest', 'slice-term', 'tier-fan', 'tier-fan-options', 'fan-names', 'fan-name-rows', 'tier-fan-unnested', 'esc-steps', 'search-panel', 'empty-space', 'board-pills', 'slice-section', 'pill-step', 'isolate', 'isolate-link', 'hotkeys', 'open-keeps-pills', 'band-tint', 'view-panel', 'ids', 'notes', 'notes-calendar', 'groups', 'groups-autojoin', 'iterations', 'settings', 'types-page', 'markdown', 'scratchpad', 'todos', 'markdown-edit', 'iteration-paths', 'delete', 'feature', 'phone', 'phone-flip']);
   assert.strictEqual(new Set(names).size, names.length);
+  for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'index.js')) {
+    assert.strictEqual(require(path.join(dir, f)).name, f.slice(0, -3), f);
+  }
 });
 
 test('every scenario names a known board and has a run function and a sane timeout', () => {

@@ -32,6 +32,7 @@ const PAGE_GLOBALS = [
   'selectionFromParts',
   'selectionState',
   'setSelection',
+  'settingsBoardPages',
   'settingsRenderBoard',
   'settingsUi',
   'shownCardIds',

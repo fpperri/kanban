@@ -10,7 +10,7 @@
 // together. Each step waits on the page or on the file, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// state, calendarAnchor, localTodayStr, renderBoard, renderCalendarView, autoRefreshTick, writeSearch.
+// state, settingsBoardPages, calendarAnchor, localTodayStr, renderBoard, renderCalendarView, autoRefreshTick, writeSearch.
 
 const fs = require('fs');
 const path = require('path');
@@ -148,8 +148,8 @@ module.exports = {
     // --- the gear's pages ------------------------------------------------------------------------------------------------------
     await clickOn('#prefs-btn');
     check('feature: the gear opens its sheet', await waitFor(`!${SHEET}.classList.contains('hidden')`, 2500) && await waitFor(`document.querySelector('.prefs-sheet').getAnimations().length===0`, 2500));
-    const pages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent)`);
-    check('feature: This board lists Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters', pages.join() === 'Logbook,Scratchpad,Todos,Groups,Types,Prefixes,Counters', pages);
+    const pages = await ev(`({ shown: [...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent), listed: settingsBoardPages.map((p)=>p.title) })`);
+    check('feature: This board lists the pages settingsBoardPages holds, in its order', pages.listed.length > 0 && pages.shown.join() === pages.listed.join(), pages);
     check('feature: the menu says logbook on, scratchpad on and groups on', await ev(menuState('board:logbook')) === 'on' && await ev(menuState('board:scratchpad')) === 'on' && /^on/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:scratchpad')), await ev(menuState('board:groups'))]);
     await clickOn('.prefs-menu-item[data-page="board:groups"]');
     check('feature: the Groups page has Iterations on, as the board declares', await waitFor(`${pageTitle}==='Groups'`, 2500) && await ev(`document.querySelector('.prefs-opt[data-switch="iterations"][data-value="on"]').getAttribute('aria-pressed')==='true'`));

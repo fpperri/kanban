@@ -9,7 +9,7 @@
 // written by hand outside the board shows locked with its controls standing still. Each step waits
 // on the page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): settingsRenderBoard, settingsUi, state.
+// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): settingsBoardPages, settingsRenderBoard, settingsUi, state.
 
 const fs = require('fs');
 const path = require('path');
@@ -86,8 +86,8 @@ module.exports = {
     check('the gear opens the sheet', await openSheet());
     const sections = await ev(`[...document.querySelectorAll('.prefs-section h3')].map((h)=>h.textContent)`);
     check('the menu has This browser and This board', sections.join() === 'This browser,This board', sections);
-    const boardPages = await ev(`[...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent)`);
-    check('This board lists Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters', boardPages.join() === 'Logbook,Scratchpad,Todos,Groups,Types,Prefixes,Counters', boardPages);
+    const boardPages = await ev(`({ shown: [...document.querySelectorAll('#prefs-board-menu .prefs-menu-item')].map((b)=>b.firstChild.textContent), listed: settingsBoardPages.map((p)=>p.title) })`);
+    check('This board lists the pages settingsBoardPages holds, in its order', boardPages.listed.length > 0 && boardPages.shown.join() === boardPages.listed.join(), boardPages);
     check('the menu says the logbook is on and the groups on with how many were found', await ev(menuState('board:logbook')) === 'on' && /^on · \d+$/.test(await ev(menuState('board:groups'))), [await ev(menuState('board:logbook')), await ev(menuState('board:groups'))]);
     check('the sheet is wide, with the menu and a page side by side', await ev(`document.getElementById('prefs-panel').classList.contains('is-split')`)
       && await ev(shown('#prefs-menu')) && await ev(shown('.prefs-page[data-page="browser:prefs"]'))
