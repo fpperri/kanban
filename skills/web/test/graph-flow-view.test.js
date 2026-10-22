@@ -31,16 +31,30 @@ const makeBoard = (name = 'kanban') => ({
   archived: [],
 });
 
+// Goal 10 and goal 20 each hold two cards: 12 waits for 11, and 22 for 21, which is done. Goal 30 holds
+// 31 and 32 with no dependency. Frontier lanes: goal 10 and goal 20, each one card ready; the strip holds
+// the goals and 31, 32.
+const makeLaneBoard = (name = 'kanban') => ({
+  ...makeBoard(name),
+  types: [{ name: 'goal', icon: 'diamond', color: '#a33' }],
+  hierarchy: ['goal'],
+  active: [
+    card(10, { type: 'goal' }), card(11, { parent: 10 }), card(12, { parent: 10, waiting_for: [11] }),
+    card(20, { type: 'goal' }), card(21, { parent: 20, status: 'done' }), card(22, { parent: 20, waiting_for: [21], status: 'doing' }),
+    card(30, { type: 'goal' }), card(31, { parent: 30 }), card(32, { parent: 30 }),
+  ],
+});
+
 const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
 
-async function open({ stored = {}, name = 'kanban', search = '' } = {}) {
+async function open({ stored = {}, name = 'kanban', search = '', board = null } = {}) {
   const host = recordingElement('div');
   const elements = { '#graph-view': host };
   for (const sel of HIDDEN_SURFACES) elements[sel] = hiddenSurface();
   const all = { [`kanban.${name}.view.mode`]: 'graph', ...stored };
   const page = await loadPage({
-    board: makeBoard(name), stored: all, search, elements, documentExtras: recordingDocument(),
+    board: board || makeBoard(name), stored: all, search, elements, documentExtras: recordingDocument(),
   }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const address = [];
@@ -71,6 +85,9 @@ function matcher(el) {
 
 const kind = (s, name) => matcher(s.kindButtons().find((b) => b.dataset.graphKind === name));
 const depsButton = (s, val) => matcher(byClass(s.host, 'graph-option-btn').find((b) => b.dataset.key === 'deps' && b.dataset.val === val));
+const lanesButton = (s, val) => matcher(byClass(s.host, 'graph-option-btn').find((b) => b.dataset.key === 'lanes' && b.dataset.val === val));
+const pressedLanes = (s) => byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'lanes' && b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.val);
+const laneHeads = (s) => byClass(s.host, 'graph-flow-lane-head');
 const pressedKinds = (s) => s.kindButtons().filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.graphKind);
 const pressedDeps = (s) => byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'deps' && b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.val);
 const json = (s, code) => JSON.parse(s.run(`JSON.stringify(${code})`));
@@ -105,7 +122,7 @@ test('a press on Flow draws the board by its dependencies in frontier columns, k
   assert.deepStrictEqual(pressedKinds(s), ['flow']);
   assert.deepStrictEqual(heads(s), ['done · 1', 'ready now · 2', '1 step · 1', '2 steps · 1', 'no dependency either way · 1 card']);
   assert.strictEqual(s.stored[key('kanban', 'graph.layout')], 'flow');
-  assert.deepStrictEqual(s.address, ['/?graph=flow&deps=frontier']);
+  assert.deepStrictEqual(s.address, ['/?graph=flow&deps=frontier&lanes=0']);
   assert.strictEqual(byClass(s.host, 'graph-layout-btn').length, 0, 'the layouts of the Hierarchy are not offered beside the Flow');
   assert.strictEqual(byClass(s.host, 'graph-options').length, 1, 'the fan\'s option row is the Hierarchy\'s');
   assert.strictEqual(byClass(s.host, 'graph-flow-options').length, 1);
@@ -117,7 +134,7 @@ test('a press on Flow draws the board by its dependencies in frontier columns, k
 test('the Dependencies switch is two buttons, frontier pressed at first, and a press on all redraws the columns and is kept and written', async () => {
   const s = await open();
   s.click(kind(s, 'flow'));
-  assert.deepStrictEqual(byClass(s.host, 'graph-flow-options')[0].children.map((g) => byClass(g, 'graph-option-label')[0].textContent), ['Dependencies']);
+  assert.deepStrictEqual(byClass(s.host, 'graph-flow-options')[0].children.map((g) => byClass(g, 'graph-option-label')[0].textContent), ['Dependencies', 'Lanes']);
   assert.deepStrictEqual(byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'deps').map((b) => [b.dataset.val, b.textContent]), [['frontier', 'frontier'], ['all', 'all']]);
   assert.deepStrictEqual(pressedDeps(s), ['frontier']);
   assert.ok(byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'deps').every((b) => b.dataset.keepsSelection === '' && b.dataset.holdsPoll === undefined));
@@ -125,16 +142,16 @@ test('the Dependencies switch is two buttons, frontier pressed at first, and a p
   assert.deepStrictEqual(pressedDeps(s), ['all']);
   assert.deepStrictEqual(heads(s), ['waits for nothing · 2', 'chain 1 · 1', 'chain 2 · 1', 'chain 3 · 1', 'no dependency either way · 1 card']);
   assert.strictEqual(s.stored[key('kanban', 'graph.deps')], 'all');
-  assert.strictEqual(search(s), '?graph=flow&deps=all');
+  assert.strictEqual(search(s), '?graph=flow&deps=all&lanes=0');
   assert.ok(!s.run(`graphCur.svg.classes.includes('graph-flow-frontier')`));
   assert.ok(s.run(`graphCur.svg.classes.includes('graph-flow-all')`));
   s.click(depsButton(s, 'all'));
   assert.strictEqual(s.address.length, 2, 'a press on the pressed button changes nothing');
   s.click(depsButton(s, 'frontier'));
-  assert.strictEqual(search(s), '?graph=flow&deps=frontier');
+  assert.strictEqual(search(s), '?graph=flow&deps=frontier&lanes=0');
 });
 
-test('a press on Hierarchy goes back to the layout the Hierarchy was on, and takes deps out of the address', async () => {
+test('a press on Hierarchy goes back to the layout the Hierarchy was on, and takes deps and lanes out of the address', async () => {
   const s = await open({ stored: { [key('kanban', 'graph.layout')]: 'force' } });
   assert.strictEqual(s.run('graphCur.kind'), 'force');
   s.click(kind(s, 'flow'));
@@ -191,7 +208,7 @@ test('the address wins on a load: graph=flow and deps=all open the Flow on all w
 test('a press writes the address with the parameters it already has kept, and replaces the entry rather than adding one', async () => {
   const s = await open({ search: '?view=graph&q=wait&card=2' });
   s.click(kind(s, 'flow'));
-  assert.strictEqual(search(s), '?view=graph&q=wait&card=2&graph=flow&deps=frontier');
+  assert.strictEqual(search(s), '?view=graph&q=wait&card=2&graph=flow&deps=frontier&lanes=0');
   assert.ok(s.page.ctx.history.replaceState, 'it is replaceState');
   assert.strictEqual(s.page.run('typeof history.pushState'), 'undefined', 'the test history has no pushState to be called');
 });
@@ -212,4 +229,94 @@ test('Flow draws no card twice and every card the board shows, whatever the swit
     s.click(depsButton(s, deps));
     assert.deepStrictEqual(json(s, 'graphCur.plan.nodes.map((n) => n.id).sort()'), ['1', '2', '3', '4', '5', '6'], deps);
   }
+});
+
+// --- the lanes ------------------------------------------------------------------------------
+
+test('the Lanes switch is off and on, off pressed at first, and no lane is drawn while it is off', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  assert.deepStrictEqual(byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'lanes').map((b) => [b.dataset.val, b.textContent]), [['off', 'off'], ['on', 'on']]);
+  assert.deepStrictEqual(pressedLanes(s), ['off']);
+  assert.ok(byClass(s.host, 'graph-option-btn').filter((b) => b.dataset.key === 'lanes').every((b) => b.dataset.keepsSelection === '' && b.dataset.holdsPoll === undefined));
+  assert.strictEqual(laneHeads(s).length, 0);
+  assert.strictEqual(s.run('graphCur.plan.flow.heads.length'), 0);
+});
+
+test('a press on on draws a lane for each tier card with its header, and the press is kept for the board and written to the address', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  s.click(lanesButton(s, 'on'));
+  assert.deepStrictEqual(pressedLanes(s), ['on']);
+  assert.deepStrictEqual(json(s, 'graphCur.plan.flow.heads.map((h) => h.text)'), [
+    'goal \u00b7 #10 Card 10 \u00b7 2 cards \u00b7 1 ready', 'goal \u00b7 #20 Card 20 \u00b7 2 cards \u00b7 1 ready',
+  ]);
+  assert.deepStrictEqual(heads(s), ['done \u00b7 1', 'ready now \u00b7 2', '1 step \u00b7 1', 'no open dependency \u00b7 5 cards']);
+  assert.strictEqual(s.stored[key('kanban', 'graph.lanes')], '1');
+  assert.strictEqual(search(s), '?graph=flow&deps=frontier&lanes=1');
+  s.click(lanesButton(s, 'on'));
+  assert.strictEqual(s.address.length, 1, 'a press on the pressed button changes nothing');
+  s.click(lanesButton(s, 'off'));
+  assert.strictEqual(s.stored[key('kanban', 'graph.lanes')], '0');
+  assert.strictEqual(search(s), '?graph=flow&deps=frontier&lanes=0');
+  assert.strictEqual(laneHeads(s).length, 0);
+});
+
+test('a lane header is drawn with its card id and type mark, and is a plain drawing: not a node of the Graph', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: '1' } });
+  const found = laneHeads(s);
+  assert.deepStrictEqual(found.map((h) => h.attrs['data-id']), ['10', '20']);
+  for (const h of found) {
+    assert.ok(!h.classes.includes('graph-node') && !h.classes.includes('card-el'), 'no handler of the dots finds it');
+    assert.strictEqual(h.attrs.tabindex, undefined, 'it takes no focus');
+    assert.ok(byClass(h, 'graph-flow-lanehead-text')[0].textContent.includes(`#${h.attrs['data-id']} Card`));
+    const mark = byClass(h, 'graph-flow-icon')[0];
+    assert.ok(mark && /^M/.test(mark.attrs.d) && mark.attrs['data-type-color'] === '#a33', 'the mark of the goal type, in its colour');
+  }
+  assert.strictEqual(byClass(s.host, 'graph-node').filter((n) => n.attrs['data-id'] === '10').length, 1, 'card 10 still has its one dot');
+});
+
+test('lanes are drawn in Flow alone: the Hierarchy has none whatever the board kept', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.lanes')]: '1' } });
+  assert.strictEqual(s.run('graphCur.kind'), 'tiers');
+  assert.strictEqual(laneHeads(s).length, 0);
+  assert.strictEqual(byClass(s.host, 'graph-flow-options').length, 0);
+});
+
+test('lanes on in all keeps the outline order and folds only the lanes with no dependency', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: '1', [key('kanban', 'graph.deps')]: 'all' } });
+  assert.deepStrictEqual(json(s, 'graphCur.plan.flow.heads.map((h) => h.id)'), ['10', '20']);
+  assert.deepStrictEqual(heads(s), ['waits for nothing \u00b7 2', 'chain 1 \u00b7 2', 'no dependency either way \u00b7 5 cards']);
+});
+
+test('a board that kept lanes opens on them, and another board keeps its own', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: '1' } });
+  assert.deepStrictEqual(pressedLanes(s), ['on']);
+  const other = await open({ name: 'other', board: makeLaneBoard('other'), stored: { [key('kanban', 'graph.lanes')]: '1', [key('other', 'graph.layout')]: 'flow' } });
+  assert.deepStrictEqual(pressedLanes(other), ['off']);
+});
+
+test('a stored lanes this version does not offer reads as off', async () => {
+  for (const junk of ['yes', '2', 'on', '']) {
+    const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: junk } });
+    assert.deepStrictEqual(pressedLanes(s), ['off'], junk);
+  }
+});
+
+test('the address wins on a load: lanes=1 opens the lanes whatever the board kept, lanes=0 closes them, and junk leaves the board its own', async () => {
+  const kept = { [key('kanban', 'graph.layout')]: 'flow' };
+  const on = await open({ board: makeLaneBoard(), search: '?graph=flow&lanes=1', stored: { ...kept, [key('kanban', 'graph.lanes')]: '0' } });
+  assert.deepStrictEqual(pressedLanes(on), ['on']);
+  const off = await open({ board: makeLaneBoard(), search: '?graph=flow&lanes=0', stored: { ...kept, [key('kanban', 'graph.lanes')]: '1' } });
+  assert.deepStrictEqual(pressedLanes(off), ['off']);
+  const junk = await open({ board: makeLaneBoard(), search: '?graph=flow&lanes=maybe', stored: { ...kept, [key('kanban', 'graph.lanes')]: '1' } });
+  assert.deepStrictEqual(pressedLanes(junk), ['on']);
+});
+
+test('a press on Hierarchy takes lanes out of the address, and the Flow brings it back as it was', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  s.click(lanesButton(s, 'on'));
+  s.click(kind(s, 'hierarchy'));
+  assert.strictEqual(search(s), '?graph=hierarchy');
+  s.click(kind(s, 'flow'));
+  assert.strictEqual(search(s), '?graph=flow&deps=frontier&lanes=1');
+  assert.strictEqual(laneHeads(s).length, 2);
 });
