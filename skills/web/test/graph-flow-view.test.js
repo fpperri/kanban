@@ -53,16 +53,18 @@ async function open({ stored = {}, name = 'kanban', search = '', board = null } 
   const elements = { '#graph-view': host };
   for (const sel of HIDDEN_SURFACES) elements[sel] = hiddenSurface();
   const all = { [`kanban.${name}.view.mode`]: 'graph', ...stored };
-  const page = await loadPage({
+  const page = loadPage({
     board: board || makeBoard(name), stored: all, search, elements, documentExtras: recordingDocument(),
-  }).start();
-  assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  });
   const address = [];
   page.ctx.history = {
     replaceState: (state, title, url) => { address.push(url); page.ctx.location.search = url.slice(url.indexOf('?') === -1 ? url.length : url.indexOf('?')); },
   };
+  await page.start();
+  assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  const onLoad = address.splice(0);
   return {
-    page, host, stored: all, name, address,
+    page, host, stored: all, name, address, onLoad,
     run: (code) => page.run(code),
     panel: () => byClass(host, 'view-panel')[0] || null,
     kindButtons: () => byClass(host, 'graph-kind-btn'),
@@ -215,6 +217,24 @@ test('the address wins on a load: graph=flow and deps=all open the Flow on all w
   assert.deepStrictEqual(pressedDeps(junk), ['frontier']);
 });
 
+test('the address says the shown Graph on a load too, replacing the entry and keeping every other parameter, so a link copied after a reload opens the same picture', async () => {
+  const plain = await open({ search: '?view=graph&q=wait' });
+  assert.deepStrictEqual(plain.onLoad, ['/?view=graph&q=wait&graph=hierarchy'], 'the Hierarchy from memory is written');
+  const flow = await open({ stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.deps')]: 'all', [key('kanban', 'graph.lanes')]: '1' } });
+  assert.deepStrictEqual(flow.onLoad, ['/?graph=flow&deps=all&lanes=1'], 'the Flow with its switches from memory is written');
+  const said = await open({ search: '?view=graph&graph=flow&deps=all&lanes=0' });
+  assert.deepStrictEqual(said.onLoad, [], 'an address that already says it is left alone');
+  const partial = await open({ search: '?graph=flow', stored: { [key('kanban', 'graph.deps')]: 'all' } });
+  assert.deepStrictEqual(partial.onLoad, ['/?graph=flow&deps=all&lanes=0'], 'what the link left out is filled from memory');
+  flow.run('renderGraphView()');
+  assert.deepStrictEqual(flow.address, [], 'a redraw, as the poll makes, writes nothing more');
+});
+
+test('the address is left alone while another view shows', async () => {
+  const s = await open({ search: '?view=board', stored: { [key('kanban', 'view.mode')]: 'board' } });
+  assert.deepStrictEqual(s.onLoad, []);
+});
+
 test('a press writes the address with the parameters it already has kept, and replaces the entry rather than adding one', async () => {
   const s = await open({ search: '?view=graph&q=wait&card=2' });
   s.click(kind(s, 'flow'));
@@ -239,6 +259,23 @@ test('Flow draws no card twice and every card the board shows, whatever the swit
     s.click(depsButton(s, deps));
     assert.deepStrictEqual(json(s, 'graphCur.plan.nodes.map((n) => n.id).sort()'), ['1', '2', '3', '4', '5', '6'], deps);
   }
+});
+
+test('the archive pill brings archived cards into the Flow, in the done column, faded as done and with the dependency they hold up', async () => {
+  const base = makeBoard();
+  const board = { ...base, active: [...base.active, card(8, { waiting_for: [7] })], archived: [card(7, { status: 'done', archived: true })] };
+  const s = await open({ board, stored: { [key('kanban', 'graph.layout')]: 'flow' } });
+  const ids = () => json(s, 'graphCur.plan.nodes.map((n) => n.id).sort()');
+  assert.deepStrictEqual(ids(), ['1', '2', '3', '4', '5', '6', '8'], 'archived cards are out until the pill brings them in');
+  assert.deepStrictEqual(heads(s), ['done · 1', 'ready now · 2', '1 step · 1', '2 steps · 1', 'no dependency either way · 2 cards'], 'and 8, whose dependency is out, has none drawn');
+  s.run(`graphToggleFilter('archive')`);
+  assert.deepStrictEqual(ids(), ['1', '2', '3', '4', '5', '6', '7', '8']);
+  assert.deepStrictEqual(heads(s), ['done · 2', 'ready now · 3', '1 step · 1', '2 steps · 1', 'no dependency either way · 1 card']);
+  assert.deepStrictEqual(json(s, 'graphCur.layout.flow.columns[0].ids'), ['1', '7'], 'the archived card stands in the done column');
+  assert.strictEqual(json(s, 'graphCur.layout.flow.columns[0].faded'), true);
+  assert.ok(json(s, 'graphCur.plan.nodes.find((n) => n.id === "7").cls').split(' ').includes('archived'), 'its dot carries archived, which the frontier columns fade');
+  assert.ok(s.run(`graphCur.svg.classes.includes('graph-flow-frontier')`), 'the drawing that fades archived dots is the frontier one');
+  assert.deepStrictEqual(json(s, 'graphCur.layout.flow.columns[1].ids.includes("8")'), true, 'the card it held up is ready now');
 });
 
 // --- the lanes ------------------------------------------------------------------------------

@@ -156,8 +156,9 @@ function graphSaveLanes() {
 }
 
 // The address says which graph the Graph draws, and the Dependencies and Lanes switches while it is the
-// Flow, so a reload or a link opens the same picture. It REPLACES the entry the page is on: a press adds
-// nothing to Back.
+// Flow, so a reload or a link opens the same picture. It is written on a press and on every draw, so a
+// Graph that opened from the board's memory says so too; it REPLACES the entry the page is on, adds
+// nothing to Back, and does nothing once the address says it.
 function graphWriteAddress() {
   const search = graphFlowAddress(location.search, graphLoadLayout() === 'flow' ? 'flow' : 'hierarchy', graphLoadDeps(), graphLoadLanes());
   if (search == null) return;
@@ -937,6 +938,7 @@ function renderGraphView() {
     return;
   }
   graphLastError = null;
+  graphWriteAddress();
   host.textContent = '';
   graphCur = null;
 
