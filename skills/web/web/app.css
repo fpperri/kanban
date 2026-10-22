@@ -365,8 +365,8 @@ button:hover { background: var(--btn-hover); }
 .search-slices:empty { display: none; }
 .search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-.search-fold::after { content: " \25BE"; }
-.search-fold[aria-expanded="false"]::after { content: " \25B8"; }
+.search-fold::after { content: " \25BE"; content: " \25BE" / ""; }
+.search-fold[aria-expanded="false"]::after { content: " \25B8"; content: " \25B8" / ""; }
 .search-fold:hover { background: var(--btn-hover); color: var(--ink); }
 .search-pills, .search-slices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .query-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); font-size: 0.8em; cursor: pointer; user-select: none; }
@@ -925,10 +925,10 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .detail-children { margin: 0 0 12px; font-size: 0.9em; }
 .relatives-label { color: var(--mut); font-size: 0.85em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; }
 .thread-list { display: flex; flex-wrap: wrap; align-items: baseline; list-style: none; margin: 0; padding: 0; }
-.thread-item + .thread-item::before { content: "\203A"; color: var(--mut); margin: 0 6px; }
+.thread-item + .thread-item::before { content: "\203A"; content: "\203A" / ""; color: var(--mut); margin: 0 6px; }
 .relatives-toggle { display: inline-flex; align-items: baseline; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-.relatives-toggle::before { content: "\25B8"; color: var(--mut); }
-.relatives-toggle[aria-expanded="true"]::before { content: "\25BE"; }
+.relatives-toggle::before { content: "\25B8"; content: "\25B8" / ""; color: var(--mut); }
+.relatives-toggle[aria-expanded="true"]::before { content: "\25BE"; content: "\25BE" / ""; }
 .relatives-count { color: var(--mut); font-variant-numeric: tabular-nums; }
 .relatives-toggle:hover .relatives-label, .relatives-toggle:hover .relatives-count { color: var(--ink); }
 .children-list { list-style: none; margin: 6px 0 0; padding: 0; }
@@ -2120,7 +2120,7 @@ button.np-note-card:hover { color: var(--accent); }
 .td-tick:hover::before { border-color: var(--accent); }
 .td-tick:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .td-tick[aria-checked="true"]::before { background: var(--accent); border-color: var(--accent); }
-.td-tick[aria-checked="true"]::after { content: "\2713"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--paper); }
+.td-tick[aria-checked="true"]::after { content: "\2713"; content: "\2713" / ""; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--paper); }
 .td-busy .td-list, .td-busy .td-row { cursor: progress; }
 .td-saving { margin-left: auto; color: var(--mut); font-style: italic; }
 .td-saving[hidden] { display: none; }
@@ -2135,8 +2135,8 @@ button.np-note-card:hover { color: var(--accent); }
 @media (hover: none) { .td-acts { visibility: visible; } }
 .td-plain { padding: 2px 4px; overflow-wrap: anywhere; white-space: pre-wrap; }
 .card-todos { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; padding: 0 5px; border: 1px solid transparent; border-radius: .15rem; background: transparent; color: var(--mut); font-size: 0.72em; line-height: 1.6; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; cursor: pointer; }
-.card-todos::before { content: "\2610"; }
-.card-todos.all-done::before { content: "\2611"; }
+.card-todos::before { content: "\2610"; content: "\2610" / ""; }
+.card-todos.all-done::before { content: "\2611"; content: "\2611" / ""; }
 .card-notes + .card-todos { margin-left: 0; }
 .card-todos:hover, .card-todos:focus-visible { border-color: var(--line-strong); color: var(--accent); }
 .card-groups .card-todos { margin-left: 0; padding: 0 3px; }
