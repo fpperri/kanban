@@ -43,7 +43,7 @@ function mask(css) {
 function contentDecls(css) {
   const masked = mask(css);
   const found = [];
-  const re = /(?<![\w-])content\s*:/g;
+  const re = /(?<=[{;]\s*)content\s*:/g;
   let m;
   while ((m = re.exec(masked))) {
     let i = re.lastIndex;
@@ -54,7 +54,7 @@ function contentDecls(css) {
       else if (c === ')') depth--;
       else if ((c === ';' || c === '}') && depth <= 0) break;
     }
-    found.push({ start: m.index, end: i, line: masked.slice(0, m.index).split('\n').length, value: css.slice(re.lastIndex, i).trim() });
+    found.push({ start: m.index, end: i, line: masked.slice(0, m.index).split('\n').length, value: css.slice(re.lastIndex, i).replace(/\s*!important\s*$/, '').trim() });
     re.lastIndex = i;
   }
   return found.map((d, n) => ({ ...d, between: found[n + 1] ? masked.slice(d.end, found[n + 1].start) : null }));
@@ -148,6 +148,21 @@ test('a plain line right before its own alt line passes, and nothing else does',
 test('align-content, justify-content, a comment and a string holding the word are not content declarations', () => {
   const css = '.a { align-content: flex-start; justify-content: center; place-content: center; }\n/* content: "x"; */\n.b::after { content: "a; content: b" / ""; }\n';
   assert.deepStrictEqual(contentOffenders(css), []);
+});
+
+test('a selector holding content: is not a declaration', () => {
+  const css = '.content:hover { color: red; }\n.card .content:focus-within::after { content: "" }\na.content:not(.x) { margin: 0 }\n.b::after { color: red;content : "x"; }\n';
+  const found = contentOffenders(css);
+  assert.strictEqual(found.length, 1, found.join('\n'));
+  assert.match(found[0], /^x\.css:4: /);
+});
+
+test('!important after the alt form is still the alt form, and after a plain value it is still plain', () => {
+  assert.deepStrictEqual(contentOffenders('.a::after { content: "x" / "" !important; }'), []);
+  assert.deepStrictEqual(contentOffenders('.a::after { content: "x" / "y"!important; }'), []);
+  assert.deepStrictEqual(contentOffenders('.a::after { content: "" !important; }'), []);
+  assert.strictEqual(contentOffenders('.a::after { content: "x" !important; }').length, 1);
+  assert.deepStrictEqual(contentOffenders('.a::after { content: "x" !important; content: "x" / "" !important; }'), []);
 });
 
 test('a semicolon or a brace inside the string does not end the value early', () => {
