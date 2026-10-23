@@ -51,7 +51,8 @@ function mergeGraphLayout(saved) {
 // The tier fan's option row: each option and what it may be set to, the default
 // first. A new option is one more entry here, its label in graph-view.js.
 //   lines         which parent lines the fan draws: folded (chain ends only, and a
-//                 parent's other children on one ring share one counted line), chain
+//                 parent's other children on one ring share one counted line), brackets
+//                 (one counted bracket for each parent and ring of its children), chain
 //                 (a line to every chain end, as the Map draws them), all (a line to
 //                 every child) or off.
 //   dependencies  the dashed arrows for waiting_for: on or off.
@@ -67,7 +68,7 @@ function mergeGraphLayout(saved) {
 //                 is), depth 0 (on the depth 0 ring, in a sector of their own) or table
 //                 (the Unnested block outside the rim, a column for each status).
 const GRAPH_FAN_OPTION_VALUES = Object.freeze({
-  lines: Object.freeze(['folded', 'chain', 'all', 'off']),
+  lines: Object.freeze(['folded', 'brackets', 'chain', 'all', 'off']),
   dependencies: Object.freeze(['on', 'off']),
   order: Object.freeze(['status', 'rank']),
   names: Object.freeze(['relevant', 'all', 'none']),
@@ -544,9 +545,11 @@ function graphFanPlace(model, opts) {
 // a card to another band. The model keeps every relation; this list is what is drawn,
 // in the order of model.links, and the view, the lighting and the tests all read it.
 // A line is { from, to, kind, link } for one relation (`link` indexes model.links), or,
-// for the counted line of the folded mode, { from: parent, to: parent, kind: 'parent',
-// link: null, kids, count }: one line for the children `kids` of one parent that sit on
-// one ring, both its ends the parent, so it lights whenever its parent does.
+// for the counted line of the folded and brackets modes, { from: parent, to: parent,
+// kind: 'parent', link: null, kids, count }: one line for the children `kids` of one parent
+// that sit on one ring, both its ends the parent, so it lights whenever its parent does;
+// the line of the brackets mode also carries `bracket: true`, which graphFanBus draws as a
+// bracket over its children alone.
 //   all      a line to every child.
 //   chain    a line to every chain end (node.chainEnd, the Map's reading): the child no
 //            sibling waits for, and every child with no dependency to a sibling. A child
@@ -555,6 +558,9 @@ function graphFanPlace(model, opts) {
 //            of one: no dependency to or from a sibling) shares one counted line with
 //            the parent's other such children on its ring; one that is alone on its ring
 //            keeps its own line, and so does an end in a real chain.
+//   brackets one counted line, drawn as a bracket, for each parent and each ring its children
+//            sit on, over all of them whatever their dependencies; a child alone on its ring
+//            keeps a plain line.
 //   off      no parent line.
 // Dependencies on draws a line for each wait, from the card waited for to the card that
 // waits; off draws none.
@@ -569,8 +575,8 @@ function graphFanLines(model, places, fan) {
     }
     if (o.lines === 'off') return;
     const child = model.byId.get(l.to);
-    if (o.lines !== 'all' && !child.chainEnd) return;
-    if (o.lines === 'folded' && !child.chained) {
+    if (o.lines !== 'brackets' && o.lines !== 'all' && !child.chainEnd) return;
+    if (o.lines === 'brackets' || (o.lines === 'folded' && !child.chained)) {
       const place = places.get(l.to);
       const key = `${l.from}|${place.band}:${place.sub}`;
       if (groups.has(key)) { groups.get(key).kids.push(l.to); return; }
@@ -582,7 +588,9 @@ function graphFanLines(model, places, fan) {
     lines.push({ from: l.from, to: l.to, kind: 'parent', link });
   });
   for (const g of groups.values()) {
-    if (g.kids.length > 1) Object.assign(g.line, { to: g.line.from, link: null, kids: g.kids, count: g.kids.length });
+    if (g.kids.length < 2) continue;
+    Object.assign(g.line, { to: g.line.from, link: null, kids: g.kids, count: g.kids.length });
+    if (o.lines === 'brackets') g.line.bracket = true;
   }
   return lines;
 }
@@ -1266,6 +1274,7 @@ function graphFanBlockPlan(block) {
 // out of the line by the text's own halo. The children are on one ring, so one radius
 // serves them all.
 function graphFanBus(layout, line) {
+  if (line.bracket) return graphFanBracket(layout, line);
   const at = (r, a) => `${graphRound(Math.cos(a) * r)} ${graphRound(Math.sin(a) * r)}`;
   const parent = layout.polar.get(line.from);
   const kids = line.kids.map((id) => layout.polar.get(id));
@@ -1284,6 +1293,41 @@ function graphFanBus(layout, line) {
   }
   mids.sort((x, y) => Math.abs(x - parent.a) - Math.abs(y - parent.a));
   const where = mids.length ? mids[0] : parent.a;
+  return {
+    d,
+    label: { x: graphRound(Math.cos(where) * turn), y: graphRound(Math.sin(where) * turn), text: String(line.count) },
+  };
+}
+
+// The counted line of the brackets mode, drawn as a bracket: one arc just inside the ring
+// the children sit on (GRAPH_FAN_BUS_IN short of it) from the first child's angle to the
+// last's, a tick from the arc out to each child, and one stem from the parent along its
+// own ray to the arc. A parent whose angle lies outside the children's does not lengthen
+// the arc: its stem reaches the nearer end of it, straight. All of it is one path of apart
+// pieces, so a child's mark covers the end of its tick. The label with the count sits on
+// the arc, in the gap between two neighbouring children nearest the stem, knocked out of
+// the line by the text's own halo; when no gap is wide enough it sits where the stem
+// meets the arc. The children are on one ring, so one radius serves them all.
+function graphFanBracket(layout, line) {
+  const at = (r, a) => `${graphRound(Math.cos(a) * r)} ${graphRound(Math.sin(a) * r)}`;
+  const parent = layout.polar.get(line.from);
+  const kids = line.kids.map((id) => layout.polar.get(id));
+  const ring = kids[0].r;
+  const out = ring > parent.r ? 1 : -1;
+  const turn = ring - out * GRAPH_FAN_BUS_IN;
+  const angles = kids.map((k) => k.a).sort((x, y) => x - y);
+  const lo = angles[0];
+  const hi = angles[angles.length - 1];
+  const stem = Math.min(hi, Math.max(lo, parent.a));
+  let d = `M${at(parent.r, parent.a)}L${at(turn, stem)}`;
+  if (hi - lo > 1e-6) d += `M${at(turn, lo)}A${graphRound(turn)} ${graphRound(turn)} 0 ${hi - lo > Math.PI ? 1 : 0} 1 ${at(turn, hi)}`;
+  for (const k of kids) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
+  const mids = [];
+  for (let i = 1; i < angles.length; i++) {
+    if ((angles[i] - angles[i - 1]) * turn > GRAPH_FAN_BUS_LABEL) mids.push((angles[i] + angles[i - 1]) / 2);
+  }
+  mids.sort((x, y) => Math.abs(x - stem) - Math.abs(y - stem));
+  const where = mids.length ? mids[0] : stem;
   return {
     d,
     label: { x: graphRound(Math.cos(where) * turn), y: graphRound(Math.sin(where) * turn), text: String(line.count) },

@@ -15,9 +15,9 @@ const {
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' };
 
-test('the options offer lines: folded, chain, all, off; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
+test('the options offer lines: folded, brackets, chain, all, off; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_VALUES), {
-    lines: ['folded', 'chain', 'all', 'off'],
+    lines: ['folded', 'brackets', 'chain', 'all', 'off'],
     dependencies: ['on', 'off'],
     order: ['status', 'rank'],
     names: ['relevant', 'all', 'none'],
@@ -170,9 +170,50 @@ test('folded never gives a line to a child that is not a chain end, and the line
   for (const l of folded) for (const id of l.kids || [l.to]) assert.ok(chain.has(id), `card ${id}`);
 });
 
+test('brackets gives a parent one counted bracket over all its children on a ring, the chained ones too', () => {
+  const lines = linesOf(tree(), { lines: 'brackets' });
+  assert.deepStrictEqual(parentLines(lines), ['1*[3,4,5,6]', '1>2', '2*[7,8]']);
+  const counted = lines.filter((l) => l.kids);
+  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link, l.bracket]), [['2', '2', 2, null, true], ['1', '1', 4, null, true]], 'both ends the parent, and the number of children it carries');
+  assert.ok(lines.filter((l) => l.kind === 'parent' && !l.kids).every((l) => l.bracket === undefined), 'a plain line is no bracket');
+});
+
+test('brackets keeps a child that is alone on its ring on a plain line, wherever it stands in a chain', () => {
+  const middle = buildOf([
+    card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { parent: 1, waiting_for: ['2'] }),
+    card(4, { type: 'epic', parent: 1, waiting_for: ['3'] }),
+  ]);
+  assert.deepStrictEqual(parentLines(linesOf(middle, { lines: 'brackets' })), ['1>2', '1>3', '1>4'], 'card 3 waits for 2 and is waited for by 4, yet is alone on its ring');
+});
+
+test('brackets gives each parent its own bracket, and counts the children it carries in outline order', () => {
+  const model = buildOf([
+    card(1, { type: 'goal' }), card(2, { type: 'goal' }),
+    card(3, { parent: 1 }), card(4, { parent: 1 }), card(5, { parent: 1 }), card(6, { parent: 2 }), card(7, { parent: 2 }),
+  ]);
+  const counted = linesOf(model, { lines: 'brackets' }).filter((l) => l.kids);
+  assert.deepStrictEqual(counted.map((l) => [l.from, l.kids, l.count]), [['1', ['3', '4', '5'], 3], ['2', ['6', '7'], 2]]);
+});
+
+test('brackets gives a parent one bracket for each ring its children sit on', () => {
+  const model = buildOf([
+    card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { type: 'strategy', parent: 1 }),
+    card(4, { parent: 1 }), card(5, { parent: 1 }),
+  ]);
+  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'brackets' })), ['1*[2,3]', '1*[4,5]']);
+});
+
+test('brackets carries every child of the board on a line or a bracket, and folded still draws what it drew', () => {
+  const model = tree();
+  const carried = linesOf(model, { lines: 'brackets' }).filter((l) => l.kind === 'parent').reduce((n, l) => n + (l.kids ? l.kids.length : 1), 0);
+  assert.strictEqual(carried, 7);
+  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'folded' })), ['1*[5,6]', '1>2', '1>4', '2*[7,8]']);
+  assert.ok(linesOf(model, { lines: 'folded' }).every((l) => l.bracket === undefined), 'folded draws no bracket');
+});
+
 test('dependencies on draws a line for each wait, from the card waited for, and off draws none, whatever the lines', () => {
   const model = tree();
-  for (const lines of ['folded', 'chain', 'all', 'off']) {
+  for (const lines of ['folded', 'brackets', 'chain', 'all', 'off']) {
     assert.deepStrictEqual(waitLines(linesOf(model, { lines, dependencies: 'on' })), ['3>4', '5>8'], lines);
     assert.deepStrictEqual(waitLines(linesOf(model, { lines, dependencies: 'off' })), [], lines);
   }
@@ -194,7 +235,7 @@ test('the lines come in the order of the model\'s relations, and the same option
 test('no option reaches the layout: the same cards give the same places whatever the lines and dependencies', () => {
   const model = tree();
   const before = JSON.stringify([...graphFanPlace(model).places]);
-  for (const lines of ['folded', 'chain', 'all', 'off']) linesOf(model, { lines, dependencies: 'off' });
+  for (const lines of ['folded', 'brackets', 'chain', 'all', 'off']) linesOf(model, { lines, dependencies: 'off' });
   assert.strictEqual(JSON.stringify([...graphFanPlace(model).places]), before);
 });
 
