@@ -104,20 +104,20 @@ test('run once against a stand-in page the scenario finishes, and every expressi
   for (const n of names) assert.ok(n.length > 12 && /[a-z]/.test(n), n);
 });
 
-test('it loads the Board, the links, the Graph and the Board again cold by their addresses, and reloads once', async () => {
+test('it loads the Board, the links, the lit link, the Graph and the Board again cold by their addresses, and reloads once', async () => {
   const page = standIn();
   await scenario.run(page);
   assert.deepStrictEqual(page.log.opened, [
-    '/?view=board', `/?view=board&q=${CASES.query}`, `/?view=graph&q=${CASES.query}`, '/?view=graph', '/?view=board',
+    '/?view=board', `/?view=board&q=${CASES.query}`, `/?view=graph&q=${CASES.query}`, `/?view=board&q=${CASES.query}&isolate=0`, '/?view=graph', '/?view=board',
   ]);
   assert.strictEqual(page.log.reloads, 1);
 });
 
-test('it types the query the unit test holds to the board, and presses Escape twice and the i key once', async () => {
+test('it types the query the unit test holds to the board, and presses Escape twice and the i key twice', async () => {
   const page = standIn();
   await scenario.run(page);
   assert.ok(page.log.inserted.length > 0 && page.log.inserted.every((t) => t === CASES.query));
-  assert.deepStrictEqual(page.log.keys.filter((k) => k === 'i'), ['i']);
+  assert.deepStrictEqual(page.log.keys.filter((k) => k === 'i'), ['i', 'i']);
   assert.strictEqual(page.log.keys.filter((k) => k === 'Escape').length, 2, 'one closes the panel and one turns isolate off');
 });
 

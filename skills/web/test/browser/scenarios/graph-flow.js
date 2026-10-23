@@ -10,7 +10,7 @@
 // zoom work as in Hierarchy, a lone card lighting with its dependencies. Lanes on puts each card with a
 // dependency in the lane of its nearest parent with a tier, else its root: under a header with that card's
 // type mark, tier, #id title, cards and ready cards, which is that card's node (click, Shift/Ctrl-click, double click,
-// Enter, Space, hover, focus, the card menu and the lighting act on it as on its dot, and the two select together),
+// Enter, Ctrl+Space, hover, focus, the card menu and the lighting act on it as on its dot, and the two select together),
 // and the columns stand across the lanes. The choice and the switches are kept for the board in the browser
 // and in the address (graph=, deps=, lanes=), the address winning on a load; and the panel works as the
 // phone's bottom sheet.
@@ -274,8 +274,8 @@ module.exports = {
     await park();
     await ev(`document.querySelector('${HEAD(hc)}').focus()`);
     check('plan: focus on a header lights its card as on a dot', await waitFor(`document.activeElement===document.querySelector('${HEAD(hc)}')&&hoveredId==='${hc}'`) && await litIs(plan.head.lit) && sameList(await ev(HEAD_LIT), [hc]));
-    await key(' ');
-    check('plan: Space on a header selects its card', await waitFor(`${SELECTED}==='[${hc}]'`) && await bothHave(hc, 'selected'));
+    await key(' ', { ctrl: true });
+    check('plan: Ctrl+Space on a header selects its card', await waitFor(`${SELECTED}==='[${hc}]'`) && await bothHave(hc, 'selected'));
     const refocused = async (sel) => {
       await ev(`window.__was=document.activeElement`);
       await ev(`(async()=>{await autoRefreshTick();})()`);

@@ -87,7 +87,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), typing =
     nodeClick: (id, m = {}) => elements['#graph-view'].fire('click', nodeEvent(id, m)),
     nodeDoubleClick: async (id) => { elements['#graph-view'].fire('dblclick', nodeEvent(id)); await page.settle(); },
     nodeEnter: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: 'Enter' })); await page.settle(); },
-    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ' })); await page.settle(); },
+    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ', ctrlKey: true })); await page.settle(); },
     close: async () => { session.close.fire('click'); await page.settle(); },
   };
   return s;
@@ -229,11 +229,11 @@ test('the address keeps the box\'s text through opening and closing the card', a
 test('the address keeps the box\'s text through opening and closing the card where the pill isolates nothing', async () => {
   const s = await open({ typing: false });
   s.pillClick('review');
-  assert.strictEqual(s.address(), '?q=review%3A');
+  assert.strictEqual(s.address(), '?q=review%3A&isolate=0');
   await s.click(5);
-  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', card: '5' });
+  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', isolate: '0', card: '5' });
   await s.close();
-  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:' });
+  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', isolate: '0' });
 });
 
 test('a poll while the card is closed again keeps the pill, which the selection still holds', async () => {
@@ -290,7 +290,7 @@ test('a plain click on a card in the Graph, which paints in place, takes the pil
   assert.deepStrictEqual(s.chip(), { hidden: true, text: '' }, 'the chip counts nothing, as the box and the selection say');
 });
 
-test('Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
+test('Ctrl+Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
   const s = await open({ view: 'graph' });
   s.pillClick('review');
   assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' });

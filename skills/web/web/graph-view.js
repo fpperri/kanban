@@ -1150,11 +1150,11 @@ function wireGraphView(host) {
     if (node) openCard(node.dataset.id);
   });
   host.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     const node = e.target.closest('.graph-node');
     if (!node) return;
+    if (hotkeySpace(e) === 'select') { e.preventDefault(); graphClickNode(node.dataset.id, {}); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(node.dataset.id); }
-    else if (e.key === ' ') { e.preventDefault(); graphClickNode(node.dataset.id, {}); }
   });
 
   const enter = (e) => {

@@ -1178,6 +1178,7 @@ function setView(mode) {
   if (kept !== before) setSelection(kept);
   if (kept !== before && partsOf(kept).length && boxMirrorsSelection()) mirrorSelectionInBox(before); // what is picked leaves the Graph with the box saying so; a typed search left alone goes on filtering
   else renderBoard();
+  followSearchInAddress($('#search-input').value); // the address says isolate=0 outside the Graph and nothing in it
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
@@ -2620,7 +2621,7 @@ function consumeDeepLink() {
     // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
     // and the listeners told of it (the address, the chip) see it on.
     if (link.isolate) isolateFromLink(link.q);
-    writeSearch(link.q, 'link');
+    writeSearch(link.q, link.isolateOff ? 'link-lit' : 'link'); // isolate=0 opens it lit; no parameter is an old link, isolated where the view isolates
   } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
@@ -3537,7 +3538,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
 // on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'prefill', 'selection' and 'mirror'. A write that carries a
+// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'link-lit', 'prefill', 'selection', 'mirror' (a click
+// that selects writes the selection as its own text) and 'hover' (Space on a hovered card writes its sets as
+// typing writes, but never turns isolate on: neither is among ISOLATING_REASONS, selection.js). A write that carries a
 // query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
 // Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping, isolate.js). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
@@ -3587,7 +3590,7 @@ function clearSearch() {
 // isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text, isolateNow() !== null);
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null, loadViewMode() !== 'graph');
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);
@@ -3648,7 +3651,7 @@ function selectionFollowingBox(selection) {
   const isolated = isolateNow() !== null;
   if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
   const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
-  if (reason !== 'typing' && reason !== 'clear') return followed;
+  if (reason !== 'typing' && reason !== 'clear' && reason !== 'hover') return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
 
@@ -6369,8 +6372,7 @@ function exploreIntoBox(kind, e) {
   if (menuSubject.clicked == null) return;
   const input = $('#search-input');
   const term = `${kind}:${window.kanbanIds.idKey(menuSubject.clicked) ?? menuSubject.clicked}`;
-  const text = e && e.shiftKey ? searchAddAlt(input.value, term) : searchJoinSlice(term, searchSplitSlice(input.value).slices);
-  writeSearch(text, 'typing');
+  writeSearch(searchWithTerms(input.value, term, !!(e && e.shiftKey)), 'typing');
 }
 
 // Bulk archive asks WHERE before it moves anything (ADR 0010): the

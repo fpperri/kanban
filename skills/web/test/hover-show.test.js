@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  HOVER_SHOW_KINDS, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles,
+  HOVER_SHOW_KINDS, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms,
 } = require('../web/hover-show');
 
 const set = (ids) => new Set(ids);
@@ -142,4 +142,18 @@ test('with the defaults the Graph\'s hover lights what it lit before: the card a
 test('with the Flow default the hover lights what the Flow lit before: the card and one hop over waiting_for alone', () => {
   assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 3), set(['2', '3']));
   assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 1), set(['1']), 'a parent is no line in the Flow');
+});
+
+// --- the text Space writes -------------------------------------------------------------------------
+
+test('Space writes one term per ticked set, as alternatives, in the panel order whatever order they were ticked in', () => {
+  assert.strictEqual(hoverShowTerms(['dlinks', 'hlinks'], '12'), 'dlinks:12 | hlinks:12');
+  assert.strictEqual(hoverShowTerms(['hlinks', 'dtree', 'dlinks'], '12'), 'dtree:12 | dlinks:12 | hlinks:12');
+  assert.strictEqual(hoverShowTerms(['hpath'], 'kanban#12'), 'hpath:kanban#12', 'a prefixed id is written as the search reads it');
+});
+
+test('with no set ticked, or a set the panel does not offer, Space has nothing to write', () => {
+  assert.strictEqual(hoverShowTerms([], '12'), '');
+  assert.strictEqual(hoverShowTerms(['tree', 'nonsense'], '12'), '');
+  assert.strictEqual(hoverShowTerms(undefined, '12'), '');
 });

@@ -115,14 +115,14 @@ test('turning isolate on or off adds no browser-history entry, however often it 
   assert.strictEqual(s.session.replaces, 4, 'each flip replaced the entry it is on');
 });
 
-test('isolating a selection whose text equals the box still puts the parameter in, and turning it off takes it out', async () => {
+test('isolating a selection whose text equals the box still puts the parameter in, and turning it off writes isolate=0', async () => {
   const s = await openAt('?q=%232');
   s.ctrlClick(2);
   s.flip();
   assert.strictEqual(s.box(), '#2');
   assert.deepStrictEqual(s.params(), { q: '#2', isolate: '1' }, 'q did not change, the parameter still arrives');
   s.flip();
-  assert.deepStrictEqual(s.params(), { q: '#2' }, 'back to the text it held, and the parameter is gone');
+  assert.deepStrictEqual(s.params(), { q: '#2', isolate: '0' }, 'back to the text it held, lit: isolate=0 says so');
 });
 
 // --- a reload, and a link opened in another browser ----------------------------------------------
@@ -144,7 +144,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
   assert.deepStrictEqual(second.shown(), ['2', '5'], 'the Board shows only the isolated cards');
 });
 
-test('after a reload, turning isolate off gives the box the text it held before isolating, and takes the isolate parameter out of the address', async () => {
+test('after a reload, turning isolate off gives the box the text it held before isolating, and writes isolate=0 in its place', async () => {
   const first = await openAt();
   first.type('tags:ui');
   first.ctrlClick(2);
@@ -156,7 +156,7 @@ test('after a reload, turning isolate off gives the box the text it held before 
   second.flip();
   assert.strictEqual(second.box(), 'tags:ui', 'the text from before isolating, kept in the browser, is back');
   assert.strictEqual(second.isolate(), null);
-  assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
+  assert.deepStrictEqual(second.params(), { q: 'tags:ui', isolate: '0' });
   assert.deepStrictEqual(second.shown(), ['1', '2', '3', '4', '5', '6'], 'and the Board shows every card again, the box lighting its matches');
 });
 
@@ -308,6 +308,6 @@ test('a query typed on the Board with Typing isolates on is isolated in the addr
   assert.deepStrictEqual(second.shown(), ['2', '5']);
   second.flip();
   assert.strictEqual(second.box(), 'tags:ui', 'the typed query stays, lit');
-  assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
+  assert.deepStrictEqual(second.params(), { q: 'tags:ui', isolate: '0' });
   assert.deepStrictEqual(second.shown(), ['1', '2', '3', '4', '5', '6']);
 });

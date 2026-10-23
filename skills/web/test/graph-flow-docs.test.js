@@ -93,7 +93,7 @@ test('the web doc says what the Lanes switch does: which lane, the header, ready
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order/);
   assert.match(text, /With frontier a lane folds into the strip at the bottom, which then reads `no open dependency`, when none of its cards with a dependency is open; a lane whose open cards wait only on done cards stays, since those cards are ready now\. With all no lane folds/);
   assert.match(text, /A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it, not every card under its lane card/);
-  assert.match(text, /A header is its card's node: a click, Shift- or Ctrl-click, double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and the header and the dot of its card light and select together/);
+  assert.match(text, /A header is its card's node: a click, Shift- or Ctrl-click, double-click, Enter, Ctrl\+Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and the header and the dot of its card light and select together/);
 });
 
 test('the web doc says where the strip, the order and the arrows go, and what a dot keeps', () => {
@@ -160,12 +160,12 @@ test('the web skill\'s Graph Flow says the Lanes switch, the lane of a card, the
   assert.match(text, /With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order/);
   assert.match(text, /With frontier a lane folds into the strip when none of its cards with a dependency is open \(every such card is done\), and the strip then reads `no open dependency`; a lane whose open cards wait only on done cards stays, since those cards are ready now\. With all no lane folds/);
   assert.match(text, /A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it \(`header\.count`\), not every card under its lane card/);
-  assert.match(text, /A header is its card's node: a `\.graph-node\.card-el\.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots, so every handler of the dots \(click, Shift\/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu\) takes it for that card, with the same items; `graphCur\.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together\. It is not a second dot: the card keeps its one dot/);
+  assert.match(text, /A header is its card's node: a `\.graph-node\.card-el\.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots, so every handler of the dots \(click, Shift\/Ctrl-click, double-click, Enter, Ctrl\+Space, hover and focus lighting, the card menu\) takes it for that card, with the same items; `graphCur\.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together\. It is not a second dot: the card keeps its one dot/);
 });
 
 test('the web skill\'s Graph Flow says what works as in Hierarchy, what lights, and that a dot is not dragged', () => {
   const text = skillBullet('- **Graph Flow**');
-  assert.match(text, /Search lighting, the status pills, `slice:` cuts, isolate, selection, the card menu, double-click, Enter, Space and the zoom work as in Hierarchy, on the same dots/);
+  assert.match(text, /Search lighting, the status pills, `slice:` cuts, isolate, selection, the card menu, double-click, Enter, Ctrl\+Space and the zoom work as in Hierarchy, on the same dots/);
   assert.match(text, /a card whose only dependency is hidden has no dependency drawn, so it is in the strip/);
   assert.match(text, /A lone selected card lights the card with the cards its \*\*dependencies\*\* join to it, not its parent or children, and hover and focus light what the Flow's \*On hover show\* ticks \(`dlinks` alone by default, so the same cards\), and the lit lines are the arrows/);
   assert.match(text, /A dot cannot be dragged in Flow; the background pans/);

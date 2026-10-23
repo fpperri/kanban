@@ -206,7 +206,7 @@ at the bottom, which then reads `no open dependency`, when none of its cards wit
 lane whose open cards wait only on done cards stays, since those cards are ready now. With all no lane folds.
 A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it, not
 every card under its lane card. A header is its card's node: a click, Shift- or Ctrl-click,
-double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
+double-click, Enter, Ctrl+Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
 the header and the dot of its card light and select together. A dot keeps its status colour and its type mark,
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
@@ -329,6 +329,16 @@ that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calen
 when the Graph last showed the Flow. The panel shows the choice of the view that is on and says whose it is. The
 snapshot has no hover, so it has no such section.
 
+**Space takes the hover.** With a card hovered, else focused, `Space` writes the sets *On hover show* ticks for it
+into the search box as alternatives (`dlinks:12 | hlinks:12`), the box's run of slices kept and isolate as it was.
+Unlike typing, that write never turns isolate on: outside the Graph the box lights the cards it names, or hides the
+rest if isolate was already on, and in the Graph it is the typed search. `Shift+Space` adds that text to what the
+box holds as one more alternative, so a set can be built from several cards; an empty box takes it as a plain
+`Space` does. With no card hovered or focused, in a text field, on a button, link or switch, and behind a menu, a
+dialog, the notifications panel, the preferences sheet or the notes palette, `Space` keeps its own job: it scrolls,
+presses the button, or ticks a todo item. `Ctrl+Space` selects the focused card in the Graph, as a click does: it is
+the key `Space` was before.
+
 **Slice section** — the first region of the search panel lists the board's slices, top to
 bottom: the tiers some card of the board is in, each with the icon its type has in the
 config, then every depth (`depth 0`, `depth 1`, ...). Each entry shows how many of the
@@ -391,6 +401,10 @@ selected the entry says so, as the switch does.
 The link carries it. While isolate is on, the address holds a second parameter beside `q`,
 `isolate=1`, written as the box changes and never as a history entry. A reload, or a link opened
 in another browser, opens isolated: the Graph and every other view show only the isolated set.
+Outside the Graph, while the box holds a search and Isolate is off, the address says `isolate=0`
+instead, so a reload reopens the same picture, lit; a link with a search and no `isolate` parameter, an
+old or hand-made one, opens isolated in a view whose Typing isolates is on. In the Graph no parameter
+means off, and none is written.
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
 the parameter and no query opens with isolate off, and the address drops the parameter.
@@ -523,7 +537,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Shift+Space`, `Ctrl+Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has

@@ -296,3 +296,27 @@ test('nextCardHistorySearch: opening and closing a card keep the isolate paramet
   assert.deepStrictEqual(paramsOf(nextCardHistorySearch('?q=%232&isolate=1', 2)), [['q', '#2'], ['isolate', '1'], ['card', '2']]);
   assert.deepStrictEqual(paramsOf(nextCardHistorySearch('?q=%232&isolate=1&card=2', null)), [['q', '#2'], ['isolate', '1']]);
 });
+
+// --- nextSearchAddress: isolate=0 outside the Graph ------------------------------------------------
+
+test('nextSearchAddress: outside the Graph a box with a query and isolate off writes isolate=0 beside q', () => {
+  assert.strictEqual(nextSearchAddress('', 'zephyr', false, true), '?q=zephyr&isolate=0');
+  assert.strictEqual(nextSearchAddress('?q=zephyr&isolate=1', 'zephyr', false, true), '?q=zephyr&isolate=0', 'isolate going off changes 1 to 0');
+  assert.strictEqual(nextSearchAddress('?q=zephyr&isolate=0', 'zephyr', true, true), '?q=zephyr&isolate=1', 'and going on changes 0 to 1');
+});
+
+test('nextSearchAddress: isolate=0 is already in line when the address says so, and an old link without it is brought in line', () => {
+  assert.strictEqual(nextSearchAddress('?q=zephyr&isolate=0', 'zephyr', false, true), null);
+  assert.strictEqual(nextSearchAddress('?q=zephyr', 'zephyr', false, true), '?q=zephyr&isolate=0');
+});
+
+test('nextSearchAddress: an empty box drops isolate=0 with q, so the parameter never stands alone', () => {
+  assert.strictEqual(nextSearchAddress('?q=zephyr&isolate=0', '', false, true), '');
+  assert.strictEqual(nextSearchAddress('?view=map&q=zephyr&isolate=0', '  ', false, true), '?view=map');
+});
+
+test('nextSearchAddress: in the Graph (no off declared) nothing is written for isolate off, and a stale isolate=0 goes', () => {
+  assert.strictEqual(nextSearchAddress('', 'zephyr', false, false), '?q=zephyr');
+  assert.strictEqual(nextSearchAddress('?q=zephyr&isolate=0', 'zephyr', false, false), '?q=zephyr');
+  assert.strictEqual(nextSearchAddress('?q=zephyr', 'zephyr', false), null, 'the fourth argument is off by default');
+});

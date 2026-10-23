@@ -111,7 +111,7 @@ test('the pieces that wrote the selection before now call the entry point', () =
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
     addCardToSelection: /setSelection\(addPart\(before, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
-    exploreIntoBox: /writeSearch\(text, 'typing'\)/,
+    exploreIntoBox: /writeSearch\(searchWithTerms\(input\.value, term, !!\(e && e\.shiftKey\)\), 'typing'\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,

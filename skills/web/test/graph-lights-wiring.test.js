@@ -357,10 +357,10 @@ test('the click that writes the box is a write to it like any other: the address
   assert.strictEqual(s.page.run('isolateNow()'), null, 'and the write turns isolate on for no one');
 });
 
-test('Space on a focused card acts as a plain click, and so shows the card in the box too', async () => {
+test('Ctrl+Space on a focused card acts as a plain click, and so shows the card in the box too', async () => {
   const s = await open();
   s.type('tags:ui');
-  s.graphHost.fire('keydown', nodeEvent(1, { key: ' ' }));
+  s.graphHost.fire('keydown', nodeEvent(1, { key: ' ', ctrlKey: true }));
   assert.strictEqual(s.box(), '#1');
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
 });
