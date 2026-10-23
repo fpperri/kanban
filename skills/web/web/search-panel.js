@@ -10,7 +10,8 @@
 // regions, each drawn on its own so that what joins the panel later extends one
 // without editing another: the slice section (#search-slices, with its fold control,
 // drawn by search-slices.js), the pill section (#search-pills, with its fold control), a
-// divider, and a foot (#search-foot, which holds the Isolate switch: isolate.js).
+// divider, and a foot (#search-foot, which holds the Isolate switch: isolate.js). Under the foot
+// sits "On hover show" (#search-hover, hover-show-ui.js): which sets a hover lights.
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here: the three built-ins, then the board's own pills (state.pills, the config's
@@ -49,7 +50,7 @@
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
 // searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
 // page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
-// (isolateNow, syncIsolateSwitch), search-slices.js (renderSearchSlices,
+// (isolateNow, syncIsolateSwitch), hover-show-ui.js (syncHoverShowPanel), search-slices.js (renderSearchSlices,
 // searchSlicesChipNames), the search module (searchOtherBoardMentions, searchTermText and the alternatives and slice
 // functions: searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchAddAlt,
 // searchRemoveGrownAlt),
@@ -233,6 +234,7 @@ function renderSearchPanel() {
   renderSearchSlices();
   syncSearchSwitch();
   syncIsolateSwitch();
+  syncHoverShowPanel();
   const selection = selectionState.selection;
   const host = $('#search-pills');
   if (searchPanelOpen && host) syncPillButtons(host, searchPanelRows(), selection);

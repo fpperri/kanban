@@ -10,22 +10,25 @@ const { isHoverHighlighted } = require('../web/selection');
 // different day, so this is the only way to see a card's true extent.
 
 // --- isHoverHighlighted (selection.js) — the one pure, testable piece.
-// Unlike selectedIds (a Set, many cards at once), only ever one card is
-// hovered/focused, so the membership test is a plain equality check.
+// The cards that take the hover look are the Set the page keeps (hoverLit): the hovered card and
+// the sets "On hover show" ticks for it, null when nothing is hovered.
 
-test('isHoverHighlighted is true only for the hovered id', () => {
-  assert.strictEqual(isHoverHighlighted(5, 5), true);
-  assert.strictEqual(isHoverHighlighted(5, 6), false);
+test('isHoverHighlighted is true for each card of the lit set and no other', () => {
+  const lit = new Set(['5', '7']);
+  assert.strictEqual(isHoverHighlighted(lit, '5'), true);
+  assert.strictEqual(isHoverHighlighted(lit, '7'), true);
+  assert.strictEqual(isHoverHighlighted(lit, '6'), false);
 });
 
-test('isHoverHighlighted with no hovered card (null) lights nothing', () => {
-  assert.strictEqual(isHoverHighlighted(null, 5), false);
-  assert.strictEqual(isHoverHighlighted(undefined, 5), false);
+test('isHoverHighlighted with nothing hovered (null) lights nothing', () => {
+  assert.strictEqual(isHoverHighlighted(null, '5'), false);
+  assert.strictEqual(isHoverHighlighted(undefined, '5'), false);
 });
 
-test('isHoverHighlighted treats id 0 as a real id, not "no hover" — only null/undefined mean unset', () => {
-  assert.strictEqual(isHoverHighlighted(0, 0), true);
-  assert.strictEqual(isHoverHighlighted(0, 1), false);
+test('isHoverHighlighted treats id 0 as a real id, and an empty set lights nothing', () => {
+  assert.strictEqual(isHoverHighlighted(new Set([0]), 0), true);
+  assert.strictEqual(isHoverHighlighted(new Set([0]), 1), false);
+  assert.strictEqual(isHoverHighlighted(new Set(), '5'), false);
 });
 
 // --- surface wiring — each of the six card-representing render call sites
@@ -39,33 +42,34 @@ const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8
 const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
 const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
 
-test('hoveredId is a single module-level id, never a Set — only one card is hovered/focused at a time', () => {
+test('hoveredId is a single module-level id, never a Set — only one card is hovered/focused at a time; hoverLit is the Set of cards that take the look', () => {
   assert.match(appJs, /let hoveredId = null;/);
+  assert.match(appJs, /\nlet hoverLit = null;/);
 });
 
 test('board tile: cardEl reads hoveredId via isHoverHighlighted and is Tab-reachable', () => {
-  assert.match(appJs, /\(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);\s*\n\s*el\.draggable = !onPhoneLayout\(\);[^\n]*\n\s*el\.tabIndex = 0;/);
+  assert.match(appJs, /\(isHoverHighlighted\(hoverLit, card\.id\) \? ' hover-highlight' : ''\);\s*\n\s*el\.draggable = !onPhoneLayout\(\);[^\n]*\n\s*el\.tabIndex = 0;/);
 });
 
 test('archived tile: archiveCardEl carries the same hover-highlight + tabIndex pair', () => {
-  assert.match(appJs, /archived-card' \+ \(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /archived-card' \+ \(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoverLit, card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
 test('calendar chip: calendarChipEl (shared by the month grid AND the sub-month grids) carries hover-highlight + tabIndex', () => {
-  assert.match(appJs, /\(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /\(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoverLit, card\.id\) \? ' hover-highlight' : ''\);/);
   assert.match(appJs, /el\.tabIndex = 0; \/\/ reachable by Tab so the hover cue isn't pointer-only \(kanban\.proj#261\)\s*\n\s*el\.dataset\.id = card\.id;/);
 });
 
 test('gantt bar: ganttBarEl carries hover-highlight + tabIndex, gated the same as .selected', () => {
-  assert.match(appJs, /\(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\) \+/);
+  assert.match(appJs, /\(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoverLit, bar\.card\.id\) \? ' hover-highlight' : ''\) \+/);
 });
 
 test('gantt gutter label: shares the bar\'s hover-highlight + tabIndex, same card-el parity .selected already has', () => {
-  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoverLit, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
 test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — ghost/missing stubs stay inert', () => {
-  assert.match(appJs, /\$\{selectable && isHoverHighlighted\(hoveredId, id\) \? ' hover-highlight' : ''\}`;/);
+  assert.match(appJs, /\$\{selectable && isHoverHighlighted\(hoverLit, id\) \? ' hover-highlight' : ''\}`;/);
   assert.match(appJs, /<g class="\$\{cls\}" transform="translate\(\$\{p\.x\},\$\{p\.y\}\)"\$\{missing \? '' : ` data-id="\$\{id\}"`\}\$\{selectable \? ' tabindex="0"' : ''\}>/);
 });
 
@@ -92,7 +96,26 @@ test('the leave handler only clears hoveredId once the pointer/focus is OUTSIDE 
 
 test('applyHoverHighlight repaints the live DOM directly rather than triggering a full renderBoard() per mouse move', () => {
   assert.match(appJs, /function applyHoverHighlight\(\) \{\s*\n\s*document\.querySelectorAll\('\.hover-highlight'\)\.forEach\(\(el\) => el\.classList\.remove\('hover-highlight'\)\);/);
-  assert.match(appJs, /document\.querySelectorAll\(`\.card-el\[data-id="\$\{hoveredId\}"\]`\)\.forEach\(\(el\) => el\.classList\.add\('hover-highlight'\)\);/);
+});
+
+test('applyHoverHighlight lights the whole set in one pass over the cards, not one query per id', () => {
+  const fn = /function applyHoverHighlight\(\) \{[\s\S]*?\n\}/.exec(appJs)[0];
+  assert.match(fn, /if \(hoverLit == null\) return;/);
+  assert.strictEqual((fn.match(/querySelectorAll/g) || []).length, 2, 'one query to clear, one to light');
+  assert.match(fn, /document\.querySelectorAll\('\.card-el'\)\.forEach\(\(el\) => \{\s*\n\s*if \(hoverLit\.has\(el\.dataset\.id\)\) el\.classList\.add\('hover-highlight'\);/);
+  assert.doesNotMatch(fn, /for \(/, 'no loop over the ids that queries the page each time');
+});
+
+test('hoverLit follows hoveredId: set when a card is hovered, and worked out again at every render and every change of what the hover lights', () => {
+  assert.match(/function setHoveredId\(id\) \{[\s\S]*?\n\}/.exec(appJs)[0], /hoveredId = id;\s*\n\s*syncHoverLit\(\);\s*\n\s*applyHoverHighlight\(\);/);
+  assert.match(/function renderBoard\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /syncHoverLit\(\);/);
+  assert.match(/function refreshHover\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /syncHoverLit\(\);\s*\n\s*applyHoverHighlight\(\);\s*\n\s*if \(loadViewMode\(\) === 'graph'\) graphSettleFocus\(\);/);
+});
+
+test('outside the Graph hoverLit is the hovered card and its ticked sets; in the Graph the hover ring stays on the hovered card alone', () => {
+  const fn = /function hoverLitNow\(\) \{[\s\S]*?\n\}/.exec(appJs)[0];
+  assert.match(fn, /if \(hoveredId == null\) return null;/);
+  assert.match(fn, /loadViewMode\(\) === 'graph' \? new Set\(\[hoveredId\]\) : hoverShowTiles\(hoverShowKindsNow\(\), state\.active\.concat\(state\.archived\), hoveredId, searchCtx\(\)\)/);
 });
 
 // --- surviving the poll: renderBoard()'s full DOM rebuild carries the

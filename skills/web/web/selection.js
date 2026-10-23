@@ -23,13 +23,13 @@ function rangeSelection(set, orderedIds, startId, targetId) {
   return next;
 }
 
-// Hover/focus highlight (kanban.proj#261): unlike selection, only ever ONE
-// card is hovered or focused at a time, so the membership test every
-// render call site needs is a plain equality check — pulled out so it has
-// one tested place to live rather than a raw `===` repeated at each of the
-// six card-representing surfaces.
-function isHoverHighlighted(hoveredId, cardId) {
-  return hoveredId != null && hoveredId === cardId;
+// Hover/focus highlight: one card is hovered or focused at a time, and the cards that take
+// the hover look are that card and the sets "On hover show" ticks for it (hover-show.js), so
+// the membership test every render call site needs is a lookup in that set (null when
+// nothing is hovered) — pulled out so it has one tested place to live rather than a raw
+// `.has` repeated at each of the card-representing surfaces.
+function isHoverHighlighted(lit, cardId) {
+  return lit != null && lit.has(cardId);
 }
 
 // The card menu a right-click on card `id` opens, as one decision the page only
