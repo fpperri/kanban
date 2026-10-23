@@ -317,8 +317,9 @@ to `127.0.0.1` only.
   is a complete term, never dropped;
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
   grammar in the Dependency map section; `hpath:<id>`/`htree:<id>`/`dpath:<id>`/`dtree:<id>`
-  (`#` optional) are the four sets Explore's Path and Tree add, each by one relation alone, the
-  hierarchy ones over `parent` and the dependency ones over `waiting_for` — see Multi-select; bare text is a substring on title OR body OR any
+  (`#` optional) are the four sets Explore's Path and Tree write into the box, each by one relation
+  alone, the hierarchy ones over `parent` and the dependency ones over `waiting_for` — see
+  Multi-select; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
   string) rather than silently matching nothing on a typo'd field name. Five more forms,
   one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
@@ -755,19 +756,22 @@ to `127.0.0.1` only.
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
   is when Apply is pressed. **Path** and **Tree** are groups of their own inside Explore, a third
   level (see The groups): each opens **Hierarchy** and **Dependency**, four entries (`ctx-hpath`,
-  `ctx-dpath`, `ctx-htree`, `ctx-dtree`) that add one part of the matching kind (`hpath`, `dpath`,
-  `htree`, `dtree`) to the selection for the card that was right-clicked, `menuSubject.clicked`
+  `ctx-dpath`, `ctx-htree`, `ctx-dtree`) that write the matching term (`hpath:<id>`, `dpath:<id>`,
+  `htree:<id>`, `dtree:<id>`, `#` optional) for the card that was right-clicked, `menuSubject.clicked`
   (the open card, in the card details' menu), and never for the whole subject, even when that card
-  is inside it. The hierarchy path is the card's parents up to its root and every card nested under
+  is inside the selection. The hierarchy path is the card's parents up to its root and every card nested under
   it, the hierarchy tree the whole parent tree from its root down (both over `parent` only); the
   dependency path is everything it waits for and everything waiting on it, transitively, and the
-  dependency tree its connected set (both over `waiting_for` only). The cards a part
-  reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
-  with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
-  card with neither is no target there, and no pill counts it). They do not write the search box, which is left as it was; each part is
-  its search term (`hpath:<id>`, `htree:<id>`, `dpath:<id>`, `dtree:<id>`, `#` optional), which resolves
-  it and which Isolate writes. A typed
-  `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
+  dependency tree its connected set (both over `waiting_for` only). A plain pick writes
+  the term into the search box as if it were typed (`writeSearch(text, 'typing')`, so the address follows
+  and, in the Graph, the box is the typed anchor of the selection and the set is lit; in the other views
+  only the set is shown), in place of what the box held but for its `slice:` run
+  (`searchSplitSlice`, `searchJoinSlice`). A Shift pick (a Shift-click, or Shift+Enter on the focused
+  item) adds the term to the box as one more alternative (`searchAddAlt`: `htree:40 | dpath:185`,
+  bracketing what needs it), still as if typed; with an empty box it is a plain pick. Each item's title
+  ends "Shift: add to the search". They add nothing to the selection by hand, and isolate is left as
+  typing into the box leaves it: off stays off, and on it keeps the term as its text, so Isolate on a
+  search so written is Isolate on typed text. A typed `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count (Delete's is the delete popup, once for the whole selection). **Add child…** opens the New card form (`openModal(null, undefined, undefined, parentId)`) exactly
   as New card does, with Parent preset to the card and the heading "New card under #<id>"; it shows
   only when the subject is one live card (not an archived one, not a batch, not the canvas), in the
@@ -1028,9 +1032,8 @@ to `127.0.0.1` only.
   Cmd, Alt), Shift or a held key is not it. A click on the switch never clears a selection.
   Turning isolate on writes the selection into the search box as `part | part | ...`, each part
   by its criterion rather than as a frozen list of cards, so a card that comes to match a query
-  part joins on the next poll: a card is `#12`, a path `path:40`, a tree `tree:40` (and the four Explore
-  sets `hpath:40`, `htree:40`, `dpath:40` and `dtree:40`), and a query
-  is its own text, in brackets when it holds `|` or spaces (`(tags:ui status:doing)`). A card,
+  part joins on the next poll: a card is `#12`, a path `path:40`, a tree `tree:40`, and a query
+  (a search typed or written by Explore, `dpath:185` included) is its own text, in brackets when it holds `|` or spaces (`(tags:ui status:doing)`). A card,
   the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
   with a card taken out of it is already its other cards (see Multi-select), so it is written as
   them. The text the box held is kept, and so is a run of slices in it, applied to the whole of
@@ -1900,9 +1903,8 @@ to `127.0.0.1` only.
   error), and a card with no edges resolves to a component/cone of one — itself.
   Focusing hides everything outside the result and re-lays-out, exactly like a typed
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
-  new rendering path. The right-click menu does not offer these two: its Path and Tree add the
-  narrower `hpath:`, `htree:`, `dpath:` and `dtree:` sets to the selection instead of writing a
-  term — see Multi-select.
+  new rendering path. The right-click menu does not offer these two: its Path and Tree write the
+  narrower `hpath:`, `htree:`, `dpath:` and `dtree:` terms into the box — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
   GLOSSARY.md's parity table.
   **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls

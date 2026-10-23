@@ -162,7 +162,7 @@ Every card that a chain of relations joins, whichever way each points and whethe
 _Avoid_: component, cluster, web.
 
 **Explore set** (derived):
-One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree add one to the selection for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations.
+One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree write one into the search box for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations.
 _Avoid_: branch, subtree, lineage.
 
 **Chain end** (derived):

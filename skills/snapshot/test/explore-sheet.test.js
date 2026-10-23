@@ -112,3 +112,18 @@ test('the sheet and the menu draw from one label table whose kinds are the web\'
     assert.deepStrictEqual(page.plain(page.run('Object.keys(EXPLORE_LABELS).sort()')), [...EXPLORE_KINDS].sort());
   });
 });
+
+// --- the term replaces what the box held, but for its slice: run --------------------------------------------
+
+test('a button or a menu item writes its term in place of the box text and keeps the box\'s slice: run, as kanban-web\'s Explore does', () => {
+  withBuiltBoard('plan', (page) => {
+    openSheet(page, 3);
+    page.byId('q').value = 'zephyr tags:ui slice:goal..epic';
+    page.click(sheetButtons(page).find((b) => b.dataset.gk === 'dpath'));
+    assert.strictEqual(page.byId('q').value, 'dpath:3 slice:goal..epic');
+    page.run('openCtxMenu("2", 10, 10)');
+    const item = page.byId('ctxmenu').all().find((n) => n.classList.contains('ctxitem') && n.textContent === 'Hierarchy tree');
+    for (const fn of item.listeners.click) fn({ stopPropagation() {} });
+    assert.strictEqual(page.byId('q').value, 'htree:2 slice:goal..epic');
+  });
+});

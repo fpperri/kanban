@@ -122,7 +122,7 @@ test('a blank box drops q like an empty one', async () => {
   assert.strictEqual(session.search, '');
 });
 
-test('every other way of writing the box moves the address too: a cue and the Ctrl+F prefill; Dependency path from a card\'s menu writes nothing, so the address stays', async () => {
+test('every other way of writing the box moves the address too: a cue and the Ctrl+F prefill; Dependency path from a card\'s menu is a typing write too', async () => {
   const { page, session } = await openAt();
   clickTile(page, 2, 'card-assignee');
   assert.strictEqual(page.input.value, 'assignee:@afk');
@@ -133,8 +133,8 @@ test('every other way of writing the box moves the address too: a cue and the Ct
   assert.strictEqual(qOf(session.search), '#', 'the Ctrl+F prefill');
   page.rightClickCard(2);
   page.menu.dpath.fire('click');
-  assert.strictEqual(page.input.value, '#', 'Path from the menu leaves the box alone');
-  assert.strictEqual(qOf(session.search), '#', 'and the address with it');
+  assert.strictEqual(page.input.value, 'dpath:2', 'Dependency path from the menu writes its term in place of the box');
+  assert.strictEqual(qOf(session.search), 'dpath:2', 'and the address follows');
   assert.strictEqual(session.pushes, 0);
 });
 

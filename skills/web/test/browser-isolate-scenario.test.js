@@ -11,7 +11,7 @@ const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../web/search');
 const { pillList, pillRows } = require('../web/pills');
-const { NO_SELECTION, cardPart, graphPart, queryPart, addPart, resolveSelection } = require('../web/selection');
+const { NO_SELECTION, cardPart, typedQueryPart, queryPart, addPart, resolveSelection } = require('../web/selection');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate');
 
@@ -79,9 +79,9 @@ test('every pair of loose cards, with the path and the pill, writes the text the
   for (const x of CASES.loose) {
     for (const y of CASES.loose) {
       if (x === y) continue;
-      const selection = [cardPart(x), cardPart(y), graphPart('dpath', CASES.pathOf), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
+      const selection = [typedQueryPart(`${CASES.pathKind}:${CASES.pathOf}`), cardPart(x), cardPart(y), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
       const text = searchIsolateText([selection.anchor, ...selection.additions]);
-      assert.strictEqual(text, `#${x} | #${y} | ${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}`);
+      assert.strictEqual(text, `${CASES.pathKind}:${CASES.pathOf} | #${x} | #${y} | ${CASES.pill.query}`);
       const expected = sorted([x, y, ...CASES.pathCards, ...CASES.pill.cards]);
       assert.deepStrictEqual(sorted(b.matchIds(text)), expected, text);
       assert.deepStrictEqual(sorted(resolveSelection(selection, b.matchIds, null)), expected, 'and that is what the selection resolves to');
@@ -239,11 +239,11 @@ test('it presses the real keys: i, Tab, Enter, Space and Esc, and i with Ctrl or
   assert.strictEqual(page.log.keys.filter(([k, m]) => k === 'i' && (m.ctrl || m.alt)).length, 2);
 });
 
-test('it builds the Graph selection with a plain click, a Shift+click, a menu path and a Shift+click on the pill, and makes a double click on the switch and on the empty Graph', async () => {
+test('it builds the Graph selection with a menu path, two Shift+clicks and a Shift+click on the pill, and makes a double click on the switch and on the empty Graph', async () => {
   const page = standIn();
   await scenario.run(page);
   assert.ok(page.log.rightClicks.includes(`#graph-view .card-el[data-id="${CASES.pathOf}"]`));
-  assert.strictEqual(page.log.clicks.filter((e) => e.modifiers === 8).length, 2, 'Shift+click on the second card and on the pill');
+  assert.strictEqual(page.log.clicks.filter((e) => e.modifiers === 8).length, 3, 'Shift+click on the two cards and on the pill');
   assert.ok(page.log.clicks.filter((e) => e.modifiers === 2).length >= 3, 'Ctrl+clicks on the Board');
   assert.strictEqual(page.log.clicks.filter((e) => e.clickCount === 2).length, 2, 'one double click on the empty Graph and one on the switch');
 });

@@ -172,8 +172,7 @@ function cardOpenAction({ shiftKey, ctrlKey, metaKey, plainClick }) {
 // A selection grows from an anchor (one card, or one query) by additions (cards,
 // paths, trees, queries), in the order they were added. It is a value: every
 // operation returns a new selection and none changes the one it is given. A part
-// is { kind: 'card' | 'path' | 'tree' | 'hpath' | 'htree' | 'dpath' | 'dtree', id } or
-// { kind: 'query', text }. The ids
+// is { kind: 'card' | 'path' | 'tree', id } or { kind: 'query', text }. The ids
 // the views paint and the bulk edits read are worked out from the parts by
 // resolveSelection; the parts persist, the resolved set is worked out again.
 
@@ -184,11 +183,8 @@ const SEL_IDS = (typeof module !== 'undefined' && module.exports) ? require('./i
 // A part holds its card's whole id as a string, so `#7` and `#G7` are two cards.
 function partId(id) { const key = SEL_IDS.idKey(id); return key === null ? String(id) : key; }
 function cardPart(id) { return { kind: 'card', id: partId(id) }; }
-// A part named by a card's id whose cards a graph term finds: `kind` is one of the search module's
-// GRAPH_FIELDS ('path', 'tree' and the four Explore sets).
-function graphPart(kind, id) { return { kind, id: partId(id) }; }
-function pathPart(id) { return graphPart('path', id); }
-function treePart(id) { return graphPart('tree', id); }
+function pathPart(id) { return { kind: 'path', id: partId(id) }; }
+function treePart(id) { return { kind: 'tree', id: partId(id) }; }
 function queryPart(text) { return { kind: 'query', text: String(text) }; }
 
 function samePart(a, b) {
@@ -525,7 +521,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, graphPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -540,7 +536,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.cardPart = cardPart;
   window.pathPart = pathPart;
   window.treePart = treePart;
-  window.graphPart = graphPart;
   window.queryPart = queryPart;
   window.setAnchor = setAnchor;
   window.addPart = addPart;

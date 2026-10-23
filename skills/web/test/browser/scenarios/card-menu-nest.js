@@ -32,7 +32,7 @@ module.exports = {
     const boardReady = () => waitFor(`document.querySelectorAll('#board .card-el').length>20`, 10000);
     const hoverAt = (x, y) => mouse('mouseMoved', x, y, { button: 'none', clickCount: 0 });
     const hover = async (sel) => { const p = await ev(rect(sel)); await hoverAt(p.x, p.y); };
-    const clickOn = async (sel) => { const p = await ev(rect(sel)); await click(p.x, p.y); };
+    const clickOn = async (sel, extra = {}) => { const p = await ev(rect(sel)); await click(p.x, p.y, extra); };
     const menuOnCard = async (id, point) => {
       await rightClick(`#board .card-el[data-id="${id}"]`, point);
       return menuUp();
@@ -111,10 +111,10 @@ module.exports = {
     await clickOn('#ctx-path');
     check('a click on Path opens its panel at once', await waitFor(OPEN('ctx-path'), 2500) && await ev(MENU_UP));
     await hoverAt(5, 5);
-    check('an entry in the third panel is clicked as it always was: Dependency adds the path of the card to the selection and shuts the menu', await (async () => { await clickOn('#ctx-dpath'); return menuGone(); })() && await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='dpath'&&selectionState.selection.anchor.id==='7'`, 3000));
+    check('an entry in the third panel is clicked as it always was: Dependency writes dpath:7 into the search box and shuts the menu', await (async () => { await clickOn('#ctx-dpath'); return menuGone(); })() && await waitFor(`document.getElementById('search-input').value==='dpath:7'`, 3000));
 
     // --- the keyboard ------------------------------------------------------------------------------------------------------
-    await open('/?view=board'); // the path just added to the selection would turn the next menu into a selection's
+    await open('/?view=board'); // the search the pick wrote would narrow the board the next menu opens on
     check('the board is drawn again with nothing selected', await boardReady() && await ev('selectedIds.size===0'));
     await hoverAt(5, 5);
     check('the menu opens again, with every panel shut', await menuOnCard('7') && await ev(SHUT('ctx-edit')) && await ev(SHUT('ctx-explore')));
@@ -178,6 +178,37 @@ module.exports = {
     await key('Escape');
     check('Esc twice closes it', await menuGone());
 
+    // --- a Shift pick adds the term to the box as one more alternative ---------------------------------------------------------
+    await open('/?view=board');
+    await boardReady();
+    await hoverAt(5, 5);
+    const boxIs = (text) => waitFor(`document.getElementById('search-input').value===${JSON.stringify(text)}`, 3000);
+    await menuOnCard('7');
+    await clickOn('#ctx-explore');
+    await waitFor(OPEN('ctx-explore'), 2500);
+    await clickOn('#ctx-tree');
+    await waitFor(OPEN('ctx-tree'), 2500);
+    await clickOn('#ctx-htree');
+    check('a plain pick writes its term into the box', await boxIs('htree:7') && await menuGone());
+    await menuOnCard('8');
+    await clickOn('#ctx-explore');
+    await waitFor(OPEN('ctx-explore'), 2500);
+    await clickOn('#ctx-path');
+    await waitFor(OPEN('ctx-path'), 2500);
+    await hover('#ctx-dpath');
+    check('each item says in its tooltip that Shift adds to the search', await ev(`['ctx-hpath','ctx-htree','ctx-dpath','ctx-dtree'].every((id)=>/Shift: add to the search$/.test(document.getElementById(id).title))`));
+    await clickOn('#ctx-dpath', { modifiers: 8 });
+    check('a Shift+click adds its term as one more alternative, as typed, and shuts the menu', await boxIs('htree:7 | dpath:8') && await menuGone());
+    await menuOnCard('8');
+    for (let i = 0; i < 5; i++) await key('ArrowDown');
+    await waitFor(`${ACTIVE}==='ctx-explore'`, 2000);
+    await key('ArrowRight');
+    await key('ArrowRight');
+    await waitFor(`${ACTIVE}==='ctx-hpath'`, 2500);
+    await key('Enter', { shift: true });
+    check('Shift+Enter on the focused item does the same', await boxIs('htree:7 | dpath:8 | hpath:8') && await menuGone(), await ev(`document.getElementById('search-input').value`));
+    check('and isolate is untouched', await ev(`isolateNow()===null`));
+
     // --- at phone width a tap opens a panel in place, at every level --------------------------------------------------------
     await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
     await open('/?view=graph');
@@ -194,7 +225,7 @@ module.exports = {
     await clickOn('#ctx-tree');
     await waitFor(OPEN('ctx-tree'), 2500);
     await clickOn('#ctx-htree');
-    check('a tap on Hierarchy in Tree adds the tree of the card to the selection and shuts the menu', await menuGone() && await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='htree'&&selectionState.selection.anchor.id==='7'`, 3000));
+    check('a tap on Hierarchy in Tree writes htree:7 into the search box and shuts the menu', await menuGone() && await waitFor(`document.getElementById('search-input').value==='htree:7'`, 3000));
     await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
   },
 };

@@ -597,7 +597,7 @@ test('closing the menu shuts the third level too, and a menu that opens again op
 
 test('an entry of the third level does what it did: its own click handler runs', async () => {
   const p = await open();
-  p.page.run('globalThis.__added = []; addExploreToSelection = (kind) => { globalThis.__added.push(kind); }');
+  p.page.run('globalThis.__added = []; exploreIntoBox = (kind) => { globalThis.__added.push(kind); }');
   openExplore(p);
   p.click(p.el('ctx-tree'));
   p.el('ctx-dtree').fire('click', { target: p.el('ctx-dtree') });

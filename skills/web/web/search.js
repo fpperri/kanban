@@ -616,19 +616,18 @@ function searchRemoveGrownAlt(raw, term) {
 // --- Isolate. Switching it on writes the selection into the box as `part | part | ...`
 // (the isolate text), each part by its criterion rather than a frozen list of cards, so a
 // card that comes to match a query part joins on the next poll, and the address carries it.
-// A card is `#id`, a path `path:id`, a tree `tree:id`, and the four Explore sets `hpath:id`,
-// `htree:id`, `dpath:id` and `dtree:id`; a query is its own text, in brackets
-// when it holds a | or spaces (searchBracket, so the grammar's token-edge rules apply). A
+// A card is `#id`, a path `path:id`, a tree `tree:id`; a query is its own text, in brackets
+// when it holds a | or spaces (a search typed in the box, `dpath:185` included, is a query) (searchBracket, so the grammar's token-edge rules apply). A
 // query part that is not a term yet (`status:`) selects nothing, so it writes nothing: a
 // lone half-typed term would otherwise isolate every card. A query part with a card taken
 // out is already its other cards by then (selection.js selectionWithoutCard), so it is written as
-// them. `parts` are the selection's parts, { kind: 'card' | 'path' | 'tree' | 'hpath' | 'htree' | 'dpath' | 'dtree', id } or
+// them. `parts` are the selection's parts, { kind: 'card' | 'path' | 'tree', id } or
 // { kind: 'query', text }. What the text matches is what the selection resolves to over
 // the whole board.
 
-// A path, a tree or one of the four Explore sets: named whole by a card's id.
+// A path or a tree: named whole by a card's id.
 function searchIsNamedPart(part) {
-  return !!part && GRAPH_FIELDS.includes(part.kind);
+  return !!part && (part.kind === 'path' || part.kind === 'tree');
 }
 
 function searchIsolatePartText(part) {

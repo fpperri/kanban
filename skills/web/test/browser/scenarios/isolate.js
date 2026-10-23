@@ -2,10 +2,10 @@
 // Isolate, on the plan board: the switch at the foot of the search panel and the i key show only
 // the selection, in every view. Four parts, each from a cold page.
 //
-// The Graph. A plain click on one loose card, a Shift+click on another, Dependency path on card 4
-// from its menu and a Shift+click on the grill pill build a selection of an anchor and three
-// additions. The switch writes `#a | #b | dpath:4 | tags:"grill"` into the box, and only the cards
-// of that selection are drawn (the two cards, the path 3 and 4, and the grill card 8). The
+// The Graph. Dependency path on card 4 from its menu writes `dpath:4` into the box as typed text,
+// which lights the path and is the anchor of the selection; a Shift+click on two loose cards and on
+// the grill pill add to it. The switch writes `dpath:4 | #a | #b | tags:"grill"` into the box, and
+// only the cards of that selection are drawn (the path 3 and 4, the two cards and the grill card 8). The
 // switch reports on to assistive technology. The first Esc closes the panel; with the panel
 // closed the chip says isolated. A click on a shown card moves the anchor and leaves the box and
 // the shown cards; a click and a double click on the empty Graph leave the selection and the box;
@@ -152,18 +152,19 @@ module.exports = {
     check('two loose cards can be clicked without another dot in the way', clickable.length === 2, clickable);
     const [a, b] = clickable;
     const wanted = sorted(a, b, ...CASES.pathCards, ...CASES.pill.cards);
-    const wantedText = `#${a} | #${b} | ${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}`;
+    const wantedText = `${CASES.pathKind}:${CASES.pathOf} | #${a} | #${b} | ${CASES.pill.query}`;
 
-    await clickDot(a);
-    await clickDot(b, { modifiers: 8 });
     await rightClick(`#graph-view .card-el[data-id="${CASES.pathOf}"]`);
     check('a right-click on a card in the Graph opens its menu', await waitFor(MENU_UP));
     await press('ctx-dpath');
-    check('Dependency path adds the path to the selection', await pickedSize(2 + CASES.pathCards.length), await ev(`[...selectedIds]`));
+    check('Dependency path writes its term into the box as typed text, and the Graph lights the path', await boxIs(`${CASES.pathKind}:${CASES.pathOf}`) && await pickedIs(sorted(...CASES.pathCards)), { box: await boxText(), picked: await ev(`[...selectedIds]`) });
+    check('the box is the anchor of the selection, the way typed text is', same(await parts(), { anchor: `query:${CASES.pathKind}:${CASES.pathOf}`, additions: [] }), await parts());
+    await clickDot(a, { modifiers: 8 });
+    await clickDot(b, { modifiers: 8 });
     await openPanel();
     await clickOn(pillSel(CASES.pill.label), { modifiers: 8 });
-    check('a Shift+click on the grill pill adds its card, and the box stays as it was, empty', await pickedIs(wanted) && (await boxText()) === '', { picked: await ev(`[...selectedIds]`), box: await boxText() });
-    check('the selection is the anchor card, then the second card, the path and the pill', same(await parts(), { anchor: `card:${a}`, additions: [`card:${b}`, `${CASES.pathKind}:${CASES.pathOf}`, `query:${CASES.pill.query}`] }), await parts());
+    check('a Shift+click on the grill pill adds its card, and the typed path stays in the box', await pickedIs(wanted) && (await boxText()).startsWith(`${CASES.pathKind}:${CASES.pathOf}`), { picked: await ev(`[...selectedIds]`), box: await boxText() });
+    check('the selection is the typed path, then the two cards and the pill', same(await parts(), { anchor: `query:${CASES.pathKind}:${CASES.pathOf}`, additions: [`card:${a}`, `card:${b}`, `query:${CASES.pill.query}`] }), await parts());
     check('the switch is off to start and reports it', await switchIs(false) && (await ev(`${SWITCH}.getAttribute('role')`)) === 'switch');
 
     await clickOn('#isolate-switch');
@@ -194,7 +195,7 @@ module.exports = {
     await blur();
     await escape();
     check('Esc with focus outside the box turns isolate off, and every card is drawn again', await switchIs(false) && await waitFor(`new Set([...document.querySelectorAll('.graph-node')].map((n)=>n.dataset.id)).size===${total}`), { box: await boxText(), dots: await ev(`document.querySelectorAll('.graph-node').length`) });
-    check('and gives the box back its earlier text, which was empty, leaving the anchor where the click put it', (await boxText()) === '' && await pickedIs([moved]) && await chipHidden(), { box: await boxText(), chip: await chip() });
+    check('and gives the box back its earlier text, the typed path with the pill added, leaving the anchor where the click put it', (await boxText()) === `${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}` && await pickedIs([moved]) && await chipHidden(), { box: await boxText(), chip: await chip() });
 
     // --- the views, with the i key ------------------------------------------------------------------
     check('the Board draws the plan board', await goto('/?view=board', boardReady));

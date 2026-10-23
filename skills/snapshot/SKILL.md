@@ -283,7 +283,8 @@ action set; edits always queue through the tray. The sheet
 also carries four read-only buttons, "Hierarchy path", "Dependency path", "Hierarchy tree" and
 "Dependency tree" (any card with a real id, including archived read-only sheets), the same four
 Explore adds in kanban-web — tapping one
-writes `hpath:<id>`, `htree:<id>`, `dpath:<id>` or `dtree:<id>` into the search box and closes the sheet, no
+writes `hpath:<id>`, `htree:<id>`, `dpath:<id>` or `dtree:<id>` into the search box, in place of what it held
+but for its `slice:` run (as kanban-web's Explore does), and closes the sheet, no
 view switch; the view underneath re-filters itself immediately (Map redraws
 the pruned graph with ghost stubs where a cone edge exits the focus, Board
 shows only the focused cards in their columns, same machinery every other

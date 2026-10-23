@@ -63,7 +63,7 @@ async function open({ view = 'board' } = {}) {
   const menuControl = (sel) => page.menu[sel.slice('#ctx-'.length)] || elements[sel];
   const shown = (sel) => !menuControl(sel).classList.contains('hidden');
   const rightClick = (id) => page.fireDocument('contextmenu', { target: cardTarget(id), clientX: 30, clientY: 40 });
-  const click = (sel) => menuControl(sel).fire('click');
+  const click = (sel, event = {}) => menuControl(sel).fire('click', event);
   const cardRequests = () => asked.requests.filter(([method, url]) => method !== 'GET' && /\/api\/cards\/\d+$/.test(url)).map(([method, url]) => `${method} ${url}`);
   return { page, elements, asked, ids, selection, rangeStart, select, menuOpen, shown, rightClick, click, cardRequests, graphHost };
 }
@@ -249,84 +249,65 @@ test('deleting the card a menu outside the selection was opened on leaves the ha
 
 // --- Explore: Path and Tree, each by Hierarchy or Dependency ---------------------------------
 
-const hp = (id) => ({ kind: 'hpath', id: String(id) });
-const dp = (id) => ({ kind: 'dpath', id: String(id) });
-const ht = (id) => ({ kind: 'htree', id: String(id) });
-const dt = (id) => ({ kind: 'dtree', id: String(id) });
+const box = (s) => s.page.input.value;
 
-test('Hierarchy path adds the card\'s parents and children to the selection as one part and leaves the search box as it was', async () => {
+test('each of the four writes its term for the right-clicked card into the box, as typed, and shuts the menu', async () => {
   const s = await open();
-  s.page.input.typed('a');
-  const writes = s.page.input.writes.length;
-  s.select(null, 'cardPart(5)');
-  s.rightClick(3);
-  s.click('#ctx-hpath');
-  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [hp(3)] });
-  assert.deepStrictEqual(s.ids(), [1, 3, 5], 'card 3 is under card 1, and nothing is under card 3');
-  assert.strictEqual(s.page.input.value, 'a');
-  assert.strictEqual(s.page.input.writes.length, writes, 'nothing was written to the box');
-  assert.strictEqual(s.menuOpen(), false);
-});
-
-test('Dependency path adds what the card waits for and what waits on it, and follows waiting_for only', async () => {
-  const s = await open();
-  s.select(null, 'cardPart(5)');
-  s.rightClick(1);
-  s.click('#ctx-dpath');
-  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [dp(1)] });
-  assert.deepStrictEqual(s.ids(), [1, 2, 5, 6], 'cards 2 and 6 wait for card 1; card 3 is its child and is not on the path');
-});
-
-test('Hierarchy tree is the card\'s whole parent tree and Dependency tree its connected set over waiting_for', async () => {
-  const s = await open();
-  s.rightClick(3);
-  s.click('#ctx-htree');
-  assert.deepStrictEqual(s.selection(), { anchor: ht(3), additions: [] }, 'with nothing selected the part is the anchor');
-  assert.deepStrictEqual(s.ids(), [1, 3]);
-  s.rightClick(2);
-  s.click('#ctx-dtree');
-  assert.deepStrictEqual(s.selection(), { anchor: ht(3), additions: [dt(2)] });
-  assert.deepStrictEqual(s.ids(), [1, 2, 3, 6], 'the Board with its Archive column closed does not show archived card 7');
-});
-
-test('each of the four adds one part of its own kind for the card, and the same part twice is one part', async () => {
-  const s = await open();
-  for (const sel of ['#ctx-hpath', '#ctx-htree', '#ctx-dpath', '#ctx-dtree']) {
+  for (const [sel, term] of [['#ctx-hpath', 'hpath:3'], ['#ctx-htree', 'htree:3'], ['#ctx-dpath', 'dpath:3'], ['#ctx-dtree', 'dtree:3']]) {
     s.rightClick(3);
     s.click(sel);
+    assert.strictEqual(box(s), term, sel);
+    assert.strictEqual(s.menuOpen(), false, sel);
   }
-  assert.deepStrictEqual(s.selection(), { anchor: hp(3), additions: [ht(3), dp(3), dt(3)] });
-  s.rightClick(3);
-  s.click('#ctx-hpath');
-  assert.strictEqual(s.selection().additions.length, 3);
+  assert.deepStrictEqual(s.page.input.writes.slice(-4), ['hpath:3', 'htree:3', 'dpath:3', 'dtree:3']);
 });
 
-test('a right-click on a card inside a lit path has the whole selection as its subject, and the four add that one card\'s set alone', async () => {
+test('it replaces what the box held but for its slice: run, which stays after the term', async () => {
   const s = await open();
+  s.page.input.typed('zephyr tags:ui slice:goal..epic');
   s.rightClick(2);
   s.click('#ctx-dpath');
-  assert.deepStrictEqual(s.ids(), [1, 2]);
-  s.rightClick(1);
-  assert.strictEqual(s.page.run('menuSubject.ids.map(Number).sort().join()'), '1,2', 'the menu is for the selection');
-  s.click('#ctx-dtree');
-  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [dt(1)] }, 'one part, for card 1, not one for each card of the subject');
+  assert.strictEqual(box(s), 'dpath:2 slice:goal..epic');
+  s.page.input.typed('(a | b) slice:2');
   s.rightClick(2);
   s.click('#ctx-hpath');
-  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [dt(1), hp(2)] });
+  assert.strictEqual(box(s), 'hpath:2 slice:2');
 });
 
-test('with several cards selected the four act on the right-clicked card alone, never on the others', async () => {
+test('the write is the one typing makes: the address follows and the Board shows only the set', async () => {
   const s = await open();
-  s.select(null, 'cardPart(4)', 'cardPart(5)');
-  s.rightClick(5);
-  s.click('#ctx-hpath');
-  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(5), hp(5)] });
-  s.rightClick(4);
-  s.click('#ctx-dtree');
-  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(5), hp(5), dt(4)] });
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  s.rightClick(2);
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(told, [['dpath:2', 'typing']]);
+  assert.strictEqual(s.page.run('[...shownCardIds()].map(Number).sort((a, b) => a - b).join()'), '1,2', 'card 2 waits for card 1; card 6 waits for card 1 too but is not on the path of 2');
 });
 
-test('the card details\' own menu acts on the open card, selection or not', async () => {
+test('in the Graph the box is the typed anchor of the selection, so the set is lit and Isolate works on it', async () => {
+  const s = await open({ view: 'graph' });
+  s.rightClick(2);
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'query', text: 'dpath:2', source: 'typing' }, additions: [] });
+  assert.deepStrictEqual(s.ids(), [1, 2]);
+  assert.strictEqual(s.page.run('isolateFlip()'), true);
+  assert.strictEqual(box(s), 'dpath:2', 'the isolate text of a typed search is the search');
+  assert.notStrictEqual(s.page.run('isolateNow()'), null);
+});
+
+test('the four act on the right-clicked card alone, even when it is inside the selection or the subject is several cards', async () => {
+  const s = await open();
+  s.select(null, 'cardPart(1)', 'cardPart(2)', 'cardPart(4)');
+  s.rightClick(4);
+  assert.strictEqual(s.page.run('menuSubject.ids.length'), 3, 'the menu is for the selection');
+  s.click('#ctx-hpath');
+  assert.strictEqual(box(s), 'hpath:4');
+  s.rightClick(1);
+  s.click('#ctx-dtree');
+  assert.strictEqual(box(s), 'dtree:1');
+});
+
+test('the card details\' own menu writes the term of the open card', async () => {
   const s = await open();
   s.select(null, 'cardPart(1)', 'cardPart(2)');
   const openDetailMenu = (id) => {
@@ -335,37 +316,91 @@ test('the card details\' own menu acts on the open card, selection or not', asyn
   };
   openDetailMenu(2);
   s.click('#ctx-dpath');
-  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), dp(2)] });
+  assert.strictEqual(box(s), 'dpath:2');
   openDetailMenu(4);
   s.click('#ctx-htree');
-  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), dp(2), ht(4)] });
+  assert.strictEqual(box(s), 'htree:4');
 });
 
-test('the empty canvas menu has no card, so the four add nothing', async () => {
+test('with isolate on, the term replaces the isolate text in the box as typing would, and isolate stays on holding it', async () => {
   const s = await open();
+  s.select(null, 'cardPart(1)', 'cardPart(2)');
+  assert.strictEqual(s.page.run('isolateFlip()'), true);
+  assert.strictEqual(box(s), '#1 | #2');
+  s.rightClick(1);
+  s.click('#ctx-dpath');
+  assert.strictEqual(box(s), 'dpath:1');
+  assert.notStrictEqual(s.page.run('isolateNow()'), null);
+});
+
+test('a Shift pick adds the term to what the box holds as one more alternative, as if typed, and leaves isolate alone', async () => {
+  const s = await open();
+  const shift = { shiftKey: true };
+  s.page.input.typed('htree:1');
+  s.rightClick(2);
+  s.click('#ctx-dpath', shift);
+  assert.strictEqual(box(s), 'htree:1 | dpath:2');
+  s.rightClick(3);
+  s.click('#ctx-hpath', shift);
+  assert.strictEqual(box(s), 'htree:1 | dpath:2 | hpath:3');
+  s.rightClick(3);
+  s.click('#ctx-hpath', shift);
+  assert.strictEqual(box(s), 'htree:1 | dpath:2 | hpath:3', 'an alternative the box holds is not added twice');
+  s.page.input.typed('tags:ui status:doing slice:goal..epic');
+  s.rightClick(2);
+  s.click('#ctx-dtree', shift);
+  assert.strictEqual(box(s), '((tags:ui status:doing) | dtree:2) slice:goal..epic', 'bracketed where it needs it, the slice run after');
+  assert.deepStrictEqual(s.page.run('isolateNow()'), null);
+});
+
+test('a Shift pick on an empty box is a plain pick, and a plain pick after it replaces the alternatives', async () => {
+  const s = await open();
+  s.rightClick(2);
+  s.click('#ctx-dpath', { shiftKey: true });
+  assert.strictEqual(box(s), 'dpath:2');
+  s.rightClick(3);
+  s.click('#ctx-hpath', { shiftKey: true });
+  assert.strictEqual(box(s), 'dpath:2 | hpath:3');
+  s.rightClick(3);
+  s.click('#ctx-htree');
+  assert.strictEqual(box(s), 'htree:3');
+});
+
+test('a Shift pick is a write of the reason typing, and in the Graph the box is still the typed anchor', async () => {
+  const s = await open({ view: 'graph' });
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  s.rightClick(2);
+  s.click('#ctx-dpath');
+  s.rightClick(3);
+  s.click('#ctx-hpath', { shiftKey: true });
+  assert.deepStrictEqual(told, [['dpath:2', 'typing'], ['dpath:2 | hpath:3', 'typing']]);
+  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'query', text: 'dpath:2 | hpath:3', source: 'typing' }, additions: [] });
+});
+
+test('each item\'s tooltip ends by saying Shift adds to the search', () => {
+  for (const id of ['ctx-hpath', 'ctx-htree', 'ctx-dpath', 'ctx-dtree']) {
+    const title = new RegExp(`id="${id}"[^>]*title="([^"]*)"`).exec(html)[1];
+    assert.match(title, /Shift: add to the search$/, id);
+  }
+});
+
+test('the empty canvas menu has no card, so the four write nothing', async () => {
+  const s = await open();
+  s.page.input.typed('zephyr');
+  const writes = s.page.input.writes.length;
   s.page.run('menuSubject = canvasMenuFor()');
   for (const sel of ['#ctx-hpath', '#ctx-htree', '#ctx-dpath', '#ctx-dtree']) s.click(sel);
-  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(box(s), 'zephyr');
+  assert.strictEqual(s.page.input.writes.length, writes);
 });
 
-test('a part added by one of the four stays a part: the selection holds it, not its cards', async () => {
+test('the four leave the selection\'s cards alone outside the Graph: nothing is added to it', async () => {
   const s = await open();
-  s.rightClick(2);
-  s.click('#ctx-dpath');
-  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [] });
-  assert.deepStrictEqual(s.ids(), [1, 2]);
-});
-
-test('a card the view hides does not join through a path (the selection covers only cards the view shows)', async () => {
-  const s = await open();
-  s.page.run("toggleView('map')");
-  s.page.run("toggleMapStatusFilter('doing')");
-  s.rightClick(2);
-  s.click('#ctx-dpath');
-  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [] });
-  assert.deepStrictEqual(s.ids(), [2], 'card 1 is Doing and its pill is off in the Map');
-  s.page.run("toggleMapStatusFilter('doing')");
-  assert.deepStrictEqual(s.ids(), [1, 2], 'with the pill on again the other card of the path is back');
+  s.select(null, 'cardPart(5)');
+  s.rightClick(3);
+  s.click('#ctx-hpath');
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
 });
 
 // --- Add child… -----------------------------------------------------------------------------

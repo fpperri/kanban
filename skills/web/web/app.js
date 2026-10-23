@@ -6249,15 +6249,22 @@ function addCardToSelection() {
   renderBoard();
 }
 
-// Explore's Path and Tree, each by Hierarchy or Dependency: the set of the card that was
-// right-clicked (the open card, in the card details' menu) joins the selection as one part,
-// never the sets of the whole subject, even when that card is inside it. The part is resolved
-// with the others on every render (selection.js); the search box is left alone.
-function addExploreToSelection(kind) {
+// Explore's Path and Tree, each by Hierarchy or Dependency: the term of the card that was
+// right-clicked (the open card, in the card details' menu), never of the whole subject, even
+// when that card is inside the selection, is written to the box as if it were typed (writeSearch,
+// reason 'typing'). It replaces what the box held but for its run of slices, so the Graph lights
+// the set and the other views show only it; the selection follows as a typed search does, and
+// isolate is left as typing into the box leaves it (on, it keeps the term as its text). A Shift
+// pick (a Shift-click, or Shift+Enter on the focused item, which the browser clicks with Shift
+// held) adds the term to what the box holds as one more alternative (searchAddAlt), so an empty
+// box takes it as a plain pick does.
+function exploreIntoBox(kind, e) {
   hideContextMenu();
   if (menuSubject.clicked == null) return;
-  setSelection(addPart(selectionState.selection, graphPart(kind, menuSubject.clicked)));
-  renderBoard();
+  const input = $('#search-input');
+  const term = `${kind}:${window.kanbanIds.idKey(menuSubject.clicked) ?? menuSubject.clicked}`;
+  const text = e && e.shiftKey ? searchAddAlt(input.value, term) : searchJoinSlice(term, searchSplitSlice(input.value).slices);
+  writeSearch(text, 'typing');
 }
 
 // Bulk archive asks WHERE before it moves anything (ADR 0010): the
@@ -6648,10 +6655,10 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#ctx-tags').addEventListener('click', openBulkTags);
   // Schedule… popup
   $('#ctx-schedule').addEventListener('click', openBulkSchedule);
-  // Peek and Add to selection, then Explore's four sets, which add to the selection
+  // Peek and Add to selection, then Explore's four sets, which write the box
   $('#ctx-peek').addEventListener('click', peekCard);
   $('#ctx-add').addEventListener('click', addCardToSelection);
-  for (const kind of EXPLORE_KINDS) $(`#ctx-${kind}`).addEventListener('click', () => addExploreToSelection(kind));
+  for (const kind of EXPLORE_KINDS) $(`#ctx-${kind}`).addEventListener('click', (e) => exploreIntoBox(kind, e));
   $('#bulk-schedule-apply').addEventListener('click', applyBulkSchedule);
   $('#bulk-schedule-close').addEventListener('click', () => $('#bulk-schedule').classList.add('hidden'));
   $('#bulk-schedule-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('bulkSchedule'));

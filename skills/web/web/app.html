@@ -303,9 +303,11 @@
   <!-- Isolate trails the edits: it is offered inside the selection only, and alone in the small menu of
        the empty Graph or Map canvas, where its panel is drawn in place of the menu. It reads Turn
        isolate off while isolate is on. Path and Tree are groups of their own, a third level: each
-       opens Hierarchy (parent links only) and Dependency (waiting_for only), and the four add one
-       selection part for the card that was right-clicked (the open card, in the card details' menu),
-       never for the selection. They show on every card's menu. -->
+       opens Hierarchy (parent links only) and Dependency (waiting_for only). The four act on the card
+       that was right-clicked (the open card, in the card details' menu), never on the selection: a
+       plain pick writes its term to the search box as if typed, in place of what the box held but for
+       its slice: run, and a Shift pick adds it as one more alternative (each item's title says so).
+       They show on every card's menu. -->
   <div class="ctx-sub">
     <button type="button" id="ctx-explore" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-explore-panel">Explore</button>
     <div class="ctx-sub-panel" id="ctx-explore-panel" role="menu" aria-label="Explore">
@@ -313,15 +315,15 @@
       <div class="ctx-sub">
         <button type="button" id="ctx-path" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-path-panel">Path</button>
         <div class="ctx-sub-panel" id="ctx-path-panel" role="menu" aria-label="Path">
-          <button type="button" id="ctx-hpath" role="menuitem" title="The card's parents up to its root and every card nested under it (parent links only)">Hierarchy</button>
-          <button type="button" id="ctx-dpath" role="menuitem" title="Everything the card waits for and everything waiting on it, transitively (waiting_for only)">Dependency</button>
+          <button type="button" id="ctx-hpath" role="menuitem" title="The card's parents up to its root and every card nested under it (parent links only). Shift: add to the search">Hierarchy</button>
+          <button type="button" id="ctx-dpath" role="menuitem" title="Everything the card waits for and everything waiting on it, transitively (waiting_for only). Shift: add to the search">Dependency</button>
         </div>
       </div>
       <div class="ctx-sub">
         <button type="button" id="ctx-tree" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-tree-panel">Tree</button>
         <div class="ctx-sub-panel" id="ctx-tree-panel" role="menu" aria-label="Tree">
-          <button type="button" id="ctx-htree" role="menuitem" title="The card's whole parent tree, from its root down (parent links only)">Hierarchy</button>
-          <button type="button" id="ctx-dtree" role="menuitem" title="The card's connected set over waiting_for, either direction (waiting_for only)">Dependency</button>
+          <button type="button" id="ctx-htree" role="menuitem" title="The card's whole parent tree, from its root down (parent links only). Shift: add to the search">Hierarchy</button>
+          <button type="button" id="ctx-dtree" role="menuitem" title="The card's connected set over waiting_for, either direction (waiting_for only). Shift: add to the search">Dependency</button>
         </div>
       </div>
     </div>

@@ -395,8 +395,8 @@ blocked reason, type, the date triad, and a Markdown description.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
-archive, restore, delete, isolate (inside the selection only), or add the path or the tree of
-the card you right-clicked to the selection, by its hierarchy or by its dependencies (on every
+archive, restore, delete, isolate (inside the selection only), or search the path or the tree of
+the card you right-clicked, by its hierarchy or by its dependencies (on every
 card's menu, whatever the selection). A
 right-click on a card outside the selection opens the menu for that card alone,
 leading with Peek (open its details), and leaves your
@@ -422,11 +422,15 @@ both close that panel and keep the highlight on the row). The hierarchy path is 
 its root and every card nested under it, and the hierarchy tree the whole parent tree from its root
 down; both follow `parent` only. The dependency path is everything the card waits for and everything
 waiting on it, transitively, and the dependency tree its connected set; both follow `waiting_for`
-only. Each adds one part to the selection, for the card you right-clicked (the open card, in the
-card details' menu) and never for the whole selection, even when that card is inside it, so a
-right-click on a card in a lit path adds that card's set alone. In the search box the four are
-`hpath:<id>`, `htree:<id>`, `dpath:<id>` and `dtree:<id>` (the `#` is optional), and Isolate writes
-them as those terms; `tree:` and `path:`, which follow both relations, are as they were.
+only. Each writes its term into the search box for the card you right-clicked (the open card, in
+the card details' menu) and never for the whole selection, even when that card is inside it, so a
+right-click on a card in a lit path searches that card's set alone. The terms are `hpath:<id>`,
+`htree:<id>`, `dpath:<id>` and `dtree:<id>` (the `#` is optional), written as if you had typed them:
+a plain pick replaces what the box held but for its `slice:` run, so the Graph lights the set and
+the other views show only it; Shift (a Shift-click, or Shift+Enter on the focused item) adds the
+term to what the box holds as one more alternative, `htree:40 | dpath:185`, and each item's tooltip
+ends "Shift: add to the search". Isolate stays as it was; press it to keep the set. `tree:` and
+`path:`, which follow both relations, are as they were.
 
 **Add child…** in that menu (one live card only, in every view and in the card details' own
 menu) opens the New card form as **New card** does, headed "New card under #42", with Parent set

@@ -2545,10 +2545,11 @@ $("sbot").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:t.scroll
 function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;ncStatus=null;nfPromptOpen=false;render()}
 // Shared by the sheet's own Explore buttons (the act==="graphfocus" branch
 // below) AND the right-click card menu's matching items (EXPLORE_LABELS) — one
-// path, not two: overwrite the query box with the term, focus the graph, close
-// whatever sheet is open.
+// path, not two: put the term in the query box in place of what it held but for
+// its slice: run (as kanban-web's Explore does), focus the graph, close whatever
+// sheet is open.
 function graphFocus(gk,id){
-const term=gk+":"+id;
+const term=searchJoinSlice(gk+":"+id,searchSplitSlice($("q").value).slices);
 $("q").value=term;
 setQuery(term);
 focusRoot=id;

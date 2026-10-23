@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { parseSearchQuery, filterCards, resolveTerms, cardMatchesQuery, searchIsolateText, searchIsolateBox } = require('../web/search');
-const { NO_SELECTION, cardPart, pathPart, graphPart, addPart, resolveSelection, partsOf, pruneSelectionParts } = require('../web/selection');
+const { NO_SELECTION, cardPart, pathPart, typedQueryPart, addPart, resolveSelection, partsOf } = require('../web/selection');
 
 // 1 is the root; 2 and 3 are under 1; 4 is under 3 and waits for 2; 5 waits for 4; 6 is an archived child of 2;
 // 7 is a stranger; 8 has a parent on another board; 9 and 10 are each other's parent.
@@ -89,36 +89,25 @@ test('an unresolved one matches nothing instead of throwing', () => {
   for (const field of ['hpath', 'htree', 'dpath', 'dtree']) assert.strictEqual(cardMatchesQuery(CARDS[0], [{ field, value: '1' }]), false);
 });
 
-test('the isolate text writes a part of each kind as its term, in the order added', () => {
-  const selection = [cardPart(1), graphPart('hpath', 3), graphPart('htree', 4), graphPart('dpath', 5), graphPart('dtree', 5), pathPart(2)].reduce(addPart, NO_SELECTION);
-  assert.strictEqual(searchIsolateText(partsOf(selection)), '#1 | hpath:3 | htree:4 | dpath:5 | dtree:5 | path:2');
+test('isolating a search typed or picked from the menu writes it as it is: one term, or its alternatives in brackets', () => {
+  const typed = (text) => typedQueryPart(text);
+  assert.strictEqual(searchIsolateText([typed('dpath:3')]), 'dpath:3');
+  assert.strictEqual(searchIsolateText([typed('htree:1 | dpath:2')]), '(htree:1 | dpath:2)');
+  assert.strictEqual(searchIsolateText([cardPart(1), typed('hpath:3'), pathPart(2)]), '#1 | hpath:3 | path:2');
 });
 
-test('the isolate text of a part matches what the selection resolves it to over the whole board', () => {
+test('what the isolate text of a typed search matches is what the search matched', () => {
   const matchQuery = (text) => new Set(ids(text));
-  for (const part of [graphPart('hpath', 3), graphPart('htree', 4), graphPart('dpath', 4), graphPart('dtree', 5)]) {
-    const selection = addPart(NO_SELECTION, part);
-    assert.deepStrictEqual([...resolveSelection(selection, matchQuery, null)].sort(), ids(searchIsolateText(partsOf(selection))).sort());
+  for (const text of ['hpath:3', 'htree:4', 'dpath:4', 'dtree:5', 'htree:1 | dpath:5']) {
+    const selection = addPart(NO_SELECTION, typedQueryPart(text));
+    assert.deepStrictEqual([...resolveSelection(selection, matchQuery, null)].sort(), ids(searchIsolateText(partsOf(selection))).sort(), text);
   }
 });
 
-test('where the box hides what it does not match, the rest stays ANDed on when one of the four is among the parts, as for a path or a tree', () => {
-  const selection = [graphPart('hpath', 3), cardPart(7)].reduce(addPart, NO_SELECTION);
-  assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection), { limits: true }), '(hpath:3 | #7) tags:ui');
-  assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection), { limits: false }), 'hpath:3 | #7');
-  assert.strictEqual(searchIsolateBox('tags:ui', partsOf([graphPart('dtree', 5)].reduce(addPart, NO_SELECTION)), { limits: true }), 'dtree:5 tags:ui');
-});
-
-test('a part of the four goes when its card is gone from the board, and stays while the card is there', () => {
-  const selection = [graphPart('hpath', 3), graphPart('dtree', 5)].reduce(addPart, NO_SELECTION);
-  assert.deepStrictEqual(partsOf(pruneSelectionParts(selection, ['3', '4'])), [{ kind: 'hpath', id: '3' }]);
-});
-
-test('the part constructors key the id whole, a string whether it came as a number or not', () => {
-  assert.deepStrictEqual(graphPart('hpath', 3), { kind: 'hpath', id: '3' });
-  assert.deepStrictEqual(graphPart('htree', 'G4'), { kind: 'htree', id: 'G4' });
-  assert.deepStrictEqual(graphPart('dpath', 5), { kind: 'dpath', id: '5' });
-  assert.deepStrictEqual(graphPart('dtree', 5), { kind: 'dtree', id: '5' });
-  assert.strictEqual(addPart(addPart(NO_SELECTION, graphPart('hpath', 3)), graphPart('hpath', '3')).additions.length, 0, 'the same part twice is one part');
-  assert.strictEqual(addPart(addPart(NO_SELECTION, graphPart('hpath', 3)), graphPart('htree', 3)).additions.length, 1, 'a different kind of the same card is a part of its own');
+test('a Shift pick joins alternatives with the search module own join: one term as it is, a longer one in brackets, a slice run after', () => {
+  const { searchAddAlt } = require('../web/search');
+  assert.strictEqual(searchAddAlt('', 'dpath:2'), 'dpath:2');
+  assert.strictEqual(searchAddAlt('htree:40', 'dpath:185'), 'htree:40 | dpath:185');
+  assert.strictEqual(searchAddAlt('htree:40 | dpath:185', 'dpath:185'), 'htree:40 | dpath:185');
+  assert.strictEqual(searchAddAlt('tags:ui status:doing slice:goal..epic', 'dtree:2'), '((tags:ui status:doing) | dtree:2) slice:goal..epic');
 });
