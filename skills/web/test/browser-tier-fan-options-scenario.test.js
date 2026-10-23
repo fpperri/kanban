@@ -60,7 +60,7 @@ test('the numbers of lines the scenario expects are the model\'s, over the plan 
     assert.strictEqual(counted(drawnLines).wait, CASE.waits, `${lines} ${group}`);
   }
   const first = counted(drawn('plan', GRAPH_FAN_OPTION_DEFAULTS).lines);
-  assert.deepStrictEqual([first.counted, first.labels], [1, ['2']], 'the default carries cards 4 and 6 on one bracket');
+  assert.deepStrictEqual([first.counted, first.labels], [1, ['4']], 'the default carries cards 3 to 6 on one bracket');
   assert.strictEqual(counted(drawn('plan', { ...GRAPH_FAN_OPTION_DEFAULTS, group: 'lines' }).lines).counted, 0, 'group lines counts nothing');
   assert.strictEqual(counted(drawn('plan', { ...GRAPH_FAN_OPTION_DEFAULTS, dependencies: 'off' }).lines).wait, 0);
 });
@@ -72,7 +72,9 @@ test('the numbers with the two added children are the model\'s, and brackets car
   const lines = drawn('plan', GRAPH_FAN_OPTION_DEFAULTS, added()).lines;
   const [one, two] = lines.filter((l) => l.kids);
   assert.deepStrictEqual([one.from, one.kids.map(Number), one.count], ['7', CASE.addedIds, 2]);
-  assert.deepStrictEqual([two.from, two.kids, two.count], ['1', ['4', '6'], 2]);
+  assert.deepStrictEqual([two.from, two.kids, two.count], ['1', ['3', '4', '5', '6'], 4]);
+  const chain = drawn('plan', { ...GRAPH_FAN_OPTION_DEFAULTS, lines: 'chain' }, added()).lines.filter((l) => l.kids);
+  assert.deepStrictEqual(chain.map((l) => [l.from, l.kids, l.count]), [['7', ['30', '31'], 2], ['1', ['4', '6'], 2]]);
   assert.strictEqual(BOARDS.plan.config.nextId, 30, 'the first card the scenario adds is card 30');
   assert.deepStrictEqual(CASE.addedIds, [30, 31]);
   assert.strictEqual(CASE.pollId, 32);
@@ -290,7 +292,7 @@ test('each check listed here is in the scenario', async () => {
   has(/the row is shown on the first open/);
   has(/the flow has none of the fan's option row/);
   has(/the row holds Lines, Group, Dependencies, Order, Names and Unnested/);
-  has(/chain with brackets draws the six parent lines of the board/);
+  has(/all with brackets, the default, draws the eight parent lines of the board/);
   has(/lines all with lines draws 11 parent lines, the number the model predicts/);
   has(/lines chain with lines draws 7 parent lines/);
   has(/lines off with brackets draws 0 parent lines/);
@@ -305,7 +307,7 @@ test('each check listed here is in the scenario', async () => {
   has(/order status, the default, seats the children of card 1/);
   has(/order rank seats them in the outline's own order/);
   has(/chain with brackets draws the two children of card 7 on one bracket reading 2/);
-  has(/a reload keeps the options: all, lines/);
+  has(/a reload keeps the options: chain, lines/);
   has(/fixture: another board starts with the defaults/);
   has(/pressing options leaves the selection as it was/);
   has(/and does not pan or zoom the canvas/);
@@ -343,7 +345,7 @@ test('an order that moves no sibling, or a row that changes the rings, fails', a
 });
 
 test('options that are lost on a reload fail', async () => {
-  await failsWith({ forgets: true }, /a reload keeps the options: all, lines/, 'forgotten');
+  await failsWith({ forgets: true }, /a reload keeps the options: chain, lines/, 'forgotten');
 });
 
 test('a press that clears the selection, a row that does not keep it, or a double click on the row that clears it fail', async () => {

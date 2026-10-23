@@ -174,10 +174,10 @@ its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
 with its count, its split by status and the `slice:` term that cuts to it. Fit
 and the first draw frame all of it.
 
-Tiers has an option row in the option panel beside the fan: Lines (chain, all, off),
+Tiers has an option row in the option panel beside the fan: Lines (all, chain, off),
 Group (brackets, lines), Dependencies (on, off), Order (status, rank), Names (relevant, all,
 none) and Unnested (outermost, off, depth 0, table). Lines says which children get a parent
-line: the end of each dependency chain, every child, or none. Group says how those lines are
+line: every child (the default), the end of each dependency chain, or none. Group says how those lines are
 drawn: brackets, the default, draws for each parent and each ring its children sit on one
 bracket from the first of them to the last, in the order the Order option shows, with a tick to each child and one line up
 to the parent, and prints the number of children on it; a child alone on its ring keeps a

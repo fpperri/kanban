@@ -50,8 +50,8 @@ function mergeGraphLayout(saved) {
 
 // The tier fan's option row: each option and what it may be set to, the default
 // first. A new option is one more entry here, its label in graph-view.js.
-//   lines         which children get a parent line: chain (the chain ends, as the Map
-//                 draws them), all (every child) or off (none).
+//   lines         which children get a parent line: all (every child), chain (the
+//                 chain ends, as the Map draws them) or off (none).
 //   group         how those children's lines are drawn: brackets (for each parent and each
 //                 ring its children sit on, one bracket from the first of those children
 //                 to the last, with one stem up to the parent) or lines (each child its own
@@ -69,7 +69,7 @@ function mergeGraphLayout(saved) {
 //                 is), depth 0 (on the depth 0 ring, in a sector of their own) or table
 //                 (the Unnested block outside the rim, a column for each status).
 const GRAPH_FAN_OPTION_VALUES = Object.freeze({
-  lines: Object.freeze(['chain', 'all', 'off']),
+  lines: Object.freeze(['all', 'chain', 'off']),
   group: Object.freeze(['brackets', 'lines']),
   dependencies: Object.freeze(['on', 'off']),
   order: Object.freeze(['status', 'rank']),

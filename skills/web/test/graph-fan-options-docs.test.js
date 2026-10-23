@@ -31,8 +31,7 @@ test('the Graph section says Tiers has an option row, folded behind an Options t
 
 test('the Graph section says what Lines gives a line to and what Group does with those lines, chain and brackets the defaults', () => {
   const text = graph();
-  assert.match(text, /\*\*Lines\*\* says which children get a parent line: \*\*chain\*\* \(the default\) gives a line to every chain end and none to the other children, as the Map draws its chain ends/);
-  assert.match(text, /\*\*all\*\* gives a line to every child/);
+  assert.match(text, /\*\*Lines\*\* says which children get a parent line: \*\*all\*\* \(the default\) gives a line to every child; \*\*chain\*\* gives a line to every chain end and none to the other children, as the Map draws its chain ends/);
   assert.match(text, /\*\*off\*\* draws no parent line/);
   assert.match(text, /\*\*Group\*\* says how those lines are drawn: \*\*brackets\*\* \(the default\) gives each parent, for each ring its children with a line sit on, one \*\*bracket\*\*, a \*\*counted line\*\* whose arc runs from the first of those children to the last in the order the Order option draws them, never through the parent's angle, with a tick to each child, one stem up to the parent and the number of children it holds printed on it, and a child alone on its ring keeps a plain line; \*\*lines\*\* gives each child its own line/);
   assert.match(text, /With Lines off there is nothing to group: the Group buttons stay shown and change nothing/);
@@ -87,6 +86,6 @@ test('the Graph section no longer says every relation is drawn in Tiers', () => 
 test('the web doc says the same in short', () => {
   const text = docGraph();
   assert.match(text, /an option row in the option panel beside the fan/);
-  assert.match(text, /Lines \(chain, all, off\), Group \(brackets, lines\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(all, chain, off\), Group \(brackets, lines\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /kept per board/);
 });

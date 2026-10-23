@@ -43,7 +43,7 @@ const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_FAN_OPTION_LABELS = {
   lines: {
     label: 'Lines',
-    hint: 'Which children get a parent line. Chain: the end of each dependency chain, as the Map draws them. All: every child. Off: none.',
+    hint: 'Which children get a parent line. All: every child. Chain: the end of each dependency chain, as the Map draws them. Off: none.',
   },
   group: {
     label: 'Group',

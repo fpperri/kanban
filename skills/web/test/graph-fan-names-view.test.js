@@ -165,7 +165,7 @@ test('each Names press changes the number of names drawn: relevant 4, all 34, no
 test('the options are stored whole under the one key, Names with them', async () => {
   const s = await open({});
   s.click(button(s, 'names', 'none').el);
-  assert.deepStrictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]), { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: 'none', unnested: 'outermost' });
+  assert.deepStrictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]), { lines: 'all', group: 'brackets', dependencies: 'on', order: 'status', names: 'none', unnested: 'outermost' });
   assert.deepStrictEqual(Object.keys(s.stored).filter((k) => /names/i.test(k)), [], 'no second storage key');
 });
 

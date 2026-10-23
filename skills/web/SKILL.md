@@ -2334,8 +2334,8 @@ to `127.0.0.1` only.
   root there; a card waiting on a hidden card still reads waiting.
   **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
   folded. It holds six options, the first value of each the
-  default. **Lines** says which children get a parent line: **chain** (the default) gives a line to every
-  chain end and none to the other children, as the Map draws its chain ends; **all** gives a line to every child;
+  default. **Lines** says which children get a parent line: **all** (the default) gives a line to every
+  child; **chain** gives a line to every chain end and none to the other children, as the Map draws its chain ends;
   **off** draws no parent line. **Group** says how those lines are drawn: **brackets** (the default) gives each
   parent, for each ring its children with a line sit on, one **bracket**, a **counted line** whose arc runs from the
   first of those children to the last in the order the Order option draws them, never through the parent's angle, with

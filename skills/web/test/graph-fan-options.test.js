@@ -13,11 +13,11 @@ const {
 // hand-edited value is read as its default.
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
-const DEFAULTS = { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' };
+const DEFAULTS = { lines: 'all', group: 'brackets', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' };
 
-test('the options offer lines: chain, all, off; group: brackets, lines; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
+test('the options offer lines: all, chain, off; group: brackets, lines; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_VALUES), {
-    lines: ['chain', 'all', 'off'],
+    lines: ['all', 'chain', 'off'],
     group: ['brackets', 'lines'],
     dependencies: ['on', 'off'],
     order: ['status', 'rank'],
@@ -27,7 +27,7 @@ test('the options offer lines: chain, all, off; group: brackets, lines; dependen
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_DEFAULTS), DEFAULTS);
 });
 
-test('nothing stored gives the defaults: chain, brackets, on, status, relevant, outermost', () => {
+test('nothing stored gives the defaults: all, brackets, on, status, relevant, outermost', () => {
   for (const nothing of [undefined, null, {}, [], 'folded', 7, true]) {
     assert.deepStrictEqual(plain(mergeGraphFanOptions(nothing)), DEFAULTS, JSON.stringify(nothing));
   }
@@ -36,7 +36,7 @@ test('nothing stored gives the defaults: chain, brackets, on, status, relevant, 
 test('a stored choice is kept and the rest stays at its default', () => {
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'off' })), { ...DEFAULTS, lines: 'off' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ group: 'lines' })), { ...DEFAULTS, group: 'lines' });
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all', group: 'brackets' })), { ...DEFAULTS, lines: 'all' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'chain', group: 'brackets' })), { ...DEFAULTS, lines: 'chain' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ dependencies: 'off', order: 'rank' })), { ...DEFAULTS, dependencies: 'off', order: 'rank' });
   assert.deepStrictEqual(
     plain(mergeGraphFanOptions({ lines: 'off', group: 'lines', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' })),
@@ -48,21 +48,21 @@ test('a stored choice is kept and the rest stays at its default', () => {
 });
 
 test('a store from before the group option reads as it drew: folded is chain with brackets, chain and all draw each line of their own', () => {
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded' })), DEFAULTS);
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded' })), { ...DEFAULTS, lines: 'chain' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'chain' })), { ...DEFAULTS, lines: 'chain', group: 'lines' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all' })), { ...DEFAULTS, lines: 'all', group: 'lines' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'off' })), { ...DEFAULTS, lines: 'off' }, 'off draws no line, so brackets or lines is the same');
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded', order: 'rank', unnested: 'table' })), { ...DEFAULTS, order: 'rank', unnested: 'table' });
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'chain', group: 'brackets' })), DEFAULTS, 'a store that names its group keeps it');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded', order: 'rank', unnested: 'table' })), { ...DEFAULTS, lines: 'chain', order: 'rank', unnested: 'table' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'chain', group: 'brackets' })), { ...DEFAULTS, lines: 'chain' }, 'a store that names its group keeps it');
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all', group: 'lines' })), { ...DEFAULTS, lines: 'all', group: 'lines' });
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded', group: 'lines' })), { ...DEFAULTS, group: 'lines' }, 'folded with a group of its own keeps that group');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded', group: 'lines' })), { ...DEFAULTS, lines: 'chain', group: 'lines' }, 'folded with a group of its own keeps that group');
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all', group: 'tight' })), { ...DEFAULTS, lines: 'all', group: 'lines' }, 'an unknown group reads as the old store drew');
 });
 
 test('a stored Names value merges with the defaults: all and none are kept, and the other options stay at theirs', () => {
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'all' })), { ...DEFAULTS, names: 'all' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'none' })), { ...DEFAULTS, names: 'none' });
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'relevant', lines: 'all', group: 'brackets' })), { ...DEFAULTS, lines: 'all' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'relevant', lines: 'chain', group: 'brackets' })), { ...DEFAULTS, lines: 'chain' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'off' })).names, 'relevant', 'a board stored before Names existed reads relevant');
 });
 
@@ -85,7 +85,7 @@ test('a value the row does not offer falls back to its own default, whatever its
 });
 
 test('a key the row does not have is dropped, and an inherited name such as toString is no value', () => {
-  const merged = mergeGraphFanOptions({ lines: 'chain', group: 'brackets', speed: 'fast', toString: 'on', __proto__: { order: 'rank', names: 'all', unnested: 'off', group: 'lines' } });
+  const merged = mergeGraphFanOptions({ lines: 'all', group: 'brackets', speed: 'fast', toString: 'on', __proto__: { order: 'rank', names: 'all', unnested: 'off', group: 'lines' } });
   assert.deepStrictEqual(plain(merged), DEFAULTS);
   assert.deepStrictEqual(Object.keys(merged), ['lines', 'group', 'dependencies', 'order', 'names', 'unnested']);
   assert.strictEqual(mergeGraphFanOptions({ lines: 'all', __proto__: { group: 'brackets' } }).group, 'lines', 'an inherited group is not a stored one');
@@ -159,8 +159,8 @@ test('a chain that loops has no end, so all of it takes a line', () => {
   assert.deepStrictEqual(parentLines(linesOf(model, withGroup('chain', 'lines'))), ['1>2', '1>3']);
 });
 
-test('chain with brackets, the default, gives one bracket over the chain ends of a ring and a plain line to an end alone on its ring', () => {
-  const lines = linesOf(tree(), {});
+test('chain with brackets gives one bracket over the chain ends of a ring and a plain line to an end alone on its ring', () => {
+  const lines = linesOf(tree(), { lines: 'chain' });
   assert.deepStrictEqual(parentLines(lines), ['1*[4,5,6]', '1>2', '2*[7,8]']);
   const counted = lines.filter((l) => l.kids);
   assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link]), [['2', '2', 2, null], ['1', '1', 3, null]], 'both ends the parent, and the number of children it carries');
@@ -222,12 +222,12 @@ test('dependencies on draws a line for each wait, from the card waited for, and 
 
 test('the lines come in the order of the model\'s relations, and the same options give the same lines', () => {
   const model = tree();
-  const lines = linesOf(model, {});
-  assert.deepStrictEqual(lines, linesOf(model, {}));
+  const lines = linesOf(model, { lines: 'chain' });
+  assert.deepStrictEqual(lines, linesOf(model, { lines: 'chain' }));
   assert.deepStrictEqual(lines.map((l) => [l.kind, l.from, l.to]), [
     ['parent', '1', '2'], ['parent', '2', '2'], ['wait', '5', '8'], ['parent', '1', '1'], ['wait', '3', '4'],
   ]);
-  const each = linesOf(model, { group: 'lines' });
+  const each = linesOf(model, { lines: 'chain', group: 'lines' });
   assert.deepStrictEqual(each.map((l) => [l.kind, l.from, l.to]), [
     ['parent', '1', '2'], ['parent', '2', '7'], ['parent', '2', '8'], ['wait', '5', '8'], ['parent', '1', '4'], ['wait', '3', '4'], ['parent', '1', '5'], ['parent', '1', '6'],
   ]);
