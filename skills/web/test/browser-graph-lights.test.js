@@ -166,7 +166,7 @@ test('run against a stand-in page, the scenario types each query, clicks and pre
     'with a typed query as the only part, Esc clears the box and the dimming, with focus outside it',
     'with a typed query lit, a double click on the empty canvas clears the box and the dimming',
     'hovering a dot lights its relations for a moment, and moving off brings back the lit selection',
-    'after typing a query in the Graph and switching to the Board, the Board shows only the matches and no tile is marked selected',
+    'after typing a query in the Graph and switching to the Board, the Board lights the matches with the selected look and hides no card',
     'and nothing is selected, so a bulk action has no cards to act on',
     'back in the Graph with the box unchanged and nothing selected, the matches light again',
   ]);
@@ -183,7 +183,7 @@ test('every acceptance check of the Graph\'s lighting has a check of its own in 
     'Shift+click on an unlit card adds it',
     'Esc clears the box and the dimming, with focus ${inBox ?',
     'a double click on the empty canvas clears the box and the dimming',
-    'the Board shows only the matches and no tile is marked selected',
+    'the Board lights the matches with the selected look and hides no card',
     'the matches light again',
     'hovering a dot lights its relations for a moment, and moving off brings back the lit selection',
     'clearing the box removes the dimming',

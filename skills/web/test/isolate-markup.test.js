@@ -150,3 +150,54 @@ test('the switch\'s colours are tokens, and its radius is on the page\'s scale',
   assert.doesNotMatch(rules, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
   for (const m of rules.matchAll(/border-radius:\s*([^;]+);/g)) assert.ok(['.15rem', '50%'].includes(m[1].trim()), m[1]);
 });
+
+// --- the Typing isolates checkboxes in the foot ------------------------------------------------
+
+const typingAt = html.indexOf('<div id="search-typing"');
+const typing = html.slice(typingAt, html.indexOf('</div>', typingAt) + 6);
+const boxes = [...typing.matchAll(/<label[^>]*>\s*<input[^>]*>[^<]*<\/label>/g)].map((m) => m[0]);
+
+test('the foot holds a Typing isolates group: a labelled checkbox for each view, in the order of the views, the Graph last', () => {
+  assert.ok(typingAt > html.indexOf('id="isolate-switch"'), 'it sits after the switch');
+  assert.ok(typingAt < html.indexOf('</div>', html.indexOf('<div id="search-foot"') + 1) + 400 && typingAt > html.indexOf('<div id="search-foot"'), 'inside the foot');
+  assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'role'), 'group');
+  assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'aria-labelledby'), 'search-typing-title');
+  assert.match(typing, /<span id="search-typing-title"[^>]*>Typing isolates<\/span>/);
+  assert.deepStrictEqual(boxes.map((b) => attr(b.match(/<input[^>]*>/)[0], 'data-typing-view')), ['board', 'calendar', 'gantt', 'map', 'graph']);
+  assert.deepStrictEqual(boxes.map((b) => b.replace(/<[^>]*>/g, '').trim()), ['Board', 'Calendar', 'Gantt', 'Map', 'Graph']);
+});
+
+test('each checkbox is a checkbox that never clears a selection, holds no poll, and carries no style or handler', () => {
+  assert.strictEqual(boxes.length, 5);
+  for (const b of boxes) {
+    const input = b.match(/<input[^>]*>/)[0];
+    assert.strictEqual(attr(input, 'type'), 'checkbox');
+    assert.notStrictEqual(attr(input, 'data-keeps-selection'), null, 'a click on it keeps the selection');
+    assert.strictEqual(attr(input, 'data-holds-poll'), null, 'a box left focused by a click would stop the poll for good');
+    assert.doesNotMatch(b, /\sstyle=|\son[a-z]+=/i);
+  }
+  assert.notStrictEqual(attr(typing.match(/<div[^>]*>/)[0], 'data-keeps-selection'), null);
+});
+
+test('the script wires the group once, reads and writes the choice through the page\'s preferences, and the stylesheet draws it', () => {
+  assert.match(isolateSrc, /\$\('#search-typing'\)\.addEventListener\('change', onTypingIsolatesChange\)/);
+  assert.match(code(isolateSrc), /setTypingIsolates\(box\.dataset\.typingView, box\.checked\)/);
+  assert.match(code(isolateSrc), /typingIsolatesIn\(box\.dataset\.typingView\)/);
+  assert.match(appSrc, /function typingIsolatesIn\(view\) \{\s*return loadPrefsState\(\)\.typingIsolates\[view\] === true;/);
+  assert.match(appSrc, /prefsWith\(loadPrefsState\(\), \{ typingIsolates: \{ \[view\]: on \} \}\)/);
+  assert.match(css, /\.search-typing \{/);
+  assert.match(read('search-panel.js'), /syncTypingIsolates\(\);/, 'every repaint of the board keeps the boxes right');
+});
+
+test('the writer asks the pure decision, and the view switch ends an isolate the box started', () => {
+  assert.match(appSrc, /typingTurnsIsolateOn\(\{ reason, text: searchSplitSlice\(String\(text\)\)\.rest, isolated: isolateNow\(\) !== null, setting: typingIsolatesIn\(loadViewMode\(\)\) \}\)\) isolateFromTyping\(text\)/);
+  assert.match(appSrc, /isolateEndIfEmptied\(text, reason\);/);
+  assert.match(appSrc.match(/function setView\([\s\S]*?\n\}/)[0], /isolateEndFollowing\(to, typingIsolatesIn\(to\)\)/);
+});
+
+test('every view paints a lit card with the selected look through one predicate, and the Graph keeps its own', () => {
+  assert.match(appSrc, /function paintsSelected\(id\) \{\s*return selectedIds\.has\(id\) \|\| \(boxLitIds !== null && boxLitIds\.has\(id\)\);/);
+  assert.strictEqual((appSrc.match(/paintsSelected\(/g) || []).length, 7, 'its definition, the Board tile, the archived tile, the Map node, the Calendar chip, and the Gantt bar and its label');
+  assert.doesNotMatch(appSrc.replace(/function paintsSelected[\s\S]*?\n\}/, ''), /selectedIds\.has\([a-z.]*\) \? ' selected'/, 'no view paints the selected look from the selection alone');
+  assert.doesNotMatch(graphViewSrc, /paintsSelected|boxLitIds/, 'the Graph lights through graphQueryEffect');
+});

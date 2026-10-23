@@ -17,8 +17,9 @@
 // and choosing Isolate from it turns it on with no dot dimmed. The Map's empty canvas opens that menu
 // too, and choosing it shows only the two cards.
 //
-// The reload. The two cards are picked while a search narrows the Board, and isolated from a card's
-// menu, so the box holds `#a | #b` and remembers the search. A reload keeps the switch on, the box
+// The reload. The Board is set to light what is typed (its Typing isolates off, since a Board that isolates
+// by itself has the search isolate on its own). The two cards are picked while a search lights its cards, and
+// isolated from a card's menu, so the box holds `#a | #b` and remembers the search. A reload keeps the switch on, the box
 // text, the address and the chip that says isolated, and the Board shows the two. Turning isolate off
 // afterwards gives the search back and takes the parameter out of the address. Opening a card while
 // isolated is one history step that carries q and isolate, and Back keeps both.
@@ -229,11 +230,13 @@ module.exports = {
     // --- the reload, and the text from before isolating ----------------------------------------------------------------------------
     const [one, two] = CASES.zephyr.picked;
     const pickedText = `#${one} | #${two}`;
+    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
     check('the Board is up for the reload part', await goto('/?view=board', boardReady));
+    const liveBoard = await nowShown(SELECTORS.board);
     await pickOnBoard(CASES.zephyr.picked);
     await focusBoxAtEnd();
     await send('Input.insertText', { text: CASES.zephyr.query });
-    check('a search narrows the Board to the zephyr cards, and the two are still picked', await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, sorted(...CASES.zephyr.cards)) && await pickedIs(sorted(...CASES.zephyr.picked)), await nowShown(SELECTORS.board));
+    check('a search lights the zephyr cards and leaves every card on the Board, and the two are still picked', await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, liveBoard) && await pickedIs(sorted(...CASES.zephyr.picked)), await nowShown(SELECTORS.board));
     await blur();
     await rightClick(`#board .card-el[data-id="${one}"]`);
     await menuUp();
@@ -247,7 +250,7 @@ module.exports = {
     await press('isolate-switch');
     check('after the reload, turning isolate off gives back the search from before isolating', await switchIs(false) && await boxIs(CASES.zephyr.query), await boxText());
     check('and takes the isolate parameter out of the address', await addressHas({ view: 'board', q: CASES.zephyr.query }), await addressParams());
-    check('and the Board filters by the search again', await shows(SELECTORS.board, sorted(...CASES.zephyr.cards)), await nowShown(SELECTORS.board));
+    check('and the Board shows every card again, the search lighting its cards', await shows(SELECTORS.board, liveBoard), await nowShown(SELECTORS.board));
 
     // --- a card's history step keeps the parameter ------------------------------------------------------------------------------------
     await pickOnBoard(CASES.zephyr.picked);

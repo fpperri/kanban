@@ -207,7 +207,7 @@ module.exports = {
     await waitFor(`${ACTIVE}==='ctx-hpath'`, 2500);
     await key('Enter', { shift: true });
     check('Shift+Enter on the focused item does the same', await boxIs('htree:7 | dpath:8 | hpath:8') && await menuGone(), await ev(`document.getElementById('search-input').value`));
-    check('and isolate is untouched', await ev(`isolateNow()===null`));
+    check('and isolate follows the Board as typing does: the picks it wrote are its isolate text', await ev(`isolateNow()!==null`));
 
     // --- at phone width a tap opens a panel in place, at every level --------------------------------------------------------
     await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });

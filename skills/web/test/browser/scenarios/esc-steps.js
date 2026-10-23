@@ -5,15 +5,16 @@
 // cards, the first Esc leaves the first card and the second clears the selection.
 // With text in the search box and a selection, focus in the box opens its
 // suggestion menu, and that menu takes the first Esc: it closes and the selection
-// and the box text are untouched. The next Esc clears the box and keeps the selection. Esc with
-// focus outside the box steps the selection back and leaves the box text as it
-// was. Each step waits on the page, never on a fixed sleep. Escape goes through
+// and the box text are untouched. Text typed on the Board turns isolate on, so the next Esc
+// turns it off and leaves the box and the selection, and the one after clears the box and keeps
+// the selection. Esc with focus outside the box turns isolate off first too, and the Esc after it
+// steps the selection back and leaves the box text as it was. Each step waits on the page, never on a fixed sleep. Escape goes through
 // the runner's key helper, a real key press; a card's dot is found by its class
 // and clicked only where it is the topmost thing, and a Board card at a point
 // that is not a cue, a button or a bar.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// selectedIds, selectionState.
+// isolateNow, selectedIds, selectionState.
 
 module.exports = {
   name: 'esc-steps',
@@ -109,8 +110,11 @@ module.exports = {
     await escape();
     // An open menu takes the first Esc. A search field also clears itself on Esc by the browser's own default, which the menu's Esc stops, so the box still holds its text.
     check('the first Esc in the search box closes the suggestion menu, keeps the selection and keeps the box text', await waitFor(`!(${MENU_OPEN})`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }) && (await boxText()) === 'zephyr', { open: await ev(MENU_OPEN), picked: await picked(), parts: await parts(), box: await boxText() });
+    check('the text typed on the Board turned isolate on', await ev(`isolateNow()!==null`));
     await escape();
-    check('the next Esc in the search box clears the box and keeps the selection', await waitFor(`document.getElementById('search-input').value===''`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { box: await boxText(), picked: await picked(), parts: await parts() });
+    check('the next Esc in the search box turns isolate off, as Esc does anywhere: the box keeps its text and the selection stays', await waitFor(`isolateNow()===null`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked(), parts: await parts() });
+    await escape();
+    check('the Esc after that clears the box and keeps the selection', await waitFor(`document.getElementById('search-input').value===''`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { box: await boxText(), picked: await picked(), parts: await parts() });
 
     await focusBoxAtEnd();
     await send('Input.insertText', { text: 'zephyr' });
@@ -118,7 +122,9 @@ module.exports = {
     await ev(`document.activeElement.blur()`);
     check('the box has text again and focus has left it', (await boxText()) === 'zephyr' && await ev(`document.activeElement!==document.getElementById('search-input')`));
     await escape();
-    check('Esc with focus outside the search box steps the selection back and leaves the box text as it was', await hasSelection(1) && sameIds(await picked(), [x]) && sameIds(await parts(), { anchor: x, additions: [] }) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked(), parts: await parts() });
+    check('Esc with focus outside the search box turns isolate off first, and leaves the selection and the box text', await waitFor(`isolateNow()===null`) && sameIds(await picked(), sorted(x, y, z)) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked() });
+    await escape();
+    check('the Esc after that steps the selection back and leaves the box text as it was', await hasSelection(1) && sameIds(await picked(), [x]) && sameIds(await parts(), { anchor: x, additions: [] }) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked(), parts: await parts() });
     check('none of those clicks opened a card', await noCardOpen());
   },
 };

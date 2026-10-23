@@ -20,16 +20,18 @@
 // so the Gantt and the Calendar, which draw only the dated cards, reach the 2031 card alone.
 // A keystroke typed after isolating one card keeps the text's leading # (`#28x`).
 //
-// The box's text and Esc. A search typed in the box (`zephyr`) narrows the Board, and two of its
-// cards are picked. The switch writes `#1 | #2`; the first Esc closes the panel and leaves isolate
-// on, the second turns it off and the box holds `zephyr` again. The i key, then Esc with focus
+// The box's text and Esc. The Board is set to light what is typed (its Typing isolates off, since a
+// Board that isolates by itself has typing turn isolate on, which the isolate-typing scenario drives):
+// a search typed in the box (`zephyr`) lights its cards and hides none, and two of them are picked.
+// The switch writes `#1 | #2`; the first Esc closes the panel and leaves isolate
+// on, the second turns it off and the box holds `zephyr` again, lit. The i key, then Esc with focus
 // outside the box, does the same; the next Esc drops the addition. The switch clicked off gives
 // the text back. Tab reaches the switch from the last pill, and Enter and Space flip it. A double
 // click on the switch leaves the selection. i typed in the box is a letter, and with a card menu
 // up it does nothing.
 //
-// The poll. With the grill pill on and isolated, a tag given to card 14 through the board's API
-// makes that card appear on the Board after the next poll.
+// The poll. With the grill pill on and isolated (on a Board that lights what a pill matches), a tag given
+// to card 14 through the board's API makes that card appear on the Board after the next poll.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. CASES holds what the scenario relies on
 // (the path of card 4, the grill pill's cards, the cards the Gantt lists, the zephyr cards), and
@@ -252,12 +254,14 @@ module.exports = {
     check('a keystroke typed at the end of the box keeps the text\'s leading #', await boxIs(`#${CASES.dated.card}x`), await boxText());
 
     // --- the box's text, and Esc ------------------------------------------------------------------------------------
+    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
     check('the Board draws the plan board for the Esc steps', await goto('/?view=board', boardReady));
+    const liveBoard = await nowShown(SELECTORS.board);
     for (const id of CASES.zephyr.picked) await clickTile(id, { modifiers: 2 });
     check('two cards are picked on the Board', await pickedIs(sorted(...CASES.zephyr.picked)));
     await focusBoxAtEnd();
     await send('Input.insertText', { text: CASES.zephyr.query });
-    check('a search narrows the Board to the zephyr cards', await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, sorted(...CASES.zephyr.cards)), await nowShown(SELECTORS.board));
+    check('a search lights the zephyr cards and leaves every card on the Board', await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, liveBoard) && await shows('#board .card-el.selected', sorted(...CASES.zephyr.cards)), { shown: await nowShown(SELECTORS.board), lit: await nowShown('#board .card-el.selected') });
     check('the panel is open, and the picked cards are still picked', await waitFor(panelOpen) && await pickedIs(sorted(...CASES.zephyr.picked)));
     await blur();
     const pickedText = CASES.zephyr.picked.map((id) => `#${id}`).join(' | ');
@@ -266,7 +270,7 @@ module.exports = {
     await escape();
     check('with the panel open and isolate on, the first Esc closes the panel and leaves isolate on', await waitFor(panelShut) && await switchIs(true) && (await boxText()) === pickedText);
     await escape();
-    check('the second Esc turns isolate off and gives the box back the text it held', await switchIs(false) && await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, sorted(...CASES.zephyr.cards)), await boxText());
+    check('the second Esc turns isolate off and gives the box back the text it held', await switchIs(false) && await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, liveBoard), await boxText());
     check('and the two cards are still picked', await pickedIs(sorted(...CASES.zephyr.picked)));
 
     await key('i');
@@ -321,13 +325,15 @@ module.exports = {
 
     // --- the poll -----------------------------------------------------------------------------------------------------
     check('the Board draws the plan board before the poll', await goto('/?view=board', boardReady));
+    const liveBoardForPoll = await nowShown(SELECTORS.board);
     await openPanel();
     await clickOn(pillSel(CASES.pill.label));
-    check('the grill pill narrows the Board to its card', await boxIs(CASES.pill.query) && await shows(SELECTORS.board, sorted(...CASES.pill.cards)), await boxText());
+    check('the grill pill puts its query in the box and lights its card, leaving every card on the Board', await boxIs(CASES.pill.query) && await shows(SELECTORS.board, liveBoardForPoll) && await shows('#board .card-el.selected', sorted(...CASES.pill.cards)), await boxText());
     await clickOn('#isolate-switch');
     check('isolated, the Board shows the same card, and the switch is on', await switchIs(true) && await shows(SELECTORS.board, sorted(...CASES.pill.cards)));
     check('a card is given the grill tag through the board\'s API', (await patchCard(CASES.tagged, { tags: [CASES.pill.label] })) === 200);
     await ev(`(async()=>{await autoRefreshTick();})()`);
     check('the card appears on the Board after the next poll, and the box is as it was', await shows(SELECTORS.board, sorted(...CASES.pill.cards, CASES.tagged)) && (await boxText()) === CASES.pill.query, await nowShown(SELECTORS.board));
+    await ev(`localStorage.removeItem('kanban.plan.prefs')`);
   },
 };
