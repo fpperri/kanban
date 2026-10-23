@@ -30,7 +30,7 @@ const ZOOMS = [1, 2, 0.5];
 // Measured over every case below, and pinned at each zoom: the fewest cards placed, and twice
 // the most work one placement did, in exact tests of a place, marks looked at for the leaders'
 // runs and cells of the tables that give the rows out.
-const PLACED_AT_LEAST = { 1: 103, 2: 144, 0.5: 60 };
+const PLACED_AT_LEAST = { 1: 103, 2: 143, 0.5: 60 };
 const WORK_AT_MOST = {
   1: { tests: 2 * 27551, rays: 2 * 14453, cells: 2 * 6111 },
   2: { tests: 2 * 9566, rays: 2 * 14453, cells: 2 * 11349 },
@@ -42,15 +42,15 @@ const FRAME_MS = 16;
 const cases = () => {
   const out = [];
   for (const unnested of ['outermost', 'table']) {
-    for (const lines of ['folded', 'all']) {
+    for (const [lines, group] of [['chain', 'brackets'], ['all', 'lines'], ['all', 'brackets']]) {
       const layout = graphLayoutHierarchy(MODEL, { statuses: STATUSES, unnested });
-      const fan = { lines, dependencies: 'on', order: 'status', names: 'all', unnested };
+      const fan = { lines, group, dependencies: 'on', order: 'status', names: 'all', unnested };
       const plan = graphPlan(MODEL, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan });
       // Every point of every line and divider, by x, so a box finds the points under it at once.
       const drawn = [...plan.links, ...plan.dividers.map((v) => ({ d: `M${v.x1} ${v.y1}L${v.x2} ${v.y2}`, from: 'divider', to: '' }))];
       const points = drawn.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l }))).sort((p, q) => p.x - q.x);
       for (const [w, h] of STAGES) {
-        for (const zoom of ZOOMS) out.push({ where: `${unnested}/${lines} ${w}x${h} zoom ${zoom}`, zoom, layout, plan, points, ...placeOn(MODEL, layout, plan, { w, h, zoom }) });
+        for (const zoom of ZOOMS) out.push({ where: `${unnested}/${lines} ${group} ${w}x${h} zoom ${zoom}`, zoom, layout, plan, points, ...placeOn(MODEL, layout, plan, { w, h, zoom }) });
       }
     }
   }

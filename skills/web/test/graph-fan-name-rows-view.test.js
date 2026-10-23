@@ -131,7 +131,7 @@ test('a drawn fan gives each named card one leader before its dot, with no style
   vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan'].map(fn).join('\n')}`, sandbox);
   const board = makeBoard();
   const model = graphBuild(board.active, { ctx: { board: 'kanban', priorities: [] }, hierarchy: board.hierarchy });
-  const fan = { lines: 'folded', dependencies: 'on', order: 'status', names: 'all', unnested: 'outermost' };
+  const fan = { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: 'all', unnested: 'outermost' };
   const plan = graphPlan(model, graphLayout(model, 'hierarchy', { statuses: board.statuses }), {
     kind: 'hierarchy', statusClass: (st) => st, titleOf: (c) => c.title, fan,
   });

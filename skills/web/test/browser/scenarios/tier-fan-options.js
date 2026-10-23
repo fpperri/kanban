@@ -2,9 +2,9 @@
 // The tier fan's option row, on the plan board. In Tiers an option row stands in the option panel
 // beside the fan, shown with every option built and no toggle of its own (the panel is what hides it;
 // view-panel's), and absent in the Flow, whose row holds the Dependencies switch alone.
-// It holds Lines (folded, chain, all, off), Dependencies (on, off), Order
+// It holds Lines (all, chain, off), Group (brackets, lines), Dependencies (on, off), Order
 // (status, rank), Names (relevant, all, none; fan-names's) and Unnested (outermost, off, depth 0,
-// table; tier-fan-unnested's), one button of each pressed. Each lines mode and the dependencies switch
+// table; tier-fan-unnested's), one button of each pressed. Each lines and group pair and the dependencies switch
 // redraw the fan with the number of lines the model predicts (graphFanLines, read from
 // the page) and the number worked out by hand for the board; the order seats the
 // siblings of a sector another way and moves no card to another ring. A reload keeps the
@@ -25,13 +25,16 @@
 // them have a parent: 2 to 6 under card 1, 7 and 8 under 2, 22 under 7, 23 and 25 under 22
 // and 24 under 23. The children of card 1 are one chain (4 waits for 3, and 6 waits for 2,
 // 3 and 5), whose ends are 4 and 6; 8 waits for 7, so 8 is the end of its chain; every
-// other child is alone in its chain, so is an end. Chain draws seven parent lines (4, 6, 8,
-// 22, 23, 24 and 25). Folded draws the same seven: no parent has two such children on one
-// ring (card 25 is a goal, and sits in a band of its own). Six cards wait for a drawn card:
-// 4, 6 (three times), 8 and 27. Cards 30 and 31, added under card 7 through the board's
-// API, are two children alone on one ring (depth 0, as are the cards 3 to 6, 8 and 23) beside
-// the epic 22, so folded draws one counted line for them and the seven others, and its label
-// reads 2.
+// other child is alone in its chain, so is an end. Chain with lines draws seven parent lines (4,
+// 6, 8, 22, 23, 24 and 25); all with lines draws eleven. Brackets draw one bracket over the children
+// of a parent that get a line and share a ring, and a plain line to any other: all with brackets, the
+// default, draws eight parent lines (a bracket over 3 to 6, label 4), chain with brackets six (a bracket
+// over 4 and 6, label 2), and off none whatever the group. Six cards wait for a drawn card:
+// 4, 6 (three times), 8 and 27. Cards 30 and 31, added under card 7 through the board's API, are
+// two children alone on one ring (depth 0, as are the cards 3 to 6, 8 and 23) beside the epic 22,
+// so with them all with brackets draws nine parent lines, a bracket reading 2 and one reading 4,
+// chain with brackets seven, two brackets reading 2 and 2, chain with lines nine and all with lines
+// thirteen.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // graphCur, graphFanLines, graphLoadOptions, selectedIds, isDragging, boardControlFocused,
@@ -43,17 +46,19 @@ const {
 
 const CASES = {
   plan: {
-    parentLines: { folded: 7, chain: 7, all: 11, off: 0 },
+    parentLines: { chain: { brackets: 6, lines: 7 }, all: { brackets: 8, lines: 11 }, off: { brackets: 0, lines: 0 } },
     waits: 6,
-    defaults: { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' },
-    values: { lines: ['folded', 'chain', 'all', 'off'], dependencies: ['on', 'off'], order: ['status', 'rank'], names: ['relevant', 'all', 'none'], unnested: ['outermost', 'off', 'depth 0', 'table'] },
-    labels: ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested'],
+    defaults: { lines: 'all', group: 'brackets', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' },
+    values: { lines: ['all', 'chain', 'off'], group: ['brackets', 'lines'], dependencies: ['on', 'off'], order: ['status', 'rank'], names: ['relevant', 'all', 'none'], unnested: ['outermost', 'off', 'depth 0', 'table'] },
+    labels: ['Lines', 'Group', 'Dependencies', 'Order', 'Names', 'Unnested'],
     // The children of card 1 and the order each option seats them in, first seat first.
     siblings: [2, 3, 4, 5, 6],
     seats: { status: [2, 3, 6, 4, 5], rank: [2, 3, 4, 5, 6] },
     // Two children of card 7, with the lines each mode draws once they are there.
     added: [{ title: 'Port the first table', parent: 7, status: 'todo' }, { title: 'Port the second table', parent: 7, status: 'todo' }],
-    withAdded: { folded: 8, chain: 9, all: 13, off: 0 },
+    withAdded: { chain: { brackets: 7, lines: 9 }, all: { brackets: 9, lines: 13 }, off: { brackets: 0, lines: 0 } },
+    // Every lines and group pair, the default last, in the order the scenario presses them.
+    modes: [['chain', 'lines'], ['all', 'lines'], ['off', 'brackets'], ['chain', 'brackets'], ['all', 'brackets']],
     addedIds: [30, 31],
     pollCard: { title: 'Check the poll after a press', status: 'todo' },
     pollId: 32,
@@ -79,6 +84,27 @@ const LINE_COUNTS = `(()=>{const q=(s)=>document.querySelectorAll('#graph-view '
   + `wait:q('.graph-link-wait'),labels:[...document.querySelectorAll('#graph-view .graph-link-count')].map((e)=>e.textContent)}})()`;
 const PREDICTED = `(()=>{const lines=graphFanLines(graphCur.model,graphCur.layout.places,graphLoadOptions());return {all:lines.length,parent:lines.filter((l)=>l.kind==='parent').length,`
   + `counted:lines.filter((l)=>!!l.kids).length,wait:lines.filter((l)=>l.kind==='wait').length,labels:lines.filter((l)=>!!l.kids).map((l)=>String(l.count))}})()`;
+// Each bracket on the stage as the brackets group draws it: one arc from the smallest angle of its
+// children to the largest, hooked out to the first and last child, a tick to each child between and one
+// stem, so 'M' pieces for the stem, the hooked arc and each child between, and a single 'A'. `inset` is how
+// far inside its ring the arc turns. The function runs in the page (its source is the expression) and in
+// the stand-in page's tests.
+function bracketsDrawn(cur, lines) {
+  const same = (a, b) => Math.abs(Math.sin((a - b) / 2)) < 0.005;
+  return cur.lines.filter((l) => l.count !== undefined).map((l) => {
+    const ids = lines.find((x) => x.kids && x.from === l.from && x.count === l.count).kids;
+    const kids = ids.map((id) => cur.layout.polar.get(id).a);
+    const m = /^M[-\d.e]+ [-\d.e]+L[-\d.e]+ [-\d.e]+M[-\d.e]+ [-\d.e]+L([-\d.e]+) ([-\d.e]+)A[-\d.e]+ [-\d.e]+ 0 \d 1 ([-\d.e]+) ([-\d.e]+)L/.exec(l.d);
+    return {
+      from: l.from,
+      count: l.count,
+      inset: m ? Math.round((cur.layout.polar.get(ids[0]).r - Math.hypot(Number(m[1]), Number(m[2]))) * 100) / 100 : null,
+      ok: !!m && same(Math.atan2(Number(m[2]), Number(m[1])), Math.min(...kids)) && same(Math.atan2(Number(m[4]), Number(m[3])), Math.max(...kids))
+        && (l.d.match(/A/g) || []).length === 1 && (l.d.match(/M/g) || []).length === kids.length,
+    };
+  });
+}
+const BRACKETS_DRAWN = `(${bracketsDrawn.toString()})(graphCur,graphFanLines(graphCur.model,graphCur.layout.places,graphLoadOptions()))`;
 // The lines the page's lighting reaches are the lines it drew: one element for each.
 const DRAWN_LINES = `graphCur.lines.length===document.querySelectorAll('#graph-view .graph-link').length`;
 
@@ -120,6 +146,8 @@ module.exports = {
   ROW_STATE,
   LINE_COUNTS,
   PREDICTED,
+  BRACKETS_DRAWN,
+  bracketsDrawn,
   DRAWN_LINES,
   ROW_PRESENT,
   ROW_ABSENT,
@@ -167,6 +195,11 @@ module.exports = {
     };
     // The lines the stage holds once a mode is drawn: the numbers wait on the page's own count.
     const settledOn = async (parent, wait) => waitFor(`(()=>{const q=(s)=>document.querySelectorAll('#graph-view '+s).length;return q('.graph-link-parent')===${parent}&&q('.graph-link-wait')===${wait}})()`, 6000);
+    const setMode = async (lines, group) => {
+      const a = await setOption('lines', lines);
+      const b = await setOption('group', group);
+      return a && b;
+    };
     const seatOrder = (dots, sweep, ids) => ids.slice().sort((a, b) => turned(dots[b], sweep) - turned(dots[a], sweep));
 
     // --- the row: only in Tiers, shown on the first open -------------------------------------
@@ -174,7 +207,7 @@ module.exports = {
     check('plan: the option row stands in the option panel, with Tiers', await waitFor(ROW_PRESENT, 6000));
     let state = await rowState();
     check('plan: the row is shown on the first open: every option is built, in the panel, with no toggle of its own',
-      !!state && state.groups.length === 5 && state.toggles === 0 && state.inPanel === true && await ev(ROW_SHOWN), state);
+      !!state && state.groups.length === 6 && state.toggles === 0 && state.inPanel === true && await ev(ROW_SHOWN), state);
     check('plan: the row keeps the selection', !!state && state.keeps === true, state);
     for (const other of ['flow']) {
       await ev(pickLayout(other));
@@ -187,7 +220,7 @@ module.exports = {
 
     // --- what it holds -------------------------------------------------------------------------
     state = await rowState();
-    check('plan: the row holds Lines, Dependencies, Order, Names and Unnested, each with its values in words, the first of each pressed',
+    check('plan: the row holds Lines, Group, Dependencies, Order, Names and Unnested, each with its values in words, the first of each pressed',
       !!state && sameList(state.groups.map((g) => g.label), plan.labels)
       && state.groups.every((g, i) => sameList(g.buttons.map((b) => b.val), plan.values[Object.keys(plan.values)[i]]) && sameList(g.buttons.map((b) => b.text), g.buttons.map((b) => b.val)))
       && sameList(state.groups.map((g) => g.buttons.filter((b) => b.pressed).map((b) => b.val).join()), Object.values(plan.defaults))
@@ -197,30 +230,31 @@ module.exports = {
     check('plan: the lines drawn are the lines the model predicts for the defaults, and the page lights the lines it drew',
       same(await counts(), await predicted()) && await ev(DRAWN_LINES), { drawn: await counts(), predicted: await predicted() });
     const first = await counts();
-    check('plan: folded draws the seven parent lines of the board and its six arrows, and no counted line',
-      first.parent === plan.parentLines.folded && first.wait === plan.waits && first.counted === 0 && first.labels.length === 0, first);
+    check('plan: all with brackets, the default, draws the eight parent lines of the board and its six arrows, one of them the bracket over cards 3 to 6, reading 4',
+      first.parent === plan.parentLines.all.brackets && first.wait === plan.waits && first.counted === 1 && sameList(first.labels, ['4']), first);
     await shot('tier-fan-options-open');
 
     // --- each lines mode redraws the fan with the lines the model predicts --------------------
     const before = await ev(DOTS);
-    for (const mode of ['all', 'chain', 'off', 'folded']) {
-      const pressedOk = await setOption('lines', mode);
-      await settledOn(plan.parentLines[mode], plan.waits);
+    for (const [mode, group] of plan.modes) {
+      const pressedOk = await setMode(mode, group);
+      const want = plan.parentLines[mode][group];
+      await settledOn(want, plan.waits);
       const drawn = await counts();
       const model = await predicted();
-      check(`plan: lines ${mode} draws ${plan.parentLines[mode]} parent lines, the number the model predicts, and keeps the arrows`,
-        pressedOk && drawn.parent === plan.parentLines[mode] && drawn.wait === plan.waits && same(drawn, model) && await ev(DRAWN_LINES), { drawn, model });
+      check(`plan: lines ${mode} with ${group} draws ${want} parent lines, the number the model predicts, and keeps the arrows`,
+        pressedOk && drawn.parent === want && drawn.wait === plan.waits && same(drawn, model) && await ev(DRAWN_LINES), { drawn, model });
     }
     check('plan: a lines option moves no card', JSON.stringify(await ev(DOTS)) === JSON.stringify(before));
 
     // --- the dependencies switch ----------------------------------------------------------------
     await setOption('dependencies', 'off');
-    await settledOn(plan.parentLines.folded, 0);
+    await settledOn(plan.parentLines.all.brackets, 0);
     const noArrows = await counts();
     check('plan: dependencies off draws no arrow and keeps the parent lines, as the model predicts',
-      noArrows.wait === 0 && noArrows.parent === plan.parentLines.folded && same(noArrows, await predicted()), noArrows);
+      noArrows.wait === 0 && noArrows.parent === plan.parentLines.all.brackets && same(noArrows, await predicted()), noArrows);
     await setOption('dependencies', 'on');
-    await settledOn(plan.parentLines.folded, plan.waits);
+    await settledOn(plan.parentLines.all.brackets, plan.waits);
     check('plan: dependencies on draws the arrows again', (await counts()).wait === plan.waits, await counts());
 
     // --- the order ---------------------------------------------------------------------------------
@@ -242,38 +276,59 @@ module.exports = {
     check('plan: two children are added under card 7', created.every((s) => s === 201), created);
     await load('plan');
     await waitFor(plan.addedIds.map(hasDot).join('&&'), 10000);
-    for (const mode of ['folded', 'chain', 'all', 'off']) {
-      await setOption('lines', mode);
-      await settledOn(plan.withAdded[mode], plan.waits);
+    for (const [mode, group] of plan.modes) {
+      await setMode(mode, group);
+      const want = plan.withAdded[mode][group];
+      await settledOn(want, plan.waits);
       const drawn = await counts();
       const model = await predicted();
-      check(`plan: with the two children added, lines ${mode} draws ${plan.withAdded[mode]} parent lines, as the model predicts`,
-        drawn.parent === plan.withAdded[mode] && same(drawn, model), { drawn, model });
+      check(`plan: with the two children added, lines ${mode} with ${group} draws ${want} parent lines, as the model predicts`,
+        drawn.parent === want && same(drawn, model), { drawn, model });
     }
-    await setOption('lines', 'folded');
-    await settledOn(plan.withAdded.folded, plan.waits);
+    await settledOn(plan.withAdded.all.brackets, plan.waits);
+    const bracketed = await counts();
+    check('plan: all with brackets draws the four children of card 1 on one bracket reading 4 and the two of card 7 on one reading 2, and nothing else counted',
+      bracketed.counted === 2 && sameList(bracketed.labels.slice().sort(), ['2', '4']), bracketed);
+    const arcs = await ev(BRACKETS_DRAWN);
+    check('plan: and each of those brackets is one arc from its first child to its last, a tick to each child and one stem',
+      Array.isArray(arcs) && arcs.length === 2 && arcs.every((a) => a.ok), arcs);
+    check('plan: and the two brackets standing side by side on the depth 0 ring turn at different insets, so they never meet',
+      Array.isArray(arcs) && arcs.length === 2 && arcs[0].inset !== arcs[1].inset && arcs.every((a) => a.inset === 27 || a.inset === 14), arcs);
+    await shot('tier-fan-options-brackets');
+    await setOption('lines', 'chain');
+    await settledOn(plan.withAdded.chain.brackets, plan.waits);
     const counted = await counts();
-    check('plan: folded draws the two children on one counted line, whose label reads 2, one line of one count',
-      counted.counted === 1 && sameList(counted.labels, ['2']), counted);
+    check('plan: chain with brackets draws the two children of card 7 on one bracket reading 2 and cards 4 and 6 on another reading 2, nothing else counted',
+      counted.counted === 2 && sameList(counted.labels, ['2', '2']), counted);
+    const chainArcs = await ev(BRACKETS_DRAWN);
+    check('plan: and each bracket is one arc from its first child to its last, a tick to each child and one stem',
+      Array.isArray(chainArcs) && chainArcs.length === 2 && chainArcs.every((a) => a.ok), chainArcs);
     await shot('tier-fan-options-counted');
+    await setOption('lines', 'all');
+    await setOption('group', 'lines');
+    await settledOn(plan.withAdded.all.lines, plan.waits);
+    const plain = await counts();
+    check('plan: group lines gives every child its own line again, with no bracket and no label',
+      plain.counted === 0 && plain.labels.length === 0 && plain.parent === plan.withAdded.all.lines, plain);
+    await setOption('group', 'brackets');
 
     // --- the options are kept ---------------------------------------------------------
-    await setOption('lines', 'chain');
+    await setMode('chain', 'lines');
     await setOption('order', 'rank');
     await load('plan');
     await waitFor(ROW_SHOWN, 6000);
     state = await rowState();
-    check('plan: a reload keeps the options: chain, on, rank, relevant, outermost',
-      !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
-    await settledOn(plan.withAdded.chain, plan.waits);
-    check('plan: and draws what they say', (await counts()).parent === plan.withAdded.chain, await counts());
+    check('plan: a reload keeps the options: chain, lines, on, rank, relevant, outermost',
+      !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'lines', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
+    await settledOn(plan.withAdded.chain.lines, plan.waits);
+    check('plan: and draws what they say', (await counts()).parent === plan.withAdded.chain.lines, await counts());
     check('fixture: another board starts with the defaults, whatever the plan board chose', await load('fixture') && await waitFor(ROW_SHOWN, 6000), await rowState());
     state = await rowState();
     check('fixture: and its own choices are the defaults', !!state && sameList(pressed(state).map((p) => p.join()), Object.values(plan.defaults)), state);
     await load('plan');
     await waitFor(ROW_SHOWN, 6000);
     state = await rowState();
-    check('plan: back on the plan board its choices are as they were left', !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
+    check('plan: back on the plan board its choices are as they were left', !!state && sameList(pressed(state).map((p) => p.join()), ['chain', 'lines', 'on', 'rank', 'relevant', plan.defaults.unnested]), state);
 
     // --- a press does not pan, and does not clear the selection -------------------------------------
     let target = null;
@@ -287,7 +342,7 @@ module.exports = {
       await click(dot.x, dot.y);
       check('plan: a click on a dot selects it', await waitFor(`${SELECTED}.length===1&&${SELECTED}[0]===${target}`, 4000), await ev(SELECTED));
       const view = await ev(VIEW);
-      for (const [key, val] of [['lines', 'all'], ['dependencies', 'off'], ['lines', 'folded'], ['dependencies', 'on'], ['order', 'status'], ['order', 'rank']]) await setOption(key, val);
+      for (const [key, val] of [['lines', 'all'], ['dependencies', 'off'], ['group', 'brackets'], ['group', 'lines'], ['dependencies', 'on'], ['order', 'status'], ['order', 'rank']]) await setOption(key, val);
       await ev(frames);
       check('plan: pressing options leaves the selection as it was', sameList(await ev(SELECTED), [target]), await ev(SELECTED));
       const after = await ev(VIEW);
@@ -343,13 +398,13 @@ module.exports = {
     }
 
     // --- the next poll still refreshes the board ------------------------------------------------------
-    await setOption('lines', 'all');
-    check('plan: after a press the option keeps focus', await waitFor(`${FOCUSED_OPTION}==='lines=all'`, 4000), await ev(FOCUSED_OPTION));
+    await setOption('lines', 'chain');
+    check('plan: after a press the option keeps focus', await waitFor(`${FOCUSED_OPTION}==='lines=chain'`, 4000), await ev(FOCUSED_OPTION));
     const made = await ev(createCard(plan.pollCard));
     check('plan: a card is added through the board\'s API', made === 201, made);
     check('plan: a focused option does not hold the poll', (await ev(HOLDS_POLL)) === false, await ev(HOLDS_POLL));
     await ev(TICK);
     check('plan: the next poll draws it, with no reload and nothing pressed since', await waitFor(hasDot(plan.pollId), 8000), await ev(DOTS));
-    check('plan: and the option is still focused after the poll', (await ev(FOCUSED_OPTION)) === 'lines=all', await ev(FOCUSED_OPTION));
+    check('plan: and the option is still focused after the poll', (await ev(FOCUSED_OPTION)) === 'lines=chain', await ev(FOCUSED_OPTION));
   },
 };

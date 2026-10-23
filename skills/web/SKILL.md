@@ -2339,11 +2339,21 @@ to `127.0.0.1` only.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
   **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
-  folded. It holds five options, the first value of each the
-  default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
-  dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
-  **counted line** that prints their count; **chain** gives a line to every chain end and none to the
-  other children; **all** gives a line to every child; **off** draws no parent line. **Dependencies** are
+  folded. It holds six options, the first value of each the
+  default. **Lines** says which children get a parent line: **all** (the default) gives a line to every
+  child; **chain** gives a line to every chain end and none to the other children, as the Map draws its chain ends;
+  **off** draws no parent line. **Group** says how those lines are drawn: **brackets** (the default) gives each
+  parent, for each ring its children with a line sit on, one **bracket**, a **counted line** whose arc runs from the
+  first of those children to the last in the order the Order option draws them, never through the parent's angle, with
+  a tick to each child, one stem up to the parent and the number of children it holds printed on it, and a child alone
+  on its ring keeps a plain line; **lines** gives each child its own line. With Lines off there is nothing to group:
+  the Group buttons stay shown and change nothing. A bracket is drawn heavier and brighter than the ring guides, its
+  arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so
+  neighbours never meet. A bracket's stem is one straight line from the parent to the middle of a gap between two
+  neighbouring children, never to a child's angle: it takes the gap nearest the parent's angle whose line keeps clear of
+  every other card's mark, the next nearest when a mark is in the way, and the count sits in the free gap nearest the
+  stem, beside the stem's end when no other gap is wide enough. A choice kept by an older version still reads as it drew: the retired
+  value folded as chain with brackets, and a stored chain or all as that value with Group lines. **Dependencies** are
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
   orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order.
@@ -2386,8 +2396,13 @@ to `127.0.0.1` only.
   switch into or out of Tiers while Unnested is off works the selection and the pill counts out again);
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
   the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them; **table** draws the Unnested
-  block outside the rim. The Unnested option is Tiers' own: the Flow draws every card. A counted line
-  lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
+  block outside the rim. The Unnested option is Tiers' own: the Flow draws every card. A counted line or
+  bracket lights whenever its parent does. **Hovering a line**, in the Hierarchy or the Flow, lights that line and the
+  cards at its ends and dims the rest, as a card's hover does: a parent line its parent and its child, a dependency line
+  its two cards, a bracket its parent and every child it holds, and no other line with them. Each line has an invisible
+  stroke of about 8 pixels (`.graph-link-hit`, the same width at any zoom) that takes the pointer; a card under the
+  pointer wins over a line, leaving the line brings back what was lit before it, the lit line is drawn above the other
+  lines while it is lit, and a line has no click action and no keyboard focus. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
   another ring, a sector or out of the Graph. The choices are kept per board in `localStorage` under

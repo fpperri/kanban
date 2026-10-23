@@ -175,11 +175,17 @@ its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
 with its count, its split by status and the `slice:` term that cuts to it. Fit
 and the first draw frame all of it.
 
-Tiers has an option row in the option panel beside the fan: Lines (folded, chain,
-all, off), Dependencies (on, off), Order (status, rank), Names (relevant, all, none)
-and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line to the
-end of each dependency chain and one counted line for a parent's other children on one
-ring. Names puts a card's title on the fan: relevant, the default, names the
+Tiers has an option row in the option panel beside the fan: Lines (all, chain, off),
+Group (brackets, lines), Dependencies (on, off), Order (status, rank), Names (relevant, all,
+none) and Unnested (outermost, off, depth 0, table). Lines says which children get a parent
+line: every child (the default), the end of each dependency chain, or none. Group says how those lines are
+drawn: brackets, the default, draws for each parent and each ring its children sit on one
+bracket from the first of them to the last, in the order the Order option shows, with a tick to each child and one line up
+to the parent, and prints the number of children on it; a child alone on its ring keeps a
+plain line. Lines gives each child its own line. With Lines off there is nothing to group.
+A bracket's line up to the parent meets the arc in a gap between two children, never at a child's angle, the gap nearest the
+parent whose line keeps clear of every other card's mark, and the count sits in the free gap nearest it.
+Names puts a card's title on the fan: relevant, the default, names the
 selection, what it lights and the highest parents, all names every card and none names
 no card; the l key steps through them. A parent's name sits beside its ring; every other
 name sits in a row outside the rim, joined to its dot by a leader, and the Unnested
@@ -227,7 +233,8 @@ in that outline (circle, square, diamond, triangle, hexagon or star), still in t
 colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
 colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it
 means children; red is blocked, amber waiting, gold review. Hover or focus a dot to light
-what *On hover show* ticks for that card, its relations at first, and dim the rest. Click selects a dot and keeps its relations lit while it is the
+what *On hover show* ticks for that card, its relations at first, and dim the rest. Hovering a line lights it and the cards
+at its ends the same way (a bracket, its parent and all its children), a dot under the pointer winning over a line. Click selects a dot and keeps its relations lit while it is the
 only card picked; shift-click or ctrl-click adds one card or takes it out, and a
 selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.

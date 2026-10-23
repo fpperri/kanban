@@ -84,7 +84,7 @@ function standIn(over = {}) {
     const model = modelOf(key, (extraOf[key] || []).map((c) => ({ ...c })));
     const o = opts();
     const layout = graphLayout(model, 'hierarchy', { statuses: board.config.statuses, order: 'status', unnested: o.unnested });
-    const fan = { lines: 'folded', dependencies: 'on', order: 'status', names: o.names, unnested: o.unnested };
+    const fan = { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: o.names, unnested: o.unnested };
     const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan });
     return { model, layout, plan };
   };

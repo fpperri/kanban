@@ -29,14 +29,43 @@ test('the Graph section says Tiers has an option row, folded behind an Options t
   assert.doesNotMatch(text, /Force|Status have no/);
 });
 
-test('the Graph section says what Lines draws in each of its four values, folded the default', () => {
+test('the Graph section says what Lines gives a line to and what Group does with those lines, chain and brackets the defaults', () => {
   const text = graph();
-  assert.match(text, /\*\*Lines\*\* draws the parent lines: \*\*folded\*\* \(the default\)/);
-  assert.match(text, /folded[^.]*a line to the end of each dependency chain, as the Map draws its chain ends/);
-  assert.match(text, /a parent's other children on one ring share one \*\*counted line\*\* that prints their count/);
-  assert.match(text, /\*\*chain\*\* gives a line to every chain end and none to the other children/);
-  assert.match(text, /\*\*all\*\* gives a line to every child/);
+  assert.match(text, /\*\*Lines\*\* says which children get a parent line: \*\*all\*\* \(the default\) gives a line to every child; \*\*chain\*\* gives a line to every chain end and none to the other children, as the Map draws its chain ends/);
   assert.match(text, /\*\*off\*\* draws no parent line/);
+  assert.match(text, /\*\*Group\*\* says how those lines are drawn: \*\*brackets\*\* \(the default\) gives each parent, for each ring its children with a line sit on, one \*\*bracket\*\*, a \*\*counted line\*\* whose arc runs from the first of those children to the last in the order the Order option draws them, never through the parent's angle, with a tick to each child, one stem up to the parent and the number of children it holds printed on it, and a child alone on its ring keeps a plain line; \*\*lines\*\* gives each child its own line/);
+  assert.match(text, /With Lines off there is nothing to group: the Group buttons stay shown and change nothing/);
+  assert.match(text, /A choice kept by an older version still reads as it drew: the retired value folded as chain with brackets, and a stored chain or all as that value with Group lines/);
+});
+
+test('the Graph section says where a bracket\'s stem meets its arc: in a gap between two children, clear of every other mark', () => {
+  assert.match(graph(), /A bracket's stem is one straight line from the parent to the middle of a gap between two neighbouring children, never to a child's angle: it takes the gap nearest the parent's angle whose line keeps clear of every other card's mark, the next nearest when a mark is in the way, and the count sits in the free gap nearest the stem, beside the stem's end when no other gap is wide enough/);
+  assert.match(docGraph(), /A bracket's line up to the parent meets the arc in a gap between two children, never at a child's angle, the gap nearest the parent whose line keeps clear of every other card's mark, and the count sits in the free gap nearest it/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /The stem is one straight line that meets the arc in the middle of a gap between two neighbouring children, never at a child's angle/);
+});
+
+test('the Graph section says what hovering a line lights, the hit stroke, and that a line has no click or focus', () => {
+  assert.match(graph(), /\*\*Hovering a line\*\*, in the Hierarchy or the Flow, lights that line and the cards at its ends and dims the rest, as a card's hover does: a parent line its parent and its child, a dependency line its two cards, a bracket its parent and every child it holds, and no other line with them/);
+  assert.match(graph(), /Each line has an invisible stroke of about 8 pixels \(`\.graph-link-hit`, the same width at any zoom\) that takes the pointer; a card under the pointer wins over a line, leaving the line brings back what was lit before it, the lit line is drawn above the other lines while it is lit, and a line has no click action and no keyboard focus/);
+  assert.match(docGraph(), /Hovering a line lights it and the cards at its ends the same way \(a bracket, its parent and all its children\), a dot under the pointer winning over a line/);
+});
+
+test('the Graph section says how a bracket looks: heavier than the ring guides, hooked at both ends, alternating insets along a ring', () => {
+  const text = graph();
+  assert.match(text, /A bracket is drawn heavier and brighter than the ring guides, its arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so neighbours never meet/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /hooks out to its first and last child, and turns at one of two insets from the ring in turn, so two brackets side by side never meet/);
+});
+
+test('the Graph section no longer has a folded value, and the brackets sentence does not read the chain ends', () => {
+  const text = graph();
+  assert.doesNotMatch(text, /\*\*folded\*\* \(the default\)/);
+  assert.doesNotMatch(text, /Lines \(folded/);
+  const brackets = /\*\*brackets\*\* \(the default\)[^;]*;/.exec(text)[0];
+  assert.doesNotMatch(brackets, /chain end/);
+  const doc = docGraph();
+  assert.doesNotMatch(doc, /Lines \(folded|Folded, the default/);
+  assert.match(doc, /Group says how those lines are drawn: brackets, the default, draws for each parent and each ring its children sit on one bracket from the first of them to the last, in the order the Order option shows, with a tick to each child and one line up to the parent, and prints the number of children on it; a child alone on its ring keeps a plain line\. Lines gives each child its own line\. With Lines off there is nothing to group/);
+  assert.doesNotMatch(/Group says[^.]*\.[^.]*\./.exec(doc)[0], /chain end/);
 });
 
 test('the Graph section says Dependencies and Order, and what each value does', () => {
@@ -47,7 +76,7 @@ test('the Graph section says Dependencies and Order, and what each value does', 
 
 test('the Graph section says the counted line lights with its parent, the chain ends are read on the whole board, and the options only redraw', () => {
   const text = graph();
-  assert.match(text, /A counted line lights whenever its parent does/);
+  assert.match(text, /A counted line or bracket lights whenever its parent does/);
   assert.match(text, /chain ends are read on the whole board, so hiding a card with a status pill or a search never moves a line/);
   assert.match(text, /The lines and dependencies only redraw; the order moves siblings along their own stretch of the sector, and no card changes its band, its ring or its sector/);
 });
@@ -75,6 +104,6 @@ test('the Graph section no longer says every relation is drawn in Tiers', () => 
 test('the web doc says the same in short', () => {
   const text = docGraph();
   assert.match(text, /an option row in the option panel beside the fan/);
-  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(all, chain, off\), Group \(brackets, lines\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /kept per board/);
 });

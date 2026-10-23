@@ -6317,7 +6317,7 @@ function onClickAway(e) {
 // and a point of these views outside their canvas (a toolbar, a section header), keeps the
 // browser's own menu.
 const CANVAS_OF_VIEW = { graph: '#graph-view .graph-canvas', map: '#map-view .map-canvas' };
-const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node, .graph-link, .graph-link-count, .map-edge`;
+const NOT_CANVAS_SPACE = `${NOT_EMPTY_SPACE}, .map-node, .graph-link, .graph-link-hit, .graph-link-count, .map-edge`;
 
 function openCanvasContextMenu(e) {
   const canvas = CANVAS_OF_VIEW[loadViewMode()];
