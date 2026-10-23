@@ -22,8 +22,8 @@
 // the same way (isolateEndFollowing), and the switch turns a lit query back into one that hides.
 //
 // While it is on, a click on a card moves the anchor only: nothing the selection does writes the
-// box (boxAfterGraphClick, selection.js), and a click or a double click on empty space leaves the
-// selection. Esc steps back in three stages, and isolate off is the first (selectionAfterEscape,
+// box (with isolate off a click writes the selection into it, mirrorSelectionInBox in app.js), and a
+// click or a double click on empty space leaves the selection. Esc steps back in three stages, and isolate off is the first (selectionAfterEscape,
 // selection.js; escapeStep and stepSelectionBack in app.js, where escapeStep asks keyGuardEscape
 // (key-guard.js) which Esc it is, and also stops the browser's own Esc, which clears a search
 // field, so the box gets its text back and keeps it); with the search panel open the first Esc

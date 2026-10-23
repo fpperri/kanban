@@ -289,6 +289,10 @@ _Avoid_: solo (a view's status pills), focus, filter.
 A per-view choice, kept per board, whether a query the person makes (typing, a pill, a cue on a card, a `?q=` link) turns Isolate on; on in every view but the Graph, so the box hides what it does not match there and lights its matches in the Graph.
 _Avoid_: filter mode, search mode.
 
+**Mirror**:
+The selection written into the search box as the text Isolate would write for it, when a click that selects, an Add to selection, a step of Esc or a switch of view changes the selection while Isolate is off. The box lights those cards and hides nothing, and the text is the selection's own, not a query typed, so the next click still works on the cards.
+_Avoid_: sync, echo.
+
 **On hover show**:
 The search panel's choice of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads.
 _Avoid_: hover mode, hover filter.

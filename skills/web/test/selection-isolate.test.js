@@ -2,8 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, setAnchor, addPart, selectionAfterEscape,
-  selectionAfterClick, isTypedAnchor, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor,
+  selectionAfterClick, isTypedAnchor, pillQueriesDropped, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor,
 } = require('../web/selection');
+const { searchMirrorBox } = require('../web/search');
 
 // Isolate in the selection module: Esc steps back in three stages (isolate off, then every
 // addition, then the anchor), a click on a card while isolated moves the anchor and leaves the
@@ -13,6 +14,7 @@ const {
 // isolate.test.js.
 
 const grown = (...parts) => parts.reduce((next, part) => addPart(next, part), NO_SELECTION);
+const partsOf = (selection) => (selection.anchor ? [selection.anchor].concat(selection.additions) : []);
 const ISOLATED = { previous: 'review:' };
 
 // --- Esc: three stages ---------------------------------------------------------------
@@ -74,33 +76,50 @@ test('while isolated, a plain card click sets the anchor to that card and drops 
   assert.strictEqual(next.rangeStart, '9');
 });
 
-const ISOLATE_TEXT = '#3 | #5 | path:7';
+// With isolate off a click writes the selection it made into the box (searchMirrorBox): the
+// gesture's selection (selectionAfterClick) is what the box then shows. While isolated the page
+// writes nothing at all, and the click moves the anchor only (pinned in isolate-markup.test.js).
+const afterClick = (action, id, selection, box, resolved = new Set()) => {
+  const next = selectionAfterClick(action, id, { selection, resolved, rangeStart: null, order: [String(id)], matchQuery });
+  return { ...next, box: searchMirrorBox(box, partsOf(next.selection), pillQueriesDropped(selection, next.selection)) };
+};
 
-test('a plain click in the Graph clears the box when nothing is isolated, and leaves the isolate text alone while isolated', () => {
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: 'review:', typedBefore: false, typedAfter: false, isolated: false }), '');
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: ISOLATE_TEXT, typedBefore: false, typedAfter: false, isolated: true }), ISOLATE_TEXT);
+test('a plain click shows the card in the box, whatever the box held, and keeps the cut', () => {
+  assert.strictEqual(afterClick('select', 34, NO_SELECTION, 'review:').box, '#34');
+  assert.strictEqual(afterClick('select', 34, grown(cardPart(3), cardPart(5)), '#3 | #5').box, '#34');
+  assert.strictEqual(afterClick('select', 34, NO_SELECTION, 'zephyr slice:goal..strategy').box, '#34 slice:goal..strategy');
 });
 
-test('Shift or Ctrl keeps the box unless it took out a card the typed query lit, and while isolated it keeps the isolate text either way', () => {
-  for (const action of ['toggle', 'range']) {
-    assert.strictEqual(boxAfterGraphClick(action, { boxText: 'zephyr', typedBefore: true, typedAfter: true, isolated: false }), 'zephyr', action);
-    assert.strictEqual(boxAfterGraphClick(action, { boxText: 'zephyr', typedBefore: true, typedAfter: false, isolated: false }), '', `${action}: the box no longer names the anchor`);
-    assert.strictEqual(boxAfterGraphClick(action, { boxText: ISOLATE_TEXT, typedBefore: true, typedAfter: false, isolated: true }), ISOLATE_TEXT, `${action}: isolated`);
-  }
+test('Shift or Ctrl adds the card to the box, and a Ctrl-click on a picked card takes it out of it', () => {
+  const one = afterClick('toggle', 36, grown(cardPart(34)), '#34', new Set(['34']));
+  assert.strictEqual(one.box, '#34 | #36');
+  const out = afterClick('toggle', 34, one.selection, one.box, new Set(['34', '36']));
+  assert.strictEqual(out.box, '#36');
+  const none = afterClick('toggle', 36, out.selection, out.box, new Set(['36']));
+  assert.strictEqual(none.box, '', 'an empty selection empties the box');
+  assert.strictEqual(afterClick('toggle', 36, grown(cardPart(36)), '#36 slice:goal..strategy', new Set(['36'])).box, 'slice:goal..strategy', 'but for its cut');
 });
 
-test('a click that opens a card or reaches a cue never writes the box', () => {
+test('a click that adds to a typed query shows it beside the card as it was typed, and the query stays the typed anchor', () => {
+  const selection = grown(typedQueryPart('zephyr'));
+  const next = afterClick('toggle', 4, selection, 'zephyr', new Set(['1']));
+  assert.strictEqual(next.box, 'zephyr | #4');
+  assert.ok(isTypedAnchor(next.selection), 'the parts are what the click made them: the box is not written back into them');
+  assert.strictEqual(afterClick('select', 4, selection, 'zephyr').box, '#4');
+});
+
+test('a click that opens a card or reaches a cue selects nothing new', () => {
+  const pill = grown(queryPart('review:'));
   for (const action of ['open', 'cue', 'peek']) {
-    assert.strictEqual(boxAfterGraphClick(action, { boxText: 'zephyr', typedBefore: false, typedAfter: false, isolated: false }), 'zephyr', action);
+    assert.deepStrictEqual(selectionAfterClick(action, 9, { selection: pill, resolved: new Set(), rangeStart: null, order: [], matchQuery }).selection, pill, action);
   }
 });
 
-test('a typed anchor in the Graph that an isolated click replaces leaves the isolate text where it is', () => {
+test('a plain click replaces a typed anchor in the Graph, isolated or not', () => {
   const selection = grown(typedQueryPart('zephyr'), cardPart(4));
   assert.ok(isTypedAnchor(selection));
   const next = selectionAfterClick('select', 9, { selection, resolved: new Set([4]), rangeStart: null, order: [], matchQuery });
   assert.strictEqual(isTypedAnchor(next.selection), false);
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: ISOLATE_TEXT, typedBefore: true, typedAfter: false, isolated: true }), ISOLATE_TEXT);
 });
 
 // --- an isolate is a query in the box ----------------------------------------------------
@@ -173,14 +192,3 @@ test('the canvas menu is a fresh object each time', () => {
   assert.notStrictEqual(canvasMenuFor(), canvasMenuFor());
 });
 
-test('a click that clears the box leaves the run of slices the page hands it, and clears everything when it hands none', () => {
-  const cut = 'slice:goal..strategy';
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: `zephyr ${cut}`, cut, typedBefore: true, typedAfter: false, isolated: false }), cut);
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: 'zephyr', cut: '', typedBefore: true, typedAfter: false, isolated: false }), '');
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: 'zephyr', typedBefore: true, typedAfter: false, isolated: false }), '', 'no cut named');
-  for (const action of ['toggle', 'range']) {
-    assert.strictEqual(boxAfterGraphClick(action, { boxText: `zephyr ${cut}`, cut, typedBefore: true, typedAfter: false, isolated: false }), cut, `${action}: it took out a lit card`);
-    assert.strictEqual(boxAfterGraphClick(action, { boxText: `zephyr ${cut}`, cut, typedBefore: true, typedAfter: true, isolated: false }), `zephyr ${cut}`, `${action}: the query stays`);
-  }
-  assert.strictEqual(boxAfterGraphClick('select', { boxText: ISOLATE_TEXT, cut, typedBefore: false, typedAfter: false, isolated: true }), ISOLATE_TEXT, 'while isolated the box is not touched');
-});

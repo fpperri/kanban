@@ -166,7 +166,7 @@ test('it covers every behaviour listed here, each by a check of its own', async 
     'a right-click on the empty Graph canvas is kept from opening the browser\'s own menu',
     'a right-click on the empty Map canvas is kept from opening the browser\'s own menu',
     'the address carries the isolate parameter beside q',
-    'the address has neither q nor isolate again',
+    'the address says isolate=0 beside q, since the box lights the cards',
     'turning isolate on added no browser-history entry',
     'after a reload the switch is on and the box holds the isolate text',
     'and the address is as it was',

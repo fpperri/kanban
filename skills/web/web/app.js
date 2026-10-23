@@ -1174,8 +1174,10 @@ function setView(mode) {
   isolateEndFollowing(to, typingIsolatesIn(to)); // an isolate the box's own query started ends in a view that lights what is typed
   const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
-  if (kept !== selectionState.selection) setSelection(kept);
-  renderBoard();
+  const before = selectionState.selection;
+  if (kept !== before) setSelection(kept);
+  if (kept !== before && partsOf(kept).length && boxMirrorsSelection()) mirrorSelectionInBox(before); // what is picked leaves the Graph with the box saying so; a typed search left alone goes on filtering
+  else renderBoard();
   followSearchInAddress($('#search-input').value); // the address says isolate=0 outside the Graph and nothing in it
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -3536,16 +3538,16 @@ window.addEventListener('DOMContentLoaded', () => {
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
 // on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'link-lit', 'prefill', 'selection' and 'hover' (Space
-// on a hovered card writes its sets as typing writes, but never turns isolate on: it is not among
-// ISOLATING_REASONS, selection.js). A write that carries a
+// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'link-lit', 'prefill', 'selection', 'mirror' (a click
+// that selects writes the selection as its own text) and 'hover' (Space on a hovered card writes its sets as
+// typing writes, but never turns isolate on: neither is among ISOLATING_REASONS, selection.js). A write that carries a
 // query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
 // Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping, isolate.js). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
 // whose caller paints in place passes repaint false (a click in the Graph that
-// clears the box): it must not replace the card under the pointer, or a double
+// writes the selection into the box): it must not replace the card under the pointer, or a double
 // click would never reach it.
 const searchWriteListeners = [];
 
@@ -3617,13 +3619,34 @@ onSearchWrite(followSearchInAddress);
 // first, so the box is not taken for a typed search: a pill's query is not the typed
 // anchor, and stays the anchor when the Graph is left. Isolate's own write (the reason
 // 'isolate') leaves the selection as it is, and while isolate is on the box holds the
-// isolate text, which is never a typed search: it does not become the anchor.
+// isolate text, which is never a typed search: it does not become the anchor. A click's write
+// (the reason 'mirror', below) is the selection's own text and leaves it as it is the same way,
+// so the next click still sees the card parts the click made.
 let pendingWriteReason = null;
+
+// Whether the box mirrors the selection: isolate is off. While it is on the box holds the isolate
+// text, and a click moves the anchor only.
+function boxMirrorsSelection() {
+  return isolateNow() === null;
+}
+
+// Writes the selection into the box (searchMirrorBox, search.js: the isolate text of its parts, the
+// box's run of slices kept, a part that is one query as it was typed) with the reason 'mirror',
+// which turns isolate on for no one and never makes the box a typed search. `from` is the selection
+// the click started from: a pill it took off takes the cut it held with it. A card click, Add to
+// selection, Esc's step down and a view switch come here, so the box says what is picked.
+// `repaint` false is the Graph's click, which paints in place.
+function mirrorSelectionInBox(from, repaint = true) {
+  const selection = selectionState.selection;
+  const box = $('#search-input').value;
+  const text = searchMirrorBox(box, partsOf(selection), pillQueriesDropped(from, selection));
+  if (repaint || text !== box) writeSearch(text, 'mirror', repaint);
+}
 
 function selectionFollowingBox(selection) {
   const reason = pendingWriteReason;
   pendingWriteReason = null;
-  if (!reason || reason === 'pill' || reason === 'unpill' || reason === 'isolate') return selection;
+  if (!reason || reason === 'pill' || reason === 'unpill' || reason === 'isolate' || reason === 'mirror') return selection;
   const text = $('#search-input').value;
   const isolated = isolateNow() !== null;
   if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
@@ -3667,19 +3690,21 @@ function stepSelectionBack() {
   moveSelectionTo(next);
 }
 
-// Moves the selection down to `next` ({ selection, rangeStart }) and takes what the
-// step dropped out of the box: a typed anchor takes the box with it, but for the cut, a
-// pill the step drops goes out of it as an alternative, and any other text stays. Esc's
-// step, a double click on empty space (onClickAway) and a click on a card that opens or
-// selects it (applyCardClick) all come through here, so the box and the pills agree
-// whichever way the selection was taken down. `from` is the selection the step started from,
-// which is the current one unless the caller has written `next` already, as a click has.
+// Moves the selection down to `next` ({ selection, rangeStart }) and takes what the step dropped
+// out of the box: Esc's step and a double click on empty space (onClickAway) come through here, so
+// the box and the pills agree whichever way the selection was taken down. A box that mirrors the
+// selection the step started from (isolate off, and the box is that selection's text) follows it
+// down (mirrorSelectionInBox). Any other box keeps its text: a typed anchor takes it with it, but for
+// the cut, and a pill the step drops goes out of it as an alternative. While isolated the box holds
+// the isolate text, which a step never writes. `from` is the selection the step started from.
 function moveSelectionTo(next, from = selectionState.selection) {
   const boxWasAnchor = isTypedAnchor(from) && !next.selection.anchor;
   const box = $('#search-input').value;
   const shrunk = pillQueriesDropped(from, next.selection).reduce((text, query) => searchRemoveGrownAlt(text, query), box);
+  const follows = boxMirrorsSelection() && box === searchMirrorBox(box, partsOf(from), []);
   setSelection(next.selection, next.rangeStart);
-  if (boxWasAnchor) {
+  if (follows) mirrorSelectionInBox(from);
+  else if (boxWasAnchor) {
     const cut = searchCutOnly(box);
     writeSearch(cut, cut ? 'slice' : 'selection'); // a cut is no search: it never becomes the anchor the step has just dropped
   }
@@ -5305,7 +5330,7 @@ function moveViewToNearestMatch() {
   else if (mode === 'gantt' && jumpGanttToMatch()) renderGanttView();
 }
 
-onSearchWrite(moveViewToNearestMatch);
+onSearchWrite((text, reason) => { if (reason !== 'mirror') moveViewToNearestMatch(); }); // a click on a card moves the box, never the page the view is on
 
 const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
@@ -6194,19 +6219,18 @@ function selectByClick(action, id) {
 // the active map/calendar/gantt. Opening a card changes no filter: a click that opens it
 // leaves every pill on and the box as they were, so the view behind the card details shows
 // the same cards, and drops only the other parts of the selection (selectionAfterClick). A
-// click that only selects a card drops the pills the selection held, and their queries leave
-// the box with them, as they do on Esc and on a double click on empty space, so the panel and
-// the box agree; any other text stays. A Ctrl-click that takes out a card a pill lit turns
-// the pill into its other cards and leaves the box, so the view does not widen under the
-// click. While isolated a click moves the anchor only: the box holds the isolate text, which
+// click that selects a card writes the selection into the box (mirrorSelectionInBox) with isolate
+// off: the pills it dropped leave the box with it, as they do on Esc and on a double click on
+// empty space, so the panel and the box agree. A Ctrl-click that takes out a card a pill lit
+// turns the pill into its other cards, which the box then names, so the view does not widen under
+// the click. While isolated a click moves the anchor only: the box holds the isolate text, which
 // it never writes.
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
   if (action === 'peek') { openCard(id); return; }
   const before = selectionState.selection;
-  const held = partsOf(before).length > 0;
   selectByClick(action, id);
-  if (action === 'select' && held && !isolateNow()) moveSelectionTo(selectionState, before);
+  if (action !== 'open' && boxMirrorsSelection()) mirrorSelectionInBox(before);
   else if (action !== 'open' || selectionState.selection !== before) renderBoard();
   if (action === 'open') openCard(id);
 }
@@ -6327,8 +6351,10 @@ function peekCard() {
 // empty selection. The range start stays where it was.
 function addCardToSelection() {
   hideContextMenu();
-  setSelection(addPart(selectionState.selection, cardPart(menuSubject.ids[0])));
-  renderBoard();
+  const before = selectionState.selection;
+  setSelection(addPart(before, cardPart(menuSubject.ids[0])));
+  if (boxMirrorsSelection()) mirrorSelectionInBox(before);
+  else renderBoard();
 }
 
 // Explore's Path and Tree, each by Hierarchy or Dependency: the term of the card that was

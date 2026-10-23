@@ -774,16 +774,12 @@ function graphClickNode(id, mods) {
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
     plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
   });
-  const typedBefore = isTypedAnchor(selectionState.selection);
+  const before = selectionState.selection;
   selectByClick(action, id);
-  // A plain click sets a new anchor and clears the box, but for its cut: the Graph
-  // keeps drawing what the cut hides, so the painting in place stays true. Shift or Ctrl keeps
-  // the query, unless it took out a card the query lit: the query is then its other
-  // cards, and the box no longer names the anchor. While isolated the box holds the
-  // isolate text and a click moves the anchor only (boxAfterGraphClick).
-  const box = $('#search-input').value;
-  const text = boxAfterGraphClick(action, { boxText: box, cut: searchCutOnly(box), typedBefore, typedAfter: isTypedAnchor(selectionState.selection), isolated: isolateNow() !== null });
-  if (text !== box) writeSearch(text, 'selection', false);
+  // With isolate off the box shows the selection the click made (mirrorSelectionInBox), its cut
+  // kept: the Graph keeps drawing what the cut hides, so the painting in place stays true. While
+  // isolated the box holds the isolate text, which a click never writes: it moves the anchor only.
+  if (boxMirrorsSelection()) mirrorSelectionInBox(before, false);
   graphPaintSelection();
   renderSearchPanel();
 }

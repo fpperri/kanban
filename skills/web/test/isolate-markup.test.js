@@ -117,7 +117,9 @@ test('Esc stops the browser\'s own Esc with isolate on, in the step that ends th
 
 test('a click on empty space and a click on a Graph card leave what isolate wrote', () => {
   assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /if \(isolateNow\(\)\) return;/);
-  assert.match(graphViewSrc.match(/function graphClickNode\([\s\S]*?\n\}/)[0], /boxAfterGraphClick\(action, \{[^}]*isolated: isolateNow\(\) !== null \}\)/);
+  const click = graphViewSrc.match(/function graphClickNode\([\s\S]*?\n\}/)[0];
+  assert.match(click, /if \(boxMirrorsSelection\(\)\) mirrorSelectionInBox\(before, false\);/);
+  assert.doesNotMatch(click, /writeSearch/, 'while isolated the click writes nothing: the only write is the mirror, which is off while isolate is on');
 });
 
 test('the keystroke handler leaves the isolate text\'s leading # alone, and nothing else reads the strip', () => {

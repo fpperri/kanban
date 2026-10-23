@@ -2,7 +2,8 @@
 // What the Graph lights, on the plan board: a selection lights and the rest dims,
 // a lone card lights with its one-hop relations, a search typed in the Graph is
 // the anchor and lights its matches instead of hiding the rest, and what clears
-// it. A lit dot wears .graph-near under a .graph-dim canvas, a dim one is drawn
+// it. A click on a card writes the selection into the box (`#id`, or the typed
+// query and the card side by side) with isolate off, so the box says what is picked. A lit dot wears .graph-near under a .graph-dim canvas, a dim one is drawn
 // at the opacity the stylesheet gives it. Each step waits on the page, never on
 // a fixed sleep. A card's dot is found by its class, and a card is only clicked
 // where its dot is the topmost thing, so two dots drawn over one another cannot
@@ -144,15 +145,15 @@ module.exports = {
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));
     await clickCard(lone);
-    check('after a typed query, a plain click on a card clears the box and lights only that card and its relations',
-      await boxIs('') && await litIs(sorted(...LONE[lone])) && await pickedIs([lone]), { box: await boxText(), lit: await lit() });
+    check('after a typed query, a plain click on a card shows the card in the box and lights only that card and its relations',
+      await boxIs(`#${lone}`) && await litIs(sorted(...LONE[lone])) && await pickedIs([lone]), { box: await boxText(), lit: await lit() });
 
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));
     const unlit = (await clickable(ids.filter((id) => !CASES.docs.lit.includes(id)), 1))[0];
     await clickCard(unlit, { modifiers: 8 });
-    check('after a typed query, Shift+click on an unlit card adds it: the box keeps its text, and the matches and the card light',
-      await litIs(sorted(...CASES.docs.lit, unlit)) && (await boxText()) === CASES.docs.query && await pickedIs(sorted(...CASES.docs.lit, unlit)), { unlit, box: await boxText(), lit: await lit() });
+    check('after a typed query, Shift+click on an unlit card adds it: the box shows the query and the card, and the matches and the card light',
+      await litIs(sorted(...CASES.docs.lit, unlit)) && await boxIs(`${CASES.docs.query} | #${unlit}`) && await pickedIs(sorted(...CASES.docs.lit, unlit)), { unlit, box: await boxText(), lit: await lit() });
 
     for (const inBox of [true, false]) {
       await typeQuery(CASES.docs.query);

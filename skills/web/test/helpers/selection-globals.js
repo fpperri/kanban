@@ -9,13 +9,13 @@
 // no view has Typing isolates on (typingIsolatesIn), so a write to the box turns nothing on. Not a
 // test file (the suite runs *.test.js only).
 const selection = require('../../web/selection');
-const { searchRemoveAlt, searchRemoveGrownAlt, searchSplitSlice } = require('../../web/search');
+const { searchRemoveAlt, searchRemoveGrownAlt, searchSplitSlice, searchMirrorBox } = require('../../web/search');
 
 // A selection of exactly these cards: the first is the anchor, the rest are additions.
 const cardsSelection = (ids) => ids.reduce((next, id) => selection.addPart(next, selection.cardPart(id)), selection.NO_SELECTION);
 
 function selectionGlobals(extra = {}) {
-  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, isolateNow: () => null, isolateTurnOff: () => false, typingIsolatesIn: () => false, loadViewMode: () => 'board', isolateFromTyping: () => {}, isolateEndIfEmptied: () => {}, searchSplitSlice, searchRemoveAlt, searchRemoveGrownAlt, ...extra };
+  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, isolateNow: () => null, isolateTurnOff: () => false, typingIsolatesIn: () => false, loadViewMode: () => 'board', isolateFromTyping: () => {}, isolateEndIfEmptied: () => {}, searchSplitSlice, searchRemoveAlt, searchRemoveGrownAlt, searchMirrorBox, ...extra };
 }
 
 module.exports = { cardsSelection, selectionGlobals };

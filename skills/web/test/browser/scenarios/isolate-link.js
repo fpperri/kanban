@@ -7,7 +7,8 @@
 // it offers Peek and Add to selection and no Isolate. Choosing Isolate with a real click writes
 // `#a | #b` into the box, the Board shows only the two, the switch is on, and the address gains
 // `isolate=1` beside `q`. The browser's history does not grow, and the menu reads Turn isolate off
-// while it is on; choosing that gives the address back as it was.
+// while it is on; choosing that gives the box the picked cards the clicks had written and the address
+// `isolate=0` beside `q`, since the box lights them.
 //
 // The Graph and the Map. With the two cards picked on the Board, the view is switched. In the Graph
 // a right-click on a card outside the selection offers no Isolate and one inside it does, and
@@ -18,8 +19,9 @@
 // too, and choosing it shows only the two cards.
 //
 // The reload. The Board is set to light what is typed (its Typing isolates off, since a Board that isolates
-// by itself has the search isolate on its own). The two cards are picked while a search lights its cards, and
-// isolated from a card's menu, so the box holds `#a | #b` and remembers the search. A reload keeps the switch on, the box
+// by itself has the search isolate on its own). The two cards are picked and a search is typed over the box
+// they wrote, so it lights its cards, and the cards are isolated from a card's menu, so the box holds
+// `#a | #b` and remembers the search. A reload keeps the switch on, the box
 // text, the address and the chip that says isolated, and the Board shows the two. Turning isolate off
 // afterwards gives the search back and takes the parameter out of the address. Opening a card while
 // isolated is one history step that carries q and isolate, and Back keeps both.
@@ -106,6 +108,12 @@ module.exports = {
     const viewShown = (container) => `!document.querySelector(${JSON.stringify(container)}).classList.contains('hidden')`;
     const blur = () => ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
     const focusBoxAtEnd = () => ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.setSelectionRange(i.value.length,i.value.length);i.focus()})()`);
+    // Types over whatever the box holds, as a person does with the text selected.
+    const typeOver = async (text) => {
+      await focusBoxAtEnd();
+      await ev(`document.getElementById('search-input').select()`);
+      await send('Input.insertText', { text });
+    };
     const addressParams = () => ev(`Object.fromEntries(new URLSearchParams(location.search))`);
     const addressHas = (expected) => waitFor(`(()=>{const p=new URLSearchParams(location.search);const want=${JSON.stringify(expected)};return Object.keys(want).every((k)=>p.get(k)===want[k])&&[...p.keys()].every((k)=>k in want)})()`);
     const entryCount = () => ev(`history.length`);
@@ -173,8 +181,8 @@ module.exports = {
     await rightClick(`#board .card-el[data-id="${a}"]`);
     check('while isolate is on, the same menu reads Turn isolate off', await menuUp() && await offered() && (await entryLabel()) === 'Turn isolate off', await entryLabel());
     await choose();
-    check('choosing it turns isolate off, and the box is empty again, as it was', await switchIs(false) && await boxIs('') && await menuGone(), await boxText());
-    check('the address has neither q nor isolate again, and the history did not grow', await addressHas({ view: 'board' }) && (await entryCount()) === entries, { address: await addressParams(), now: await entryCount() });
+    check('choosing it turns isolate off, and the box holds the picked cards again, as the clicks wrote them', await switchIs(false) && await boxIs(wantedText) && await menuGone(), await boxText());
+    check('the address says isolate=0 beside q, since the box lights the cards, and the history did not grow', await addressHas({ view: 'board', q: wantedText, isolate: '0' }) && (await entryCount()) === entries, { address: await addressParams(), now: await entryCount() });
     check('the Board shows its cards again', await waitFor(boardReady));
 
     // --- the Graph: a card's menu, and the empty canvas --------------------------------------------------------------------
@@ -234,8 +242,7 @@ module.exports = {
     check('the Board is up for the reload part', await goto('/?view=board', boardReady));
     const liveBoard = JSON.parse(await nowShown(SELECTORS.board));
     await pickOnBoard(CASES.zephyr.picked);
-    await focusBoxAtEnd();
-    await send('Input.insertText', { text: CASES.zephyr.query });
+    await typeOver(CASES.zephyr.query);
     check('a search lights the zephyr cards and leaves every card on the Board, and the two are still picked', await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, liveBoard) && await pickedIs(sorted(...CASES.zephyr.picked)), await nowShown(SELECTORS.board));
     await blur();
     await rightClick(`#board .card-el[data-id="${one}"]`);

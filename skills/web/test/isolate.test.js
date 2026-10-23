@@ -141,7 +141,7 @@ test('the switch writes the selection into the box as a query, and the Board sho
   s.flip();
   assert.strictEqual(s.box(), '#2 | #5');
   assert.deepStrictEqual(s.shown(), [2, 5]);
-  assert.deepStrictEqual(s.isolate(), { previous: '' });
+  assert.deepStrictEqual(s.isolate(), { previous: '#2 | #5' }, 'the box already showed the selection, so that is the text it gives back');
 });
 
 test('a path, a tree and a query are written as their criterion, not as a list of the cards they reach', async () => {
@@ -165,8 +165,8 @@ test('a card that comes to match a query part joins on the next poll', async () 
 
 test('turning it off gives the box back the text it held before', async () => {
   const s = await open();
-  s.type('zephyr');
   s.ctrlClick(1);
+  s.type('zephyr');
   s.flip();
   assert.strictEqual(s.box(), '#1');
   assert.deepStrictEqual(s.isolate(), { previous: 'zephyr' });
@@ -247,7 +247,7 @@ test('the i key turns isolate on and off', async () => {
   assert.strictEqual(s.box(), '#2');
   assert.notStrictEqual(s.isolate(), null);
   s.key('I');
-  assert.strictEqual(s.box(), '', 'Caps Lock gives a capital I, which counts');
+  assert.strictEqual(s.box(), '#2', 'Caps Lock gives a capital I, which counts, and the box gets back the card the Ctrl-click showed in it');
   assert.strictEqual(s.isolate(), null);
 });
 
@@ -274,7 +274,7 @@ test('the i key does nothing while a field has focus, a menu, a dialog, the noti
     assert.strictEqual(s.key('i', mods), 0, JSON.stringify(mods));
     assert.strictEqual(s.isolate(), null, JSON.stringify(mods));
   }
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#2', 'the box shows the card the Ctrl-click picked, and nothing wrote it again');
 });
 
 test('the i key works with the search panel open, as p and m do', async () => {
@@ -323,8 +323,8 @@ test('the pills a step drops go out of the box on the later stages, as they did 
 
 test('with the panel open and isolate on, the first Esc closes the panel and the second turns isolate off', async () => {
   const s = await open();
-  s.type('zephyr');
   s.ctrlClick(1);
+  s.type('zephyr');
   s.flip();
   s.page.run('setSearchPanelOpen(true)');
   s.page.ctx.document.activeElement = s.page.input;
@@ -339,8 +339,8 @@ test('with the panel open and isolate on, the first Esc closes the panel and the
 
 test('Esc in the box while isolated turns isolate off, like Esc elsewhere, instead of clearing the box', async () => {
   const s = await open();
-  s.type('zephyr');
   s.ctrlClick(1);
+  s.type('zephyr');
   s.flip();
   s.press(true);
   assert.strictEqual(s.isolate(), null);
@@ -359,7 +359,9 @@ test('with nothing selected, Esc turns isolate off all the same', async () => {
   assert.strictEqual(s.box(), '#1', 'and leaves the box alone');
   s.press();
   assert.strictEqual(s.isolate(), null);
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#1', 'isolate off gives back the text the box held before, which showed the card the Ctrl-click picked');
+  s.press();
+  assert.strictEqual(s.box(), '', 'and with nothing picked the next Esc clears it');
 });
 
 // --- clicks and edits while isolated ----------------------------------------------------------
@@ -434,7 +436,7 @@ test('isolating a search typed in the Graph makes it a bracketed query part, and
   assert.strictEqual(s.box(), '(move the) | #5');
   assert.deepStrictEqual(s.drawn(), [2, 5]);
   s.flip();
-  assert.strictEqual(s.box(), 'move the');
+  assert.strictEqual(s.box(), '(move the) | #5', 'the box held the query and the card the Shift-click added, as the click wrote them');
   assert.deepStrictEqual(s.selection(), { anchor: typed('move the'), additions: [a(5)] });
 });
 
@@ -638,10 +640,10 @@ test('a plain click in a view that selects drops a pill from the box too', async
   s.pillClick('review');
   s.click(3);
   assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] });
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#3');
 });
 
-test('a Ctrl-click that takes out a card the pill lit leaves the box as it was: the view does not widen under the click', async () => {
+test('a Ctrl-click that takes out a card the pill lit turns the pill into its other cards, which the box names: the view does not widen under the click', async () => {
   const board = makeBoard();
   board.active[5].review = 'second';
   const s = await open({ board });
@@ -649,16 +651,17 @@ test('a Ctrl-click that takes out a card the pill lit leaves the box as it was: 
   assert.deepStrictEqual(s.ids(), [5, 6]);
   s.ctrlClick(5);
   assert.deepStrictEqual(s.selection(), { anchor: a(6), additions: [] }, 'the pill is its other card now');
-  assert.strictEqual(s.box(), 'review:');
+  assert.strictEqual(s.box(), '#6');
 });
 
-test('a click that keeps the pill, or adds to the selection, writes nothing to the box', async () => {
+test('a click that keeps the pill and adds to the selection writes the card beside the pill\'s query', async () => {
   const s = await open();
   s.pillClick('review');
   s.ctrlClick(3);
-  assert.strictEqual(s.box(), 'review:', 'Ctrl on a card the box hides adds it, and the pill stays');
+  assert.strictEqual(s.box(), 'review: | #3', 'Ctrl on a card the box hides adds it, and the pill stays');
+  assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [a(3)] });
   s.click(5, { shiftKey: true });
-  assert.strictEqual(s.box(), 'review:');
+  assert.strictEqual(s.box(), 'review: | #3', 'a range that adds nothing (card 5 is the pill\'s already) leaves the text as it was');
 });
 
 test('while isolated a click that opens a card leaves the isolate text and the pills in the selection', async () => {

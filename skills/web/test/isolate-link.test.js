@@ -88,19 +88,19 @@ const clickTile = (page, id) => page.fireDocument('click', { target: cardTarget(
 
 // --- the address ------------------------------------------------------------------------------
 
-test('turning isolate on puts the isolate parameter beside q, and turning it off takes both back out, with no history entry', async () => {
+test('turning isolate on puts the isolate parameter beside q, and turning it off writes isolate=0 in its place, with no history entry', async () => {
   const s = await openAt();
   s.ctrlClick(2);
   s.ctrlClick(5);
-  assert.strictEqual(s.session.search, '', 'nothing in the address before isolating');
+  assert.deepStrictEqual(s.params(), { q: '#2 | #5', isolate: '0' }, 'the clicks wrote the box, and the address says it lights');
   const entries = s.session.entries.length;
   s.flip();
   assert.strictEqual(s.box(), '#2 | #5');
   assert.deepStrictEqual(s.params(), { q: '#2 | #5', isolate: '1' });
   assert.deepStrictEqual(Object.keys(s.params()), ['q', 'isolate'], 'the isolate parameter comes second');
   s.flip();
-  assert.strictEqual(s.box(), '');
-  assert.strictEqual(s.session.search, '', 'both parameters are gone');
+  assert.strictEqual(s.box(), '#2 | #5', 'the box held the selection before isolating, and gets it back');
+  assert.deepStrictEqual(s.params(), { q: '#2 | #5', isolate: '0' });
   assert.strictEqual(s.session.pushes, 0, 'neither switch was a history entry');
   assert.strictEqual(s.session.entries.length, entries);
 });
@@ -109,10 +109,11 @@ test('turning isolate on or off adds no browser-history entry, however often it 
   const s = await openAt();
   s.ctrlClick(2);
   const entries = s.session.entries.length;
+  const replaced = s.session.replaces;
   for (let i = 0; i < 4; i++) s.flip();
   assert.strictEqual(s.session.pushes, 0);
   assert.strictEqual(s.session.entries.length, entries);
-  assert.strictEqual(s.session.replaces, 4, 'each flip replaced the entry it is on');
+  assert.strictEqual(s.session.replaces - replaced, 4, 'each flip replaced the entry it is on');
 });
 
 test('isolating a selection whose text equals the box still puts the parameter in, and turning it off writes isolate=0', async () => {
@@ -135,7 +136,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
   const address = first.session.search;
   assert.strictEqual(first.params().isolate, '1');
   const second = await openAt(address, { stored: first.stored });
-  assert.deepStrictEqual(second.isolate(), { previous: '' }, 'isolate is on again');
+  assert.deepStrictEqual(second.isolate(), { previous: '#2 | #5', following: true }, 'isolate is on again, and the text kept is the isolate text itself, the box having shown the selection before');
   assert.strictEqual(second.elements['#isolate-switch'].getAttribute('aria-checked'), 'true', 'the switch says on');
   assert.strictEqual(second.box(), '#2 | #5');
   assert.strictEqual(second.session.search, address, 'the address is as the link had it');
@@ -146,9 +147,9 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
 
 test('after a reload, turning isolate off gives the box the text it held before isolating, and writes isolate=0 in its place', async () => {
   const first = await openAt();
-  first.type('tags:ui');
   first.ctrlClick(2);
   first.ctrlClick(5);
+  first.type('tags:ui');
   first.flip();
   assert.strictEqual(first.box(), '#2 | #5');
   const second = await openAt(first.session.search, { stored: first.stored });
@@ -162,8 +163,8 @@ test('after a reload, turning isolate off gives the box the text it held before 
 
 test('the text kept for a reload follows the box while isolated: a hand edit of the isolate text is still isolated after a reload, and still gives the earlier text back', async () => {
   const first = await openAt();
-  first.type('zephyr');
   first.ctrlClick(2);
+  first.type('zephyr');
   first.flip();
   first.type('#2 | #5');
   assert.notStrictEqual(first.isolate(), null, 'isolate stays on while the box holds a query');

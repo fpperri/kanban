@@ -110,7 +110,7 @@ test('the pieces that wrote the selection before now call the entry point', () =
     applyBoardData: /dropGoneCards\(\)/,
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
-    addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
+    addCardToSelection: /setSelection\(addPart\(before, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
     exploreIntoBox: /writeSearch\(searchWithTerms\(input\.value, term, !!\(e && e\.shiftKey\)\), 'typing'\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
@@ -138,13 +138,13 @@ const CARDS = [
 ];
 
 function clickSandbox({ view = 'board', selected = [], rangeStart = null, order = [1, 2, 3], click = {} } = {}) {
-  const calls = { open: [], render: 0, terms: [] };
+  const calls = { open: [], render: 0, terms: [], writes: [] };
   const listeners = [];
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     ...selectionGlobals(),
     $: () => ({ value: '' }),
-    writeSearch() {},
+    writeSearch(text, reason, repaint = true) { calls.writes.push([text, reason]); if (repaint) calls.render++; },
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
@@ -157,7 +157,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
@@ -341,7 +341,7 @@ function clickAwaySandbox({ selected = [1, 2], rangeStart = 1, isolated = false 
   vm.runInContext([
     declaration('selectionState'), declaration('selectedIds'), declaration('searchWriteListeners', 'const'),
     declaration('CALENDAR_CREATE_DAY_CELLS', 'const'), declaration('CALENDAR_CREATE_COLUMNS', 'const'), declaration('NOT_EMPTY_SPACE', 'const'), declaration('DOUBLE_CLICK_OWNED', 'const'),
-    fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('onClickAway'),
+    fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('onClickAway'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
@@ -468,7 +468,7 @@ function escapeSandbox({ value = '', selected = [], active = 'body', open = [], 
   vm.createContext(sandbox);
   vm.runInContext([
     declaration('searchWriteListeners', 'const'), declaration('selectionState'), declaration('selectedIds'),
-    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('stepSelectionBack'), fn('escapeStep'),
+    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('stepSelectionBack'), fn('escapeStep'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
