@@ -74,6 +74,12 @@ async function open({ view = 'board', typing = false, prefs = {} } = {}) {
       const e = { key: 'Escape', target: null, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {} };
       (page.documentListeners.keydown || []).slice().forEach((fn) => fn(e));
     },
+    pressInBox: () => {
+      page.ctx.document.activeElement = page.input;
+      const e = { key: 'Escape', target: page.input, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {} };
+      (page.documentListeners.keydown || []).slice().forEach((fn) => fn(e));
+      page.ctx.document.activeElement = null;
+    },
     told: [],
   };
   page.ctx.onSearchWrite((text, reason) => s.told.push([text, reason]));
@@ -276,4 +282,44 @@ test('the Graph does not take the box the click wrote for a typed search, on a r
 test('a click moves no Calendar or Gantt: the nearest-match jump listens to every write but the click\'s', () => {
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /onSearchWrite\(\(text, reason\) => \{ if \(reason !== 'mirror'\) moveViewToNearestMatch\(\); \}\);/);
+});
+
+test('Esc with focus in the box ends where repeated Esc does: an empty box, nothing selected, isolate off, so the next click starts clean', async () => {
+  const s = await open();
+  s.ctrlClick(2);
+  assert.strictEqual(s.box(), '#2');
+  s.pressInBox();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.deepStrictEqual(s.ids(), []);
+  assert.strictEqual(s.isolate(), null);
+  s.ctrlClick(5);
+  assert.strictEqual(s.box(), '#5', 'the card Esc let go of does not come back beside the next one');
+});
+
+test('Esc in the box takes the cut, the additions and a pill with it, in the Board and in the Graph', async () => {
+  const s = await open();
+  s.type('slice:0..1');
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  s.pillClick('review');
+  s.pressInBox();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  const g = await open({ view: 'graph' });
+  g.nodeClick(2);
+  g.nodeClick(5, { shiftKey: true });
+  g.pressInBox();
+  assert.strictEqual(g.box(), '');
+  assert.deepStrictEqual(g.selection(), { anchor: null, additions: [] });
+});
+
+test('Esc in the box with isolate on still only turns isolate off, as before', async () => {
+  const s = await open();
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  s.flip();
+  s.pressInBox();
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.ids(), [2, 5], 'the selection stays for the next Esc');
 });

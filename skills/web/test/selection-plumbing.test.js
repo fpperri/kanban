@@ -468,26 +468,28 @@ function escapeSandbox({ value = '', selected = [], active = 'body', open = [], 
   vm.createContext(sandbox);
   vm.runInContext([
     declaration('searchWriteListeners', 'const'), declaration('selectionState'), declaration('selectedIds'),
-    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('stepSelectionBack'), fn('escapeStep'),
+    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('stepSelectionBack'), fn('clearBoxAndSelection'), fn('escapeStep'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
   return sandbox;
 }
 
-test('with focus in the search box, the Esc step clears the box and repaints, and leaves the selection', () => {
+test('with focus in the search box, the Esc step clears the box and the selection with one repaint', () => {
   const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'box', rangeStart: 3 });
   s.escapeStep();
   assert.strictEqual(s.input.value, '');
   assert.strictEqual(s.calls.render, 1);
-  assert.deepStrictEqual(s.state(), { ids: [1, 2, 3], anchor: { kind: 'card', id: '1' }, additions: 2, rangeStart: 3 });
+  assert.deepStrictEqual(s.state(), { ids: [], anchor: null, additions: 0, rangeStart: null });
 });
 
-test('with focus in an empty search box, the Esc step does nothing', () => {
+test('with focus in an empty search box, the Esc step empties a selection and repaints once, and does nothing without one', () => {
   const s = escapeSandbox({ value: '', selected: [1, 2], active: 'box' });
   s.escapeStep();
-  assert.strictEqual(s.calls.render, 0);
-  assert.deepStrictEqual(s.state().ids, [1, 2]);
+  assert.strictEqual(s.calls.render, 1);
+  assert.deepStrictEqual(s.state().ids, []);
+  s.escapeStep();
+  assert.strictEqual(s.calls.render, 1, 'nothing picked and the box empty: no repaint');
 });
 
 test('with focus outside the search box, the Esc step leaves the box text as it was and steps the selection back', () => {
@@ -529,11 +531,11 @@ test('with a card picked, Esc steps the selection back first and keeps the `slic
   assert.strictEqual(s.input.value, '', 'the next Esc clears the cut');
 });
 
-test('Esc in the box reaches the same end: it clears the box, the `slice:` run included, whatever is picked', () => {
+test('Esc in the box reaches the same end: it clears the box, the `slice:` run included, and whatever is picked', () => {
   const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [1, 2], active: 'box', rangeStart: 2 });
   s.escapeStep();
   assert.strictEqual(s.input.value, '');
-  assert.deepStrictEqual(s.state().ids, [1, 2]);
+  assert.deepStrictEqual(s.state().ids, []);
 });
 
 test('the last Esc stage reads the Esc decision (escapeStage) and clears through the one clear', () => {

@@ -49,3 +49,14 @@ test('no entry still says that Esc away from the box leaves the box as it was', 
   }
   assert.doesNotMatch(escRow, /elsewhere it steps the selection back: isolate off, then the additions, then the anchor\.$/);
 });
+
+test('Esc with focus in the box is said to empty the box and the selection, not to leave the selection', () => {
+  assert.match(flat(skill), /with focus in the search box Esc ends where repeated Esc does: it empties the box, the run of `slice:` included, and leaves nothing selected/);
+  assert.match(flat(skill), /empties the box and the selection, with focus in it/);
+  assert.match(flat(docs), /and then empties the box and the selection, when focus is in it/);
+  assert.match(escRow, /in the search box it empties the box and the selection/);
+  for (const text of [flat(skill), flat(docs), escRow]) {
+    assert.doesNotMatch(text, /Esc clears the box and leaves the selection/);
+    assert.doesNotMatch(text, /in the search box it clears the box,/);
+  }
+});

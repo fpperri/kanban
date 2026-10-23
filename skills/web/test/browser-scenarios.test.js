@@ -353,8 +353,8 @@ const ESC_STEPS_CHECKS = [
   'the first Esc in the search box closes the suggestion menu, keeps the selection and keeps the box text',
   'the text typed on the Board turned isolate on',
   'the next Esc in the search box turns isolate off, as Esc does anywhere: the box keeps its text and the selection stays',
-  'the Esc after that clears the box and keeps the selection',
-  'the box has text again and focus has left it',
+  'the Esc after that empties the box and the selection with it',
+  'the box has text again with three cards picked and focus has left it',
   'Esc with focus outside the search box turns isolate off first, and leaves the selection and the box text',
   'the Esc after that steps the selection back and leaves the box text as it was',
   'the next Esc outside the box drops the anchor and leaves the box text',
@@ -387,20 +387,20 @@ test('the esc-steps scenario checks the box both ways: Esc with focus in the box
   assert.ok(/activeElement\.blur\(\)/.test(src), 'and out of it');
 });
 
-test('the esc-steps scenario lets the suggestion menu take the first Esc in the box, then turns isolate off and clears the box with the next two', () => {
+test('the esc-steps scenario lets the suggestion menu take the first Esc in the box, then turns isolate off and empties the box and the selection with the next two', () => {
   const src = code(source('esc-steps.js'));
   assert.ok(/setSelectionRange\(i\.value\.length,i\.value\.length\)/.test(src), 'the caret goes after the text before focus, so the menu opens every time');
   assert.ok(src.includes('#search-input ~ .combobox-menu'), 'the menu is the one beside the box');
   const at = (text) => src.indexOf(text);
   const opened = at("check('focus in the box holding text opens its suggestion menu'");
   const closed = at("check('the first Esc in the search box closes the suggestion menu, keeps the selection and keeps the box text'");
-  const cleared = at("check('the Esc after that clears the box and keeps the selection'");
+  const cleared = at("check('the Esc after that empties the box and the selection with it'");
   assert.ok(opened > 0 && opened < closed && closed < cleared, 'open, then the first Esc closes it, then the next two turn isolate off and clear the box');
   const word = /insertText', \{ text: '([^']+)'/.exec(src)[1];
   assert.ok(require('../web/search.js').searchSuggestionItems(word, word.length).length > 0, 'a caret after the typed word is where the box offers suggestions, so the menu is open on focus');
   const presses = (from, to) => src.slice(from, to).split('escape()').length - 1;
   assert.strictEqual(presses(opened, closed), 1, 'one Esc between the menu opening and its closing');
-  assert.strictEqual(presses(closed, cleared), 2, 'one more Esc turns isolate off and one more clears the box');
+  assert.strictEqual(presses(closed, cleared), 2, 'one more Esc turns isolate off and one more empties the box and the selection');
   const firstCheck = src.slice(closed, src.indexOf('\n', closed));
   assert.ok(/\(await boxText\(\)\) === 'zephyr'/.test(firstCheck), 'the box still holds its text after the first Esc: the browser\'s own Esc, which clears a search field, is stopped for the list step');
   assert.ok(!/differs by browser|not asserted/.test(source('esc-steps.js')), 'no hedge about what the box holds after the first Esc');

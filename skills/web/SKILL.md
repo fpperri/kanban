@@ -845,9 +845,9 @@ to `127.0.0.1` only.
   its text back (see **Isolate**), so the steps are isolate off, then every addition, then the
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
-  closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection (in the Graph, where a typed search is the anchor, clearing the box takes the anchor
-  and the additions with it), and away from the box Esc steps the selection back and, once nothing is
+  closes, as before); with focus in the search box Esc ends where repeated Esc does: it empties the
+  box, the run of `slice:` included, and leaves nothing selected, so the next click starts clean
+  (`clearBoxAndSelection`), and away from the box Esc steps the selection back and, once nothing is
   picked, clears the box as well, the run of `slice:` included, so repeated Esc ends on an empty box (while
   isolated, Esc in the box turns isolate off instead of clearing it). The stage is decided in the selection
   module (`escapeStage`: isolate, selection, box) and carried out by `stepSelectionBack`. An open search panel takes
@@ -978,7 +978,7 @@ to `127.0.0.1` only.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
   goes back to the arrow, and stays in the box when Esc was pressed there), and only then
-  clears the box, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
+  empties the box and the selection, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
   so the box, focused again, opens the panel again. The box keeps its text
   through the first two, because the browser's own Esc, which clears a search field, is
   stopped for them. The panel is no popup: the 5s poll runs while it is open and updates the

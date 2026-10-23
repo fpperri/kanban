@@ -60,9 +60,10 @@ test('the multi-select entry does not leave a dangling reason after the list of 
   assert.match(multi, /The selection survives switching views and it survives the poll/);
 });
 
-test('the multi-select entry says Esc in the box takes a typed Graph search, which is the anchor, with it', () => {
+test('the multi-select entry says Esc in the box ends on an empty box and an empty selection, a typed Graph search included', () => {
   const multi = between(skill, '- **Multi-select**', '- **Search panel**');
-  assert.match(multi, /with focus in the search box Esc clears the box and leaves the selection \(in the Graph, where a typed search is the anchor, clearing the box takes the anchor and the additions with it\)/);
+  assert.match(multi, /with focus in the search box Esc ends where repeated Esc does: it empties the\s+box, the run of \x60slice:\x60 included, and leaves nothing selected, so the next click starts clean/);
+  assert.doesNotMatch(multi, /Esc clears the box and leaves the selection/, 'the old promise is false now');
 });
 
 test('the Graph entry says where the Unnested cards go by the option, the table among its choices', () => {
