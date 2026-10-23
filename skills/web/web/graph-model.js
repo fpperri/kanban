@@ -1467,7 +1467,7 @@ function graphPlan(model, layout, opts) {
     if (line.kids) {
       const bus = graphFanBus(fan, line, nears.has(line), marks);
       return {
-        from: line.from, to: line.to, kind: 'parent', d: bus.d, cls: 'graph-link graph-link-parent graph-link-counted', arrow: false, count: line.count, kids: line.kids.slice(), label: bus.label,
+        from: line.from, to: line.to, kind: 'parent', d: bus.d, cls: 'graph-link graph-link-parent graph-link-counted', arrow: false, count: line.count, kids: line.kids.slice().sort((x, y) => fan.polar.get(y).a - fan.polar.get(x).a), label: bus.label,
       };
     }
     const l = model.links[line.link];

@@ -41,19 +41,20 @@ function stamp(kind = 'hierarchy') {
   doc.createElementNS = (ns, tag) => doc.createElement(tag);
   const sandbox = { document: doc };
   vm.createContext(sandbox);
-  const names = ['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan', 'graphClearFocus', 'graphRaiseLine', 'graphLowerLine', 'graphLightCards', 'graphSetLineFocus'];
+  const names = ['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan', 'graphClearFocus', 'graphRaiseLine', 'graphLowerLine', 'graphLightCards', 'graphSetLineFocus', 'graphLineCards', 'graphHoverLineTerms'];
   vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\nlet graphCur = null;\n${names.map(fn).join('\n')}`, sandbox);
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
   sandbox.out = out;
   sandbox.model = model;
   sandbox.plan = plan;
-  vm.runInContext('graphCur = { svg: out.svg, world: out.world, model, plan, linkEls: out.linkEls, countEls: out.countEls, hitEls: out.hitEls, nodeEls: out.nodeEls, headEls: out.headEls, raised: null };', sandbox);
+  vm.runInContext('graphCur = { svg: out.svg, world: out.world, model, plan, linkEls: out.linkEls, countEls: out.countEls, hitEls: out.hitEls, nodeEls: out.nodeEls, headEls: out.headEls, raised: null, hoverLine: null };', sandbox);
   const index = (from, to, kindOf) => plan.links.findIndex((l) => l.from === from && l.to === to && (!kindOf || l.kind === kindOf));
   const near = (cls) => out.svg.querySelectorAll(`.${cls}`);
   return {
     plan, out, sandbox, index,
     focus: (i) => vm.runInContext(`graphSetLineFocus(${i})`, sandbox),
     clear: () => vm.runInContext('graphClearFocus()', sandbox),
+    terms: () => vm.runInContext('graphHoverLineTerms()', sandbox),
     litNodes: () => [...out.nodeEls].filter(([, el]) => el.classes.includes('graph-near')).map(([id]) => id).sort(),
     litLinks: () => out.linkEls.map((el, i) => (el.classes.includes('graph-near') ? i : -1)).filter((i) => i >= 0),
     dimmed: () => out.svg.classes.includes('graph-dim'),
@@ -117,7 +118,7 @@ test('a bracket lights itself, its parent and every child it holds', () => {
   const i = v.plan.links.findIndex((l) => l.count !== undefined);
   assert.ok(i >= 0);
   const line = v.plan.links[i];
-  assert.deepStrictEqual(line.kids, ['3', '4', '5', '6']);
+  assert.deepStrictEqual([...line.kids].sort(), ['3', '4', '5', '6']);
   v.focus(i);
   assert.deepStrictEqual(v.litNodes(), [line.from, ...line.kids].sort());
   assert.deepStrictEqual(v.litLinks(), [i], 'the dependencies between the children stay dim');
@@ -167,4 +168,34 @@ test('a bracket\'s count travels with its line, so the label stays beside the pa
 test('lines have no click and no tab stop: the host reads a click on a card alone', () => {
   assert.doesNotMatch(src, /graph-link-hit[^\n]*(click|tabindex)/i);
   assert.match(src, /host\.addEventListener\('click', \(e\) => \{\s*if \(!graphCur\) return;\s*const node = e\.target\.closest\('\.graph-node'\);\s*if \(!node\) return;/);
+});
+
+test('the children of a bracket are listed in the order it draws them, the first seat first', () => {
+  const model = drawnModel(board);
+  const layout = graphLayout(model, 'hierarchy', { statuses: STATUSES, order: 'status', unnested: 'outermost' });
+  const p = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan: { lines: 'all', group: 'brackets', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' } });
+  const line = p.links.find((l) => l.count !== undefined);
+  const angles = line.kids.map((id) => layout.polar.get(id).a);
+  assert.deepStrictEqual(angles, [...angles].sort((x, y) => y - x), 'the fan runs with its angle falling');
+});
+
+test('the terms a line writes are its cards as card terms: a parent line parent first, a dependency the card waited for first, a bracket its parent and then its children as drawn', () => {
+  const v = stamp();
+  assert.strictEqual(v.terms(), '', 'no line hovered, nothing to write');
+  v.focus(v.index('1', '2', 'parent'));
+  assert.strictEqual(v.terms(), '#1 | #2');
+  v.focus(v.index('7', '8', 'wait'));
+  assert.strictEqual(v.terms(), '#7 | #8');
+  const i = v.plan.links.findIndex((l) => l.count !== undefined);
+  v.focus(i);
+  assert.strictEqual(v.terms(), ['#1', ...v.plan.links[i].kids.map((id) => `#${id}`)].join(' | '));
+  assert.strictEqual(v.terms().split(' | ').length, 5);
+  v.clear();
+  assert.strictEqual(v.terms(), '', 'and none once the lighting clears');
+});
+
+test('a line of the Flow writes the card waited for and the card that waits', () => {
+  const v = stamp('flow');
+  v.focus(v.index('7', '8', 'wait'));
+  assert.strictEqual(v.terms(), '#7 | #8');
 });

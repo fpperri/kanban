@@ -3,7 +3,7 @@
 // ticks for it into the search box as alternatives (`dlinks:7 | hlinks:7`), and never turns isolate on, though typing
 // the same text does on the Board. Shift+Space adds the card's terms to what the box holds as one more alternative,
 // and an empty box takes them as a plain Space does. With no card hovered or focused, and in a text field, Space
-// keeps its job. Ctrl+Space is the key that selects the focused dot in the Graph.
+// keeps its job (a line hovered in the Graph writes its cards: scenarios/graph-line-hover.js). Ctrl+Space is the key that selects the focused dot in the Graph.
 //
 // The Board. The pointer on card 7 (a mouseover on its tile, the event the page's hover listens to) and a real Space
 // press leave `dlinks:7 | hlinks:7` in the box, isolate off, and the cards that text names (7, its parent 2, the

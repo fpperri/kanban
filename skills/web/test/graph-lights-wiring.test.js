@@ -578,6 +578,90 @@ test('a keyboard focus on a line is not a thing: the focus events never light on
   assert.strictEqual(s.calls.length, before);
 });
 
+// Space on a hovered line writes the cards the line lights into the box as card terms (the 'hover' write of
+// hover-show-ui.js), and Shift+Space adds them.
+const spaceKey = (s, over = {}) => {
+  let prevented = 0;
+  s.page.fireDocument('keydown', {
+    key: ' ', target: { closest: () => null }, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, repeat: false, defaultPrevented: false, preventDefault() { prevented++; }, ...over,
+  });
+  return prevented;
+};
+
+test('Space on a hovered bracket, parent line and dependency line writes the cards it lights, parent first', async () => {
+  const s = await open({ board: withBracket() });
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  const bracket = lineAt(s, (l) => l.count !== undefined);
+  s.graphHost.fire('mouseover', lineEvent(bracket, 'mouseover'));
+  assert.strictEqual(spaceKey(s), 1, 'the key is taken');
+  const kids = s.page.run('graphCur.plan.links').find((l) => l.count !== undefined).kids;
+  assert.strictEqual(s.box(), ['#1', ...kids.map((id) => `#${id}`)].join(' | '));
+  assert.strictEqual(kids.length, 3);
+  assert.deepStrictEqual(told[told.length - 1][1], 'hover');
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseout', lineEvent(bracket, 'mouseout', relatedLine(wait)));
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover', relatedLine(bracket)));
+  spaceKey(s);
+  assert.strictEqual(s.box(), '#1 | #2', 'the card waited for, then the card that waits');
+});
+
+test('a parent line writes its parent and its child', async () => {
+  const s = await open();
+  const parent = lineAt(s, (l) => l.kind === 'parent');
+  s.graphHost.fire('mouseover', lineEvent(parent, 'mouseover'));
+  spaceKey(s);
+  assert.strictEqual(s.box(), '#1 | #3');
+});
+
+test('Shift+Space on a hovered line adds its cards to what the box holds as more alternatives', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  assert.strictEqual(spaceKey(s, { shiftKey: true }), 1);
+  assert.strictEqual(s.box(), 'tags:ui | #1 | #2');
+});
+
+test('a line writes its cards whatever sets On hover show ticks, even none', async () => {
+  const s = await open({ stored: { 'kanban.kanban.hover.show': JSON.stringify({ hierarchy: [], flow: [] }) } });
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  assert.strictEqual(spaceKey(s), 1);
+  assert.strictEqual(s.box(), '#1 | #2');
+});
+
+test('with no line under the pointer, or after it left, Space does nothing new and is not taken', async () => {
+  const s = await open();
+  assert.strictEqual(spaceKey(s), 0);
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  s.graphHost.fire('mouseout', lineEvent(wait, 'mouseout', null));
+  assert.strictEqual(spaceKey(s), 0);
+  assert.strictEqual(s.box(), '');
+});
+
+test('a poll that draws the Graph again drops the line hover, so Space then does nothing', async () => {
+  const s = await open();
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  await s.page.run('autoRefreshTick()');
+  assert.strictEqual(spaceKey(s), 0);
+  assert.strictEqual(s.box(), '');
+});
+
+test('a card with the focus wins over a hovered line, and the key guard still holds', async () => {
+  const s = await open();
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  s.page.ctx.document.activeElement = { tagName: 'DIV', closest: (sel) => (sel === '.card-el' ? { dataset: { id: '3' } } : null) };
+  assert.strictEqual(spaceKey(s), 1);
+  assert.strictEqual(s.box(), 'dlinks:3 | hlinks:3', 'the focused card\'s sets, not the line\'s cards');
+  s.page.ctx.document.activeElement = null;
+  assert.strictEqual(spaceKey(s, { target: { closest: (sel) => (sel.includes('button') ? {} : null) } }), 0, 'on a button Space presses it');
+  assert.strictEqual(spaceKey(s, { ctrlKey: true }), 0);
+});
+
 // --- leaving the Graph ----------------------------------------------------------
 
 const BOARD_LIGHTS = { 'kanban.kanban.typing.isolates': JSON.stringify({ board: false }) };
