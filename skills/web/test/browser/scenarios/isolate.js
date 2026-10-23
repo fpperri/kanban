@@ -256,7 +256,7 @@ module.exports = {
     // --- the box's text, and Esc ------------------------------------------------------------------------------------
     await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
     check('the Board draws the plan board for the Esc steps', await goto('/?view=board', boardReady));
-    const liveBoard = await nowShown(SELECTORS.board);
+    const liveBoard = JSON.parse(await nowShown(SELECTORS.board));
     for (const id of CASES.zephyr.picked) await clickTile(id, { modifiers: 2 });
     check('two cards are picked on the Board', await pickedIs(sorted(...CASES.zephyr.picked)));
     await focusBoxAtEnd();
@@ -325,7 +325,7 @@ module.exports = {
 
     // --- the poll -----------------------------------------------------------------------------------------------------
     check('the Board draws the plan board before the poll', await goto('/?view=board', boardReady));
-    const liveBoardForPoll = await nowShown(SELECTORS.board);
+    const liveBoardForPoll = JSON.parse(await nowShown(SELECTORS.board));
     await openPanel();
     await clickOn(pillSel(CASES.pill.label));
     check('the grill pill puts its query in the box and lights its card, leaving every card on the Board', await boxIs(CASES.pill.query) && await shows(SELECTORS.board, liveBoardForPoll) && await shows('#board .card-el.selected', sorted(...CASES.pill.cards)), await boxText());

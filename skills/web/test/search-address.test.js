@@ -65,7 +65,7 @@ test('typing puts the box\'s text in the address as q, one keystroke at a time, 
     page.input.typed(text);
     assert.strictEqual(qOf(session.search), text, `after "${text}" the address's q equals the box`);
   }
-  assert.strictEqual(session.search, '?q=zephyr');
+  assert.strictEqual(session.search, '?q=zephyr&isolate=0');
   assert.strictEqual(session.pushes, 0, 'typing pushed no history entry');
   assert.strictEqual(session.entries.length, lengthBefore, 'and the history is no longer');
   assert.strictEqual(session.replaces, 6, 'each keystroke replaced the entry it is on');
@@ -125,7 +125,7 @@ test('a replaceState the browser refuses leaves the later listeners told and the
 test('emptying the box drops q and keeps view, and the clear button does the same', async () => {
   const { page, session } = await openAt('?view=map');
   page.input.typed('zephyr');
-  assert.deepStrictEqual(paramsOf(session.search), { view: 'map', q: 'zephyr' });
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'map', q: 'zephyr', isolate: '0' });
   page.input.typed('');
   assert.strictEqual(session.search, '?view=map', 'an emptied box drops q');
   page.input.typed('zephyr');
@@ -159,13 +159,13 @@ test('every other way of writing the box moves the address too: a cue and the Ct
 });
 
 test('a link opened with q and view keeps view, writes nothing to the address on load, and the next keystroke makes q equal the box', async () => {
-  const { page, session } = await openAt('?q=zephyr&view=map');
+  const { page, session } = await openAt('?q=zephyr&isolate=0&view=map');
   assert.strictEqual(page.input.value, 'zephyr');
   assert.strictEqual(session.replaces, 0, 'the link\'s own write finds the address already matching');
-  assert.strictEqual(session.search, '?q=zephyr&view=map');
+  assert.strictEqual(session.search, '?q=zephyr&isolate=0&view=map');
   page.input.typed('zephyr s');
   assert.strictEqual(page.input.value, 'zephyr s');
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr s', view: 'map' });
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr s', isolate: '0', view: 'map' });
 });
 
 test('a link with only a view is left as it is on load', async () => {
@@ -177,7 +177,7 @@ test('a link with only a view is left as it is on load', async () => {
 test('a link whose q the deep-link reader trims is brought in line with the box on load', async () => {
   const { page, session } = await openAt('?q=%20zephyr%20&view=map');
   assert.strictEqual(page.input.value, 'zephyr');
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'map' });
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', isolate: '0', view: 'map' });
   assert.strictEqual(session.pushes, 0);
 });
 
@@ -229,7 +229,7 @@ test('the poll repaints without writing the address', async () => {
   await page.run('autoRefreshTick()');
   assert.strictEqual(session.replaces, replaces);
   assert.strictEqual(session.pushes, 0);
-  assert.strictEqual(session.search, '?q=zephyr');
+  assert.strictEqual(session.search, '?q=zephyr&isolate=0');
 });
 
 test('the address replaces the entry on which the box changed: earlier entries are untouched', async () => {
@@ -256,20 +256,20 @@ test('with a query in the box, opening a card adds one history step carrying bot
   await page.settle();
   assert.strictEqual(session.entries.length, entries + 1, 'one step for the open');
   assert.strictEqual(session.pushes, 1);
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', card: '1' });
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', isolate: '0', card: '1' });
   assert.strictEqual(shownCard(page), 1);
 
   session.back();
   await page.settle();
   assert.strictEqual(shownCard(page), null, 'Back closes the card');
   assert.strictEqual(page.input.value, 'zephyr');
-  assert.strictEqual(session.search, '?q=zephyr');
+  assert.strictEqual(session.search, '?q=zephyr&isolate=0');
 
   session.forward();
   await page.settle();
   assert.strictEqual(shownCard(page), 1, 'Forward reopens it');
   assert.strictEqual(page.input.value, 'zephyr');
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', card: '1' });
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', isolate: '0', card: '1' });
   assert.strictEqual(session.pushes, 1, 'stepping between the entries pushed nothing');
   assert.strictEqual(session.replaces, 1, 'and replaced nothing: q already equalled the box on every entry it landed on');
 });
@@ -280,7 +280,7 @@ test('after opening a card, closing it and typing a new query, Back reopens the 
   clickTile(page, 1);
   await page.settle();
   closeCard(session);
-  assert.strictEqual(session.search, '?q=old', 'closing pushed a step without the card');
+  assert.strictEqual(session.search, '?q=old&isolate=0', 'closing pushed a step without the card');
   page.input.typed('new');
   assert.deepStrictEqual(session.entries.map(qOf), ['old', 'old', 'new']);
   const pushes = session.pushes;
@@ -289,7 +289,7 @@ test('after opening a card, closing it and typing a new query, Back reopens the 
   await page.settle();
   assert.strictEqual(shownCard(page), 1, 'Back reopens the card');
   assert.strictEqual(page.input.value, 'new', 'the box keeps the new query');
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'new', card: '1' }, 'the address is brought back in line with the box');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'new', isolate: '0', card: '1' }, 'the address is brought back in line with the box');
   assert.strictEqual(session.pushes, pushes, 'by replacing the entry it landed on, not pushing one');
   assert.strictEqual(session.entries.length, 3);
   assert.deepStrictEqual(session.entries.map(qOf), ['old', 'new', 'new']);
@@ -298,7 +298,7 @@ test('after opening a card, closing it and typing a new query, Back reopens the 
   await page.settle();
   assert.strictEqual(shownCard(page), null, 'Forward closes it again');
   assert.strictEqual(page.input.value, 'new');
-  assert.strictEqual(session.search, '?q=new');
+  assert.strictEqual(session.search, '?q=new&isolate=0');
 });
 
 test('Back onto an entry from before the box had text keeps the box and gives that entry the query', async () => {
@@ -306,12 +306,12 @@ test('Back onto an entry from before the box had text keeps the box and gives th
   clickTile(page, 1);
   await page.settle();
   page.input.typed('abc');
-  assert.deepStrictEqual(paramsOf(session.search), { card: '1', q: 'abc' });
+  assert.deepStrictEqual(paramsOf(session.search), { card: '1', q: 'abc', isolate: '0' });
   session.back();
   await page.settle();
   assert.strictEqual(shownCard(page), null);
   assert.strictEqual(page.input.value, 'abc');
-  assert.strictEqual(session.search, '?q=abc');
+  assert.strictEqual(session.search, '?q=abc&isolate=0');
   assert.strictEqual(session.entries.length, 2);
 });
 
@@ -340,7 +340,7 @@ test('Back is brought in line with the box even while another popup is open, whi
   await page.settle();
   assert.strictEqual(shownCard(page), null, 'the card does not open under the other popup');
   assert.strictEqual(page.input.value, 'new');
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'new', card: '1' });
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'new', isolate: '0', card: '1' });
 });
 
 test('landing never writes the box: a Back onto a step with another q tells no search listener', async () => {
@@ -357,4 +357,53 @@ test('landing never writes the box: a Back onto a step with another q tells no s
   await page.settle();
   assert.deepStrictEqual(told, []);
   assert.strictEqual(page.input.writes.length, writes);
+});
+
+// --- how a reload reopens the picture: isolate=0 beside q ---------------------------------------
+// Outside the Graph the page writes isolate=0 beside q while the box holds a query and isolate is off, so a
+// reload opens it lit; a link with a query and no isolate parameter is an old or hand-made one and opens
+// isolated there; isolate=1 opens isolated. In the Graph no parameter means off, and none is written.
+
+test('outside the Graph, a box that lights its query writes isolate=0 beside q, and the address it writes reopens lit', async () => {
+  const first = await openAt('?view=board');
+  first.page.input.typed('zephyr');
+  assert.deepStrictEqual(paramsOf(first.session.search), { view: 'board', q: 'zephyr', isolate: '0' });
+  const reloaded = await openAt(first.session.search, { typing: true });
+  assert.strictEqual(reloaded.page.input.value, 'zephyr');
+  assert.strictEqual(reloaded.page.run('isolateNow()'), null, 'isolate=0 opens with isolate off, though the Board isolates what is typed');
+  assert.strictEqual(reloaded.session.replaces, 0, 'and the address is left alone');
+});
+
+test('a link with a query and no isolate parameter turns isolate on where the view isolates what is typed, and the address then says so', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=board', { typing: true });
+  assert.notStrictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1' });
+});
+
+test('a link with a query and no isolate parameter opens lit where the view does not isolate what is typed, and the address says isolate=0', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=board');
+  assert.strictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '0' });
+});
+
+test('isolate=1 opens isolated, whatever the view\'s Typing isolates', async () => {
+  const { page } = await openAt('?q=zephyr&isolate=1&view=board');
+  assert.notStrictEqual(page.run('isolateNow()'), null);
+});
+
+test('in the Graph no isolate parameter means off, and none is written', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=graph', { typing: true });
+  assert.strictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'graph', graph: 'hierarchy' });
+  page.input.typed('zephyr s');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr s', view: 'graph', graph: 'hierarchy' });
+});
+
+test('going from the Board to the Graph and back keeps the address in line with the picture', async () => {
+  const { page, session } = await openAt('?view=board');
+  page.input.typed('zephyr');
+  page.run("setView('graph')");
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', graph: 'hierarchy' }, 'in the Graph no parameter means off');
+  page.run("setView('board')");
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '0', graph: 'hierarchy' });
 });

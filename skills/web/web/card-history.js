@@ -70,8 +70,11 @@ function nextCardHistorySearch(currentSearch, targetId) {
 // so fast typing never hammers the browser's limit on history replacements.
 // The text goes in verbatim, trailing spaces included, and is encoded by
 // URLSearchParams, so "#", "|", quotes and spaces never become a fragment or
-// get mangled; parseDeepLink trims on the way back in.
-function nextSearchAddress(currentSearch, boxText, isolated) {
+// get mangled; parseDeepLink trims on the way back in. DECLAREOFF is true outside the Graph: a box
+// that holds a query with isolate off then writes `isolate=0` beside `q`, so a reload opens it with
+// isolate off, where a link with a query and no isolate parameter opens isolated there. In the Graph
+// no parameter means off, so nothing is written.
+function nextSearchAddress(currentSearch, boxText, isolated, declareOff = false) {
   const params = new URLSearchParams(currentSearch || '');
   const text = typeof boxText === 'string' ? boxText : '';
   let changed = false;
@@ -81,8 +84,9 @@ function nextSearchAddress(currentSearch, boxText, isolated) {
     params.delete('q');
     changed = true;
   }
-  if (isolated && text.trim()) {
-    if (params.get('isolate') !== '1') { params.set('isolate', '1'); changed = true; }
+  if (text.trim() && (isolated || declareOff)) {
+    const want = isolated ? '1' : '0';
+    if (params.get('isolate') !== want) { params.set('isolate', want); changed = true; }
   } else if (params.has('isolate')) {
     params.delete('isolate');
     changed = true;

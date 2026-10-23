@@ -229,11 +229,11 @@ test('the address keeps the box\'s text through opening and closing the card', a
 test('the address keeps the box\'s text through opening and closing the card where the pill isolates nothing', async () => {
   const s = await open({ typing: false });
   s.pillClick('review');
-  assert.strictEqual(s.address(), '?q=review%3A');
+  assert.strictEqual(s.address(), '?q=review%3A&isolate=0');
   await s.click(5);
-  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', card: '5' });
+  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', isolate: '0', card: '5' });
   await s.close();
-  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:' });
+  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', isolate: '0' });
 });
 
 test('a poll while the card is closed again keeps the pill, which the selection still holds', async () => {

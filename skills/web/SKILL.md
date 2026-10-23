@@ -1731,7 +1731,13 @@ to `127.0.0.1` only.
     text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. While isolate is on,
     `isolate=1` stands beside `q` (and goes with it when the box is emptied), written by the
-    same listener. The address replaces
+    same listener. Outside the Graph, with the box holding a query and isolate off, `isolate=0`
+    stands there instead, so a reload reopens the same picture: a link with `q` and `isolate=0` opens
+    with isolate off (`parseDeepLink` reports `isolateOff`, and the page writes the box with the reason
+    `link-lit`); a link with `q` and no isolate parameter, an old or hand-made one, turns isolate on where
+    the view isolates what is typed; `isolate=1` opens isolated. In the Graph no parameter means off, and none is
+    written. The view switch brings the address in line too (`nextSearchAddress` takes whether to declare
+    isolate off). The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
     when `q` would change. A browser may refuse a replacement when there are too many in

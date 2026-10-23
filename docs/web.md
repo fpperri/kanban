@@ -391,6 +391,10 @@ selected the entry says so, as the switch does.
 The link carries it. While isolate is on, the address holds a second parameter beside `q`,
 `isolate=1`, written as the box changes and never as a history entry. A reload, or a link opened
 in another browser, opens isolated: the Graph and every other view show only the isolated set.
+Outside the Graph, while the box holds a search and Isolate is off, the address says `isolate=0`
+instead, so a reload reopens the same picture, lit; a link with a search and no `isolate` parameter, an
+old or hand-made one, opens isolated in a view whose Typing isolates is on. In the Graph no parameter
+means off, and none is written.
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
 the parameter and no query opens with isolate off, and the address drops the parameter.
