@@ -232,7 +232,7 @@ module.exports = {
     const pickedText = `#${one} | #${two}`;
     await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
     check('the Board is up for the reload part', await goto('/?view=board', boardReady));
-    const liveBoard = await nowShown(SELECTORS.board);
+    const liveBoard = JSON.parse(await nowShown(SELECTORS.board));
     await pickOnBoard(CASES.zephyr.picked);
     await focusBoxAtEnd();
     await send('Input.insertText', { text: CASES.zephyr.query });

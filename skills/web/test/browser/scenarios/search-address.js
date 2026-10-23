@@ -65,7 +65,7 @@ module.exports = {
     await ev(`writeSearch(${JSON.stringify(compound)}, 'menu')`);
     check('a compound query reaches the address whole, with no fragment', (await waitFor(`new URLSearchParams(location.search).get('q')===${JSON.stringify(compound)}`)) && !(await ev(`location.hash`)), await addressParams());
     await reload();
-    check('a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload', (await waitFor(`document.getElementById('search-input').value===${JSON.stringify(compound)}`, 10000)) && (await addressHas({ view: 'board', q: compound })), { box: await boxText(), address: await addressParams() });
+    check('a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload', (await waitFor(`document.getElementById('search-input').value===${JSON.stringify(compound)}`, 10000)) && (await addressHas({ view: 'board', q: compound, isolate: '1' })), { box: await boxText(), address: await addressParams() });
 
     await open('/?q=zephyr&view=graph');
     check('a link opened with q and view=graph shows the graph and the query', (await waitFor(`document.querySelectorAll('.graph-node').length>0`, 10000)) && (await boxText()) === 'zephyr', { box: await boxText() });

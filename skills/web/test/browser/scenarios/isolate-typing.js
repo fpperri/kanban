@@ -113,7 +113,7 @@ module.exports = {
     check('the clear button empties the box and ends isolate, and every card is back', await switchIs(false) && await shows(BOARD, live), await nowShown(BOARD));
 
     // --- a ?q= link isolates in the Board, and lights in the Graph ------------------------------------------------
-    check('a ?q= link into the Board opens it', await goto(`/?view=board&q=${CASES.query}`, boardReady));
+    check('a ?q= link into the Board opens it', await goto(`/?view=board&q=${CASES.query}`, `document.getElementById('search-input').value==='${CASES.query}'&&document.querySelectorAll('#board .card-el').length>0`));
     check('and opens isolated: the switch is on and the Board shows the zephyr cards alone', await switchIs(true) && await shows(BOARD, CASES.cards) && await boxIs(CASES.query), await nowShown(BOARD));
     check('and the address says so', await waitFor(`new URLSearchParams(location.search).get('isolate')==='1'`), await ev(`location.search`));
     check('a ?q= link into the Graph opens it', await goto(`/?view=graph&q=${CASES.query}`, graphReady));
