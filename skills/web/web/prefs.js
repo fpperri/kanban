@@ -3,8 +3,10 @@
 // written to the board: what a plain click on a card does in each view (opens
 // the card, or selects it), whether archived leaves count as done in the
 // roll-ups, whether the search panel's pill section starts folded, whether its slice
-// section starts folded (it does, by default), and whether the panel opens when the
-// search box is focused (the arrow's switch and the p key flip the same choice). One
+// section starts folded (it does, by default), whether the panel opens when the
+// search box is focused (the arrow's switch and the p key flip the same choice), and, per
+// view, whether a query typed into the box turns isolate on (the panel's Typing isolates
+// checkboxes: on in every view but the Graph). One
 // entry per board under the app's per-board key, validated on every read, so a
 // hand-edited or stale value falls back to its default.
 //
@@ -25,6 +27,8 @@ const PREFS_CLICK_VIEWS = ['board', 'map', 'gantt', 'calendar'];
 const PREFS_CLICK_CHOICES = ['opens', 'selects'];
 // The Graph's plain click is always a selection; the sheet shows it fixed.
 const PREFS_GRAPH_CLICK = 'selects';
+// The views the panel's Typing isolates checkboxes cover: on in each but the Graph, where a typed query lights.
+const PREFS_TYPING_VIEWS = ['board', 'map', 'calendar', 'gantt', 'graph'];
 // The sheet's on/off settings, which mergePrefs and prefsWith both validate by this list.
 const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus'];
 
@@ -32,7 +36,9 @@ function prefsDefaults() {
   const click = {};
   for (const view of PREFS_CLICK_VIEWS) click[view] = 'opens';
   click.graph = PREFS_GRAPH_CLICK;
-  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true };
+  const typingIsolates = {};
+  for (const view of PREFS_TYPING_VIEWS) typingIsolates[view] = view !== 'graph';
+  return { click, typingIsolates, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true };
 }
 
 function prefsParse(saved) {
@@ -56,12 +62,17 @@ function mergePrefs(saved) {
       if (PREFS_CLICK_CHOICES.includes(choice)) prefs.click[view] = choice;
     }
   }
+  if (prefsIsObject(value.typingIsolates)) {
+    for (const view of PREFS_TYPING_VIEWS) {
+      if (Object.prototype.hasOwnProperty.call(value.typingIsolates, view) && typeof value.typingIsolates[view] === 'boolean') prefs.typingIsolates[view] = value.typingIsolates[view];
+    }
+  }
   for (const key of PREFS_BOOLEANS) if (typeof value[key] === 'boolean') prefs[key] = value[key];
   return prefs;
 }
 
 // The set with one change from the sheet applied: { click: { board: 'selects' } } or one
-// of the on/off settings, { archivedDone: false } and the like. The change goes through the same validation as a
+// of the on/off settings, { archivedDone: false } and the like, or { typingIsolates: { graph: true } }. The change goes through the same validation as a
 // stored value, so one the sheet cannot make (a bad choice, the Graph set to
 // opens) leaves the set as it was. The set passed in is not touched.
 function prefsWith(prefs, change) {
@@ -69,6 +80,10 @@ function prefsWith(prefs, change) {
   const click = prefsIsObject(change && change.click) ? change.click : {};
   for (const view of PREFS_CLICK_VIEWS) {
     if (Object.prototype.hasOwnProperty.call(click, view) && PREFS_CLICK_CHOICES.includes(click[view])) next.click[view] = click[view];
+  }
+  const typing = prefsIsObject(change && change.typingIsolates) ? change.typingIsolates : {};
+  for (const view of PREFS_TYPING_VIEWS) {
+    if (Object.prototype.hasOwnProperty.call(typing, view) && typeof typing[view] === 'boolean') next.typingIsolates[view] = typing[view];
   }
   for (const key of PREFS_BOOLEANS) if (change && typeof change[key] === 'boolean') next[key] = change[key];
   return next;
@@ -102,7 +117,7 @@ function saveMdColour(storage, on) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { PREFS_FEATURE, MD_COLOUR_KEY, loadMdColour, saveMdColour, PREFS_CLICK_VIEWS, PREFS_CLICK_CHOICES, PREFS_GRAPH_CLICK, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs };
+  module.exports = { PREFS_FEATURE, MD_COLOUR_KEY, loadMdColour, saveMdColour, PREFS_CLICK_VIEWS, PREFS_CLICK_CHOICES, PREFS_GRAPH_CLICK, PREFS_TYPING_VIEWS, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs };
 } else {
   window.PREFS_FEATURE = PREFS_FEATURE;
   window.MD_COLOUR_KEY = MD_COLOUR_KEY;
@@ -111,6 +126,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.PREFS_CLICK_VIEWS = PREFS_CLICK_VIEWS;
   window.PREFS_CLICK_CHOICES = PREFS_CLICK_CHOICES;
   window.PREFS_GRAPH_CLICK = PREFS_GRAPH_CLICK;
+  window.PREFS_TYPING_VIEWS = PREFS_TYPING_VIEWS;
   window.prefsDefaults = prefsDefaults;
   window.mergePrefs = mergePrefs;
   window.prefsWith = prefsWith;

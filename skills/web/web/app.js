@@ -670,7 +670,7 @@ function cardEl(card) {
   // status) — status is already implied
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
-  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (paintsSelected(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   el.draggable = !onPhoneLayout(); // a phone swipes between statuses; a touch never starts a native drag
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -759,7 +759,7 @@ function cardEl(card) {
 // order everywhere it appears: status, archived.
 function archiveCardEl(card) {
   const el = document.createElement('div');
-  el.className = 'card card-el archived-card' + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+  el.className = 'card card-el archived-card' + (paintsSelected(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   el.draggable = !onPhoneLayout(); // drag out of Archive restores to the drop column; no native drag on a phone
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -813,16 +813,25 @@ function currentSearchTerms() {
   return parseSearchQuery(input ? input.value : '', state.projectName);
 }
 
-// What the box matches, parsed and matched once: `terms` is the parse, `ids`
-// the Set of matching card ids, and null means no query. Matching runs over the
-// whole board, live and archived, because tree: and path: traverse both; each
-// view intersects `ids` with the cards it shows. renderBoard makes the result
-// once per render and every view reads it through currentSearchMatch(). A view
-// repainted on its own (calendar paging, a status pill) makes its own.
+// What the box matches, parsed and matched once: `terms` is the parse, `matched` the
+// Set of card ids the whole query matches, and null means no query. `ids` is the Set
+// of cards the box leaves in view, null when it hides nothing: the whole query's matches
+// where the box hides (the Graph, which works its own hiding out from them, and every
+// view while isolate is on), and only the slice: cut's otherwise (boxHidingTerms,
+// selection.js). `lit` is the Set the box lights with the selected look outside the Graph
+// while isolate is off (boxLightsMatches), null where it lights nothing. Matching runs over
+// the whole board, live and archived, because tree: and path: traverse both; each view
+// intersects `ids` with the cards it shows. renderBoard makes the result once per render
+// and every view reads it through currentSearchMatch(). A view repainted on its own
+// (calendar paging, a status pill) makes its own.
 let searchMatchMemo = null;
 // What the last renderBoard matched, kept after it so the jump to the nearest
 // match, which runs right after a repaint, reads it instead of matching again.
 let lastSearchMatch = null;
+// The cards the last renderBoard's box lit outside the Graph (`lit` of its match), which every
+// view paints with the selected look beside the selection (paintsSelected), including a view
+// repainted on its own. Null where the box lights nothing.
+let boxLitIds = null;
 
 // What a query resolves against: the nesting context, the board's hierarchy for slice: and its groups for group:.
 function searchCtx() {
@@ -835,7 +844,12 @@ function matchedIds(terms) {
 
 function computeSearchMatch() {
   const terms = currentSearchTerms();
-  return { terms, ids: terms.length ? matchedIds(terms) : null };
+  const matched = terms.length ? matchedIds(terms) : null;
+  if (!matched) return { terms, ids: null, matched: null, lit: null };
+  const where = { view: loadViewMode(), isolated: isolateNow() !== null };
+  const hiding = boxHidingTerms(terms, where);
+  const ids = hiding === terms ? matched : hiding.length ? matchedIds(hiding) : null;
+  return { terms, ids, matched, lit: boxLightsMatches(terms, where) ? matched : null };
 }
 
 function currentSearchMatch() {
@@ -1010,6 +1024,17 @@ function countArchivedLeaves() {
   return loadPrefsState().archivedDone;
 }
 
+// Whether a query typed into the box turns isolate on in a view: the panel's Typing isolates
+// checkboxes (prefs.js typingIsolates), on in every view but the Graph.
+function typingIsolatesIn(view) {
+  return loadPrefsState().typingIsolates[view] === true;
+}
+
+function setTypingIsolates(view, on) {
+  prefsMemo = prefsWith(loadPrefsState(), { typingIsolates: { [view]: on } });
+  savePrefsState();
+}
+
 function setClickPref(view, value) {
   prefsMemo = prefsWith(loadPrefsState(), { click: { [view]: value } });
   savePrefsState();
@@ -1146,6 +1171,7 @@ function setView(mode) {
   if (to === from) return;
   viewMode = to;
   saveViewMode();
+  isolateEndFollowing(to, typingIsolatesIn(to)); // an isolate the box's own query started ends in a view that lights what is typed
   const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   if (kept !== selectionState.selection) setSelection(kept);
@@ -1260,6 +1286,7 @@ function renderBoard() {
   renderIterations(); // the dropdown, before the views read the cut it makes
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
+  boxLitIds = searchMatchMemo.lit;
   try {
     setSelection(selectionFollowingBox(selectionState.selection)); // what the view shows may have changed: a pill, the box, a view switch, a poll
     renderBoardColumns();
@@ -1311,7 +1338,7 @@ function renderBoardColumns() {
   board.innerHTML = '';
   const collapsed = loadCollapsedColumns();
   const colSort = loadColumnSort();
-  const searchActive = currentSearchMatch().ids !== null;
+  const searchActive = currentSearchMatch().matched !== null; // the box holds a query, whether it hides, lights or both
   const searchIds = withIterationCut(currentSearchMatch().ids); // the picked iteration cuts the columns on top of the box, which it never writes
   const narrowed = searchIds !== null;
   const clearBtn = $('#search-clear-btn');
@@ -1356,7 +1383,7 @@ function renderBoardColumns() {
     colEl.className = `column${colClass}` +
       (isCollapsed ? ' collapsed' : '') +
       (isArchive ? ' archive-column' : '') +
-      (searchActive && cards.length > 0 ? ' search-match' : '');
+      (searchActive && (boxLitIds ? cards.some((c) => boxLitIds.has(c.id)) : cards.length > 0) ? ' search-match' : '');
     colEl.dataset.col = col;
     colEl.title = label; // native tooltip; matters most while collapsed
     // Sort controls share the header with the collapse toggle —
@@ -2009,7 +2036,7 @@ function buildMapSvg(graph, layer, draw) {
     const pb = (!missing && !n.archived) ? priorityBadge(n, state.priorities) : { className: '' };
     const cls = `map-node${n.ghost ? ' ghost' : ''}${missing ? ' missing' : ''}${n.archived ? ' archived' : ''}` +
       `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}` +
-      `${selectable ? ' card-el' : ''}${selectable && selectedIds.has(id) ? ' selected' : ''}` +
+      `${selectable ? ' card-el' : ''}${selectable && paintsSelected(id) ? ' selected' : ''}` +
       `${selectable && isHoverHighlighted(hoveredId, id) ? ' hover-highlight' : ''}`;
     const idLabel = n.external ? n.external : `#${id}`;
     // Same empty-title-shows-the-prompt fallback every
@@ -3506,7 +3533,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
 // on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'slice', 'isolate', 'link', 'prefill' and 'selection'. It sets the
+// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'prefill' and 'selection'. A write that carries a
+// query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
+// Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping, isolate.js). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
@@ -3522,6 +3551,8 @@ function onSearchWrite(listener) {
 function writeSearch(text, reason, repaint = true) {
   const input = $('#search-input');
   if (!input) return;
+  if (typingTurnsIsolateOn({ reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()) })) isolateFromTyping(text); // before the repaint, so it and every listener see isolate on
+  isolateEndIfEmptied(text, reason); // and off, when the write leaves the box with no query
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
   if (repaint) {
     pendingWriteReason = reason;
@@ -3577,7 +3608,7 @@ onSearchWrite(followSearchInAddress);
 //
 // A write by hand, typing or the clear button, also takes a pill off when the box no
 // longer holds its query (selectionAfterBoxEdit, selection.js), in every view. A
-// pill's own write (the reason 'pill') changes the selection and the box together
+// pill's own write (the reason 'pill', or 'unpill' when it takes a pill out and turns none on) changes the selection and the box together
 // first, so the box is not taken for a typed search: a pill's query is not the typed
 // anchor, and stays the anchor when the Graph is left. Isolate's own write (the reason
 // 'isolate') leaves the selection as it is, and while isolate is on the box holds the
@@ -3587,7 +3618,7 @@ let pendingWriteReason = null;
 function selectionFollowingBox(selection) {
   const reason = pendingWriteReason;
   pendingWriteReason = null;
-  if (!reason || reason === 'pill' || reason === 'isolate') return selection;
+  if (!reason || reason === 'pill' || reason === 'unpill' || reason === 'isolate') return selection;
   const text = $('#search-input').value;
   const isolated = isolateNow() !== null;
   if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
@@ -3643,7 +3674,7 @@ function moveSelectionTo(next, from = selectionState.selection) {
     const cut = searchCutOnly(box);
     writeSearch(cut, cut ? 'slice' : 'selection'); // a cut is no search: it never becomes the anchor the step has just dropped
   }
-  else if (shrunk !== box) writeSearch(shrunk, 'pill');
+  else if (shrunk !== box) writeSearch(shrunk, 'unpill'); // a pill taken out turns nothing on
   else renderBoard();
 }
 
@@ -3732,11 +3763,12 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // The cards the query matches among those the view shows, as a Set of ids; null with no query. The Graph
-// shows every card and lights the matches, so there it is the lit ones that are shown.
+// shows every card and lights the matches, so there it is the lit ones that are shown; with isolate off
+// the other views light them and hide nothing, so it is what the whole query matches.
 function searchEnterMatchIds() {
   const match = currentSearchMatch();
-  if (!match.ids) return null;
-  const pool = loadViewMode() === 'graph' ? currentGraphQueryEffect().litIds : match.ids;
+  if (!match.matched) return null;
+  const pool = loadViewMode() === 'graph' ? currentGraphQueryEffect().litIds : match.matched;
   if (!pool) return null;
   const shown = shownCardIds();
   return new Set([...pool].filter((id) => shown.has(id)));
@@ -4348,7 +4380,7 @@ function calendarChipEl(card, pos, time, isDue) {
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') +
     (card.archived ? ' archived' : '') +
     (overdue ? ' overdue' : '') +
-    (selectedIds.has(card.id) ? ' selected' : '') +
+    (paintsSelected(card.id) ? ' selected' : '') +
     (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
   // An archived card is
   // read-only — native drag simply never starts (no fake-drag animation to
@@ -5234,8 +5266,14 @@ function shiftGanttWindow(delta) {
 // reads the match that repaint made (lastSearchMatch) and the box is matched
 // once per write; a write that repaints nothing (writeSearch's repaint false)
 // clears it, and the check matches the box itself. A view that moved repaints on its own.
+// The jump looks for what the whole query matches, though with isolate off the box hides
+// nothing there (only the cards it matches are lit).
+function matchedOnly(match) {
+  return { ...match, ids: match.matched };
+}
+
 function jumpCalendarToMatch() {
-  const input = calendarViewInput(lastSearchMatch || currentSearchMatch());
+  const input = calendarViewInput(matchedOnly(lastSearchMatch || currentSearchMatch()));
   const day = nearestMatchDay(input, calendarVisibleRange(loadCalendarSubview(), currentCalendarAnchor()));
   if (!day) return false;
   calendarAnchor = day;
@@ -5243,7 +5281,7 @@ function jumpCalendarToMatch() {
 }
 
 function jumpGanttToMatch() {
-  const input = ganttViewInput(lastSearchMatch || currentSearchMatch());
+  const input = ganttViewInput(matchedOnly(lastSearchMatch || currentSearchMatch()));
   const day = ganttNearestMatchDay(input, loadGanttSubview(), currentGanttAnchor());
   if (!day) return false;
   ganttAnchor = day;
@@ -5325,7 +5363,7 @@ function ganttBarEl(bar, win, dayPx) {
   const colorStatus = bar.card.archived ? 'archive' : bar.card.status;
   el.className = `gantt-bar card-el status-${mapStatusClass(colorStatus)}` + // bars join the shared card-el grammar
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(bar.card) ? ' waiting' : '') +
-    (selectedIds.has(bar.card.id) ? ' selected' : '') +
+    (paintsSelected(bar.card.id) ? ' selected' : '') +
     (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '') +
     (bar.card.archived ? ' archived' : '') + // an archived bar is drag-read-only — CSS swaps the grab cursor for not-allowed
     (clipStart ? ' clip-start' : '') + (clipEnd ? ' clip-end' : '');
@@ -5549,7 +5587,7 @@ function renderGanttView() {
       // ctrl/shift-click select, right-click menus, exactly like the bar itself
       // (cheap parity, and the only way to reach
       // a bar that's entirely outside the clamped window).
-      label.className = 'gantt-row gantt-label card-el' + (selectedIds.has(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '');
+      label.className = 'gantt-row gantt-label card-el' + (paintsSelected(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '');
       label.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
       label.dataset.id = bar.card.id;
       // Same fallback every other view uses — reused via
@@ -5985,6 +6023,14 @@ let selectionState = { selection: NO_SELECTION, rangeStart: null };
 // What every view paints from and every bulk edit reads: the ids the selection
 // stands for in the view being shown, derived by setSelection.
 let selectedIds = new Set();
+
+// Whether a view paints a card with the selected look: it is selected, or the box lights it
+// (boxLitIds: outside the Graph, with isolate off, the cards the box matches). The look is
+// all the box's matches get; they are no selection, and no action reads them.
+function paintsSelected(id) {
+  return selectedIds.has(id) || (boxLitIds !== null && boxLitIds.has(id));
+}
+
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
 let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
 
@@ -6254,7 +6300,8 @@ function addCardToSelection() {
 // when that card is inside the selection, is written to the box as if it were typed (writeSearch,
 // reason 'typing'). It replaces what the box held but for its run of slices, so the Graph lights
 // the set and the other views show only it; the selection follows as a typed search does, and
-// isolate is left as typing into the box leaves it (on, it keeps the term as its text). A Shift
+// isolate follows the view's Typing isolates as typing into the box does (on, it keeps the term as its
+// text; off, the box lights the set). A Shift
 // pick (a Shift-click, or Shift+Enter on the focused item, which the browser clicks with Shift
 // held) adds the term to what the box holds as one more alternative (searchAddAlt), so an empty
 // box takes it as a plain pick does.

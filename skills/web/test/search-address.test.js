@@ -26,8 +26,12 @@ const BOARD = {
   archived: [],
 };
 
-async function openAt(search = '') {
-  const page = loadPage({ board: BOARD, search });
+// The address follows the box whether or not isolate is on; `typing` is whether the Board's Typing
+// isolates is on. These tests are about q alone, so it is off unless a test says otherwise: with it
+// on, a query put in the box by the person turns isolate on and `isolate=1` stands beside q.
+async function openAt(search = '', { typing = false } = {}) {
+  const stored = { 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing, map: typing } }) };
+  const page = loadPage({ board: BOARD, search, stored });
   const session = attachSessionHistory(page);
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
@@ -65,6 +69,22 @@ test('typing puts the box\'s text in the address as q, one keystroke at a time, 
   assert.strictEqual(session.pushes, 0, 'typing pushed no history entry');
   assert.strictEqual(session.entries.length, lengthBefore, 'and the history is no longer');
   assert.strictEqual(session.replaces, 6, 'each keystroke replaced the entry it is on');
+});
+
+test('with Typing isolates on, typing puts isolate=1 in the address beside q, and the clear button takes both out', async () => {
+  const { page, session } = await openAt('?view=board', { typing: true });
+  page.input.typed('zephyr');
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'board', q: 'zephyr', isolate: '1' });
+  assert.strictEqual(session.pushes, 0, 'typing pushed no history entry');
+  page.clear.fire('click');
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'board' });
+});
+
+test('with Typing isolates on, a link opened with q is isolated, and its address says so', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=board', { typing: true });
+  assert.strictEqual(page.input.value, 'zephyr');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1' });
+  assert.strictEqual(session.pushes, 0);
 });
 
 test('a write that leaves q as it is replaces nothing', async () => {

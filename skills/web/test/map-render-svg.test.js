@@ -53,6 +53,7 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
     isHoverHighlighted: () => false,
     hoveredId: null,
     selectedIds: new Set(),
+    paintsSelected: (id) => sandbox.selectedIds.has(id),
     state: { priorities: CTX.priorities, types: [] },
     typeBadge: typeBadge.typeBadge,
     altitudeBadge: rollups.altitudeBadge,

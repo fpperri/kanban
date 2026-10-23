@@ -70,7 +70,7 @@ test('the page loads the isolate script after the panel\'s scripts and before th
 test('the script writes the box through the one writer, with the reason isolate, and in no other way', () => {
   const src = code(isolateSrc);
   const writes = [...src.matchAll(/writeSearch\(([^)]*)\)/g)].map((m) => m[1]);
-  assert.deepStrictEqual(writes, ["text, 'isolate'", "text, 'isolate'"], 'turning it on and turning it off');
+  assert.deepStrictEqual(writes, ["box, 'isolate'", "text, 'isolate'", "text, 'isolate'"], 'turning it on for a query the box lights, turning it on for a selection, and turning it off');
   assert.doesNotMatch(src, /\.value\s*=[^=]/, 'never assigns the box');
   assert.doesNotMatch(src, /setSelection\(/, 'isolate is no selection state: it never writes the selection');
 });

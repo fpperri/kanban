@@ -493,6 +493,44 @@ function isolateAfterWrite(isolate, text, reason) {
   return String(text == null ? '' : text).trim() ? isolate : null;
 }
 
+// --- What the box does, hiding and lighting ---------------------------------------
+// The box says what, isolate says hide or light, in every view. In the Graph the box lights its
+// matches and hides only by a slice: cut (graphQueryEffect, graph-model.js), and while isolate is
+// on the whole query is the cut. Every other view reads the same rule: with isolate off the box
+// hides only by the slice: terms that stand on their own in the query, and its other terms light
+// the cards they match, with the selected look; with isolate on the whole query hides. A cut
+// hides in every view whatever isolate is.
+
+// The terms of the box that hide cards in `view`. The Graph's own effect works its hiding out
+// from the whole query and the isolate flag, so there it is every term. The array comes back
+// as it was given when every term hides, and empty when none does.
+function boxHidingTerms(terms, { view, isolated }) {
+  const all = Array.isArray(terms) ? terms : [];
+  if (view === 'graph' || isolated) return all;
+  return all.filter((t) => t && t.field === 'slice');
+}
+
+// Whether the box lights its matches outside the Graph: isolate is off and the query holds
+// something besides a cut, which is no search and lights nothing.
+function boxLightsMatches(terms, { view, isolated }) {
+  if (view === 'graph' || isolated) return false;
+  return (Array.isArray(terms) ? terms : []).some((t) => t && t.field !== 'slice');
+}
+
+// The writes that carry a query the person made: typing, a pill, a cue on a card and a ?q= link.
+// The others (the clear button, the Ctrl+F prefill, a slice, a click's selection, isolate's own
+// write) say nothing to turn isolate on.
+const ISOLATING_REASONS = ['typing', 'pill', 'cue', 'link'];
+
+// Whether a write to the box turns isolate on: it carries a query, isolate is off, and the view
+// being shown has Typing isolates on (prefs.js typingIsolates; on by default in every view but
+// the Graph, so typing filters the Board and lights in the Graph). `setting` is that view's
+// choice, and `text` is what was written without its run of slices (searchSplitSlice, search.js):
+// a cut alone is no query to isolate.
+function typingTurnsIsolateOn({ reason, text, isolated, setting }) {
+  return !isolated && setting === true && ISOLATING_REASONS.includes(reason) && String(text == null ? '' : text).trim() !== '';
+}
+
 // What the browser keeps, per board, while isolate is on: the text the box held before isolating
 // (what turning isolate off gives back) and the isolate text the box held when it was last
 // written, as one JSON string. The text says which isolate the previous text belongs to.
@@ -521,7 +559,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -549,6 +587,9 @@ if (typeof module !== 'undefined' && module.exports) {
   window.pruneSelectionParts = pruneSelectionParts;
   window.boxAfterGraphClick = boxAfterGraphClick;
   window.isolateAfterWrite = isolateAfterWrite;
+  window.boxHidingTerms = boxHidingTerms;
+  window.boxLightsMatches = boxLightsMatches;
+  window.typingTurnsIsolateOn = typingTurnsIsolateOn;
   window.isolateRecord = isolateRecord;
   window.isolatePreviousFrom = isolatePreviousFrom;
   window.cardMenuFor = cardMenuFor;

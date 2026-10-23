@@ -10,7 +10,8 @@
 // regions, each drawn on its own so that what joins the panel later extends one
 // without editing another: the slice section (#search-slices, with its fold control,
 // drawn by search-slices.js), the pill section (#search-pills, with its fold control), a
-// divider, and a foot (#search-foot, which holds the Isolate switch: isolate.js).
+// divider, and a foot (#search-foot, which holds the Isolate switch and the Typing isolates
+// checkboxes, one per view: isolate.js).
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here: the three built-ins, then the board's own pills (state.pills, the config's
@@ -49,7 +50,7 @@
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
 // searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
 // page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
-// (isolateNow, syncIsolateSwitch), search-slices.js (renderSearchSlices,
+// (isolateNow, syncIsolateSwitch, syncTypingIsolates), search-slices.js (renderSearchSlices,
 // searchSlicesChipNames), the search module (searchOtherBoardMentions, searchTermText and the alternatives and slice
 // functions: searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchAddAlt,
 // searchRemoveGrownAlt),
@@ -233,6 +234,7 @@ function renderSearchPanel() {
   renderSearchSlices();
   syncSearchSwitch();
   syncIsolateSwitch();
+  syncTypingIsolates();
   const selection = selectionState.selection;
   const host = $('#search-pills');
   if (searchPanelOpen && host) syncPillButtons(host, searchPanelRows(), selection);
@@ -384,7 +386,7 @@ const foldSearchPills = pillsFold.set;
 
 // Carries out what selection.js decides for a click ('toggle') or a right-click
 // ('solo') on the pill with this key: the selection and the text of the box change
-// together, and the box is written with the reason 'pill', so the repaint does not
+// together, and the box is written with the reason 'pill' (or 'unpill' when no pill came on), so the repaint does not
 // take it for a typed search. A run of slices in the box is not the pills' to change: it
 // is set apart for the gesture and put back after it, but for the cut a pill held in its
 // own query (a board pill `slice:goal`), which goes with the pill when the gesture
@@ -402,7 +404,9 @@ function applyPillGesture(gesture, key) {
   const cut = pillQueriesDropped(before, next.selection).flatMap((query) => searchSplitSlice(query).slices);
   const slices = searchWithoutCuts(held, cut);
   setSelection(next.selection, next.rangeStart);
-  writeSearch(searchJoinSlice(next.boxText, slices), 'pill');
+  const pillQueries = (selection) => partsOf(selection).filter((part) => part.kind === 'query' && !part.source).map((part) => part.text);
+  const turnedOn = pillQueries(next.selection).some((query) => !pillQueries(before).includes(query));
+  writeSearch(searchJoinSlice(next.boxText, slices), turnedOn ? 'pill' : 'unpill'); // turning a pill off leaves isolate as it was
 }
 
 // The m key: one step through the pills, forward (1) or back (-1). The step is a solo, as a

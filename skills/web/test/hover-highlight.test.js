@@ -48,20 +48,20 @@ test('board tile: cardEl reads hoveredId via isHoverHighlighted and is Tab-reach
 });
 
 test('archived tile: archiveCardEl carries the same hover-highlight + tabIndex pair', () => {
-  assert.match(appJs, /archived-card' \+ \(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /archived-card' \+ \(paintsSelected\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
 test('calendar chip: calendarChipEl (shared by the month grid AND the sub-month grids) carries hover-highlight + tabIndex', () => {
-  assert.match(appJs, /\(selectedIds\.has\(card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /\(paintsSelected\(card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoveredId, card\.id\) \? ' hover-highlight' : ''\);/);
   assert.match(appJs, /el\.tabIndex = 0; \/\/ reachable by Tab so the hover cue isn't pointer-only \(kanban\.proj#261\)\s*\n\s*el\.dataset\.id = card\.id;/);
 });
 
 test('gantt bar: ganttBarEl carries hover-highlight + tabIndex, gated the same as .selected', () => {
-  assert.match(appJs, /\(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\) \+/);
+  assert.match(appJs, /\(paintsSelected\(bar\.card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\) \+/);
 });
 
 test('gantt gutter label: shares the bar\'s hover-highlight + tabIndex, same card-el parity .selected already has', () => {
-  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(selectedIds\.has\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(paintsSelected\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoveredId, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
 test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — ghost/missing stubs stay inert', () => {
