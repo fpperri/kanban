@@ -279,9 +279,15 @@ test('the Graph does not take the box the click wrote for a typed search, on a r
   assert.strictEqual(b.box(), '#2 | #5');
 });
 
-test('a click moves no Calendar or Gantt: the nearest-match jump listens to every write but the click\'s', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /onSearchWrite\(\(text, reason\) => \{ if \(reason !== 'mirror'\) moveViewToNearestMatch\(\); \}\);/);
+test('a click moves no Calendar or Gantt: the nearest-match jump listens to every write but the click\'s', async () => {
+  const s = await open();
+  let jumps = 0;
+  s.page.ctx.moveViewToNearestMatch = () => { jumps++; };
+  s.ctrlClick(2);
+  s.nodeClick(5);
+  assert.strictEqual(jumps, 0);
+  s.type('zephyr');
+  assert.strictEqual(jumps, 1);
 });
 
 test('Esc with focus in the box ends where repeated Esc does: an empty box, nothing selected, isolate off, so the next click starts clean', async () => {

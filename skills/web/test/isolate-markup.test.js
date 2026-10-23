@@ -99,11 +99,7 @@ test('the Graph\'s one decision about a query is told whether isolate is on', ()
   assert.match(appSrc.match(/function currentGraphQueryEffect\([\s\S]*?\n\}/)[0], /\{ isolated: isolateNow\(\) !== null \}/);
 });
 
-test('a write with the reason isolate leaves the selection as it is, and so does any write while a typed search could take it over', () => {
-  const body = appSrc.match(/function selectionFollowingBox\([\s\S]*?\n\}/)[0];
-  assert.match(body, /reason === 'isolate'/);
-  assert.match(body, /!isolated/, 'the isolate text never becomes the typed anchor');
-});
+// A write with the reason isolate leaves the selection as it is, in the Graph too: write-reasons.test.js.
 
 test('Esc stops the browser\'s own Esc with isolate on, in the step that ends the chain after the held-key check, and the step reads the flag', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
@@ -191,11 +187,8 @@ test('the script wires the group once, reads and writes the choice through the p
   assert.match(read('search-panel.js'), /syncTypingIsolates\(\);/, 'every repaint of the board keeps the boxes right');
 });
 
-test('the writer asks the pure decision, and the view switch ends an isolate the box started', () => {
-  assert.match(appSrc, /typingTurnsIsolateOn\(\{ reason, text: searchSplitSlice\(String\(text\)\)\.rest, isolated: isolateNow\(\) !== null, setting: typingIsolatesIn\(loadViewMode\(\)\) \}\)\) isolateFromTyping\(text\)/);
-  assert.match(appSrc, /isolateEndIfEmptied\(text, reason\);/);
-  assert.match(appSrc.match(/function setView\([\s\S]*?\n\}/)[0], /isolateEndFollowing\(to, typingIsolatesIn\(to\)\)/);
-});
+// The writer turns isolate on before the repaint and a view switch ends and starts the isolate the box's own query
+// made: write-reasons.test.js and isolate.test.js.
 
 test('every view paints a lit card with the selected look through one predicate, and the Graph keeps its own', () => {
   assert.match(appSrc, /function paintsSelected\(id\) \{\s*return selectedIds\.has\(id\) \|\| \(boxLitIds !== null && boxLitIds\.has\(id\)\);/);

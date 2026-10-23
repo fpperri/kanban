@@ -486,7 +486,7 @@ function pillQueriesDropped(before, after) {
 // pill turned off) ends it. Its own writes, turning it on and off, never do: the page
 // ends it itself when it gives the box its text back.
 function isolateAfterWrite(isolate, text, reason) {
-  if (!isolate || reason === 'isolate') return isolate;
+  if (!isolate || writeIsIsolateSwitch(reason)) return isolate;
   return String(text == null ? '' : text).trim() ? isolate : null;
 }
 
@@ -514,10 +514,56 @@ function boxLightsMatches(terms, { view, isolated }) {
   return (Array.isArray(terms) ? terms : []).some((t) => t && t.field !== 'slice');
 }
 
+// --- Why the box was written ------------------------------------------------------------------
+// Every write to the box goes through writeSearch(text, reason) in app.js, and the reason is the one
+// thing the listeners and the selection read to decide what the write means. The rule for each kind of
+// reason lives here, once, as a name and a predicate; nothing else lists reasons.
+//
+//   typing    a keystroke in the box
+//   clear     the clear button
+//   cue       a click on a tag, assignee or sticker cue on a card
+//   pill      a pill turned on (or off, with another one on), changing the selection and the box together
+//   unpill    a pill taken out with none turned on (a click, or Esc's step)
+//   slice     the slice section, a run of `slice:` terms that is a cut and no search
+//   isolate   the switch, the i key or a menu entry, turning isolate on or off
+//   mirror    a click that selects, Add to selection, Esc's step down and a view switch writing the
+//             selection as its own text
+//   hover     Space on a hovered card writing its sets
+//   link      a ?q= link, isolated where the view's Typing isolates is on
+//   link-lit  a ?q= link with isolate=0, opened lit (linkWriteReason)
+//   prefill, selection, menu   the Ctrl+F prefill, a step that leaves only a cut, a menu item
+
 // The writes that carry a query the person made: typing, a pill, a cue on a card and a ?q= link.
 // The others (the clear button, the Ctrl+F prefill, a slice, a click's selection, isolate's own
-// write) say nothing to turn isolate on.
+// write, a link that opens lit) say nothing to turn isolate on.
 const ISOLATING_REASONS = ['typing', 'pill', 'cue', 'link'];
+
+// The writes that settle the selection themselves or are its own text: the box they leave is never a
+// typed search, and the selection stays as the write made it.
+const SELECTION_OWN_REASONS = ['pill', 'unpill', 'isolate', 'mirror'];
+
+// The writes by hand that take a pill off when the box no longer holds its query. A Space write is one:
+// it replaces what the box held.
+const PILL_EDITING_REASONS = ['typing', 'clear', 'hover'];
+
+// A write with no reason, or one that settles the selection itself, leaves the selection as it is.
+function writeKeepsSelection(reason) {
+  return !reason || SELECTION_OWN_REASONS.includes(reason);
+}
+
+function writeIsCut(reason) { return reason === 'slice'; }
+
+function writeEditsPills(reason) { return PILL_EDITING_REASONS.includes(reason); }
+
+function writeIsIsolateSwitch(reason) { return reason === 'isolate'; }
+
+// A click's write moves the box, never the page the Calendar or the Gantt is on; every other write may
+// make the view jump to the nearest match.
+function writeSkipsJump(reason) { return reason === 'mirror'; }
+
+// The reason a ?q= link is written with: isolate=0 opens it lit, so it turns nothing on; a link without
+// the parameter is isolated where the view isolates what is typed.
+function linkWriteReason(isolateOff) { return isolateOff ? 'link-lit' : 'link'; }
 
 // Whether a write to the box turns isolate on: it carries a query, isolate is off, and the view
 // being shown has Typing isolates on (prefs.js typingIsolates; on by default in every view but
@@ -556,7 +602,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -587,6 +633,12 @@ if (typeof module !== 'undefined' && module.exports) {
   window.boxHidingTerms = boxHidingTerms;
   window.boxLightsMatches = boxLightsMatches;
   window.typingTurnsIsolateOn = typingTurnsIsolateOn;
+  window.writeKeepsSelection = writeKeepsSelection;
+  window.writeIsCut = writeIsCut;
+  window.writeEditsPills = writeEditsPills;
+  window.writeIsIsolateSwitch = writeIsIsolateSwitch;
+  window.writeSkipsJump = writeSkipsJump;
+  window.linkWriteReason = linkWriteReason;
   window.isolateRecord = isolateRecord;
   window.isolatePreviousFrom = isolatePreviousFrom;
   window.cardMenuFor = cardMenuFor;

@@ -216,8 +216,8 @@ function onIsolateKey(e) {
 // the text it would give back.
 function isolateOnWrite(text, reason) {
   const next = isolateAfterWrite(isolateFlag, text, reason);
-  if (next && next.following && reason !== 'isolate') next.previous = text; // the box's query is what isolate off gives back
-  if (next && reason !== 'isolate') saveIsolateRecord(next.previous, text); // the kept text goes with the isolate text the box holds now
+  if (next && next.following && !writeIsIsolateSwitch(reason)) next.previous = text; // the box's query is what isolate off gives back
+  if (next && !writeIsIsolateSwitch(reason)) saveIsolateRecord(next.previous, text); // the kept text goes with the isolate text the box holds now
   if (next === isolateFlag) return;
   isolateFlag = next;
   if (!next) forgetIsolateRecord();

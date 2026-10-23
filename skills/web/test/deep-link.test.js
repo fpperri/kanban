@@ -143,7 +143,7 @@ const CONSUME = (() => {
 
 test('consumeDeepLink writes q into the search box through its writer, which re-renders', () => {
   assert.match(CONSUME, /link\.q/, 'consumeDeepLink never reads link.q');
-  assert.match(CONSUME, /writeSearch\(link\.q, link\.isolateOff \? 'link-lit' : 'link'\)/, 'the query is not written into the box through the writer');
+  assert.match(CONSUME, /writeSearch\(link\.q, linkWriteReason\(link\.isolateOff\)\)/, 'the query is not written into the box through the writer, with the reason the selection module names');
   assert.match(CONSUME, /else if \(link\.view\) renderBoard\(\);/, 'a view-only link never re-renders');
 });
 

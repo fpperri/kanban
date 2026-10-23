@@ -68,6 +68,6 @@ test('the page wires the write: the listener is on the document, the reason is n
   assert.match(ui, /writeSearch\(text, 'hover'\)/);
   const graph = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
   assert.match(graph, /hotkeySpace\(e\) === 'select'/);
-  const app = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'app.js'), 'utf8');
-  assert.match(app, /reason !== 'typing' && reason !== 'clear' && reason !== 'hover'/);
+  const { writeEditsPills } = require('../web/selection');
+  assert.strictEqual(writeEditsPills('hover'), true, 'a Space write replaces what the box held, so it takes a pill off');
 });

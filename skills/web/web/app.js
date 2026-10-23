@@ -1171,19 +1171,21 @@ function setView(mode) {
   if (to === from) return;
   viewMode = to;
   saveViewMode();
-  isolateEndFollowing(to, typingIsolatesIn(to)); // an isolate the box's own query started ends in a view that lights what is typed
-  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
-  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
+  isolateEndFollowing(to, typingIsolatesIn(to)); // an isolate the box's own query started ends where the view lights what is typed
+  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, never the anchor
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a Graph search is no anchor elsewhere
   const before = selectionState.selection;
   if (kept !== before) setSelection(kept);
   const picked = partsOf(kept).some((part) => part.kind !== 'query'); // cards, paths and trees: the box says them in every view
   const unsaid = !searchBoxMirrors($('#search-input').value, partsOf(kept));
-  if (boxMirrorsSelection() && partsOf(kept).length && unsaid && (kept !== before || picked)) mirrorSelectionInBox(before); // what is picked goes with the person to the next view with the box saying so; a typed search left alone goes on filtering
-  else {
-    isolateStartFollowing(typingIsolatesIn(to)); // a query typed in the box isolates where this view's Typing isolates is on
+  const mirrors = boxMirrorsSelection() && partsOf(kept).length && unsaid && (kept !== before || picked);
+  if (mirrors) {
+    mirrorSelectionInBox(before); // what is picked goes with the person to the next view, the box saying so
+  } else {
+    isolateStartFollowing(typingIsolatesIn(to)); // a typed query isolates where this view's Typing isolates is on
     renderBoard();
   }
-  followSearchInAddress($('#search-input').value); // the address says isolate=0 where this view's Typing isolates is on and nothing elsewhere
+  followSearchInAddress($('#search-input').value); // isolate=0 where this view's Typing isolates is on, nothing elsewhere
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
@@ -2626,7 +2628,8 @@ function consumeDeepLink() {
     // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
     // and the listeners told of it (the address, the chip) see it on.
     if (link.isolate) isolateFromLink(link.q);
-    writeSearch(link.q, link.isolateOff ? 'link-lit' : 'link'); // isolate=0 opens it lit; no parameter is an old link, isolated where the view isolates
+    // isolate=0 opens it lit; no parameter is an old link, isolated where the view isolates.
+    writeSearch(link.q, linkWriteReason(link.isolateOff));
   } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
@@ -3542,13 +3545,11 @@ window.addEventListener('DOMContentLoaded', () => {
 // The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
-// on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'link-lit', 'prefill', 'selection', 'mirror' (a click
-// that selects writes the selection as its own text) and 'hover' (Space on a hovered card writes its sets as
-// typing writes, but never turns isolate on: neither is among ISOLATING_REASONS, selection.js). A write that carries a
-// query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
-// Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping, isolate.js). It sets the
-// box, repaints the board, then tells each listener (text, reason). Code that
+// on empty space) all come through writeSearch(text, reason). What each reason means, and every rule
+// that reads one, is in selection.js ("Why the box was written": ISOLATING_REASONS, writeKeepsSelection,
+// writeEditsPills, writeSkipsJump, ...). A write that carries a query the person made turns isolate on
+// first where the view's Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping,
+// isolate.js). It sets the box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
 // whose caller paints in place passes repaint false (a click in the Graph that
@@ -3563,7 +3564,8 @@ function onSearchWrite(listener) {
 function writeSearch(text, reason, repaint = true) {
   const input = $('#search-input');
   if (!input) return;
-  if (typingTurnsIsolateOn({ reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()) })) isolateFromTyping(text); // before the repaint, so it and every listener see isolate on
+  const turnsOn = typingTurnsIsolateOn({ reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()) });
+  if (turnsOn) isolateFromTyping(text); // before the repaint, so it and every listener see isolate on
   isolateEndIfEmptied(text, reason); // and off, when the write leaves the box with no query
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
   if (repaint) {
@@ -3651,12 +3653,12 @@ function mirrorSelectionInBox(from, repaint = true) {
 function selectionFollowingBox(selection) {
   const reason = pendingWriteReason;
   pendingWriteReason = null;
-  if (!reason || reason === 'pill' || reason === 'unpill' || reason === 'isolate' || reason === 'mirror') return selection;
+  if (writeKeepsSelection(reason)) return selection;
   const text = $('#search-input').value;
   const isolated = isolateNow() !== null;
-  if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
+  if (writeIsCut(reason)) return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
   const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
-  if (reason !== 'typing' && reason !== 'clear' && reason !== 'hover') return followed;
+  if (!writeEditsPills(reason)) return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
 
@@ -5346,7 +5348,8 @@ function moveViewToNearestMatch() {
   else if (mode === 'gantt' && jumpGanttToMatch()) renderGanttView();
 }
 
-onSearchWrite((text, reason) => { if (reason !== 'mirror') moveViewToNearestMatch(); }); // a click on a card moves the box, never the page the view is on
+// A click on a card moves the box, never the page the view is on.
+onSearchWrite((text, reason) => { if (!writeSkipsJump(reason)) moveViewToNearestMatch(); });
 
 const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 
