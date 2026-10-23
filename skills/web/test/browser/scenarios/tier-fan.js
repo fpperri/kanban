@@ -10,7 +10,8 @@
 // A caption shows its name alone and is a tab stop: the pointer or keyboard focus on
 // it shows a tooltip with the number of its cards, how they split by status and, for
 // a tier or a depth, the slice: term that cuts to it. Typing that term cuts the
-// Graph to the cards of the band.
+// Graph to the cards of the band. A cut that leaves out the top tiers draws none of their rings,
+// arcs or names, and the fan closes in on the depths it keeps.
 // Around the dots the fan also draws a guide arc for each band, a divider between
 // sectors, a caption for the loose cards that have a tier, outside the rim, and
 // the block's title and a caption for each of its columns. No two captions
@@ -91,6 +92,10 @@ const CASES = {
 
 // id -> { x, y } of every dot in the Graph, null where a translate is not a number.
 const DOTS = `(()=>{const out={};for(const n of document.querySelectorAll('#graph-view .graph-node')){const m=/translate\\(([-\\d.e]+) ([-\\d.e]+)\\)/.exec(n.getAttribute('transform')||'');out[n.dataset.id]=m?{x:Number(m[1]),y:Number(m[2])}:null}return out})()`;
+
+// The inner edge of the first band drawn.
+const FIRST_BAND = `graphCur.layout.bands.length?graphCur.layout.bands[0].r0:0`;
+const bandsAre = (n) => `!!graphCur&&graphCur.layout.bands.length===${n}`;
 
 // The outer edge of every tier band, tier 1 first, and of the last band of all (the ring of
 // unnested cards has no slice, and is the last band when it is drawn).
@@ -234,6 +239,8 @@ module.exports = {
   CASES,
   DOTS,
   BAND_EDGES,
+  FIRST_BAND,
+  bandsAre,
   FAN_MARKS,
   NO_COUNT,
   BLUR,
@@ -344,6 +351,7 @@ module.exports = {
       check('plan: one caption per non-empty depth follows, in depth order', sameList(names(depthCaps), plan.depthNames)
         && sameList(depthCaps.map((c) => c.count), plan.depths.map((ids) => ids.length)) && depthCaps.every((c, i) => c.y < (i ? depthCaps[i - 1].y : (tierCaps[tierCaps.length - 1] || { y: 0 }).y))
         && m.captions.length === tierCaps.length + depthCaps.length, depthCaps);
+      check('plan: no caption stands for a band with no card, so no tier or depth is drawn empty', m.captions.every((c) => c.count > 0), m.captions);
       check('plan: the captions stand up the seam at the top, neighbours on opposite sides of it',
         m.captions.every((c, i) => c.y < 0 && (i % 2 ? c.x > 0 : c.x < 0) && Math.abs(c.x) < 20), m.captions);
 
@@ -469,6 +477,25 @@ module.exports = {
         if (!cut || !back) cutFailures.push({ name, term, cut, back, now: await dots() });
       }
       check('plan: typing the term a tooltip names cuts the Graph to the cards of that band', cutFailures.length === 0, cutFailures);
+
+      // A cut that leaves out the top tiers draws none of their rings, arcs or names, and the fan closes in on the depths it keeps.
+      const outerWhole = (await ev(BAND_EDGES)).outer;
+      await ev(writeBox('slice:0..1'));
+      const keptDots = await waitFor(dotsAre(plan.depths.flat().concat(plan.block)));
+      const closedIn = keptDots && await waitFor(bandsAre(plan.depthNames.length));
+      const cutMarks = await marks();
+      const cutEdges = await ev(BAND_EDGES);
+      const firstRing = await ev(FIRST_BAND);
+      check('plan: a cut that keeps only the depths draws a ring, an arc and a caption for each depth and none for a tier',
+        !!closedIn && sameList(names(cutMarks.captions), plan.depthNames) && cutMarks.guides.length === plan.depthNames.length && cutEdges.tiers.length === 0, cutMarks);
+      check('plan: and the fan closes in, its dividers starting just inside the first ring and not where the tiers would have stood',
+        !!closedIn && cutEdges.outer < outerWhole && cutMarks.dividers.length >= 1
+        && Math.min(...cutMarks.dividers.map((l) => Math.hypot(l[0], l[1]))) >= firstRing - 30
+        && Math.min(...cutMarks.dividers.map((l) => Math.hypot(l[0], l[1]))) < firstRing, { cutEdges, outerWhole, firstRing, dividers: cutMarks.dividers });
+      await ev(writeBox(''));
+      const restored = await waitFor(dotCountIs(dotsBefore));
+      const whole = restored && await waitFor(bandsAre(plan.tierNames.length + plan.depthNames.length));
+      check('plan: clearing the cut brings the rings and names of the tiers back', !!whole && sameList(names((await marks()).captions), plan.tierNames.concat(plan.depthNames)), await marks());
 
       // The Flow draws none of it, and Tiers brings it back.
       for (const other of ['flow']) {

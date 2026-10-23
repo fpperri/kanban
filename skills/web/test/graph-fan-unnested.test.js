@@ -119,8 +119,8 @@ const PLAN_NESTED_0 = ['3', '4', '5', '6', '8', '23'];
 test('depth 0: the cards go on the depth 0 ring, which the axis puts after the tier bands and before depth 1', () => {
   const m = build();
   const there = place(m, 'depth 0');
-  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
-  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 0, 0, 1, 7, 1], 'the six cards share the depth 0 ring with card 2, the nested card right under the goal');
+  assert.deepStrictEqual(bandNames(there), ['goal', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 1, 7, 1], 'the six cards share the depth 0 ring with card 2, the nested card right under the goal');
   assert.strictEqual(there.places.get('2').band, there.places.get('5').band);
   assert.notStrictEqual(there.places.get('2').sector, there.places.get('5').sector, 'each in its own sector');
   const ring = there.bands.find((b) => b.slice.kind === 'depth' && b.slice.depth === 0);
@@ -151,10 +151,10 @@ test('depth 0: with none, there is no sector for them, and nothing else moves', 
   const m = graphBuild(cards().filter((c) => c.id <= 4), { ctx: CTX, hierarchy: HIERARCHY });
   const there = place(m, 'depth 0');
   assert.deepStrictEqual(there.sectors.map((s) => s.kind), ['tree', 'loose']);
-  assert.deepStrictEqual(bandNames(there), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
-  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 0, 0, 1, 1, 1], 'the depth 0 ring holds card 2 alone');
-  const none = graphBuild(cards().filter((c) => c.id === 1 || c.id === 4), { ctx: CTX, hierarchy: HIERARCHY });
-  assert.deepStrictEqual(bandNames(place(none, 'depth 0')), ['goal', 'strategy', 'objective', 'epic'], 'and with no card at depth 0 there is no ring');
+  assert.deepStrictEqual(bandNames(there), ['goal', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(there.bands.map((b) => b.count), [1, 1, 1, 1], 'the depth 0 ring holds card 2 alone');
+  const none = graphBuild(cards().filter((c) => c.id === '1' || c.id === '4'), { ctx: CTX, hierarchy: HIERARCHY });
+  assert.deepStrictEqual(bandNames(place(none, 'depth 0')), ['goal', 'epic'], 'and with no card at depth 0 there is no ring');
 });
 
 test('every other mode keeps them out of the rings, in the status columns the block and the outermost ring read', () => {
@@ -167,7 +167,7 @@ test('every other mode keeps them out of the rings, in the status columns the bl
     assert.deepStrictEqual(other.sectors.map((s) => s.kind), ['tree', 'loose'], String(unnested));
   }
   assert.deepStrictEqual(table.columns.map((c) => [c.label, c.ids]), [['todo', ['5', '8', '10']], ['doing', ['6']], ['done', ['7']], ['archived', ['9']]]);
-  assert.deepStrictEqual(bandNames(table), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(bandNames(table), ['goal', 'epic', 'depth 0', 'depth 1']);
 });
 
 test('depth 0 on the plan board: the 13 cards fill the depth 0 ring beside the six nested cards of that depth, between the tier bands and depth 1', () => {
@@ -362,9 +362,9 @@ test('outermost: a board of unnested cards alone is a ring round the centre, wit
 test('outermost: no unnested card, no ring and no caption', () => {
   const m = graphBuild(cards().filter((c) => c.id <= 4), { ctx: CTX, hierarchy: HIERARCHY });
   const l = outermost(m);
-  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
+  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'epic', 'depth 0', 'depth 1']);
   assert.strictEqual(l.block, null);
-  assert.strictEqual(l.bands.length, 6);
+  assert.strictEqual(l.bands.length, 4);
 });
 
 // --- what is drawn --------------------------------------------------------------------------------------
@@ -379,7 +379,7 @@ test('outermost draws a guide arc and a caption for the ring beside the bands\',
   assert.ok(table.block, 'table has the block');
   assert.strictEqual(ring.guides.length, table.guides.length + 1, 'one guide arc more than the bands have');
   const cap = ring.captions[ring.captions.length - 1];
-  assert.deepStrictEqual([cap.name, cap.count, cap.kind, cap.muted, cap.cls], ['unnested', 13, 'unnested', false, 'graph-caption']);
+  assert.deepStrictEqual([cap.name, cap.count, cap.kind, cap.cls], ['unnested', 13, 'unnested', 'graph-caption']);
   assert.deepStrictEqual(cap.tip.lines, ['13 cards', 'backlog 4 · todo 4 · doing 2 · done 3']);
   assert.strictEqual(cap.tip.term, null, 'it cuts to no slice');
   assert.ok(Number.isFinite(cap.x) && Number.isFinite(cap.y));

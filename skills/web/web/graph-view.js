@@ -63,7 +63,7 @@ const GRAPH_FAN_OPTION_LABELS = {
   },
 };
 const GRAPH_KIND_TITLES = {
-  hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
+  hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier that holds a drawn card, with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier (a tier or a depth with no drawn card has no ring); a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
   flow: 'Flow: the cards in columns by their dependencies, left to right; an arrow runs from the card waited for to the card that waits',
 };
 const GRAPH_FLOW_DEPS_LABEL = {

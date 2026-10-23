@@ -2280,23 +2280,25 @@ to `127.0.0.1` only.
   **Tiers** where an option or a key names it; it opens first and is the default for any
   unknown saved value. The centre is the apex and the fan goes all the way round the centre but for a narrow **seam**
   straight up, a **band** for each tier of the
-  board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
+  board's `hierarchy:` that holds a drawn card, tier 1 innermost, then a **ring** for each depth that holds a card
   without a tier (a card whose type is not in the hierarchy, or that has none), counted
   from the nearest tier card above, so the first ring is the cards right under a tier card.
-  A depth with no such card has no ring, and a tier nobody is in keeps a thin band. A card is in
+  A depth with no such card has no ring, and neither has a tier with no drawn card: its band, arc and
+  caption are not drawn and the rings left close up, with Types on or off, so a board with no
+  cards draws no ring, and a `slice:` cut that leaves out the top tiers pulls the fan in to the
+  rings it keeps, the dividers between sectors starting at the first ring drawn. A card is in
   the band of its slice, worked out from the whole board, so a hidden or archived parent
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on
   the seam with its name (a tier by its name, a depth as
   `depth N`), standing one above another up the seam with neighbours on opposite
-  sides of the seam so they never touch; a tier nobody
-  is in keeps a thin band and a muted caption when it has room for one, and a
-  depth with no card draws nothing; a tier whose cards nest in one another gets a lighter
+  sides of the seam so they never touch; a tier or a
+  depth with no drawn card draws nothing; a tier whose cards nest in one another gets a lighter
   arc through each further row. Each tier band that holds a card is washed in its type's
   colour (the `color:` of that type in the board's `types:` list), one **wash** across its
   whole ring, behind the lines, the dots and the captions, so the hierarchy reads as coloured
-  areas; a tier whose type has no colour gets a neutral wash, and a tier nobody is in, a depth
-  ring, the Unnested ring and the Unnested block get none. The wash takes no click: a click or
+  areas; a tier whose type has no colour gets a neutral wash, and a depth
+  ring, the Unnested ring and the Unnested block get none (a tier with no drawn card has no band, so no wash). The wash takes no click: a click or
   a double click on it is a click on empty space. A `slice:` cut, a status pill and isolate keep
   the washes of the bands still drawn and drop those of the bands they leave empty. A caption shows its name alone: hovering it, or moving
   keyboard focus onto it (a caption is a tab stop), shows a **tooltip** with the number of
