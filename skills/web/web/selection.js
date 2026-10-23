@@ -275,6 +275,16 @@ function selectionAfterEscape(current) {
   return { selection: next, rangeStart: rangeStartOf(next) };
 }
 
+// Which stage the next Esc away from the box is on: 'isolate' while isolate is on, 'selection'
+// while something is picked, 'box' once only the box's text is left (a typed search outside the
+// Graph, a `slice:` run), and null when the box is empty too, so Esc has nothing left to do. The
+// caller carries out 'box' by clearing the box, the run of slices included.
+function escapeStage(current, boxText) {
+  if (current.isolate) return 'isolate';
+  if (stepBack(current.selection) !== current.selection) return 'selection';
+  return boxText ? 'box' : null;
+}
+
 // The parts a poll leaves standing: a card, path or tree part whose card is no
 // longer on the board goes, and a query stays (it may match again). The first
 // part left becomes the anchor if the anchor went.
@@ -521,7 +531,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -546,6 +556,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.selectionWithoutCard = selectionWithoutCard;
   window.stepBack = stepBack;
   window.selectionAfterEscape = selectionAfterEscape;
+  window.escapeStage = escapeStage;
   window.pruneSelectionParts = pruneSelectionParts;
   window.boxAfterGraphClick = boxAfterGraphClick;
   window.isolateAfterWrite = isolateAfterWrite;

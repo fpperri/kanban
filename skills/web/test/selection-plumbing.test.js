@@ -498,15 +498,48 @@ test('with focus outside the search box, the Esc step leaves the box text as it 
   assert.strictEqual(s.calls.render, 1);
 });
 
-test('the next Esc drops the anchor, and the one after has nothing to step back from and repaints nothing', () => {
+test('the next Esc drops the anchor, the one after clears the box, and the one after that has nothing left and repaints nothing', () => {
   const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'body', rangeStart: 3 });
   s.escapeStep();
   s.escapeStep();
   assert.deepStrictEqual(s.state(), { ids: [], anchor: null, additions: 0, rangeStart: null });
   assert.strictEqual(s.calls.render, 2);
+  assert.strictEqual(s.input.value, 'tags:next-up', 'the box stays through the selection stages');
   s.escapeStep();
-  assert.strictEqual(s.calls.render, 2, 'nothing picked: no repaint');
-  assert.strictEqual(s.input.value, 'tags:next-up');
+  assert.strictEqual(s.input.value, '', 'nothing picked: the last Esc empties the box');
+  assert.strictEqual(s.calls.render, 3);
+  s.escapeStep();
+  assert.strictEqual(s.calls.render, 3, 'nothing picked and the box empty: no repaint');
+});
+
+test('with nothing picked, one Esc away from the box clears a `slice:` run and what is typed beside it', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [], active: 'body' });
+  s.escapeStep();
+  assert.strictEqual(s.input.value, '');
+  assert.strictEqual(s.calls.render, 1);
+  assert.deepStrictEqual(s.state().ids, []);
+});
+
+test('with a card picked, Esc steps the selection back first and keeps the `slice:` run until the last Esc', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2', selected: [1], active: 'body', rangeStart: 1 });
+  s.escapeStep();
+  assert.deepStrictEqual(s.state().ids, []);
+  assert.strictEqual(s.input.value, 'slice:objective..2', 'the anchor stage leaves the cut');
+  s.escapeStep();
+  assert.strictEqual(s.input.value, '', 'the next Esc clears the cut');
+});
+
+test('Esc in the box reaches the same end: it clears the box, the `slice:` run included, whatever is picked', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [1, 2], active: 'box', rangeStart: 2 });
+  s.escapeStep();
+  assert.strictEqual(s.input.value, '');
+  assert.deepStrictEqual(s.state().ids, [1, 2]);
+});
+
+test('the last Esc stage reads the Esc decision (escapeStage) and clears through the one clear', () => {
+  const body = fn('stepSelectionBack');
+  assert.match(body, /escapeStage\(now, \$\('#search-input'\)\.value\)/);
+  assert.match(body, /stage === 'box'\) \{ clearSearch\(\); return; \}/);
 });
 
 test('while focus is in a text field other than the search box, or a select, the Esc step touches neither the selection nor the box', () => {

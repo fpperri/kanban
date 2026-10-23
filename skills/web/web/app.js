@@ -3599,7 +3599,7 @@ function selectionFollowingBox(selection) {
 // What Esc does when nothing is open for it to close, and the one place the end
 // of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
 // the search box Esc clears the box and leaves the selection; with nothing open
-// and nobody typing it steps the selection back and leaves the box as it was;
+// and nobody typing it steps the selection back, and once nothing is picked clears the box;
 // anywhere else (another text field, a select, an open surface) it does nothing. While
 // isolated the box holds the isolate text, and Esc in it gives back the text it held
 // instead of clearing: the browser's own Esc, which clears a search field, is stopped (`e` is
@@ -3618,11 +3618,15 @@ function escapeStep(e) {
 // the anchor (a search typed in the Graph) goes with it, as it does on a double click on
 // the empty Graph. A pill the step drops goes out of the box too (the additions first, so
 // the box is back to the anchor's query, and then the anchor's), while any other text in
-// the box stays.
+// the box stays. Once nothing is picked and isolate is off, one more Esc clears what the box
+// still holds, the run of slices included (escapeStage, selection.js): repeated Esc ends on an
+// empty box.
 function stepSelectionBack() {
   const now = { ...selectionState, isolate: isolateNow() };
+  const stage = escapeStage(now, $('#search-input').value);
+  if (stage === 'box') { clearSearch(); return; }
+  if (stage === null) return;
   const next = selectionAfterEscape(now);
-  if (next === now) return;
   if (now.isolate && !next.isolate) { isolateTurnOff(); return; }
   moveSelectionTo(next);
 }

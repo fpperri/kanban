@@ -7,7 +7,8 @@
 // suggestion menu, and that menu takes the first Esc: it closes and the selection
 // and the box text are untouched. The next Esc clears the box and keeps the selection. Esc with
 // focus outside the box steps the selection back and leaves the box text as it
-// was. Each step waits on the page, never on a fixed sleep. Escape goes through
+// was; with the selection gone, the next Esc outside the box clears the box, and a `slice:` run
+// goes the same way, so repeated Esc ends on an empty box. Each step waits on the page, never on a fixed sleep. Escape goes through
 // the runner's key helper, a real key press; a card's dot is found by its class
 // and clicked only where it is the topmost thing, and a Board card at a point
 // that is not a cue, a button or a bar.
@@ -119,6 +120,18 @@ module.exports = {
     check('the box has text again and focus has left it', (await boxText()) === 'zephyr' && await ev(`document.activeElement!==document.getElementById('search-input')`));
     await escape();
     check('Esc with focus outside the search box steps the selection back and leaves the box text as it was', await hasSelection(1) && sameIds(await picked(), [x]) && sameIds(await parts(), { anchor: x, additions: [] }) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked(), parts: await parts() });
+    await escape();
+    check('the next Esc outside the box drops the anchor and leaves the box text', await hasSelection(0) && sameIds(await parts(), { anchor: null, additions: [] }) && (await boxText()) === 'zephyr', { box: await boxText(), parts: await parts() });
+    await escape();
+    check('with nothing selected, the next Esc outside the box clears the box', await waitFor(`document.getElementById('search-input').value===''`) && await hasSelection(0), { box: await boxText(), picked: await picked() });
+
+    await focusBoxAtEnd();
+    await send('Input.insertText', { text: 'slice:goal' });
+    await waitFor(`document.getElementById('search-input').value==='slice:goal'`);
+    await ev(`document.activeElement.blur()`);
+    check('a slice: run is in the box and focus has left it', (await boxText()) === 'slice:goal' && await ev(`document.activeElement!==document.getElementById('search-input')`));
+    await escape();
+    check('Esc outside the box clears a slice: run too, and the page is back to its whole board', await waitFor(`document.getElementById('search-input').value===''`) && await waitFor(`new Set([...document.querySelectorAll('#board .card-el')].map((e)=>e.dataset.id)).size>=${everything.length}`), { box: await boxText(), shown: (await boardIds()).length, everything: everything.length });
     check('none of those clicks opened a card', await noCardOpen());
   },
 };
