@@ -2341,7 +2341,9 @@ to `127.0.0.1` only.
   first of those children to the last in the order the Order option draws them, never through the parent's angle, with
   a tick to each child, one stem up to the parent and the number of children it holds printed on it, and a child alone
   on its ring keeps a plain line; **lines** gives each child its own line. With Lines off there is nothing to group:
-  the Group buttons stay shown and change nothing. A choice kept by an older version still reads as it drew: the retired
+  the Group buttons stay shown and change nothing. A bracket is drawn heavier and brighter than the ring guides, its
+  arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so
+  neighbours never meet. A choice kept by an older version still reads as it drew: the retired
   value folded as chain with brackets, and a stored chain or all as that value with Group lines. **Dependencies** are
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map

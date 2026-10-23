@@ -170,7 +170,7 @@ Of one parent's children, a child where a chain of its siblings meets the parent
 _Avoid_: terminal, leaf (that is a card with no children).
 
 **Bracket** (web only):
-In the Hierarchy, with its Group option on brackets (the default), the one counted line a parent has for its children on one ring that get a parent line: an arc just inside that ring from the first of them to the last in the order shown, a tick to each child, and one stem up to the parent, with the number of children it holds printed on it. The arc never runs on to the parent's angle. A child alone on its ring keeps a plain line.
+In the Hierarchy, with its Group option on brackets (the default), the one counted line a parent has for its children on one ring that get a parent line: an arc just inside that ring from the first of them to the last in the order shown, a tick to each child, and one stem up to the parent, with the number of children it holds printed on it. The arc never runs on to the parent's angle, hooks out to its first and last child, and turns at one of two insets from the ring in turn, so two brackets side by side never meet. A child alone on its ring keeps a plain line.
 _Avoid_: bus, fold, group line.
 
 **Graph view** (web only):

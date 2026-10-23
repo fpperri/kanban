@@ -34,6 +34,7 @@
   --line: #e8e6dc;
   --line-soft: #f0eee6;
   --line-strong: #d6d3c7;
+  --graph-bracket: #4a4842;
   --accent: #a94b29;
   --accent-strong: #8a3c20;
   --accent-soft: #f8e8e0;
@@ -105,6 +106,7 @@
     --line: #2f2f2e;
     --line-soft: #262625;
     --line-strong: #3d3d3b;
+    --graph-bracket: #c4c3ba;
     --accent: #d97757;
     --accent-strong: #eba68a;
     --accent-soft: #33211b;
@@ -177,6 +179,7 @@
   --line: #2f2f2e;
   --line-soft: #262625;
   --line-strong: #3d3d3b;
+  --graph-bracket: #c4c3ba;
   --accent: #d97757;
   --accent-strong: #eba68a;
   --accent-soft: #33211b;
@@ -1544,7 +1547,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-link { fill: none; stroke-width: 1.4px; }
 .graph-link-parent { stroke: var(--mut); opacity: 0.4; }
 .graph-link-wait { stroke: var(--id-waiting); stroke-dasharray: 5 3; opacity: 0.8; }
-.graph-link-counted { stroke-linecap: round; }
+.graph-link-counted { stroke: var(--graph-bracket); stroke-width: 2px; opacity: 0.75; stroke-linecap: round; stroke-linejoin: round; }
 .graph-link-count { fill: var(--mut); font-size: calc(11px / var(--graph-k, 1)); stroke: var(--paper); stroke-width: calc(4px / var(--graph-k, 1)); stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
 .graph-arrow { fill: var(--id-waiting); }
 

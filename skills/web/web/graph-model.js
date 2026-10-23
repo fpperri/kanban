@@ -666,6 +666,7 @@ const GRAPH_FAN_CAPTION_DY = '0.35em';
 const GRAPH_FAN_DIVIDER_IN = 20;
 const GRAPH_FAN_DIVIDER_CLEAR = 9;
 const GRAPH_FAN_BUS_IN = 27;
+const GRAPH_FAN_BUS_IN_NEAR = 14;
 const GRAPH_FAN_BUS_LABEL = 14;
 
 // How far the widest outline an icon can draw reaches from its centre, in dot
@@ -1241,28 +1242,36 @@ function graphFanBlockPlan(block) {
 }
 
 // The counted line of the brackets group, drawn as a bracket: one arc just inside the ring
-// the children sit on (GRAPH_FAN_BUS_IN short of it) from the first child's angle to the
-// last's, a tick from the arc out to each child, and one stem from the parent along its
-// own ray to the arc. A parent whose angle lies outside the children's does not lengthen
-// the arc: its stem reaches the nearer end of it, straight. All of it is one path of apart
-// pieces, so a child's mark covers the end of its tick. The label with the count sits on
-// the arc, in the gap between two neighbouring children nearest the stem, knocked out of
-// the line by the text's own halo; when no gap is wide enough it sits where the stem
-// meets the arc. The children are on one ring, so one radius serves them all.
-function graphFanBus(layout, line) {
+// the children sit on from the first child's angle to the last's, and one stem from the parent
+// along its own ray to the arc. The arc hooks at both ends: it is one stroke that runs from
+// the first child in to the arc, round it, and out to the last child; every other child has
+// a tick of its own from the arc out to it. A parent whose angle lies outside the children's
+// does not lengthen the arc: its stem reaches the nearer end of it, straight. Brackets side by
+// side on one ring would read as one line, so they alternate between two insets from the ring:
+// `near` is 0 for the far inset (GRAPH_FAN_BUS_IN short of the ring) and 1 for the near one
+// (GRAPH_FAN_BUS_IN_NEAR), which graphBracketNears hands out along the ring. All of it is
+// pieces apart from each other, so a child's mark covers the end of its tick. The label with
+// the count sits on the arc, in the gap between two neighbouring children nearest the stem,
+// knocked out of the line by the text's own halo; when no gap is wide enough it sits where the
+// stem meets the arc. The children are on one ring, so one radius serves them all.
+function graphFanBus(layout, line, near) {
   const at = (r, a) => `${graphRound(Math.cos(a) * r)} ${graphRound(Math.sin(a) * r)}`;
   const parent = layout.polar.get(line.from);
-  const kids = line.kids.map((id) => layout.polar.get(id));
+  const kids = line.kids.map((id) => layout.polar.get(id)).sort((x, y) => x.a - y.a);
   const ring = kids[0].r;
   const out = ring > parent.r ? 1 : -1;
-  const turn = ring - out * GRAPH_FAN_BUS_IN;
-  const angles = kids.map((k) => k.a).sort((x, y) => x - y);
-  const lo = angles[0];
-  const hi = angles[angles.length - 1];
-  const stem = Math.min(hi, Math.max(lo, parent.a));
+  const turn = ring - out * (near ? GRAPH_FAN_BUS_IN_NEAR : GRAPH_FAN_BUS_IN);
+  const angles = kids.map((k) => k.a);
+  const lo = kids[0];
+  const hi = kids[kids.length - 1];
+  const stem = Math.min(hi.a, Math.max(lo.a, parent.a));
   let d = `M${at(parent.r, parent.a)}L${at(turn, stem)}`;
-  if (hi - lo > 1e-6) d += `M${at(turn, lo)}A${graphRound(turn)} ${graphRound(turn)} 0 ${hi - lo > Math.PI ? 1 : 0} 1 ${at(turn, hi)}`;
-  for (const k of kids) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
+  if (hi.a - lo.a > 1e-6) {
+    d += `M${at(lo.r, lo.a)}L${at(turn, lo.a)}A${graphRound(turn)} ${graphRound(turn)} 0 ${hi.a - lo.a > Math.PI ? 1 : 0} 1 ${at(turn, hi.a)}L${at(hi.r, hi.a)}`;
+    for (const k of kids.slice(1, -1)) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
+  } else {
+    for (const k of kids) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
+  }
   const mids = [];
   for (let i = 1; i < angles.length; i++) {
     if ((angles[i] - angles[i - 1]) * turn > GRAPH_FAN_BUS_LABEL) mids.push((angles[i] + angles[i - 1]) / 2);
@@ -1273,6 +1282,25 @@ function graphFanBus(layout, line) {
     d,
     label: { x: graphRound(Math.cos(where) * turn), y: graphRound(Math.sin(where) * turn), text: String(line.count) },
   };
+}
+
+// Which inset each bracket takes: along one ring the brackets, in the order of their first
+// angle, take the far and the near inset in turn (graphFanBus), so two that stand side by side
+// never share a radius. Answers a Set of the counted lines that take the near inset.
+function graphBracketNears(layout, lines) {
+  const rings = new Map();
+  for (const line of lines) {
+    if (!line.kids) continue;
+    const polar = line.kids.map((id) => layout.polar.get(id));
+    const key = graphRound(polar[0].r);
+    if (!rings.has(key)) rings.set(key, []);
+    rings.get(key).push({ line, a: Math.min(...polar.map((k) => k.a)) });
+  }
+  const near = new Set();
+  for (const group of rings.values()) {
+    group.sort((x, y) => x.a - y.a).forEach((g, i) => { if (i % 2) near.add(g.line); });
+  }
+  return near;
 }
 
 // The wash of each tier band that holds a card: one entry for each, in tier order, with the
@@ -1361,9 +1389,10 @@ function graphPlan(model, layout, opts) {
   const drawn = fan && o.fan
     ? graphFanLines(model, fan.places, o.fan)
     : model.links.map((l, i) => ({ from: l.from, to: l.to, kind: l.kind, link: i })).filter((line) => kind !== 'flow' || line.kind === 'wait');
+  const nears = fan ? graphBracketNears(fan, drawn) : new Set();
   const links = drawn.map((line) => {
     if (line.kids) {
-      const bus = graphFanBus(fan, line);
+      const bus = graphFanBus(fan, line, nears.has(line));
       return {
         from: line.from, to: line.to, kind: 'parent', d: bus.d, cls: 'graph-link graph-link-parent graph-link-counted', arrow: false, count: line.count, label: bus.label,
       };

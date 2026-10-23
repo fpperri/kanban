@@ -38,6 +38,12 @@ test('the Graph section says what Lines gives a line to and what Group does with
   assert.match(text, /A choice kept by an older version still reads as it drew: the retired value folded as chain with brackets, and a stored chain or all as that value with Group lines/);
 });
 
+test('the Graph section says how a bracket looks: heavier than the ring guides, hooked at both ends, alternating insets along a ring', () => {
+  const text = graph();
+  assert.match(text, /A bracket is drawn heavier and brighter than the ring guides, its arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so neighbours never meet/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /hooks out to its first and last child, and turns at one of two insets from the ring in turn, so two brackets side by side never meet/);
+});
+
 test('the Graph section no longer has a folded value, and the brackets sentence does not read the chain ends', () => {
   const text = graph();
   assert.doesNotMatch(text, /\*\*folded\*\* \(the default\)/);

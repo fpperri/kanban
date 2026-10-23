@@ -302,6 +302,7 @@ test('each check listed here is in the scenario', async () => {
   has(/with the two children added, lines all with lines draws 13 parent lines/);
   has(/all with brackets draws the four children of card 1 on one bracket reading 4/);
   has(/each of those brackets is one arc from its first child to its last/);
+  has(/the two brackets standing side by side on the depth 0 ring turn at different insets/);
   has(/group lines gives every child its own line again/);
   has(/dependencies off draws no arrow/);
   has(/order status, the default, seats the children of card 1/);

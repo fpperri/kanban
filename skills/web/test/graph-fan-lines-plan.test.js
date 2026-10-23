@@ -82,13 +82,13 @@ test('the counted line runs from its parent along one arc to a tick on each chil
   assert.ok(numbers.every(Number.isFinite));
   assert.match(counted.d, /^M/);
   assert.deepStrictEqual(numbers.slice(0, 2), [round(at(1).x), round(at(1).y)], 'the line starts on its parent');
-  const ticks = [...counted.d.matchAll(new RegExp(`L(${NUM}) (${NUM})`, 'g'))].map((m) => [Number(m[1]), Number(m[2])]);
+  const ticks = [...counted.d.matchAll(new RegExp(`[ML](${NUM}) (${NUM})`, 'g'))].map((m) => [Number(m[1]), Number(m[2])]);
   for (const kid of ['4', '5', '6']) {
     assert.ok(ticks.some(([x, y]) => x === round(at(kid).x) && y === round(at(kid).y)), `a tick ends on card ${kid}`);
   }
   assert.strictEqual((counted.d.match(/A/g) || []).length, 1, 'one arc through the children');
   for (const kid of ['4', '6']) assert.ok(Math.abs(radiusOf(5) - radiusOf(kid)) < 0.01, 'the children are on one ring');
-  const arc = new RegExp(`M(${NUM}) (${NUM})A(${NUM}) (${NUM}) 0 (\\d) (\\d) (${NUM}) (${NUM})`).exec(counted.d);
+  const arc = new RegExp(`L(${NUM}) (${NUM})A(${NUM}) (${NUM}) 0 (\\d) (\\d) (${NUM}) (${NUM})`).exec(counted.d);
   assert.ok(arc, 'the arc has the shape the SVG path takes');
   const radius = Number(arc[3]);
   assert.ok(radius < radiusOf(5) && radius > radiusOf(1), 'the arc lies between the parent\'s ring and the children\'s');
@@ -205,7 +205,7 @@ test('a bracket is one arc from the first child to the last, a tick to each chil
     assert.strictEqual(lines.length, 1, `${order}: one bracket for the four children`);
     const [line] = lines;
     assert.strictEqual(line.count, 4);
-    const start = new RegExp(`M(${NUM}) (${NUM})A`).exec(line.d);
+    const start = new RegExp(`L(${NUM}) (${NUM})A`).exec(line.d);
     const arc = new RegExp(`A${NUM} ${NUM} 0 \\d \\d (${NUM}) (${NUM})`).exec(line.d);
     const ends = [angleOf(Number(start[1]), Number(start[2])), angleOf(Number(arc[1]), Number(arc[2]))];
     const seats = ['2', '3', '4', '5'].sort((x, y) => layout.polar.get(y).a - layout.polar.get(x).a);
@@ -215,7 +215,7 @@ test('a bracket is one arc from the first child to the last, a tick to each chil
     const parentAt = layout.pos.get('1');
     const stems = [...line.d.matchAll(new RegExp(`M(${NUM}) (${NUM})L`, 'g'))].filter((m) => Math.abs(Number(m[1]) - parentAt.x) < 0.01 && Math.abs(Number(m[2]) - parentAt.y) < 0.01);
     assert.strictEqual(stems.length, 1, `${order}: one stem leaves the parent`);
-    assert.strictEqual((line.d.match(/M/g) || []).length, 1 + 1 + 4, `${order}: the stem, the arc and a tick for each child`);
+    assert.strictEqual((line.d.match(/M/g) || []).length, 2 + 4 - 2, `${order}: the stem, the hooked arc that carries the first and last child's ticks, and a tick for each child between`);
   }
 });
 
@@ -244,7 +244,7 @@ test('the arc does not run on to the parent when the parent stands outside its c
   const near = parent < Math.min(...kids) ? Math.min(...kids) : Math.max(...kids);
   assert.ok(same(angleOf(Number(stem[1]), Number(stem[2])), near), 'the stem ends on the arc at its nearer end');
   const arc = new RegExp(`A${NUM} ${NUM} 0 \\d \\d (${NUM}) (${NUM})`).exec(line.d);
-  const start = new RegExp(`M(${NUM}) (${NUM})A`).exec(line.d);
+  const start = new RegExp(`L(${NUM}) (${NUM})A`).exec(line.d);
   assert.ok(same(angleOf(Number(start[1]), Number(start[2])), Math.min(...kids)) && same(angleOf(Number(arc[1]), Number(arc[2])), Math.max(...kids)), 'and the arc spans the children alone');
 });
 
@@ -272,4 +272,81 @@ test('group lines draws each child its own plain line: no bracket, no label, no 
     assert.ok(!l.cls.includes('graph-link-counted'));
     assert.strictEqual((l.d.match(/M/g) || []).length, 1, 'a plain line is one piece');
   }
+});
+
+// --- brackets side by side, and their hooked ends ----------------------------------------
+
+const arcRadius = (l) => Number(new RegExp(`A(${NUM}) `).exec(l.d)[1]);
+
+// Three goals, each with two untyped children: the six children share one ring and the three
+// brackets stand side by side along it.
+const sideBySide = () => buildOf([
+  card(1, { type: 'goal' }), card(2, { type: 'goal' }), card(3, { type: 'goal' }),
+  card(4, { parent: 1 }), card(5, { parent: 1 }), card(6, { parent: 2 }), card(7, { parent: 2 }), card(8, { parent: 3 }), card(9, { parent: 3 }),
+]);
+
+test('brackets side by side on one ring alternate between two insets from the ring, so neighbours never share a radius', () => {
+  const { layout, plan } = withLines(sideBySide(), {});
+  const brackets = plan.links.filter((l) => l.count !== undefined);
+  assert.strictEqual(brackets.length, 3);
+  const ring = Math.hypot(layout.pos.get('4').x, layout.pos.get('4').y);
+  const kidOf = { 1: '4', 2: '6', 3: '8' };
+  const ordered = brackets.slice().sort((x, y) => layout.polar.get(kidOf[x.from]).a - layout.polar.get(kidOf[y.from]).a);
+  const insets = ordered.map((l) => Math.round((ring - arcRadius(l)) * 100) / 100);
+  assert.deepStrictEqual(insets.map((i) => i === 27 || i === 14), [true, true, true], 'two insets only');
+  assert.notStrictEqual(insets[0], insets[1]);
+  assert.notStrictEqual(insets[1], insets[2]);
+  assert.strictEqual(insets[0], insets[2], 'odd and even along the ring');
+  assert.strictEqual(insets[0], 27, 'the first bracket of a ring takes the far inset');
+});
+
+test('a bracket alone on its ring takes the far inset, and each ring starts its own alternation', () => {
+  const model = buildOf([
+    card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 2 }), card(5, { parent: 2 }),
+  ]);
+  const { layout, plan } = withLines(model, {});
+  const brackets = plan.links.filter((l) => l.count !== undefined);
+  assert.strictEqual(brackets.length, 2);
+  for (const l of brackets) {
+    const kid = l.from === '1' ? '2' : '4';
+    const ring = Math.hypot(layout.pos.get(kid).x, layout.pos.get(kid).y);
+    assert.ok(Math.abs(ring - arcRadius(l) - 27) < 0.1, `card ${l.from}`);
+  }
+  assert.notStrictEqual(Math.round(Math.hypot(layout.pos.get('2').x, layout.pos.get('2').y)), Math.round(Math.hypot(layout.pos.get('4').x, layout.pos.get('4').y)), 'two rings');
+});
+
+test('a bracket ends in a hook toward each end child: one stroke from the first child in to the arc, round it and out to the last', () => {
+  const { layout, plan } = withLines(seated(), {}, 'rank');
+  const line = plan.links.find((l) => l.count !== undefined);
+  const hooked = new RegExp(`M(${NUM}) (${NUM})L(${NUM}) (${NUM})A${NUM} ${NUM} 0 \\d 1 (${NUM}) (${NUM})L(${NUM}) (${NUM})`).exec(line.d);
+  assert.ok(hooked, 'first child, in to the arc, along it, out to the last child, in one stroke');
+  const point = (id) => layout.pos.get(id);
+  const ends = ['2', '3', '4', '5'].sort((x, y) => layout.polar.get(x).a - layout.polar.get(y).a);
+  const near = (x, y, id) => Math.abs(Number(x) - point(id).x) < 0.01 && Math.abs(Number(y) - point(id).y) < 0.01;
+  assert.ok(near(hooked[1], hooked[2], ends[0]), 'the stroke starts on the child with the smallest angle');
+  assert.ok(near(hooked[7], hooked[8], ends[3]), 'and ends on the child with the largest');
+  const ring = Math.hypot(point(ends[0]).x, point(ends[0]).y);
+  assert.ok(Math.hypot(Number(hooked[3]), Number(hooked[4])) < ring - 1, 'the hook turns inside the ring');
+  assert.strictEqual((line.d.match(/M/g) || []).length, 2 + 2, 'the stem, the hooked arc, and a tick for each of the two children between');
+});
+
+test('a bracket of two children is the hooked stroke and the stem, with no tick between', () => {
+  const { plan } = withLines(buildOf([card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 })]), {});
+  const line = plan.links.find((l) => l.count !== undefined);
+  assert.strictEqual((line.d.match(/M/g) || []).length, 2);
+  assert.strictEqual((line.d.match(/A/g) || []).length, 1);
+});
+
+test('the counted line is styled apart from the ring guides: a token in both themes, a thicker and brighter stroke', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  assert.strictEqual(css.split('--graph-bracket:').length - 1, 3, 'light, dark by preference and dark by choice');
+  const rule = /\.graph-link-counted \{([^}]*)\}/.exec(css)[1];
+  const guide = /\.graph-guide \{([^}]*)\}/.exec(css)[1];
+  const num = (text, prop) => Number(new RegExp(`${prop}: ([0-9.]+)`).exec(text)[1]);
+  assert.match(rule, /stroke: var\(--graph-bracket\)/);
+  assert.ok(num(rule, 'stroke-width') > num(guide, 'stroke-width'), 'thicker than a guide');
+  assert.ok(num(rule, 'opacity') > num(guide, 'opacity'), 'brighter than a guide');
+  assert.ok(num(rule, 'opacity') < 0.85, 'calmer than a lit line (.graph-near is .85)');
 });

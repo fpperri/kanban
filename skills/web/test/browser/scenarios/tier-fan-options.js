@@ -84,20 +84,23 @@ const LINE_COUNTS = `(()=>{const q=(s)=>document.querySelectorAll('#graph-view '
   + `wait:q('.graph-link-wait'),labels:[...document.querySelectorAll('#graph-view .graph-link-count')].map((e)=>e.textContent)}})()`;
 const PREDICTED = `(()=>{const lines=graphFanLines(graphCur.model,graphCur.layout.places,graphLoadOptions());return {all:lines.length,parent:lines.filter((l)=>l.kind==='parent').length,`
   + `counted:lines.filter((l)=>!!l.kids).length,wait:lines.filter((l)=>l.kind==='wait').length,labels:lines.filter((l)=>!!l.kids).map((l)=>String(l.count))}})()`;
-// Each bracket on the stage as the brackets mode draws it: one arc from the smallest angle of its
-// children to the largest, a tick to each child and one stem, so 'M' pieces for the stem, the arc and
-// each child, and a single 'A'. The function runs in the page (its source is the expression) and in the
-// stand-in page's tests.
+// Each bracket on the stage as the brackets group draws it: one arc from the smallest angle of its
+// children to the largest, hooked out to the first and last child, a tick to each child between and one
+// stem, so 'M' pieces for the stem, the hooked arc and each child between, and a single 'A'. `inset` is how
+// far inside its ring the arc turns. The function runs in the page (its source is the expression) and in
+// the stand-in page's tests.
 function bracketsDrawn(cur, lines) {
   const same = (a, b) => Math.abs(Math.sin((a - b) / 2)) < 0.005;
   return cur.lines.filter((l) => l.count !== undefined).map((l) => {
-    const kids = lines.find((x) => x.kids && x.from === l.from && x.count === l.count).kids.map((id) => cur.layout.polar.get(id).a);
-    const m = /^M[-\d.e]+ [-\d.e]+L[-\d.e]+ [-\d.e]+M([-\d.e]+) ([-\d.e]+)A[-\d.e]+ [-\d.e]+ 0 \d 1 ([-\d.e]+) ([-\d.e]+)/.exec(l.d);
+    const ids = lines.find((x) => x.kids && x.from === l.from && x.count === l.count).kids;
+    const kids = ids.map((id) => cur.layout.polar.get(id).a);
+    const m = /^M[-\d.e]+ [-\d.e]+L[-\d.e]+ [-\d.e]+M[-\d.e]+ [-\d.e]+L([-\d.e]+) ([-\d.e]+)A[-\d.e]+ [-\d.e]+ 0 \d 1 ([-\d.e]+) ([-\d.e]+)L/.exec(l.d);
     return {
       from: l.from,
       count: l.count,
+      inset: m ? Math.round((cur.layout.polar.get(ids[0]).r - Math.hypot(Number(m[1]), Number(m[2]))) * 100) / 100 : null,
       ok: !!m && same(Math.atan2(Number(m[2]), Number(m[1])), Math.min(...kids)) && same(Math.atan2(Number(m[4]), Number(m[3])), Math.max(...kids))
-        && (l.d.match(/A/g) || []).length === 1 && (l.d.match(/M/g) || []).length === 2 + kids.length,
+        && (l.d.match(/A/g) || []).length === 1 && (l.d.match(/M/g) || []).length === kids.length,
     };
   });
 }
@@ -286,6 +289,8 @@ module.exports = {
     const arcs = await ev(BRACKETS_DRAWN);
     check('plan: and each of those brackets is one arc from its first child to its last, a tick to each child and one stem',
       Array.isArray(arcs) && arcs.length === 2 && arcs.every((a) => a.ok), arcs);
+    check('plan: and the two brackets standing side by side on the depth 0 ring turn at different insets, so they never meet',
+      Array.isArray(arcs) && arcs.length === 2 && arcs[0].inset !== arcs[1].inset && arcs.every((a) => a.inset === 27 || a.inset === 14), arcs);
     await shot('tier-fan-options-brackets');
     await setOption('lines', 'chain');
     await settledOn(plan.withAdded.chain.brackets, plan.waits);
