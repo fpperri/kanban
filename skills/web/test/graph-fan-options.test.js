@@ -5,19 +5,20 @@ const {
   GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions,
 } = require('../web/graph-model');
 
-// The tier fan's option row holds five settings: how the parent lines are drawn
-// (lines), whether the dependency arrows are (dependencies), how siblings are
-// ordered within a sector (order), which cards carry their title (names), and where the
-// cards with no parent, no children and no tier are drawn (unnested). What a browser stored
-// for a board is merged with the defaults the way the Map's options are: a stale or
+// The tier fan's option row holds six settings: which children get a parent line (lines),
+// how those lines are drawn (group), whether the dependency arrows are (dependencies), how
+// siblings are ordered within a sector (order), which cards carry their title (names), and
+// where the cards with no parent, no children and no tier are drawn (unnested). What a browser
+// stored for a board is merged with the defaults the way the Map's options are: a stale or
 // hand-edited value is read as its default.
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
-const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' };
+const DEFAULTS = { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' };
 
-test('the options offer lines: folded, brackets, chain, all, off; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
+test('the options offer lines: chain, all, off; group: brackets, lines; dependencies: on, off; order: status, rank; names: relevant, all, none; unnested: outermost, off, depth 0, table, the first of each the default', () => {
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_VALUES), {
-    lines: ['folded', 'brackets', 'chain', 'all', 'off'],
+    lines: ['chain', 'all', 'off'],
+    group: ['brackets', 'lines'],
     dependencies: ['on', 'off'],
     order: ['status', 'rank'],
     names: ['relevant', 'all', 'none'],
@@ -26,28 +27,42 @@ test('the options offer lines: folded, brackets, chain, all, off; dependencies: 
   assert.deepStrictEqual(plain(GRAPH_FAN_OPTION_DEFAULTS), DEFAULTS);
 });
 
-test('nothing stored gives the defaults: folded, on, status, relevant, outermost', () => {
+test('nothing stored gives the defaults: chain, brackets, on, status, relevant, outermost', () => {
   for (const nothing of [undefined, null, {}, [], 'folded', 7, true]) {
     assert.deepStrictEqual(plain(mergeGraphFanOptions(nothing)), DEFAULTS, JSON.stringify(nothing));
   }
 });
 
 test('a stored choice is kept and the rest stays at its default', () => {
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all' })), { ...DEFAULTS, lines: 'all' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'off' })), { ...DEFAULTS, lines: 'off' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ group: 'lines' })), { ...DEFAULTS, group: 'lines' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all', group: 'brackets' })), { ...DEFAULTS, lines: 'all' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ dependencies: 'off', order: 'rank' })), { ...DEFAULTS, dependencies: 'off', order: 'rank' });
   assert.deepStrictEqual(
-    plain(mergeGraphFanOptions({ lines: 'off', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' })),
-    { lines: 'off', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' },
+    plain(mergeGraphFanOptions({ lines: 'off', group: 'lines', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' })),
+    { lines: 'off', group: 'lines', dependencies: 'off', order: 'rank', names: 'none', unnested: 'table' },
   );
   for (const unnested of GRAPH_FAN_OPTION_VALUES.unnested) {
     assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested })), { ...DEFAULTS, unnested }, unnested);
   }
 });
 
+test('a store from before the group option reads as it drew: folded is chain with brackets, chain and all draw each line of their own', () => {
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded' })), DEFAULTS);
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'chain' })), { ...DEFAULTS, lines: 'chain', group: 'lines' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all' })), { ...DEFAULTS, lines: 'all', group: 'lines' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'off' })), { ...DEFAULTS, lines: 'off' }, 'off draws no line, so brackets or lines is the same');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded', order: 'rank', unnested: 'table' })), { ...DEFAULTS, order: 'rank', unnested: 'table' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'chain', group: 'brackets' })), DEFAULTS, 'a store that names its group keeps it');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all', group: 'lines' })), { ...DEFAULTS, lines: 'all', group: 'lines' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'folded', group: 'lines' })), { ...DEFAULTS, group: 'lines' }, 'folded with a group of its own keeps that group');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'all', group: 'tight' })), { ...DEFAULTS, lines: 'all', group: 'lines' }, 'an unknown group reads as the old store drew');
+});
+
 test('a stored Names value merges with the defaults: all and none are kept, and the other options stay at theirs', () => {
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'all' })), { ...DEFAULTS, names: 'all' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'none' })), { ...DEFAULTS, names: 'none' });
-  assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'relevant', lines: 'all' })), { ...DEFAULTS, lines: 'all' });
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ names: 'relevant', lines: 'all', group: 'brackets' })), { ...DEFAULTS, lines: 'all' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'off' })).names, 'relevant', 'a board stored before Names existed reads relevant');
 });
 
@@ -62,22 +77,25 @@ test('a value the row does not offer falls back to its own default, whatever its
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'every', dependencies: 'off', order: 'layout' })), { ...DEFAULTS, dependencies: 'off' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: ['all'], dependencies: 1, order: null, unnested: 0 })), DEFAULTS);
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ lines: 'ALL' })), DEFAULTS, 'a value is compared as written');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ group: 'Lines' })), DEFAULTS, 'a group is compared as written');
+  assert.deepStrictEqual(plain(mergeGraphFanOptions({ group: ['lines'] })), DEFAULTS);
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested: 'ring', order: 'rank' })), { ...DEFAULTS, order: 'rank' }, 'an unknown unnested mode reads as outermost');
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested: 'Table' })), DEFAULTS, 'compared as written');
   assert.deepStrictEqual(plain(mergeGraphFanOptions({ unnested: 'depth0' })), DEFAULTS);
 });
 
 test('a key the row does not have is dropped, and an inherited name such as toString is no value', () => {
-  const merged = mergeGraphFanOptions({ lines: 'chain', speed: 'fast', toString: 'on', __proto__: { order: 'rank', names: 'all', unnested: 'off' } });
-  assert.deepStrictEqual(plain(merged), { ...DEFAULTS, lines: 'chain' });
-  assert.deepStrictEqual(Object.keys(merged), ['lines', 'dependencies', 'order', 'names', 'unnested']);
+  const merged = mergeGraphFanOptions({ lines: 'chain', group: 'brackets', speed: 'fast', toString: 'on', __proto__: { order: 'rank', names: 'all', unnested: 'off', group: 'lines' } });
+  assert.deepStrictEqual(plain(merged), DEFAULTS);
+  assert.deepStrictEqual(Object.keys(merged), ['lines', 'group', 'dependencies', 'order', 'names', 'unnested']);
+  assert.strictEqual(mergeGraphFanOptions({ lines: 'all', __proto__: { group: 'brackets' } }).group, 'lines', 'an inherited group is not a stored one');
 });
 
 test('merging gives a new object: the stored one is not changed and the defaults are not shared', () => {
-  const stored = { lines: 'all' };
+  const stored = { lines: 'all', group: 'lines' };
   const merged = mergeGraphFanOptions(stored);
   merged.order = 'rank';
-  assert.deepStrictEqual(stored, { lines: 'all' });
+  assert.deepStrictEqual(stored, { lines: 'all', group: 'lines' });
   assert.deepStrictEqual(plain(mergeGraphFanOptions(undefined)), DEFAULTS);
   assert.ok(Object.isFrozen(GRAPH_FAN_OPTION_DEFAULTS));
 });
@@ -112,16 +130,18 @@ const parentLines = (lines) => lines.filter((l) => l.kind === 'parent')
   .map((l) => (l.kids ? `${l.from}*[${l.kids.join(',')}]` : `${l.from}>${l.to}`)).sort();
 const waitLines = (lines) => lines.filter((l) => l.kind === 'wait').map((l) => `${l.from}>${l.to}`).sort();
 
-test('all gives a line to every child, one each, and off gives none', () => {
+const withGroup = (lines, group) => ({ lines, group });
+
+test('lines all with group lines gives a line to every child, one each, and off gives none, whatever the group', () => {
   const model = tree();
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'all' })), ['1>2', '1>3', '1>4', '1>5', '1>6', '2>7', '2>8']);
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'off' })), []);
+  assert.deepStrictEqual(parentLines(linesOf(model, withGroup('all', 'lines'))), ['1>2', '1>3', '1>4', '1>5', '1>6', '2>7', '2>8']);
+  for (const group of ['lines', 'brackets']) assert.deepStrictEqual(parentLines(linesOf(model, withGroup('off', group))), [], group);
 });
 
-test('chain gives a line to every chain end and none to the other children', () => {
+test('lines chain with group lines gives a line to every chain end and none to the other children', () => {
   const model = tree();
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'chain' })), ['1>2', '1>4', '1>5', '1>6', '2>7', '2>8']);
-  assert.ok(!parentLines(linesOf(model, { lines: 'chain' })).includes('1>3'), 'card 3 is waited for by its sibling 4, so it is not the end of its chain');
+  assert.deepStrictEqual(parentLines(linesOf(model, withGroup('chain', 'lines'))), ['1>2', '1>4', '1>5', '1>6', '2>7', '2>8']);
+  assert.ok(!parentLines(linesOf(model, withGroup('chain', 'lines'))).includes('1>3'), 'card 3 is waited for by its sibling 4, so it is not the end of its chain');
 });
 
 test('the chain ends are read on the whole board: hiding a card never moves a line', () => {
@@ -130,102 +150,86 @@ test('the chain ends are read on the whole board: hiding a card never moves a li
   ];
   const all = buildOf(cards);
   const hidden = buildOf(cards, undefined, [1, 2, 3]);
-  assert.deepStrictEqual(parentLines(linesOf(all, { lines: 'chain' })), ['1>4']);
-  assert.deepStrictEqual(parentLines(linesOf(hidden, { lines: 'chain' })), [], 'card 4 is hidden and no other child of card 1 is the end of the chain');
+  assert.deepStrictEqual(parentLines(linesOf(all, withGroup('chain', 'lines'))), ['1>4']);
+  assert.deepStrictEqual(parentLines(linesOf(hidden, withGroup('chain', 'lines'))), [], 'card 4 is hidden and no other child of card 1 is the end of the chain');
 });
 
 test('a chain that loops has no end, so all of it takes a line', () => {
   const model = buildOf([card(1, { type: 'goal' }), card(2, { parent: 1, waiting_for: ['3'] }), card(3, { parent: 1, waiting_for: ['2'] })]);
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'chain' })), ['1>2', '1>3']);
+  assert.deepStrictEqual(parentLines(linesOf(model, withGroup('chain', 'lines'))), ['1>2', '1>3']);
 });
 
-test('folded gives an end in a real chain its own line, and the other children on one ring one counted line', () => {
-  const model = tree();
-  const lines = linesOf(model, { lines: 'folded' });
-  assert.deepStrictEqual(parentLines(lines), ['1*[5,6]', '1>2', '1>4', '2*[7,8]']);
+test('chain with brackets, the default, gives one bracket over the chain ends of a ring and a plain line to an end alone on its ring', () => {
+  const lines = linesOf(tree(), {});
+  assert.deepStrictEqual(parentLines(lines), ['1*[4,5,6]', '1>2', '2*[7,8]']);
   const counted = lines.filter((l) => l.kids);
-  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link]), [['2', '2', 2, null], ['1', '1', 2, null]], 'both ends the parent, and the number of children it carries');
+  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link]), [['2', '2', 2, null], ['1', '1', 3, null]], 'both ends the parent, and the number of children it carries');
+  assert.ok(!parentLines(lines).includes('1>3'), 'card 3 is no chain end, so no bracket holds it');
 });
 
-test('folded keeps a card that is alone on its ring on its own line: only children on one ring share', () => {
-  const lines = linesOf(tree(), { lines: 'folded' });
-  assert.ok(parentLines(lines).includes('1>2'), 'card 2 is a strategy, on a band of its own, so it does not share a line with cards 5 and 6');
-  assert.ok(!parentLines(lines).includes('1>3'), 'card 3 is no chain end');
-  assert.ok(!parentLines(lines).includes('1>5') && !parentLines(lines).includes('1>6'), 'cards 5 and 6 are on the counted line');
-});
-
-test('folded gives each parent its own counted line, and counts the children it carries in outline order', () => {
-  const model = buildOf([
-    card(1, { type: 'goal' }), card(2, { type: 'goal' }),
-    card(3, { parent: 1 }), card(4, { parent: 1 }), card(5, { parent: 1 }), card(6, { parent: 2 }), card(7, { parent: 2 }),
-  ]);
-  const counted = linesOf(model, { lines: 'folded' }).filter((l) => l.kids);
-  assert.deepStrictEqual(counted.map((l) => [l.from, l.kids, l.count]), [['1', ['3', '4', '5'], 3], ['2', ['6', '7'], 2]]);
-});
-
-test('folded never gives a line to a child that is not a chain end, and the lines of chain are the most it ever draws', () => {
-  const model = tree();
-  const chain = new Set(linesOf(model, { lines: 'chain' }).filter((l) => l.kind === 'parent').map((l) => l.to));
-  const folded = linesOf(model, { lines: 'folded' }).filter((l) => l.kind === 'parent');
-  for (const l of folded) for (const id of l.kids || [l.to]) assert.ok(chain.has(id), `card ${id}`);
-});
-
-test('brackets gives a parent one counted bracket over all its children on a ring, the chained ones too', () => {
-  const lines = linesOf(tree(), { lines: 'brackets' });
+test('all with brackets gives one bracket over all the children of a ring, the chained ones too', () => {
+  const lines = linesOf(tree(), withGroup('all', 'brackets'));
   assert.deepStrictEqual(parentLines(lines), ['1*[3,4,5,6]', '1>2', '2*[7,8]']);
-  const counted = lines.filter((l) => l.kids);
-  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.link, l.bracket]), [['2', '2', 2, null, true], ['1', '1', 4, null, true]], 'both ends the parent, and the number of children it carries');
-  assert.ok(lines.filter((l) => l.kind === 'parent' && !l.kids).every((l) => l.bracket === undefined), 'a plain line is no bracket');
+  assert.deepStrictEqual(lines.filter((l) => l.kids).map((l) => [l.from, l.to, l.count, l.link]), [['2', '2', 2, null], ['1', '1', 4, null]]);
 });
 
-test('brackets keeps a child that is alone on its ring on a plain line, wherever it stands in a chain', () => {
+test('brackets keep a child that is alone on its ring on a plain line, wherever it stands in a chain', () => {
   const middle = buildOf([
     card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { parent: 1, waiting_for: ['2'] }),
     card(4, { type: 'epic', parent: 1, waiting_for: ['3'] }),
   ]);
-  assert.deepStrictEqual(parentLines(linesOf(middle, { lines: 'brackets' })), ['1>2', '1>3', '1>4'], 'card 3 waits for 2 and is waited for by 4, yet is alone on its ring');
+  assert.deepStrictEqual(parentLines(linesOf(middle, withGroup('all', 'brackets'))), ['1>2', '1>3', '1>4'], 'card 3 waits for 2 and is waited for by 4, yet is alone on its ring');
 });
 
-test('brackets gives each parent its own bracket, and counts the children it carries in outline order', () => {
+test('brackets give each parent its own bracket, and count the children it carries in outline order', () => {
   const model = buildOf([
     card(1, { type: 'goal' }), card(2, { type: 'goal' }),
     card(3, { parent: 1 }), card(4, { parent: 1 }), card(5, { parent: 1 }), card(6, { parent: 2 }), card(7, { parent: 2 }),
   ]);
-  const counted = linesOf(model, { lines: 'brackets' }).filter((l) => l.kids);
+  const counted = linesOf(model, {}).filter((l) => l.kids);
   assert.deepStrictEqual(counted.map((l) => [l.from, l.kids, l.count]), [['1', ['3', '4', '5'], 3], ['2', ['6', '7'], 2]]);
 });
 
-test('brackets gives a parent one bracket for each ring its children sit on', () => {
+test('brackets give a parent one bracket for each ring its children sit on', () => {
   const model = buildOf([
     card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { type: 'strategy', parent: 1 }),
     card(4, { parent: 1 }), card(5, { parent: 1 }),
   ]);
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'brackets' })), ['1*[2,3]', '1*[4,5]']);
+  assert.deepStrictEqual(parentLines(linesOf(model, {})), ['1*[2,3]', '1*[4,5]']);
 });
 
-test('brackets carries every child of the board on a line or a bracket, and folded still draws what it drew', () => {
+test('brackets never hold a child that has no line: the children they carry are those of the lines option', () => {
   const model = tree();
-  const carried = linesOf(model, { lines: 'brackets' }).filter((l) => l.kind === 'parent').reduce((n, l) => n + (l.kids ? l.kids.length : 1), 0);
-  assert.strictEqual(carried, 7);
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'folded' })), ['1*[5,6]', '1>2', '1>4', '2*[7,8]']);
-  assert.ok(linesOf(model, { lines: 'folded' }).every((l) => l.bracket === undefined), 'folded draws no bracket');
+  for (const lines of ['chain', 'all']) {
+    const own = new Set(linesOf(model, withGroup(lines, 'lines')).filter((l) => l.kind === 'parent').map((l) => l.to));
+    const carried = linesOf(model, withGroup(lines, 'brackets')).filter((l) => l.kind === 'parent').flatMap((l) => l.kids || [l.to]);
+    assert.deepStrictEqual(carried.slice().sort(), [...own].sort(), lines);
+  }
+});
+
+test('group lines draws no counted line', () => {
+  for (const lines of ['chain', 'all']) assert.ok(linesOf(tree(), withGroup(lines, 'lines')).every((l) => l.kids === undefined && l.count === undefined), lines);
 });
 
 test('dependencies on draws a line for each wait, from the card waited for, and off draws none, whatever the lines', () => {
   const model = tree();
-  for (const lines of ['folded', 'brackets', 'chain', 'all', 'off']) {
-    assert.deepStrictEqual(waitLines(linesOf(model, { lines, dependencies: 'on' })), ['3>4', '5>8'], lines);
-    assert.deepStrictEqual(waitLines(linesOf(model, { lines, dependencies: 'off' })), [], lines);
+  for (const [lines, group] of [['chain', 'brackets'], ['chain', 'lines'], ['all', 'brackets'], ['all', 'lines'], ['off', 'brackets']]) {
+    assert.deepStrictEqual(waitLines(linesOf(model, { lines, group, dependencies: 'on' })), ['3>4', '5>8'], lines);
+    assert.deepStrictEqual(waitLines(linesOf(model, { lines, group, dependencies: 'off' })), [], `${lines} ${group}`);
   }
-  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'all', dependencies: 'off' })).length, 7, 'turning the arrows off leaves the parent lines');
+  assert.deepStrictEqual(parentLines(linesOf(model, { lines: 'all', group: 'lines', dependencies: 'off' })).length, 7, 'turning the arrows off leaves the parent lines');
 });
 
 test('the lines come in the order of the model\'s relations, and the same options give the same lines', () => {
   const model = tree();
-  const lines = linesOf(model, { lines: 'folded' });
-  assert.deepStrictEqual(lines, linesOf(model, { lines: 'folded' }));
+  const lines = linesOf(model, {});
+  assert.deepStrictEqual(lines, linesOf(model, {}));
   assert.deepStrictEqual(lines.map((l) => [l.kind, l.from, l.to]), [
-    ['parent', '1', '2'], ['parent', '2', '2'], ['wait', '5', '8'], ['parent', '1', '4'], ['wait', '3', '4'], ['parent', '1', '1'],
+    ['parent', '1', '2'], ['parent', '2', '2'], ['wait', '5', '8'], ['parent', '1', '1'], ['wait', '3', '4'],
+  ]);
+  const each = linesOf(model, { group: 'lines' });
+  assert.deepStrictEqual(each.map((l) => [l.kind, l.from, l.to]), [
+    ['parent', '1', '2'], ['parent', '2', '7'], ['parent', '2', '8'], ['wait', '5', '8'], ['parent', '1', '4'], ['wait', '3', '4'], ['parent', '1', '5'], ['parent', '1', '6'],
   ]);
   const own = lines.filter((l) => l.link !== null);
   assert.ok(own.every((l, i) => i === 0 || l.link > own[i - 1].link));
@@ -235,7 +239,7 @@ test('the lines come in the order of the model\'s relations, and the same option
 test('no option reaches the layout: the same cards give the same places whatever the lines and dependencies', () => {
   const model = tree();
   const before = JSON.stringify([...graphFanPlace(model).places]);
-  for (const lines of ['folded', 'brackets', 'chain', 'all', 'off']) linesOf(model, { lines, dependencies: 'off' });
+  for (const lines of ['chain', 'all', 'off']) for (const group of ['brackets', 'lines']) linesOf(model, { lines, group, dependencies: 'off' });
   assert.strictEqual(JSON.stringify([...graphFanPlace(model).places]), before);
 });
 

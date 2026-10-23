@@ -103,7 +103,7 @@ test('the row holds Names, with relevant, all and none, and relevant pressed by 
   assert.deepStrictEqual(pressedNames(s), ['relevant']);
   assert.ok(names.buttons[0].active && !names.buttons[1].active && !names.buttons[2].active, 'the active class follows the pressed value');
   assert.ok(names.title.length > 20 && /\bn\b/.test(names.title), 'it explains itself in a tooltip and says which key steps it');
-  assert.deepStrictEqual(groups(s.row()).map((g) => g.label), ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested'], 'it follows the three that were there, and Unnested follows it');
+  assert.deepStrictEqual(groups(s.row()).map((g) => g.label), ['Lines', 'Group', 'Dependencies', 'Order', 'Names', 'Unnested'], 'it follows the four that were there, and Unnested follows it');
   for (const b of names.buttons) {
     assert.strictEqual(b.el.dataset.keepsSelection, '', `${b.val} keeps the selection`);
     assert.strictEqual(b.el.dataset.holdsPoll, undefined, `${b.val} does not hold the poll`);
@@ -165,7 +165,7 @@ test('each Names press changes the number of names drawn: relevant 4, all 34, no
 test('the options are stored whole under the one key, Names with them', async () => {
   const s = await open({});
   s.click(button(s, 'names', 'none').el);
-  assert.deepStrictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]), { lines: 'folded', dependencies: 'on', order: 'status', names: 'none', unnested: 'outermost' });
+  assert.deepStrictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]), { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: 'none', unnested: 'outermost' });
   assert.deepStrictEqual(Object.keys(s.stored).filter((k) => /names/i.test(k)), [], 'no second storage key');
 });
 

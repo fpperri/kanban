@@ -224,7 +224,7 @@ test('changing Names does not run the layout again: the same cards under every s
 
 // --- the plan carries the names ------------------------------------------------------------------------------------
 
-const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant' };
+const DEFAULTS = { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status', names: 'relevant' };
 const planOf = (model, fan, extra = {}) => {
   const layout = graphLayout(model, 'hierarchy', { statuses: ['backlog', 'todo', 'doing', 'done'] });
   return graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, ...(fan ? { fan: { ...DEFAULTS, ...fan } } : {}), ...extra });

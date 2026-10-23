@@ -7,16 +7,16 @@ const {
 const { card, buildOf } = require('./helpers/fan-boards');
 
 // What the plan draws of the fan's lines: the lines graphFanLines lists, each with its
-// path, and for the counted line of the folded mode a bus: a stem out from the parent,
+// path, and for the counted line of the brackets group a bracket: a stem out from the parent,
 // one arc through the children's angles, a tick to each child, and a label with the
 // count. The page draws the plan; this holds what the plan says.
 
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
-const DEFAULTS = { lines: 'folded', dependencies: 'on', order: 'status' };
+const DEFAULTS = { lines: 'chain', group: 'brackets', dependencies: 'on', order: 'status' };
 
 // 1 goal; 2 strategy; 3, 4 (waits for 3), 5, 6 untyped children of 1; 7, 8 untyped
 // children of 2, card 8 waiting for card 5; 9 alone. Cards 5 and 6 share a ring, as do
-// 7 and 8, so folded carries each pair on one counted line.
+// 7 and 8, so brackets carry the chain ends of each ring on one counted line.
 const tree = () => buildOf([
   card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { parent: 1 }),
   card(4, { parent: 1, waiting_for: ['3'] }), card(5, { parent: 1 }), card(6, { parent: 1 }),
@@ -35,16 +35,16 @@ const kinds = (plan) => ({
 });
 const ends = (plan, indexes) => [...indexes].map((i) => `${plan.links[i].from}>${plan.links[i].to}`).sort();
 
-test('the plan draws as many lines as the options say: folded 4 parent lines, chain 6, all 7, off 0, and 2 arrows', () => {
+test('the plan draws as many lines as the options say: chain 3 with brackets and 6 with lines, all 3 with brackets and 7 with lines, off 0, and 2 arrows', () => {
   const model = tree();
-  for (const [lines, parent] of [['folded', 4], ['chain', 6], ['all', 7], ['off', 0]]) {
-    assert.deepStrictEqual(kinds(planOf(model, { lines }).plan), { parent, wait: 2 }, lines);
+  for (const [lines, group, parent] of [['chain', 'brackets', 3], ['chain', 'lines', 6], ['all', 'brackets', 3], ['all', 'lines', 7], ['off', 'brackets', 0], ['off', 'lines', 0]]) {
+    assert.deepStrictEqual(kinds(planOf(model, { lines, group }).plan), { parent, wait: 2 }, `${lines} ${group}`);
   }
 });
 
 test('dependencies off draws no arrow and keeps the parent lines', () => {
   const model = tree();
-  assert.deepStrictEqual(kinds(planOf(model, { dependencies: 'off' }).plan), { parent: 4, wait: 0 });
+  assert.deepStrictEqual(kinds(planOf(model, { dependencies: 'off' }).plan), { parent: 3, wait: 0 });
   assert.deepStrictEqual(kinds(planOf(model, { lines: 'off', dependencies: 'off' }).plan), { parent: 0, wait: 0 });
 });
 
@@ -54,14 +54,14 @@ test('a plan with no options draws every relation', () => {
 });
 
 test('an arrow is a dashed line with a head; a parent line, counted or not, has none', () => {
-  const { plan } = planOf(tree(), { lines: 'folded' });
+  const { plan } = planOf(tree(), {});
   for (const l of plan.links) assert.strictEqual(l.arrow, l.kind === 'wait', `${l.from}>${l.to}`);
 });
 
 test('the counted line is one plan line with its count and a label, and its classes tell it from the others', () => {
-  const { plan } = planOf(tree(), { lines: 'folded' });
+  const { plan } = planOf(tree(), {});
   const counted = plan.links.filter((l) => l.count !== undefined);
-  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.label.text]), [['2', '2', 2, '2'], ['1', '1', 2, '2']]);
+  assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.label.text]), [['2', '2', 2, '2'], ['1', '1', 3, '3']]);
   for (const l of counted) {
     const cls = l.cls.split(' ');
     assert.ok(cls.includes('graph-link-counted') && cls.includes('graph-link-parent') && cls.includes('graph-link'));
@@ -73,7 +73,7 @@ test('the counted line is one plan line with its count and a label, and its clas
 const NUM = '-?\\d+(?:\\.\\d+)?(?:e-?\\d+)?';
 
 test('the counted line runs from its parent along one arc to a tick on each child', () => {
-  const { plan, layout } = planOf(tree(), { lines: 'folded' });
+  const { plan, layout } = planOf(tree(), {});
   const at = (id) => layout.pos.get(String(id));
   const round = (v) => Math.round(v * 100) / 100;
   const radiusOf = (id) => Math.hypot(at(id).x, at(id).y);
@@ -83,11 +83,11 @@ test('the counted line runs from its parent along one arc to a tick on each chil
   assert.match(counted.d, /^M/);
   assert.deepStrictEqual(numbers.slice(0, 2), [round(at(1).x), round(at(1).y)], 'the line starts on its parent');
   const ticks = [...counted.d.matchAll(new RegExp(`L(${NUM}) (${NUM})`, 'g'))].map((m) => [Number(m[1]), Number(m[2])]);
-  for (const kid of ['5', '6']) {
+  for (const kid of ['4', '5', '6']) {
     assert.ok(ticks.some(([x, y]) => x === round(at(kid).x) && y === round(at(kid).y)), `a tick ends on card ${kid}`);
   }
   assert.strictEqual((counted.d.match(/A/g) || []).length, 1, 'one arc through the children');
-  assert.ok(Math.abs(radiusOf(5) - radiusOf(6)) < 0.01, 'the children are on one ring');
+  for (const kid of ['4', '6']) assert.ok(Math.abs(radiusOf(5) - radiusOf(kid)) < 0.01, 'the children are on one ring');
   const arc = new RegExp(`M(${NUM}) (${NUM})A(${NUM}) (${NUM}) 0 (\\d) (\\d) (${NUM}) (${NUM})`).exec(counted.d);
   assert.ok(arc, 'the arc has the shape the SVG path takes');
   const radius = Number(arc[3]);
@@ -97,7 +97,7 @@ test('the counted line runs from its parent along one arc to a tick on each chil
 });
 
 test('the label of a counted line sits on the line, on the circle of its arc', () => {
-  const { plan } = planOf(tree(), { lines: 'folded' });
+  const { plan } = planOf(tree(), {});
   const counted = plan.links.filter((x) => x.count !== undefined);
   assert.strictEqual(counted.length, 2);
   for (const l of counted) {
@@ -109,15 +109,17 @@ test('the label of a counted line sits on the line, on the circle of its arc', (
 test('a line toggle moves no card: the dots are where they were whatever the lines', () => {
   const model = tree();
   const where = (fan) => JSON.stringify(planOf(model, fan).plan.nodes.map((n) => [n.id, n.x, n.y]));
-  const base = where({ lines: 'folded' });
-  for (const lines of ['chain', 'all', 'off']) assert.strictEqual(where({ lines, dependencies: 'off' }), base, lines);
+  const base = where({});
+  for (const lines of ['chain', 'all', 'off']) for (const group of ['brackets', 'lines']) assert.strictEqual(where({ lines, group, dependencies: 'off' }), base, `${lines} ${group}`);
 });
 
 test('every path the plan draws has finite numbers, for every option', () => {
   const model = tree();
-  for (const lines of ['folded', 'chain', 'all', 'off']) {
-    for (const dependencies of ['on', 'off']) {
-      for (const l of planOf(model, { lines, dependencies }).plan.links) assert.doesNotMatch(l.d, /NaN|Infinity|undefined/, `${lines} ${dependencies}`);
+  for (const lines of ['chain', 'all', 'off']) {
+    for (const group of ['brackets', 'lines']) {
+      for (const dependencies of ['on', 'off']) {
+        for (const l of planOf(model, { lines, group, dependencies }).plan.links) assert.doesNotMatch(l.d, /NaN|Infinity|undefined/, `${lines} ${group} ${dependencies}`);
+      }
     }
   }
 });
@@ -126,7 +128,7 @@ test('every path the plan draws has finite numbers, for every option', () => {
 
 test('lighting names the lines among the cards it lights, by their place in the list of drawn lines', () => {
   const model = tree();
-  const { plan } = planOf(model, { lines: 'folded' });
+  const { plan } = planOf(model, {});
   const all = graphLit(model, ['1', '2', '3', '4', '5', '6', '7', '8'], plan.links);
   assert.deepStrictEqual([...all.links].sort((a, b) => a - b), plan.links.map((_, i) => i), 'every card lit: every drawn line lit');
   assert.deepStrictEqual(ends(plan, graphLit(model, ['1', '5'], plan.links).links), ['1>1'], 'the counted line lights with its parent alone, though no child of it is lit');
@@ -134,12 +136,12 @@ test('lighting names the lines among the cards it lights, by their place in the 
 
 test('a counted line lights whenever its parent does, a line to one child only when both ends do', () => {
   const model = tree();
-  const { plan } = planOf(model, { lines: 'folded' });
+  const { plan } = planOf(model, {});
   const lines = (ids) => ends(plan, graphLit(model, ids, plan.links).links);
   assert.deepStrictEqual(lines(['2']), ['2>2']);
   assert.deepStrictEqual(lines(['1', '2']), ['1>1', '1>2', '2>2']);
   assert.deepStrictEqual(lines(['4']), []);
-  assert.deepStrictEqual(lines(['1', '4']), ['1>1', '1>4']);
+  assert.deepStrictEqual(lines(['1', '4']), ['1>1'], 'a child on a bracket has no line of its own');
   assert.deepStrictEqual(lines(['3', '4']), ['3>4']);
 });
 
@@ -152,23 +154,23 @@ test('lighting with no list of lines reads the model\'s relations, as before', (
 
 test('a lone card lights the lines drawn to its neighbours: card 4 with chain lines lights its two', () => {
   const model = tree();
-  const { plan } = planOf(model, { lines: 'chain' });
+  const { plan } = planOf(model, { lines: 'chain', group: 'lines' });
   const rest = graphRestLit(model, { selectedIds: new Set(['4']), loneCardId: '4' }, plan.links);
   assert.deepStrictEqual(ends(plan, rest.links), ['1>4', '3>4']);
 });
 
-// --- the brackets mode -------------------------------------------------------------
+// --- the brackets group -------------------------------------------------------------
 
-const withLines = (model, lines, order = 'status') => {
+const withLines = (model, fan = {}, order = 'status') => {
   const layout = graphLayout(model, 'hierarchy', { statuses: STATUSES, order });
-  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan: { ...DEFAULTS, lines, order } });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan: { ...DEFAULTS, ...fan, order } });
   return { layout, plan };
 };
 const angleOf = (x, y) => Math.atan2(y, x);
 const same = (a, b) => Math.abs(Math.sin((a - b) / 2)) < 0.005;
 
-test('brackets draw 3 parent lines of the tree and its 2 arrows: one bracket over cards 3 to 6, one over 7 and 8, a plain line to card 2', () => {
-  const { plan } = withLines(tree(), 'brackets');
+test('all with brackets draws 3 parent lines of the tree and its 2 arrows: one bracket over cards 3 to 6, one over 7 and 8, a plain line to card 2', () => {
+  const { plan } = withLines(tree(), { lines: 'all' });
   assert.deepStrictEqual(kinds(plan), { parent: 3, wait: 2 });
   const counted = plan.links.filter((l) => l.count !== undefined);
   assert.deepStrictEqual(counted.map((l) => [l.from, l.to, l.count, l.label.text]), [['2', '2', 2, '2'], ['1', '1', 4, '4']]);
@@ -181,7 +183,7 @@ test('brackets draw 3 parent lines of the tree and its 2 arrows: one bracket ove
 
 test('a bracket lights with its parent alone, and a child on it lights nothing of its own', () => {
   const model = tree();
-  const { plan } = withLines(model, 'brackets');
+  const { plan } = withLines(model, {});
   const lines = (ids) => ends(plan, graphLit(model, ids, plan.links).links);
   assert.deepStrictEqual(lines(['1']), ['1>1']);
   assert.deepStrictEqual(lines(['1', '4']), ['1>1']);
@@ -198,7 +200,7 @@ const seated = () => buildOf([
 
 test('a bracket is one arc from the first child to the last, a tick to each child and one stem to the parent, under either order', () => {
   for (const [order, first, last] of [['rank', '2', '5'], ['status', '4', '2']]) {
-    const { layout, plan } = withLines(seated(), 'brackets', order);
+    const { layout, plan } = withLines(seated(), {}, order);
     const lines = plan.links.filter((l) => l.count !== undefined);
     assert.strictEqual(lines.length, 1, `${order}: one bracket for the four children`);
     const [line] = lines;
@@ -218,7 +220,7 @@ test('a bracket is one arc from the first child to the last, a tick to each chil
 });
 
 test('the stem runs along its parent\'s own ray when the parent stands among its children', () => {
-  const { layout, plan } = withLines(seated(), 'brackets', 'rank');
+  const { layout, plan } = withLines(seated(), {}, 'rank');
   const line = plan.links.find((l) => l.count !== undefined);
   const kids = ['2', '3', '4', '5'].map((id) => layout.polar.get(id).a);
   const parent = layout.polar.get('1').a;
@@ -232,7 +234,7 @@ test('the arc does not run on to the parent when the parent stands outside its c
     card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { type: 'strategy', parent: 1 }),
     card(5, { parent: 4 }), card(6, { parent: 4 }), card(7, { parent: 4 }), card(8, { parent: 4 }),
   ]);
-  const { layout, plan } = withLines(model, 'brackets');
+  const { layout, plan } = withLines(model, {});
   const line = plan.links.find((l) => l.count !== undefined && l.from === '1');
   assert.strictEqual(line && line.count, 2, 'cards 2 and 3 share a ring');
   const kids = [layout.polar.get('2').a, layout.polar.get('3').a];
@@ -248,12 +250,12 @@ test('the arc does not run on to the parent when the parent stands outside its c
 
 test('a child alone on its ring keeps a plain line to the parent, with no label', () => {
   const model = buildOf([card(1, { type: 'goal' }), card(2, { parent: 1 })]);
-  const { plan } = withLines(model, 'brackets');
+  const { plan } = withLines(model, {});
   assert.deepStrictEqual(plan.links.map((l) => [l.from, l.to, l.count, l.label]), [['1', '2', undefined, undefined]]);
 });
 
 test('the label of a bracket sits on the circle of its arc, and every path has finite numbers', () => {
-  const { plan } = withLines(tree(), 'brackets');
+  const { plan } = withLines(tree(), {});
   for (const l of plan.links) assert.doesNotMatch(l.d, /NaN|Infinity|undefined/);
   for (const l of plan.links.filter((x) => x.count !== undefined)) {
     const radius = Number(new RegExp(`A(${NUM}) `).exec(l.d)[1]);
@@ -261,10 +263,13 @@ test('the label of a bracket sits on the circle of its arc, and every path has f
   }
 });
 
-test('folded keeps its bus, whose arc runs through the parent: the brackets mode changed nothing of it', () => {
-  const { plan } = planOf(tree(), { lines: 'folded' });
-  assert.deepStrictEqual(kinds(plan), { parent: 4, wait: 2 });
-  const bus = plan.links.find((l) => l.count !== undefined && l.from === '1');
-  assert.strictEqual(bus.count, 2);
-  assert.strictEqual((bus.d.match(/M/g) || []).length, 1 + 1 + 2, 'the bus is one stem, one arc and two ticks as before');
+test('group lines draws each child its own plain line: no bracket, no label, no counted class', () => {
+  const { plan } = withLines(tree(), { group: 'lines' });
+  assert.deepStrictEqual(kinds(plan), { parent: 6, wait: 2 });
+  for (const l of plan.links) {
+    assert.strictEqual(l.count, undefined);
+    assert.strictEqual(l.label, undefined);
+    assert.ok(!l.cls.includes('graph-link-counted'));
+    assert.strictEqual((l.d.match(/M/g) || []).length, 1, 'a plain line is one piece');
+  }
 });

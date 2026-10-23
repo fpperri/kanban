@@ -14,7 +14,7 @@
 // nothing, it is the anchor of the selection and its matches light. A caption of
 // the tier fan shows its name alone; the pointer or focus on it shows its tip, one
 // tooltip the stage shares (graphShowTip), with the count of its cards. The Hierarchy also has an
-// option row in the option panel (lines, dependencies, order, names, unnested), kept per board:
+// option row in the option panel (lines, group, dependencies, order, names, unnested), kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
 // row holds the poll, starts a pan or clears the selection. Names says which cards carry their
 // title (graphFanNames, graph-model.js) and graph-names.js where each sits: every card of the
@@ -43,7 +43,11 @@ const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_FAN_OPTION_LABELS = {
   lines: {
     label: 'Lines',
-    hint: 'Which parent lines the fan draws. Folded: a line to the end of each dependency chain, and one counted line for the other children of a parent that sit on one ring. Brackets: for each parent and each ring its children sit on, one bracket from its first child to its last with a tick to each, and one line up to the parent, counting them; a child alone on its ring keeps a plain line. Chain: a line to every chain end, as the Map draws them. All: a line to every child. Off: none.',
+    hint: 'Which children get a parent line. Chain: the end of each dependency chain, as the Map draws them. All: every child. Off: none.',
+  },
+  group: {
+    label: 'Group',
+    hint: 'How the children that get a parent line are drawn. Brackets: for each parent and each ring its children sit on, one bracket from the first child to the last with a tick to each, and one line up to the parent that counts them; a child alone on its ring keeps a plain line. Lines: each child its own line. With Lines off there is nothing to group.',
   },
   dependencies: {
     label: 'Dependencies',
