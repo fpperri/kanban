@@ -310,7 +310,7 @@ it starts. Tab reaches the arrow, the fold control and every pill, and Enter and
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
 arrow, and stays in the box when Esc was pressed there), and then clears the box, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
-the box; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
+the box, and with nothing selected empties it; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 
@@ -363,7 +363,8 @@ lights; the Calendar and the Gantt jump to the nearest match when none is on scr
 on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a
 click or a double click on empty space clears nothing. With the panel closed, the chip says
 *isolated*. Turn it off with the switch, `i` or Esc and the box gets its text back. Esc steps
-back in three stages: isolate off, then the additions, then the anchor; with the panel open the
+back in three stages: isolate off, then the additions, then the anchor, and with nothing left to step
+back one more Esc empties the box, a `slice:` run included; with the panel open the
 first Esc closes the panel, and the second turns isolate off. The switch is announced as on or
 off, and Tab reaches it, and Enter and Space flip it.
 
@@ -442,7 +443,8 @@ A click on empty space never touches the selection, since it can be an accident.
 double click on empty space clears it: the additions, the anchor, and the anchor's text in
 the box (a pill's query or a search typed in the Graph), so the pill goes off. Esc still steps back
 one stage at a time: a popup, then the additions, then the anchor, and isolate goes off before
-the additions. Where a double click
+the additions; once nothing is selected, one more Esc empties the box, a `slice:` run included, so
+repeated Esc ends on a clean page. Where a double click
 already does something, as it does on the Calendar's empty days and time slots, it does that
 and the selection stays.
 

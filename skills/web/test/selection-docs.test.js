@@ -57,7 +57,8 @@ test('the multi-select section says where the Esc step runs: with nothing open a
   const text = bullet('- **Multi-select**');
   assert.match(text, /only while nothing is open and nobody is typing/);
   assert.match(text, /with focus in the search box Esc clears the box and leaves the selection/);
-  assert.match(text, /away from the box Esc no longer clears it/);
+  assert.match(text, /away from the box Esc steps the selection back and, once nothing is picked, clears the box as well, the run of `slice:` included, so repeated Esc ends on an empty box/);
+  assert.doesNotMatch(text, /away from the box Esc no longer clears it/, 'the old promise is false now');
 });
 
 test('the multi-select section says bulk targets are fixed when an action starts, and that the confirmations name that count', () => {

@@ -839,13 +839,15 @@ to `127.0.0.1` only.
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
   closes, as before); with focus in the search box Esc clears the box and leaves the
   selection (in the Graph, where a typed search is the anchor, clearing the box takes the anchor
-  and the additions with it), and away from the box Esc no longer clears it (while isolated, Esc in the box turns
-  isolate off instead of clearing it). An open search panel takes
+  and the additions with it), and away from the box Esc steps the selection back and, once nothing is
+  picked, clears the box as well, the run of `slice:` included, so repeated Esc ends on an empty box (while
+  isolated, Esc in the box turns isolate off instead of clearing it). The stage is decided in the selection
+  module (`escapeStage`: isolate, selection, box) and carried out by `stepSelectionBack`. An open search panel takes
   Esc before the step and closes (a suggestion list closes before the panel), and a pill
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
   so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
-  empty after the next; any other text in the box stays, and clearing the box with Esc
-  in it turns off the pills it held. A plain click that selects a card (the Graph's, or a view
+  empty after the next; any other text in the box stays through those stages and goes with the last
+  Esc, and clearing the box with Esc in it turns off the pills it held. A plain click that selects a card (the Graph's, or a view
   the preferences sheet sets to selects) does the same to the pills the selection held: it replaces the selection,
   so the pills go off and their queries out of the box (not while isolated, when the box holds the
   isolate text). A click that opens a card changes no filter: every pill that is on stays on, the
@@ -952,7 +954,7 @@ to `127.0.0.1` only.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
   goes back to the arrow, and stays in the box when Esc was pressed there), and only then
-  clears the box, with focus in it, or steps the selection back. Esc leaves the switch on,
+  clears the box, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
   so the box, focused again, opens the panel again. The box keeps its text
   through the first two, because the browser's own Esc, which clears a search field, is
   stopped for them. The panel is no popup: the 5s poll runs while it is open and updates the
@@ -1057,7 +1059,8 @@ to `127.0.0.1` only.
   says **isolated**, and its name lists what else is on (`2 on: review, isolated`). Turning it
   off, with the switch, `i` or Esc, gives the box back the text it held, with the run of slices
   as the box holds it now. **Esc** steps back in three stages: isolate off, then every addition,
-  then the anchor. With the search panel open the first Esc closes the panel and the second turns
+  then the anchor, and with nothing left to step back one more Esc clears the box, the run of slices
+  included. With the search panel open the first Esc closes the panel and the second turns
   isolate off; with focus in the box Esc turns isolate off rather than clearing the box, and the
   browser's own Esc, which clears a search field, is stopped for it. The text is built in the
   search module (`searchIsolateText`, `searchIsolateBox` and `searchIsolateRestore`), the stages
