@@ -201,5 +201,6 @@ module.exports = {
     check('and choosing it again changes the row back', await waitFor(`${STATE_OF('panel')}===${JSON.stringify(CASES.afterKeys.panel)}`, 2500), await states());
     check('Escape closes the sheet', await closeWithEscape());
     await ev(`localStorage.removeItem('kanban.plan.prefs')`);
+    await ev(`localStorage.removeItem('kanban.plan.typing.isolates')`);
   },
 };

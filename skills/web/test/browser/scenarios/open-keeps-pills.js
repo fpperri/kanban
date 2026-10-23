@@ -176,6 +176,7 @@ module.exports = {
     check('and the pill is off in the Board', await noPillOn());
 
     await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({click:{board:'selects'}}))`);
+    await ev(`localStorage.removeItem('kanban.plan.typing.isolates')`);
     check('the Board draws the plan board set to selects, isolating what is typed', await goto('/?view=board', ready.board));
     await openPanel();
     await clickOn(pillSel('review'));
@@ -188,6 +189,7 @@ module.exports = {
     await frames();
     check('and leaves the pill\'s query in the box, which is the isolate text', (await boxText()) === 'review:', await boxText());
     await ev(`localStorage.removeItem('kanban.plan.prefs')`);
+    await ev(`localStorage.removeItem('kanban.plan.typing.isolates')`);
 
     // --- the Graph: Enter opens and changes nothing, a plain click on a dot selects and drops the pill ----------
     check('the Graph draws the plan board', await goto('/?view=graph', ready.graph));
