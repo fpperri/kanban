@@ -6,7 +6,8 @@
 // both card and q, and Back and Forward leave the box alone and bring the entry
 // they land on in line with it. A query typed on the Board, put there by a pill or opened from a
 // link turns isolate on, so `isolate=1` stands beside q there; a text written to the box by a menu item
-// turns nothing on, and the Graph, where typing lights, never carries it.
+// turns nothing on, so `isolate=0` stands beside q and a reload reopens it lit; the Graph, where typing
+// lights, carries neither.
 //
 // Alt+Left and Alt+Right are browser shortcuts that a headless page is never
 // sent, so Back and Forward are the same history traversal, through
@@ -65,7 +66,7 @@ module.exports = {
     await ev(`writeSearch(${JSON.stringify(compound)}, 'menu')`);
     check('a compound query reaches the address whole, with no fragment', (await waitFor(`new URLSearchParams(location.search).get('q')===${JSON.stringify(compound)}`)) && !(await ev(`location.hash`)), await addressParams());
     await reload();
-    check('a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload', (await waitFor(`document.getElementById('search-input').value===${JSON.stringify(compound)}`, 10000)) && (await addressHas({ view: 'board', q: compound, isolate: '1' })), { box: await boxText(), address: await addressParams() });
+    check('a box holding #12 | (tags:"next-up" status:doing) comes back unchanged after a reload', (await waitFor(`document.getElementById('search-input').value===${JSON.stringify(compound)}`, 10000)) && (await addressHas({ view: 'board', q: compound, isolate: '0' })) && !(await ev(`isolateNow()!==null`)), { box: await boxText(), address: await addressParams() });
 
     await open('/?q=zephyr&view=graph');
     check('a link opened with q and view=graph shows the graph and the query', (await waitFor(`document.querySelectorAll('.graph-node').length>0`, 10000)) && (await boxText()) === 'zephyr', { box: await boxText() });

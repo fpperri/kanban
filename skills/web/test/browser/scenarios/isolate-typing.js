@@ -120,6 +120,14 @@ module.exports = {
     const dots = await nowShown(DOTS);
     check('and opens lighting: isolate is off, every dot is drawn and the zephyr cards are lit', await switchIs(false) && await isolateIs(false) && await shows(DOTS_LIT, CASES.cards) && dots.length >= 18, { dots, lit: await nowShown(DOTS_LIT) });
 
+    // --- the address the page writes reopens the same picture: isolate=0 reopens lit, though the Board isolates what is typed -------
+    check('a link with isolate=0 into the Board opens it', await goto(`/?view=board&q=${CASES.query}&isolate=0`, `document.getElementById('search-input').value==='${CASES.query}'&&document.querySelectorAll('#board .card-el').length>0`));
+    check('and opens lit: isolate is off, every card is shown and the zephyr cards wear the selected look', await isolateIs(false) && await switchIs(false) && await shows(BOARD, live) && await shows(BOARD_LIT, CASES.cards), { shown: await nowShown(BOARD), lit: await nowShown(BOARD_LIT) });
+    check('and the address stays as it was, isolate=0 beside q', await waitFor(`new URLSearchParams(location.search).get('isolate')==='0'`), await ev(`location.search`));
+    await blur();
+    await key('i');
+    check('the i key isolates it, and the address then says isolate=1', await switchIs(true) && await waitFor(`new URLSearchParams(location.search).get('isolate')==='1'`), await ev(`location.search`));
+
     // --- the Graph lights what is typed, until its checkbox is ticked ------------------------------------------------
     check('the Graph draws the fixture board', await goto('/?view=graph', graphReady));
     await typeQuery(CASES.query);

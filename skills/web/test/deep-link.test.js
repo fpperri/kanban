@@ -143,7 +143,7 @@ const CONSUME = (() => {
 
 test('consumeDeepLink writes q into the search box through its writer, which re-renders', () => {
   assert.match(CONSUME, /link\.q/, 'consumeDeepLink never reads link.q');
-  assert.match(CONSUME, /writeSearch\(link\.q, 'link'\)/, 'the query is not written into the box through the writer');
+  assert.match(CONSUME, /writeSearch\(link\.q, link\.isolateOff \? 'link-lit' : 'link'\)/, 'the query is not written into the box through the writer');
   assert.match(CONSUME, /else if \(link\.view\) renderBoard\(\);/, 'a view-only link never re-renders');
 });
 
@@ -183,4 +183,27 @@ test('the isolate parameter adds nothing but the one field to what the parse ret
 test('consumeDeepLink isolates from the parse, not from a second read of the address', () => {
   assert.match(CONSUME, /if \(link\.isolate\) isolateFromLink\(link\.q\);/);
   assert.doesNotMatch(APP, /deepLinkIsolates/);
+});
+
+// --- isolate=0: how the page says a query is shown lit ---------------------------------------
+// Outside the Graph the page writes isolate=0 beside q while isolate is off (nextSearchAddress, card-history.js), so a
+// reload reopens the same picture. The parse tells it apart from a link with no parameter, which is an old or
+// hand-made link and which the page opens isolated where the view isolates what is typed.
+
+test('isolateOff: isolate=0 beside a usable query says the query is shown lit, in either order', () => {
+  assert.strictEqual(parseDeepLink('?q=%232&isolate=0').isolateOff, true);
+  assert.strictEqual(parseDeepLink('?isolate=0&q=status%3Adoing&view=board').isolateOff, true);
+  assert.strictEqual(parseDeepLink('?q=%232&isolate=0').isolate, false);
+});
+
+test('isolateOff: a link with a query and no isolate parameter, isolate=1, or another value says nothing of the kind', () => {
+  for (const search of ['?q=%232', '?q=%232&isolate=1', '?q=%232&isolate=true', '?q=%232&isolate=', '?q=%232&isolate']) {
+    assert.ok(!('isolateOff' in parseDeepLink(search)), search);
+  }
+  assert.strictEqual(parseDeepLink('?q=%232&isolate=1').isolate, true);
+});
+
+test('isolateOff: no query, or a blank one, says nothing, and the parameter alone is no deep link', () => {
+  assert.strictEqual(parseDeepLink('?q=&isolate=0&view=board').isolateOff, undefined);
+  assert.strictEqual(parseDeepLink('?isolate=0'), null);
 });
