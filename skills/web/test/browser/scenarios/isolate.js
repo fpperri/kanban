@@ -4,8 +4,8 @@
 //
 // The Graph. A plain click on one loose card, a Shift+click on another, Dependency path on card 4
 // from its menu and a Shift+click on the grill pill build a selection of an anchor and three
-// additions. The switch writes `#a | #b | path:4 | tags:"grill"` into the box, and only the cards
-// of that selection are drawn (the two cards, the path 1, 3 and 4, and the grill card 8). The
+// additions. The switch writes `#a | #b | dpath:4 | tags:"grill"` into the box, and only the cards
+// of that selection are drawn (the two cards, the path 3 and 4, and the grill card 8). The
 // switch reports on to assistive technology. The first Esc closes the panel; with the panel
 // closed the chip says isolated. A click on a shown card moves the anchor and leaves the box and
 // the shown cards; a click and a double click on the empty Graph leave the selection and the box;
@@ -49,7 +49,8 @@ const CASES = {
   // Loose cards of the plan board, with no parent, child or wait, that the Graph may have to click.
   loose: [17, 14, 15, 13, 12, 11, 10, 9, 16],
   pathOf: 4,
-  pathCards: [1, 3, 4],
+  pathKind: 'dpath',
+  pathCards: [3, 4],
   pill: { label: 'grill', query: 'tags:"grill"', cards: [8] },
   // The Board narrowed by `zephyr`, and the two of its cards the scenario picks.
   zephyr: { query: 'zephyr', cards: [1, 2, 7, 11], picked: [1, 2] },
@@ -151,18 +152,18 @@ module.exports = {
     check('two loose cards can be clicked without another dot in the way', clickable.length === 2, clickable);
     const [a, b] = clickable;
     const wanted = sorted(a, b, ...CASES.pathCards, ...CASES.pill.cards);
-    const wantedText = `#${a} | #${b} | path:${CASES.pathOf} | ${CASES.pill.query}`;
+    const wantedText = `#${a} | #${b} | ${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}`;
 
     await clickDot(a);
     await clickDot(b, { modifiers: 8 });
     await rightClick(`#graph-view .card-el[data-id="${CASES.pathOf}"]`);
     check('a right-click on a card in the Graph opens its menu', await waitFor(MENU_UP));
-    await press('ctx-path');
+    await press('ctx-dpath');
     check('Dependency path adds the path to the selection', await pickedSize(2 + CASES.pathCards.length), await ev(`[...selectedIds]`));
     await openPanel();
     await clickOn(pillSel(CASES.pill.label), { modifiers: 8 });
     check('a Shift+click on the grill pill adds its card, and the box stays as it was, empty', await pickedIs(wanted) && (await boxText()) === '', { picked: await ev(`[...selectedIds]`), box: await boxText() });
-    check('the selection is the anchor card, then the second card, the path and the pill', same(await parts(), { anchor: `card:${a}`, additions: [`card:${b}`, `path:${CASES.pathOf}`, `query:${CASES.pill.query}`] }), await parts());
+    check('the selection is the anchor card, then the second card, the path and the pill', same(await parts(), { anchor: `card:${a}`, additions: [`card:${b}`, `${CASES.pathKind}:${CASES.pathOf}`, `query:${CASES.pill.query}`] }), await parts());
     check('the switch is off to start and reports it', await switchIs(false) && (await ev(`${SWITCH}.getAttribute('role')`)) === 'switch');
 
     await clickOn('#isolate-switch');

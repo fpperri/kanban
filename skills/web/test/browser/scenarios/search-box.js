@@ -1,11 +1,11 @@
 'use strict';
 // The search box on the Board, on the fixture board: each way of writing the box
 // (typing, the clear button, a cue click, a ?q= link) changes the box and the
-// cards the columns show; Path from a card's menu adds to the selection and
+// cards the columns show; Dependency path from a card's menu adds to the selection and
 // leaves the box and the columns alone. The card menu is opened by the runner's
 // right-click helper. The sets are the fixture's own: 18 live cards, all
 // assigned to @human, card 9 blocked, card 10 awaiting review, and card 4's
-// dependency path is 1, 3, 4.
+// dependency path is 3, 4.
 
 module.exports = {
   name: 'search-box',
@@ -47,8 +47,8 @@ module.exports = {
 
     await page.rightClick('#board .card-el[data-id="4"]');
     check('a right-click on a card opens its menu', await waitFor(`!document.getElementById('context-menu').classList.contains('hidden')`));
-    await ev(`document.getElementById('ctx-path').click()`);
-    check('Path from the menu adds that card\'s dependency path to the selection and leaves the box empty', (await boxText()) === '' && (await boardShows(liveIds)) && JSON.stringify(await markedNow()) === '[1,3,4]', { box: await boxText(), shown: await shownNow(), marked: await markedNow() });
+    await ev(`document.getElementById('ctx-dpath').click()`);
+    check('Dependency path from the menu adds that card\'s dependency path to the selection and leaves the box empty', (await boxText()) === '' && (await boardShows(liveIds)) && JSON.stringify(await markedNow()) === '[3,4]', { box: await boxText(), shown: await shownNow(), marked: await markedNow() });
     check('and the menu closes', await ev(`document.getElementById('context-menu').classList.contains('hidden')`));
     await shot('search-path');
 

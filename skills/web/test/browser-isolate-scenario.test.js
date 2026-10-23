@@ -11,7 +11,7 @@ const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../web/search');
 const { pillList, pillRows } = require('../web/pills');
-const { NO_SELECTION, cardPart, pathPart, queryPart, addPart, resolveSelection } = require('../web/selection');
+const { NO_SELECTION, cardPart, dpathPart, queryPart, addPart, resolveSelection } = require('../web/selection');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate');
 
@@ -47,7 +47,7 @@ test('the scenario is in the runner, on the plan board, with time for its four p
 
 test('the path of the card the scenario right-clicks is the cards it says', () => {
   const b = planBoard();
-  assert.deepStrictEqual(sorted(b.matchIds(`path:${CASES.pathOf}`)), CASES.pathCards);
+  assert.deepStrictEqual(sorted(b.matchIds(`${CASES.pathKind}:${CASES.pathOf}`)), CASES.pathCards);
 });
 
 test('the grill pill is a value pill among the first eight, with the label, query and cards the scenario says, and the key it clicks by', () => {
@@ -79,9 +79,9 @@ test('every pair of loose cards, with the path and the pill, writes the text the
   for (const x of CASES.loose) {
     for (const y of CASES.loose) {
       if (x === y) continue;
-      const selection = [cardPart(x), cardPart(y), pathPart(CASES.pathOf), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
+      const selection = [cardPart(x), cardPart(y), dpathPart(CASES.pathOf), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
       const text = searchIsolateText([selection.anchor, ...selection.additions]);
-      assert.strictEqual(text, `#${x} | #${y} | path:${CASES.pathOf} | ${CASES.pill.query}`);
+      assert.strictEqual(text, `#${x} | #${y} | ${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}`);
       const expected = sorted([x, y, ...CASES.pathCards, ...CASES.pill.cards]);
       assert.deepStrictEqual(sorted(b.matchIds(text)), expected, text);
       assert.deepStrictEqual(sorted(resolveSelection(selection, b.matchIds, null)), expected, 'and that is what the selection resolves to');
@@ -136,7 +136,7 @@ test('the scenario does not wait on a fixed sleep', () => {
 test('the ids and classes the scenario drives are in the page', () => {
   const web = path.join(__dirname, '..', 'web');
   const page = ['app.html', 'app.js', 'search-panel.js', 'isolate.js', 'graph-view.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
-  for (const name of ['isolate-switch', 'search-panel', 'search-chip', 'search-pills', 'query-pill', 'search-input', 'search-clear-btn', 'context-menu', 'ctx-path', 'graph-canvas', 'graph-node', 'graph-dot', 'cal-title']) {
+  for (const name of ['isolate-switch', 'search-panel', 'search-chip', 'search-pills', 'query-pill', 'search-input', 'search-clear-btn', 'context-menu', 'ctx-dpath', 'graph-canvas', 'graph-node', 'graph-dot', 'cal-title']) {
     assert.ok(page.includes(name), `${name} is in the page`);
     assert.ok(code.includes(name), `${name} is driven by the scenario`);
   }

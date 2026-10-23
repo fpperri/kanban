@@ -3,13 +3,15 @@
 // selection opens a menu for that card alone, led by Peek and Add to selection,
 // and leaves the selection as it was, in every view; Peek opens the details
 // without touching the selection; Add to selection adds the card; the bulk
-// entries act on the menu's subject (Set priority); Dependency path and
-// Dependency tree add to the selection and leave the search box alone, and are
-// absent when the subject is several cards; Archive and Delete name the count of
-// a selection that holds a path part. Add child... opens the New card form under the card, the heading
+// entries act on the menu's subject (Set priority); Explore's Path and Tree, each by Hierarchy or
+// Dependency, add one part for the right-clicked card and leave the search box alone, and are in
+// every card's menu whatever the subject (a card inside a lit path included, and the card details'
+// own menu, which is for the open card); Archive and Delete name the count of
+// a selection that holds a tree part. Add child... opens the New card form under the card, the heading
 // and the Parent field saying so, and saving it writes a card whose file says `parent: <id>`
 // and leaves the parent's file as it was; with the Parent cleared it is a root card. The fixture's own sets: card 4's
-// dependency path is 1, 3, 4 and its tree is 1 to 8. Cards 1, 3 and 4 are dated
+// hierarchy path is 1, 4 and its hierarchy tree is 1 to 8 (19 is archived); its dependency path is 3, 4 and its
+// dependency tree 2, 3, 4, 6. Cards 1, 3 and 4 are dated
 // today so the Calendar and the Gantt draw them (the runner puts the board's
 // cards back before the next scenario). Each step waits on the page, never on a
 // fixed sleep; the menu is opened by the runner's right-click helper.
@@ -132,54 +134,79 @@ module.exports = {
     await setPriority('Low');
     check('Board: after a right-click inside a two-card selection, Set priority changes both cards', await waitFor(`state.active.find((c)=>c.id==='1').priority==='Low'`) && same(await priorities(), { 1: 'Low', 3: 'Low', 4: 'High' }), await priorities());
 
-    // Dependency path and tree add to the selection and leave the box alone.
+    // The four sets (Explore > Path | Tree > Hierarchy | Dependency) add one part for the right-clicked card and leave the box alone.
+    const groupShown = (id) => ev(`!document.getElementById(${JSON.stringify(id)}).closest('.ctx-sub').classList.contains('hidden')`);
+    const exploreOffered = async () => (await groupShown('ctx-explore')) && (await groupShown('ctx-path')) && (await groupShown('ctx-tree'));
     await openBoard();
     await rightClickOnBoard(4);
-    check('Dependency path and Dependency tree are in the menu for one card', (await entryShown('ctx-path')) && (await entryShown('ctx-tree')));
-    await press('ctx-path');
-    check('Dependency path on a card adds its path, marked on the Board', await waitFor(`selectedIds.size===3`) && same(await boardMarks(), [1, 3, 4]), await boardMarks());
-    check('and the path is one part of the selection', same(await anchorAndAdditions(), { anchor: 'path:4', additions: [] }), await anchorAndAdditions());
+    check('Path and Tree, each with Hierarchy and Dependency, are in the menu for one card', await exploreOffered());
+    await press('ctx-dpath');
+    check('Dependency path on a card adds its path, marked on the Board', await waitFor(`selectedIds.size===2`) && same(await boardMarks(), [3, 4]), await boardMarks());
+    check('and the path is one part of the selection', same(await anchorAndAdditions(), { anchor: 'dpath:4', additions: [] }), await anchorAndAdditions());
     check('and the search box is unchanged after Dependency path', (await boxText()) === '', await boxText());
     await press('graph-toggle-btn');
-    check('and the path is lit in the Graph', await waitFor(`document.querySelectorAll('#graph-view .graph-node.selected').length===3`) && same(await graphMarks(), [1, 3, 4]), await graphMarks());
+    check('and the path is lit in the Graph', await waitFor(`document.querySelectorAll('#graph-view .graph-node.selected').length===2`) && same(await graphMarks(), [3, 4]), await graphMarks());
 
     await openBoard();
     await rightClickOnBoard(4);
-    await press('ctx-tree');
-    check('Dependency tree on a card adds its tree, marked on the Board', await waitFor(`selectedIds.size===8`) && same(await boardMarks(), [1, 2, 3, 4, 5, 6, 7, 8]), await boardMarks());
-    check('and the tree is one part of the selection', same(await anchorAndAdditions(), { anchor: 'tree:4', additions: [] }), await anchorAndAdditions());
-    check('and the search box is unchanged after Dependency tree', (await boxText()) === '', await boxText());
+    await press('ctx-htree');
+    check('Hierarchy tree on a card adds its parent tree, marked on the Board', await waitFor(`selectedIds.size===8`) && same(await boardMarks(), [1, 2, 3, 4, 5, 6, 7, 8]), await boardMarks());
+    check('and the tree is one part of the selection', same(await anchorAndAdditions(), { anchor: 'htree:4', additions: [] }), await anchorAndAdditions());
+    check('and the search box is unchanged after Hierarchy tree', (await boxText()) === '', await boxText());
     await press('graph-toggle-btn');
     check('and the tree is lit in the Graph', await waitFor(`document.querySelectorAll('#graph-view .graph-node.selected').length===8`) && same(await graphMarks(), [1, 2, 3, 4, 5, 6, 7, 8]), await graphMarks());
 
-    await selectPair();
-    await rightClickOnBoard(3);
-    check('Dependency path and Dependency tree are in the menu when its subject is several cards', (await entryShown('ctx-path')) && (await entryShown('ctx-tree')) && (await entryShown('ctx-assign')));
-    await closeMenu();
-
-    // A right-click inside a lit path has its cards as the subject, and the menu still offers both.
     await openBoard();
     await rightClickOnBoard(4);
-    await press('ctx-path');
-    await waitFor(`selectedIds.size===3`);
+    await press('ctx-hpath');
+    check('Hierarchy path adds the card and its parent, and nothing waiting for it', await waitFor(`selectedIds.size===2`) && same(await boardMarks(), [1, 4]) && same(await anchorAndAdditions(), { anchor: 'hpath:4', additions: [] }), await boardMarks());
+    await openBoard();
     await rightClickOnBoard(4);
-    check('a right-click on a card inside a lit path still offers Dependency path and Dependency tree', await menuOpen() && (await entryShown('ctx-path')) && (await entryShown('ctx-tree')));
-    await press('ctx-path');
-    check('and Dependency path adds the path of each card of the path, one part per card', await waitFor(`selectionState.selection.additions.length===2`) && same(await anchorAndAdditions(), { anchor: 'path:4', additions: ['path:1', 'path:3'] }), await anchorAndAdditions());
+    await press('ctx-dtree');
+    check('Dependency tree adds the cards joined to it by waiting_for alone', await waitFor(`selectedIds.size===4`) && same(await boardMarks(), [2, 3, 4, 6]) && same(await anchorAndAdditions(), { anchor: 'dtree:4', additions: [] }), await boardMarks());
 
-    // Archive and Delete name the resolved count of a selection that holds a path part. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
+    await selectPair();
+    await rightClickOnBoard(3);
+    check('Path and Tree are in the menu when its subject is several cards, beside the bulk entries', (await exploreOffered()) && (await entryShown('ctx-assign')));
+    await press('ctx-dpath');
+    check('and with several cards as the subject the four add the set of the right-clicked card alone', await waitFor(`selectionState.selection.additions.length===2`) && same(await anchorAndAdditions(), { anchor: 'card:1', additions: ['card:3', 'dpath:3'] }), await anchorAndAdditions());
+
+    // A right-click on a card inside a lit path has the path's cards as the subject, and the menu still offers both.
+    await openBoard();
+    await rightClickOnBoard(4);
+    await press('ctx-dpath');
+    await waitFor(`selectedIds.size===2`);
+    await rightClickOnBoard(3);
+    check('a right-click on a card inside a lit path still offers Path and Tree', await menuOpen() && (await exploreOffered()));
+    await press('ctx-hpath');
+    check('and Hierarchy path adds the path of the card right-clicked, one part, not one for each card of the lit path', await waitFor(`selectionState.selection.additions.length===1`) && same(await anchorAndAdditions(), { anchor: 'dpath:4', additions: ['hpath:3'] }), await anchorAndAdditions());
+    check('and the cards it reaches join those the lit path marked', await waitFor(`selectedIds.size===3`) && same(await boardMarks(), [1, 3, 4]), await boardMarks());
+
+    // The card details' own menu is for the open card.
+    await openBoard();
+    await rightClickOnBoard(4);
+    await press('ctx-peek');
+    await detailOpen(4);
+    await rightClick('#detail-modal .modal');
+    check('the details own menu offers Path and Tree too', await menuOpen() && (await exploreOffered()));
+    await press('ctx-dtree');
+    check('and Dependency tree there is the one of the open card', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='dtree'`) && same(await anchorAndAdditions(), { anchor: 'dtree:4', additions: [] }), await anchorAndAdditions());
+    await key('Escape');
+    await detailClosed();
+
+    // Archive and Delete name the resolved count of a selection that holds a tree part. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
     await openBoard();
     await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
     await rightClickOnBoard(4);
-    await press('ctx-path');
-    await waitFor(`selectedIds.size===3`);
+    await press('ctx-htree');
+    await waitFor(`selectedIds.size===8`);
     await rightClickOnBoard(4);
     await press('ctx-archive');
     await rightClickOnBoard(4);
     await press('ctx-delete');
     const asked = await ev('window.__asked');
-    check('archiving a selection that holds a path part names the resolved count', asked[0] === 'Archive 3 card(s)? (moves their files to archived/)', asked);
-    check('deleting a selection that holds a path part names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 3 cards?'`, 3000), asked);
+    check('archiving a selection that holds a tree part names the resolved count', asked[0] === 'Archive 8 card(s)? (moves their files to archived/)', asked);
+    check('deleting a selection that holds a tree part names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 8 cards?'`, 3000), asked);
     await key('Escape');
     await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
 
