@@ -1639,7 +1639,13 @@ to `127.0.0.1` only.
   The sets are worked out from the whole board, archived cards included, and the Graph lights those it draws.
   With the defaults the Graph lights what it lit before: in the Hierarchy a card and its parent, its children and
   the cards it waits for or that wait for it, in the Flow the card and the cards its dependencies join to it. The
-  snapshot has no hover and no such section. **Space takes the hover**: `onHoverSpaceKey` (`hover-show-ui.js`), one
+  Graph's option panel has the same six as an **On hover** section (`graphBuildHoverRow` in `graph-view.js`, a
+  `div.graph-hover-options` after the Hierarchy's option row or the Flow's switches, drawn by `graphBuildSwitch` with
+  `.graph-option-btn[data-key=hover][data-val=<set>]` and `aria-pressed` on each set the choice of that kind of Graph
+  ticks). Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls
+  `syncHoverShowPanel` before `refreshHover`, and `syncHoverShowPanel` sets the boxes and the toggles from the choice
+  that applies, so each shows a change made in the other at once and a card hovered at that moment lights again.
+  The snapshot has no hover and no such section. **Space takes the hover**: `onHoverSpaceKey` (`hover-show-ui.js`), one
   `keydown` listener on the document that reads the whole key guard (`keyGuardDetailOff`: off in a field, behind a
   menu, a dialog, the notifications panel, the preferences sheet or the notes palette), leaves a target that answers
   Space itself (`HOVER_SPACE_OWN`: an input, textarea, select, button, link, summary, contenteditable, or a

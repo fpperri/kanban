@@ -74,6 +74,10 @@ const GRAPH_FLOW_LANES_LABEL = {
   label: 'Lanes',
   hint: 'Off: the cards in columns alone. On: each card in the lane of its nearest parent with a tier, else its root, under a header with the type mark of that card, its tier, title, cards and ready cards. Frontier puts the lanes with ready cards first, the most ready first, and folds a lane into the strip when none of its cards with a dependency is open; all keeps the outline order and folds none. A card with no dependency stays in the strip.',
 };
+const GRAPH_HOVER_LABEL = {
+  label: 'On hover',
+  hint: 'Which sets a hover or a keyboard focus on a card lights, any mix: dtree and htree the whole tree down or across, dpath and hpath the path to the roots, dlinks the cards one wait away, hlinks the parent and the children. The same choice as On hover show in the search panel, kept for each kind of Graph; Space writes the ticked terms into the box.',
+};
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
 let graphLayoutKind = null;
@@ -409,7 +413,7 @@ function graphBuildSwitch(def, key, values, current) {
   seg.setAttribute('role', 'group');
   seg.setAttribute('aria-label', def.label);
   for (const value of values) {
-    const on = current === value;
+    const on = Array.isArray(current) ? current.includes(value) : current === value;
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `graph-option-btn${on ? ' active' : ''}`;
@@ -448,9 +452,20 @@ function graphBuildFlowRow(deps, lanes) {
   return row;
 }
 
+// The On hover section: the six sets as toggles, any mix, the choice of this kind of Graph (hover-show.js).
+// A press edits the one choice the search panel's boxes edit (hoverShowPick, hover-show-ui.js), which
+// hands the buttons their new state without a redraw.
+function graphBuildHoverRow(kind) {
+  const row = document.createElement('div');
+  row.className = 'graph-hover-options';
+  row.dataset.keepsSelection = '';
+  row.appendChild(graphBuildSwitch(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_KINDS, hoverShowLoad()[hoverShowGraph('graph', kind)]));
+  return row;
+}
+
 // The option panel's contents (app.js builds the panel itself): the Hierarchy | Flow choice, the zoom,
-// then for Hierarchy the option row of the tier fan and for Flow the Flow's switches. These stood in the
-// top row of the view before.
+// then for Hierarchy the option row of the tier fan and for Flow the Flow's switches, then On hover for
+// both. These stood in the top row of the view before.
 function graphBuildPanel(kind, fan, deps, lanes) {
   const panel = buildViewPanel('graph', 'Graph options');
   const kinds = document.createElement('div');
@@ -469,6 +484,7 @@ function graphBuildPanel(kind, fan, deps, lanes) {
   panel.appendChild(zoom);
   if (fan) panel.appendChild(graphBuildOptionsRow(fan.options));
   if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps, lanes));
+  panel.appendChild(graphBuildHoverRow(kind));
   return panel;
 }
 
@@ -1076,6 +1092,10 @@ function wireGraphView(host) {
     const infoBtn = e.target.closest('.graph-info-toggle');
     if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
+    if (option && option.dataset.key === 'hover') {
+      hoverShowPick(option.dataset.val, !hoverShowKindsNow().includes(option.dataset.val));
+      return;
+    }
     if (option) {
       keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : option.dataset.key === 'lanes' ? graphSetLanes(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
       return;

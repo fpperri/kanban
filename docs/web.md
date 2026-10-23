@@ -330,6 +330,13 @@ that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calen
 when the Graph last showed the Flow. The panel shows the choice of the view that is on and says whose it is. The
 snapshot has no hover, so it has no such section.
 
+The Graph's option panel, on the right of the drawing, has the same six under **On hover**, as toggles in the style of
+its other switches, in the Hierarchy and in the Flow, below Dependencies and Lanes. The toggles and the search panel's
+boxes are one choice: change it in either and the other shows it at once, and a card hovered at that moment lights
+again with no reload. The toggles show the choice of the kind of Graph the panel is for, so the Hierarchy and the Flow
+keep their own. The other views have no option panel, so the search panel is where they set it; `Space` writes the
+terms of whatever is ticked, wherever it was ticked.
+
 **Space takes the hover.** With a card hovered, else focused, `Space` writes the sets *On hover show* ticks for it
 into the search box as alternatives (`dlinks:12 | hlinks:12`), the box's run of slices kept and isolate as it was.
 Unlike typing, that write never turns isolate on: outside the Graph the box lights the cards it names, or hides the
