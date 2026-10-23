@@ -83,7 +83,7 @@ test('each m turns on the next pill alone and the box holds its query alone, the
 });
 
 test('the pill is a solo: it alone is on, its cards are the selection, and what was selected or typed before is gone', async () => {
-  const s = await openPanelPage({ board: makeBoard() });
+  const s = await openPanelPage({ typing: true, board: makeBoard() });
   s.click(s.byLabel('review'));
   s.click(s.byLabel('blocked'));
   s.page.input.typed('zephyr | review: | blocked:');

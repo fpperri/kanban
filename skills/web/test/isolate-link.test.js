@@ -47,9 +47,11 @@ const spied = (el = control()) => {
 };
 
 // The page at `search`, in a browser whose storage is `stored` (one object is one browser: a
-// reload is a second page over the same one).
-async function openAt(search = '', { stored = {}, board = makeBoard(), view = 'board' } = {}) {
+// reload is a second page over the same one). `typing` is whether the Board's Typing isolates is on:
+// off unless a test says so, since most of what follows is isolate turned on by the switch.
+async function openAt(search = '', { stored = {}, board = makeBoard(), view = 'board', typing = false } = {}) {
   if (!('kanban.kanban.view.mode' in stored)) stored['kanban.kanban.view.mode'] = view;
+  if (!('kanban.kanban.prefs' in stored)) stored['kanban.kanban.prefs'] = JSON.stringify({ typingIsolates: { board: typing } });
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -155,7 +157,7 @@ test('after a reload, turning isolate off gives the box the text it held before 
   assert.strictEqual(second.box(), 'tags:ui', 'the text from before isolating, kept in the browser, is back');
   assert.strictEqual(second.isolate(), null);
   assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
-  assert.deepStrictEqual(second.shown(), ['2', '5'], 'and the Board filters by it again');
+  assert.deepStrictEqual(second.shown(), ['1', '2', '3', '4', '5', '6'], 'and the Board shows every card again, the box lighting its matches');
 });
 
 test('the text kept for a reload follows the box while isolated: a hand edit of the isolate text is still isolated after a reload, and still gives the earlier text back', async () => {
@@ -294,4 +296,18 @@ test('Back onto an entry from before isolating brings that entry in line with th
   assert.deepStrictEqual(s.params(), { q: '#2', isolate: '1', card: '1' }, 'the entry Back landed on says what the box says');
   assert.strictEqual(s.box(), '#2');
   assert.notStrictEqual(s.isolate(), null, 'and Back never turns isolate off');
+});
+
+test('a query typed on the Board with Typing isolates on is isolated in the address, and a reload opens isolated and gives the typed query back when isolate goes off', async () => {
+  const first = await openAt('', { typing: true });
+  first.type('tags:ui');
+  assert.deepStrictEqual(first.params(), { q: 'tags:ui', isolate: '1' });
+  assert.deepStrictEqual(first.shown(), ['2', '5']);
+  const second = await openAt(first.session.search, { stored: first.stored });
+  assert.deepStrictEqual(second.isolate(), { previous: 'tags:ui', following: true }, 'isolate is on again, and still follows the box');
+  assert.deepStrictEqual(second.shown(), ['2', '5']);
+  second.flip();
+  assert.strictEqual(second.box(), 'tags:ui', 'the typed query stays, lit');
+  assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
+  assert.deepStrictEqual(second.shown(), ['1', '2', '3', '4', '5', '6']);
 });

@@ -58,10 +58,10 @@ test('the Graph section says what drops the typed anchor and what a click does t
   assert.match(text, /turns the query into its other cards, which clears the box/);
 });
 
-test('the Graph section says a typed search stays in the Graph: the other views keep filtering, nothing is selected there, and it lights again on the way back', () => {
+test('the Graph section says a typed search stays in the Graph: the other views light its matches and hide nothing, nothing is selected there, and it lights again on the way back', () => {
   const text = graph();
   assert.match(text, /stops being the anchor when you leave the Graph/);
-  assert.match(text, /Board, Map, Gantt and Calendar keep hiding what does not match, nothing is selected by it there/);
+  assert.match(text, /Board, Map, Gantt and Calendar light its matches with the selected look and hide nothing \(isolate is off\), nothing is selected by it there/);
   assert.match(text, /Back in the Graph with the box unchanged and nothing selected, its matches light again/);
   assert.match(text, /a selection carried in from another view stays, and the box has no effect in the Graph until it is edited/);
 });
@@ -73,8 +73,9 @@ test('the Graph section no longer says the search box filters the Graph or compo
 });
 
 test('the Search section and the multi-select section name the Graph as the exception', () => {
-  assert.match(bullet('- **Search**'), /filters every view as you type, except the Graph/);
-  assert.match(bullet('- **Search**'), /lights its matches and hides nothing but a `slice:` cut/);
+  assert.match(bullet('- **Search**'), /says \*what\* and Isolate says \*hide or light\*, in every view/);
+  assert.match(bullet('- **Search**'), /the Graph lights as it always did/);
+  assert.match(bullet('- **Search**'), /hides nothing but a top-level `slice:` cut/);
   assert.match(bullet('- **Multi-select**'), /A search typed in the Graph is the anchor of the selection: its matches are the selected cards/);
 });
 
@@ -83,6 +84,6 @@ test('the web doc\'s Graph section says the same in short: a typed search lights
   const section = webDoc.slice(start, webDoc.indexOf('\n## ', start + 4)).replace(/\s+/g, ' ');
   assert.match(section, /A search typed in the Graph hides nothing: its matches light, done cards included, and the rest dims/);
   assert.match(section, /Only a `slice:` term on its own in the query cuts the Graph, as it cuts every view; under `\|` it lights/);
-  assert.match(section, /the box goes on filtering there, while nothing is selected by it/);
+  assert.match(section, /the box lights its matches there and hides nothing, while nothing is selected by it/);
   assert.doesNotMatch(section, /or the search\)/);
 });

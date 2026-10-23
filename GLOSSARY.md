@@ -285,6 +285,10 @@ _Avoid_: pill (alone), filter chip.
 Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion, so the address carries it.
 _Avoid_: solo (a view's status pills), focus, filter.
 
+**Typing isolates**:
+A per-view choice, kept per board, whether a query the person makes (typing, a pill, a cue on a card, a `?q=` link) turns Isolate on; on in every view but the Graph, so the box hides what it does not match there and lights its matches in the Graph.
+_Avoid_: filter mode, search mode.
+
 **On hover show**:
 The search panel's choice of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads.
 _Avoid_: hover mode, hover filter.

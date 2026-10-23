@@ -50,7 +50,10 @@ const spied = (el = control()) => {
   return el;
 };
 
-async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
+// `typing` is whether the Board's Typing isolates is on, and `prefs` adds to the browser's preferences for the board. Most of what follows is about the switch
+// and a box that does not isolate by itself, so it is off here; the tests of typing turning isolate
+// on say `typing: true`.
+async function open({ view = 'board', stored = {}, board = makeBoard(), typing = false, prefs = {}, search = '' } = {}) {
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -60,13 +63,14 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
   elements['#toast'] = spied(hidden());
-  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, ...stored }, elements }).start();
+  const kept = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing }, ...prefs }), ...stored };
+  const page = await loadPage({ board, search, stored: kept, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const sortedIds = (set) => [...set].map(Number).sort((a, b) => a - b);
   const switchEl = elements['#isolate-switch'];
   const chipEl = elements['#search-chip'];
   const s = {
-    page, board, elements, switchEl, chipEl,
+    page, board, elements, switchEl, chipEl, kept,
     box: () => page.input.value,
     type: (text) => page.input.typed(text),
     view: () => page.run('loadViewMode()'),
@@ -182,13 +186,35 @@ test('the switch reports its state to assistive technology, and is a switch', as
   assert.strictEqual(s.switchEl.attrs['aria-checked'], 'false');
 });
 
-test('with nothing selected the switch does nothing but say so: isolate is a query in the box, and there is none to write', async () => {
+test('with nothing selected and nothing in the box the switch does nothing but say so: isolate is a query in the box, and there is none to write', async () => {
   const s = await open();
-  s.type('zephyr');
   s.flip();
-  assert.strictEqual(s.box(), 'zephyr');
+  assert.strictEqual(s.box(), '');
   assert.strictEqual(s.isolate(), null);
   assert.strictEqual(s.switchEl.attrs['aria-checked'], 'false');
+  assert.match(s.toast(), /nothing is selected/i);
+});
+
+test('with nothing selected, a query the box only lights is isolated as it stands: the box starts to hide what it does not match, and turning isolate off keeps it', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6], 'the box lights its matches and hides nothing');
+  s.flip();
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.isolate(), { previous: 'tags:ui', following: true });
+  assert.strictEqual(s.switchEl.attrs['aria-checked'], 'true');
+  assert.deepStrictEqual(s.shown(), [2, 5]);
+  s.flip();
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('a box that holds only a cut has no query to isolate, and the switch says so', async () => {
+  const s = await open();
+  s.type('slice:0');
+  s.flip();
+  assert.strictEqual(s.isolate(), null);
   assert.match(s.toast(), /nothing is selected/i);
 });
 
@@ -266,7 +292,7 @@ test('Esc away from the box turns isolate off and gives the box its text back; t
   s.type('zephyr');
   s.pick('cardPart(1)', 'cardPart(2)', 'cardPart(3)');
   s.flip();
-  assert.strictEqual(s.box(), '(#1 | #2 | #3) zephyr', 'the box hid cards 2 and 3, and the selection holds only card 1, so zephyr stays');
+  assert.strictEqual(s.box(), '#1 | #2 | #3', 'the box hid nothing, so the selection holds all three and the text of the box is not kept');
   s.press();
   assert.strictEqual(s.isolate(), null);
   assert.strictEqual(s.box(), 'zephyr');
@@ -286,7 +312,7 @@ test('the pills a step drops go out of the box on the later stages, as they did 
   s.page.run('setSearchPanelOpen(false)');
   s.pick("queryPart('review:')", 'cardPart(3)');
   s.flip();
-  assert.strictEqual(s.box(), '(review: | #3) review:', 'card 3 is no review card, so the pill hid it and the selection never held it');
+  assert.strictEqual(s.box(), 'review: | #3', 'the pill hid nothing, so the card joins the pill and the text of the box is not kept');
   s.press();
   assert.strictEqual(s.box(), 'review:', 'isolate off: the box is what it was');
   s.press();
@@ -528,30 +554,30 @@ test('the poll never makes the jump: a paged month stays where it was put', asyn
 
 // --- what the box hid stays hidden -------------------------------------------------------
 
-test('outside the Graph the text the box held goes on hiding what it hid: a path picked under tags:ui isolates only its ui cards', async () => {
+test('outside the Graph the box hides nothing while isolate is off: a path picked beside tags:ui is isolated whole, and the text the box held is given back when isolate goes off', async () => {
   const s = await open();
   s.type('tags:ui');
-  assert.deepStrictEqual(s.shown(), [2, 5]);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6], 'the box lights its matches and hides none');
   s.pick('pathPart(1)');
-  assert.deepStrictEqual(s.ids(), [2], 'the path through 1 holds 1, 2 and 3, and the box shows only card 2 of them');
+  assert.deepStrictEqual(s.ids(), [1, 2, 3], 'the path through 1 holds 1, 2 and 3: the box hid none of them');
   s.flip();
-  assert.strictEqual(s.box(), 'path:1 tags:ui');
-  assert.deepStrictEqual(s.shown(), [2], 'cards 1 and 3 are not ui and stay hidden');
-  assert.deepStrictEqual(s.ids(), [2]);
+  assert.strictEqual(s.box(), 'path:1', 'the text the box held is not kept: it hides nothing for the selection to be held to');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3]);
+  assert.deepStrictEqual(s.ids(), [1, 2, 3]);
   s.flip();
   assert.strictEqual(s.box(), 'tags:ui', 'turned off, the box has the text it held');
 });
 
-test('a card picked by hand and then hidden by the box does not come back when isolate is turned on', async () => {
+test('a card picked by hand stays in the selection when the box is typed into, since the box hides nothing, and isolate writes the cards alone', async () => {
   const s = await open();
   s.ctrlClick(4);
   s.ctrlClick(5);
   assert.deepStrictEqual(s.ids(), [4, 5]);
   s.type('tags:ui');
-  assert.deepStrictEqual(s.ids(), [5], 'card 4 is hidden by the box, so it is out of the selection');
+  assert.deepStrictEqual(s.ids(), [4, 5], 'card 4 is not ui, and the box only lights');
   s.flip();
-  assert.strictEqual(s.box(), '(#4 | #5) tags:ui');
-  assert.deepStrictEqual(s.shown(), [5]);
+  assert.strictEqual(s.box(), '#4 | #5');
+  assert.deepStrictEqual(s.shown(), [4, 5]);
 });
 
 test('a pill is an alternative of the box and the text isolate writes is just the pill', async () => {
@@ -595,7 +621,7 @@ test('a plain click that opens a card keeps the pill on and its query in the box
 });
 
 test('a pill that is the only text in the box stays with the selection, so the view behind the card is filtered by a pill that shows on', async () => {
-  const s = await open();
+  const s = await open({ typing: true });
   const spy = opens();
   spy.wrap(s.page);
   s.pillClick('review');
@@ -608,7 +634,7 @@ test('a pill that is the only text in the box stays with the selection, so the v
 });
 
 test('a plain click in a view that selects drops a pill from the box too', async () => {
-  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }) } });
+  const s = await open({ prefs: { click: { board: 'selects' } } });
   s.pillClick('review');
   s.click(3);
   assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] });
@@ -651,7 +677,7 @@ test('while isolated a click that opens a card leaves the isolate text and the p
 });
 
 test('while isolated a click that selects another card moves the anchor and leaves the isolate text', async () => {
-  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }) } });
+  const s = await open({ prefs: { click: { board: 'selects' } } });
   s.pillClick('review');
   s.flip();
   assert.strictEqual(s.box(), 'review:');
@@ -806,4 +832,187 @@ test('Esc leaves a cut the box held before such a pill went on, when it is the v
   s.press();
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.strictEqual(s.box(), 'slice:epic');
+});
+
+// --- typing, a pill, a cue and a link turn isolate on where the view's Typing isolates is on ----
+// Outside the Graph the box hides what it does not match only while isolate is on, and a query the
+// person makes turns isolate on by itself in a view whose setting is on (on by default in every
+// view but the Graph). The pure decisions are pinned in selection-box-hiding.test.js.
+
+const litIds = (s, ids) => ids.filter((id) => s.page.run(`paintsSelected('${id}')`));
+
+test('typing on the Board turns isolate on: the box is the isolate text, the Board shows only its matches, and what isolate off gives back follows the box', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.isolate(), { previous: 'tags:ui', following: true });
+  assert.strictEqual(s.switchEl.attrs['aria-checked'], 'true');
+  assert.deepStrictEqual(s.shown(), [2, 5]);
+  s.type('tags:ui status:todo');
+  assert.deepStrictEqual(s.shown(), [2]);
+  assert.strictEqual(s.isolate().previous, 'tags:ui status:todo');
+});
+
+test('turning that isolate off leaves the typed query in the box, lit, and Esc in the box then clears it', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  s.flip();
+  assert.strictEqual(s.isolate(), null);
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(litIds(s, ['1', '2', '3']), ['2']);
+  s.press(true);
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(litIds(s, ['1', '2', '3']), []);
+});
+
+test('Esc in the box while such an isolate is on turns it off and leaves the query, as it does elsewhere; the next Esc clears it', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  s.press(true);
+  assert.strictEqual(s.isolate(), null);
+  assert.strictEqual(s.box(), 'tags:ui');
+  s.press(true);
+  assert.strictEqual(s.box(), '');
+});
+
+test('emptying the box ends the isolate that typing started, and typing again starts it again', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  s.type('');
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  s.type('ops');
+  assert.deepStrictEqual(s.isolate(), { previous: 'ops', following: true });
+  assert.deepStrictEqual(s.shown(), [6]);
+});
+
+test('with Typing isolates off the Board lights what is typed and hides nothing: the matches wear the selected look and no card is selected', async () => {
+  const s = await open({ typing: false });
+  s.type('tags:ui');
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(litIds(s, ['1', '2', '3', '4', '5', '6']), ['2', '5']);
+  assert.deepStrictEqual(s.ids(), [], 'a lit card is no selected card: no action reads it');
+  s.type('tags:ui status:todo');
+  assert.deepStrictEqual(litIds(s, ['2', '5']), ['2']);
+});
+
+test('a card that comes to match the lit query is lit on the next poll', async () => {
+  const s = await open({ typing: false });
+  s.type('tags:ui');
+  s.board.active.find((c) => c.id === 6).tags.push('ui');
+  await s.poll();
+  assert.deepStrictEqual(litIds(s, ['6']), ['6']);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('a slice: cut hides whatever isolate is, and the rest of the query lights inside the cut', async () => {
+  const s = await open({ typing: false });
+  s.type('slice:0');
+  assert.strictEqual(s.isolate(), null);
+  const cut = s.shown();
+  assert.ok(!cut.includes(3), 'card 3 is under card 1, so the cut at the top level leaves it out');
+  assert.ok(cut.length < 6, 'and the cut hides with isolate off');
+  assert.deepStrictEqual(litIds(s, cut.map(String)), [], 'a cut alone lights nothing');
+  s.type('slice:0 tags:ui');
+  assert.deepStrictEqual(s.shown(), cut);
+  assert.deepStrictEqual(litIds(s, cut.map(String)), ['2', '5']);
+});
+
+test('with isolate on the whole query hides in every view that reads the box', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  for (const view of ['map', 'calendar', 'gantt']) {
+    s.page.run(`viewMode = '${view}'`);
+    assert.deepStrictEqual([...s.page.run('currentSearchMatch().ids')].map(Number).sort((x, y) => x - y), [2, 5, 8], `${view}: the whole board's matches, the archived card 8 among them`);
+  }
+  s.flip();
+  for (const view of ['map', 'calendar', 'gantt']) {
+    s.page.run(`viewMode = '${view}'`);
+    assert.strictEqual(s.page.run('currentSearchMatch().ids'), null, `${view}: isolate off, the box hides nothing`);
+    assert.deepStrictEqual([...s.page.run('currentSearchMatch().matched')].map(Number).sort((x, y) => x - y), [2, 5, 8], `${view}: and still matches`);
+  }
+});
+
+test('a pill turns isolate on, and so does a cue on a card', async () => {
+  const s = await open({ typing: true });
+  s.pillClick('review');
+  assert.deepStrictEqual(s.isolate(), { previous: 'review:', following: true });
+  assert.deepStrictEqual(s.shown(), [5]);
+  const t = await open({ typing: true });
+  t.page.run("addSearchTerm('tags:ops')");
+  assert.deepStrictEqual(t.isolate(), { previous: 'tags:ops', following: true });
+  assert.deepStrictEqual(t.shown(), [6]);
+});
+
+test('a pill and a cue only light where the view has Typing isolates off', async () => {
+  const s = await open({ typing: false });
+  s.pillClick('review');
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+  assert.deepStrictEqual(litIds(s, ['4', '5']), ['5']);
+});
+
+test('a write that is no query of the person turns nothing on: a cut, the Ctrl+F prefill and a menu item', async () => {
+  const s = await open({ typing: true });
+  s.page.run("writeSearch('slice:0', 'slice')");
+  assert.strictEqual(s.isolate(), null);
+  s.page.run("writeSearch('tags:ui', 'prefill')");
+  assert.strictEqual(s.isolate(), null);
+  s.page.run("writeSearch('tags:ui', 'menu')");
+  assert.strictEqual(s.isolate(), null);
+});
+
+test('a ?q= link turns isolate on in the Board, so it filters as it did', async () => {
+  const s = await open({ typing: true, search: '?q=tags%3Aui' });
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.isolate(), { previous: 'tags:ui', following: true });
+  assert.deepStrictEqual(s.shown(), [2, 5]);
+});
+
+test('a ?q= link into the Graph lights, as it did', async () => {
+  const s = await open({ search: '?q=tags%3Aui&view=graph' });
+  assert.strictEqual(s.view(), 'graph');
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('in the Graph typing lights and leaves isolate off; with the Graph\'s Typing isolates on it isolates, and only the matches are drawn', async () => {
+  const s = await open({ view: 'graph' });
+  s.type('tags:ui');
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
+  const t = await open({ view: 'graph', prefs: { typingIsolates: { graph: true } } });
+  t.type('tags:ui');
+  assert.deepStrictEqual(t.isolate(), { previous: 'tags:ui', following: true });
+  assert.deepStrictEqual(t.drawn(), [2, 5]);
+});
+
+test('going to the Graph ends an isolate the box\'s own query started, and the query is the anchor there; an isolate of the selection stays', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  s.page.run("setView('graph')");
+  assert.strictEqual(s.isolate(), null);
+  assert.strictEqual(s.box(), 'tags:ui');
+  assert.deepStrictEqual(s.selection().anchor, typed('tags:ui'));
+  const t = await open({ typing: true });
+  t.ctrlClick(2);
+  t.flip();
+  t.page.run("setView('graph')");
+  assert.notStrictEqual(t.isolate(), null);
+});
+
+test('the Typing isolates choice of a view is set by its checkbox, kept per board, and read back', async () => {
+  const s = await open({ typing: true });
+  const change = (view, checked) => s.page.run(`onTypingIsolatesChange({ target: { closest: () => ({ dataset: { typingView: '${view}' }, checked: ${checked} }) } })`);
+  assert.strictEqual(s.page.run("typingIsolatesIn('board')"), true);
+  assert.strictEqual(s.page.run("typingIsolatesIn('graph')"), false);
+  change('board', false);
+  change('graph', true);
+  assert.strictEqual(s.page.run("typingIsolatesIn('board')"), false);
+  assert.strictEqual(s.page.run("typingIsolatesIn('graph')"), true);
+  const kept = JSON.parse(s.kept['kanban.kanban.prefs']);
+  assert.deepStrictEqual(kept.typingIsolates, { board: false, map: true, gantt: true, calendar: true, graph: true });
+  s.type('tags:ui');
+  assert.strictEqual(s.isolate(), null, 'the Board now lights what is typed');
 });

@@ -6,8 +6,9 @@
 // one pill per tag, then off again. The next-up tag holds the query of the next pill, so it
 // is the same step and the walk goes past it. Shift+m runs the same walk backwards, and
 // starts from off at the last pill. The first two presses are made with the panel closed,
-// where the chip counts the one pill that is on and names it, in its accessible name and in
-// its hover text; the rest are made with the panel open, where exactly one button is
+// where the chip names the pill that is on, in its accessible name and in its hover text, and
+// says isolated, since a pill turns isolate on in every view but the Graph (where the chip counts
+// the one pill); the rest are made with the panel open, where exactly one button is
 // pressed (the next pill's two buttons, which hold one query, together) and the pill is
 // shown even when it sits behind the "+2 more" button, which then reads "fewer". After the
 // last pill m turns every pill off and brings every card back, and the next m starts over.
@@ -69,9 +70,11 @@ module.exports = {
     const pressedAre = (labels) => waitFor(`${idsExpr(PRESSED)}===${JSON.stringify(JSON.stringify(labels))}`);
     const pressed = () => ev(PRESSED);
     const chip = () => ev(`(()=>{const c=document.getElementById('search-chip');return {hidden:c.classList.contains('hidden')||c.getBoundingClientRect().width===0,text:c.textContent,name:c.getAttribute('aria-label')||'',title:c.title}})()`);
-    const chipShows = async (label) => {
+    // Where the pill isolates the chip reads isolated and counts isolate beside the pill in its name; in the Graph it counts the pill alone.
+    const chipShows = async (label, isolated = true) => {
       const c = await chip();
-      return !c.hidden && c.text === '1' && c.name === `1 on: ${label}` && c.title === `1 on: ${label}`;
+      const name = isolated ? `2 on: ${label}, isolated` : `1 on: ${label}`;
+      return !c.hidden && c.text === (isolated ? 'isolated' : '1') && c.name === name && c.title === name;
     };
     const chipHidden = async () => (await chip()).hidden;
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
@@ -180,9 +183,9 @@ module.exports = {
       check(`the ${view} draws the plan board`, await goto(`/?view=${view}`, viewReady(view)));
       await ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
       await m();
-      check(`${view}: m writes the first pill's query and the chip counts it`, await boxIs(CASES.queries[CASES.walk[0]]) && await chipShows(CASES.walk[0]), { box: await boxText(), chip: await chip() });
+      check(`${view}: m writes the first pill's query and the chip counts it`, await boxIs(CASES.queries[CASES.walk[0]]) && await chipShows(CASES.walk[0], view !== 'graph'), { box: await boxText(), chip: await chip() });
       await m();
-      check(`${view}: m again writes the next pill's query alone`, await boxIs(CASES.queries[CASES.walk[1]]) && await chipShows(CASES.walk[1]), { box: await boxText(), chip: await chip() });
+      check(`${view}: m again writes the next pill's query alone`, await boxIs(CASES.queries[CASES.walk[1]]) && await chipShows(CASES.walk[1], view !== 'graph'), { box: await boxText(), chip: await chip() });
       if (view === 'graph') check('the Graph dims what the pill leaves out', await waitFor(`document.querySelector('.graph-canvas').classList.contains('graph-dim')`));
       await shiftM();
       await shiftM();

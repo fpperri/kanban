@@ -145,10 +145,10 @@ test('run once against a stand-in page the scenario finishes, and every expressi
   assert.deepStrictEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'a check name used twice');
 });
 
-test('it loads each view cold, then the Board for two pills, the Board set to selects and the Graph', async () => {
+test('it loads each view cold, then the Board for two pills, the Board set to selects, with and without isolating, and the Graph', async () => {
   const page = standIn();
   await scenario.run(page);
-  assert.deepStrictEqual(page.log.opened, ['/', '/?view=board', '/?view=map', '/?view=gantt', '/?view=calendar', '/?view=board', '/?view=board', '/?view=graph']);
+  assert.deepStrictEqual(page.log.opened, ['/', '/?view=board', '/?view=map', '/?view=gantt', '/?view=calendar', '/?view=board', '/?view=board', '/?view=board', '/?view=graph']);
 });
 
 test('it presses Escape to close the card after each open and Enter once in the Graph, and Shift+clicks once', async () => {

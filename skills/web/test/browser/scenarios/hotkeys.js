@@ -7,7 +7,8 @@
 // (where it is typed), with a dialog, a card menu or the notifications panel up, and the browser's
 // own response to the key is stopped only where the page acted. Esc closes the sheet and hands
 // focus back to the gear. The state is the page's: p turns the panel's switch off, [ cuts the run
-// of slices, m turns the first pill on and i turns isolate on, and the next ? shows each; n in
+// of slices, m turns the first pill on and i turns isolate on (the Board is set to light what a pill
+// matches, since a Board that isolates by itself would have m turn isolate on), and the next ? shows each; n in
 // the Graph steps the names and the setting survives a reload. While the sheet is up, a click on
 // its panel-on-focus checkbox changes that row at once. The list sits inside the sheet without
 // widening it, one key element for each key label.
@@ -154,6 +155,7 @@ module.exports = {
     check('Escape closes the notifications panel', await waitFor(NOTIFICATIONS_SHUT, 2500));
 
     // --- the state is the page's: the keys change it, the next ? shows it ----------------------------------------
+    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
     check('the plan board is drawn for the Graph', await goto('/', BOARD_READY));
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     check('the Graph is drawn', await waitFor(`!document.getElementById('graph-view').classList.contains('hidden')&&document.querySelectorAll('#graph-view .graph-node').length>0`, 10000));
@@ -198,5 +200,6 @@ module.exports = {
     await click(box.x, box.y);
     check('and choosing it again changes the row back', await waitFor(`${STATE_OF('panel')}===${JSON.stringify(CASES.afterKeys.panel)}`, 2500), await states());
     check('Escape closes the sheet', await closeWithEscape());
+    await ev(`localStorage.removeItem('kanban.plan.prefs')`);
   },
 };

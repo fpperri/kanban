@@ -58,7 +58,9 @@ const chipEl = () => {
 
 // With `list`, the page's comboboxes get elements they can watch, so the search box's
 // own suggestion list (its menu) can be seen open and shut.
-async function open({ view = 'board', stored = {}, board = makeBoard(), search = '', list = false } = {}) {
+// `typing` is whether the Board's Typing isolates is on: off unless a test says so, since most of what
+// follows is about pills and the selection, and a pill that turns isolate on is its own test.
+async function open({ view = 'board', stored = {}, board = makeBoard(), search = '', list = false, typing = false } = {}) {
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -66,7 +68,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), search =
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
   elements['#search-chip'] = chipEl();
-  const storage = { 'kanban.kanban.view.mode': view, ...stored };
+  const storage = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing } }), ...stored };
   const menus = [];
   const loaded = loadPage({ board, search, stored: storage, elements, ...(list ? { documentExtras: { createElement: () => control() } } : {}) });
   if (list) loaded.input.parentElement = { style: {}, appendChild: (menu) => menus.push(menu), addEventListener() {}, querySelector: () => null };
@@ -145,7 +147,7 @@ test('the Board counts leave out the archived cards its collapsed Archive column
 });
 
 test('turning one pill on leaves the others\' counts as they were: they are taken before the search box', async () => {
-  const s = await open();
+  const s = await open({ typing: true });
   const before = s.counts();
   s.click('review');
   assert.deepStrictEqual(s.shown(), ['5', '6'], 'the box narrows the Board to the review cards');
@@ -225,7 +227,7 @@ test('a card that waits for a card the view hides still counts as waiting', asyn
 // --- a click ------------------------------------------------------------------------
 
 test('on the Board a click puts the pill\'s query in the box, shows only its cards and selects them', async () => {
-  const s = await open();
+  const s = await open({ typing: true });
   s.click('review');
   assert.strictEqual(s.box(), 'review:');
   assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
@@ -251,7 +253,7 @@ test('a click on the same pill again turns it off, empties the selection and cle
 });
 
 test('a click on another pill turns it on beside the first: the box grows, both sets are shown and selected, and the first stays the anchor', async () => {
-  const s = await open();
+  const s = await open({ typing: true });
   s.click('review');
   s.click('blocked');
   assert.strictEqual(s.box(), 'review: | blocked:');
@@ -317,7 +319,7 @@ test('Shift+click on a pill does exactly what a click does: on, on beside anothe
 // --- a right-click: solo --------------------------------------------------------------------------
 
 test('a right-click on a pill makes it the only one on: the box holds its query alone, its cards are the selection, and the browser\'s own menu stays shut', async () => {
-  const s = await open();
+  const s = await open({ typing: true });
   const prevented = s.rightClick('review');
   assert.strictEqual(prevented, 1);
   assert.strictEqual(s.box(), 'review:');
@@ -412,14 +414,15 @@ test('a click on the second pill again takes the box back to "review:"', async (
   assert.deepStrictEqual(s.on(), ['review']);
 });
 
-test('in the Graph a click on a second pill grows the box too, so a switch to another view keeps the added pill\'s cards shown and selected', async () => {
+test('in the Graph a click on a second pill grows the box too, so a switch to another view keeps the added pill\'s cards selected, and the Board lights them', async () => {
   const s = await open({ view: 'graph' });
   s.click('review');
   s.click('blocked');
   assert.strictEqual(s.box(), 'review: | blocked:');
   assert.deepStrictEqual(s.ids(), ['4', '5', '6']);
   s.page.run("toggleView('board')");
-  assert.deepStrictEqual(s.shown(), ['4', '5', '6']);
+  assert.strictEqual(s.page.run('isolateNow()'), null, 'a switch writes nothing, so it turns nothing on');
+  assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6', '8'], 'the box hides nothing with isolate off');
   assert.deepStrictEqual(s.ids(), ['4', '5', '6']);
 });
 
@@ -436,16 +439,36 @@ test('a hand-picked card with an empty box takes a pill as an addition and leave
 
 test('Esc outside the box takes the added pill back out of the box and the selection, and the next Esc clears the box and the anchor', async () => {
   const s = await open();
+  const lit = () => JSON.parse(JSON.stringify(s.page.run('boxLitIds === null ? null : [...boxLitIds].sort()')));
   s.click('review');
   s.click('blocked');
+  assert.deepStrictEqual(lit(), ['4', '5', '6', '7'], 'what the whole query matches, the archived card 7 among them');
   s.esc();
   assert.strictEqual(s.box(), 'review:');
   assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
-  assert.deepStrictEqual(s.shown(), ['5', '6']);
+  assert.deepStrictEqual(lit(), ['5', '6']);
   s.esc();
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.strictEqual(lit(), null);
+});
+
+test('with Typing isolates on, a pill turns isolate on, and the first Esc turns it off before it takes the added pill out', async () => {
+  const s = await open({ typing: true });
+  s.click('review');
+  s.click('blocked');
+  assert.notStrictEqual(s.page.run('isolateNow()'), null);
+  assert.deepStrictEqual(s.shown(), ['4', '5', '6']);
+  s.esc();
+  assert.strictEqual(s.page.run('isolateNow()'), null, 'isolate goes first');
+  assert.strictEqual(s.box(), 'review: | blocked:', 'and the pills stay in the box, lit');
   assert.deepStrictEqual(s.shown(), ['1', '2', '3', '4', '5', '6', '8']);
+  s.esc();
+  assert.strictEqual(s.box(), 'review:');
+  assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] });
+  s.esc();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });
 
 test('the first pill on is the anchor and the later ones are additions: Esc drops the later pills together, then the anchor', async () => {
@@ -628,7 +651,7 @@ test("a query typed by hand that is exactly a pill's query leaves the pill off, 
 });
 
 test("a link whose q is a pill's query opens with the query in the box as typed text: the pill is off and, outside the Graph, nothing is selected", async () => {
-  const board = await open({ search: '?q=review%3A' });
+  const board = await open({ typing: true, search: '?q=review%3A' });
   assert.strictEqual(board.box(), 'review:');
   assert.deepStrictEqual(board.shown(), ['5', '6'], 'the filter travels');
   assert.deepStrictEqual(board.on(), []);

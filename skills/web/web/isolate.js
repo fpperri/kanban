@@ -9,9 +9,17 @@
 // In the Graph the same query hides what it does not match instead of lighting it
 // (graphQueryEffect in graph-model.js, told by isolateNow). The box's text from before is kept in
 // the flag, `{ previous }`, and turning isolate off gives it back (searchIsolateRestore), with
-// the run of slices as the box holds it now. Outside the Graph the text the box held also stays
-// in the isolate text beside a card, a path or a tree that would bring back cards it hid (the
-// selection only covers the cards the view shows), so those stay hidden.
+// the run of slices as the box holds it now. Isolate is what hides: with it off the box hides
+// nothing in any view but by a slice: cut, and its matches are lit (computeSearchMatch in app.js),
+// so the box holds nothing the selection's cards, paths and trees would bring back.
+//
+// A query the person makes turns isolate on by itself where the view's Typing isolates setting
+// is on (prefs.js, the panel's checkboxes; on in every view but the Graph): typing, a pill, a
+// cue on a card and a ?q= link (typingTurnsIsolateOn, selection.js, asked by writeSearch). The
+// box then is the isolate text and holds the query as it is, so the flag is `{ previous, following }`
+// with the previous text following the box: turning isolate off leaves the query in the box,
+// lit, and the next Esc clears it. Leaving for a view whose setting is off ends such an isolate
+// the same way (isolateEndFollowing), and the switch turns a lit query back into one that hides.
 //
 // While it is on, a click on a card moves the anchor only: nothing the selection does writes the
 // box (boxAfterGraphClick, selection.js), and a click or a double click on empty space leaves the
@@ -41,7 +49,7 @@
 // storage read and write is guarded, and the page works without it.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads: $, state,
-// storageKey, prefsStorage, selectionState, selectedIds, viewCardIds, searchMatchIds, loadViewMode,
+// storageKey, prefsStorage, selectionState, currentSearchMatch,
 // writeSearch, onSearchWrite, renderSearchPanel, toast and hideContextMenu; selection.js's
 // partsOf, isolateRecord, isolatePreviousFrom and isolateAfterWrite; key-guard.js's keyGuardOff;
 // and the search module's isolate functions (searchIsolateBox, searchIsolateRestore). The i key
@@ -49,7 +57,8 @@
 // notifications panel or the preferences sheet is up; the search panel is no surface, so i works
 // with it open.
 
-// The text the box held when isolate went on, as { previous }; null while it is off.
+// The text the box held when isolate went on, as { previous } (and `following` when the box's own
+// query turned it on); null while it is off.
 let isolateFlag = null;
 
 const ISOLATE_SWITCH_ON = 'Isolate: only the selection is shown, in every view. Click, press i, or press Esc, to turn it off and get the box\'s text back.';
@@ -93,7 +102,30 @@ function readKeptPrevious(q) {
 // box, so the repaint, the address and every listener of the write see it on. What it gives back
 // is the text kept for this very query, or nothing.
 function isolateFromLink(q) {
-  isolateFlag = { previous: readKeptPrevious(q) };
+  const previous = readKeptPrevious(q);
+  isolateFlag = previous !== '' && previous === String(q).trim() ? { previous, following: true } : { previous }; // the text kept is the isolate text itself: the box's own query started it
+}
+
+// Isolate turned on by a query the person wrote: the box keeps being the isolate text, and
+// turning isolate off leaves it as it is (isolateOnWrite keeps `previous` the box's text).
+function isolateFromTyping(text) {
+  isolateFlag = { previous: String(text), following: true };
+}
+
+// A write that leaves the box holding no query ends isolate before the repaint it makes (writeSearch),
+// so that repaint draws the views and the panel as they are without it, and reads the box once.
+function isolateEndIfEmptied(text, reason) {
+  if (!isolateFlag || isolateAfterWrite(isolateFlag, text, reason) !== null) return;
+  isolateFlag = null;
+  forgetIsolateRecord();
+}
+
+// Moving to a view whose Typing isolates is off ends an isolate the box's own query started:
+// the query stays in the box and lights there, as it does when typed into that view.
+function isolateEndFollowing(view, setting) {
+  if (!isolateFlag || !isolateFlag.following || setting === true) return;
+  isolateFlag = null;
+  forgetIsolateRecord();
 }
 
 // The switch says whether isolate is on (aria-checked) and what a click does. Every repaint of
@@ -108,17 +140,6 @@ function syncIsolateSwitch() {
   if (el.title !== title) el.title = title;
 }
 
-// Whether the text the box held has to stay in the isolate text: outside the Graph, where the
-// box hides what it does not match, when the text of the parts alone would show cards the
-// selection does not hold (a path or a card the box was hiding). Where it would not, the
-// parts say it all and the box gets nothing it did not need.
-function isolateNeedsBox(box, parts) {
-  if (loadViewMode() === 'graph') return false;
-  const shown = viewCardIds(false);
-  for (const id of searchMatchIds(searchIsolateBox(box, parts))) if (shown.has(id) && !selectedIds.has(id)) return true;
-  return false;
-}
-
 // Writes the selection into the box and remembers what it held. Nothing selected, or nothing
 // the selection names that the box can say, leaves the box and the switch as they were and
 // says why.
@@ -126,7 +147,13 @@ function isolateTurnOn() {
   if (isolateFlag) return false;
   const box = $('#search-input').value;
   const parts = partsOf(selectionState.selection);
-  const text = searchIsolateBox(box, parts, { limits: isolateNeedsBox(box, parts) });
+  const text = searchIsolateBox(box, parts);
+  if (!text && currentSearchMatch().lit) { // a query lit outside the Graph is no selection, and isolating it makes the box hide again
+    isolateFromTyping(box);
+    saveIsolateRecord(box, box);
+    writeSearch(box, 'isolate');
+    return true;
+  }
   if (!text) { toast('Nothing is selected to isolate. Pick a card, a pill, or add a path or a tree first.'); return false; }
   isolateFlag = { previous: box };
   saveIsolateRecord(box, text);
@@ -175,6 +202,7 @@ function onIsolateKey(e) {
 // the text it would give back.
 function isolateOnWrite(text, reason) {
   const next = isolateAfterWrite(isolateFlag, text, reason);
+  if (next && next.following && reason !== 'isolate') next.previous = text; // the box's query is what isolate off gives back
   if (next && reason !== 'isolate') saveIsolateRecord(next.previous, text); // the kept text goes with the isolate text the box holds now
   if (next === isolateFlag) return;
   isolateFlag = next;
@@ -182,7 +210,22 @@ function isolateOnWrite(text, reason) {
   renderSearchPanel();
 }
 
+// The Typing isolates checkboxes in the panel's foot, one per view (prefs.js typingIsolates): each
+// shows the view's setting and sets it. Every repaint of the board comes here (renderSearchPanel).
+function syncTypingIsolates() {
+  document.querySelectorAll('#search-typing [data-typing-view]').forEach((box) => {
+    const on = typingIsolatesIn(box.dataset.typingView);
+    if (box.checked !== on) box.checked = on;
+  });
+}
+
+function onTypingIsolatesChange(e) {
+  const box = e.target && e.target.closest ? e.target.closest('[data-typing-view]') : null;
+  if (box) setTypingIsolates(box.dataset.typingView, box.checked);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  $('#search-typing').addEventListener('change', onTypingIsolatesChange);
   $('#isolate-switch').addEventListener('click', isolateFlip);
   $('#ctx-isolate').addEventListener('click', isolateFromMenu);
   document.addEventListener('keydown', onIsolateKey);

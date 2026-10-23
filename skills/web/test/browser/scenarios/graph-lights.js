@@ -22,7 +22,7 @@
 // that carries the security tag.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// hoveredId, selectedIds.
+// hoveredId, isolateNow, selectedIds.
 
 const CASES = {
   docs: { query: 'tags:docs', lit: [5, 10], done: 5 },
@@ -179,9 +179,12 @@ module.exports = {
 
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     await waitFor(`!document.getElementById('board').classList.contains('hidden')`);
-    const onBoard = `${idsOf(`[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`)}===${JSON.stringify(JSON.stringify(sorted(...CASES.docs.lit)))}`;
-    check('after typing a query in the Graph and switching to the Board, the Board shows only the matches and no tile is marked selected',
-      await waitFor(onBoard) && (await ev(`document.querySelectorAll('#board .card-el.selected').length`)) === 0 && (await boxText()) === CASES.docs.query, { box: await boxText() });
+    // The Board hides what the box does not match only while isolate is on, and a switch writes nothing, so it is off: the Board
+    // shows every card and the matches wear the selected look, though none is a selected card.
+    const BOARD_IDS = `[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`;
+    const LIT_ON_BOARD = `${idsOf(`[...new Set([...document.querySelectorAll('#board .card-el.selected')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`)}===${JSON.stringify(JSON.stringify(sorted(...CASES.docs.lit)))}`;
+    check('after typing a query in the Graph and switching to the Board, the Board lights the matches with the selected look and hides no card',
+      await waitFor(LIT_ON_BOARD) && (await ev(`${BOARD_IDS}.length`)) > CASES.docs.lit.length && (await boxText()) === CASES.docs.query && await ev(`isolateNow()===null`), { box: await boxText(), shown: await ev(BOARD_IDS) });
     check('and nothing is selected, so a bulk action has no cards to act on', await pickedIs([]));
 
     await ev(`document.getElementById('graph-toggle-btn').click()`);

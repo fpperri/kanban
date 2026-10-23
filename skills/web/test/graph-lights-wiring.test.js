@@ -485,17 +485,20 @@ test('hovering a dot while a lone card is selected shows that dot\'s relations, 
 
 // --- leaving the Graph ----------------------------------------------------------
 
-test('a query typed in the Graph stops being the anchor on the Board: it still filters, nothing is selected and there are no bulk targets', async () => {
+test('a query typed in the Graph stops being the anchor on the Board: the Board lights its matches and hides nothing, nothing is selected and there are no bulk targets', async () => {
   const s = await open();
   s.type('tags:ui');
   assert.deepStrictEqual(s.ids(), [2, 5]);
   s.page.run("toggleView('graph')");
   assert.strictEqual(s.view(), 'board');
-  assert.strictEqual(s.box(), 'tags:ui', 'the box keeps filtering');
+  assert.strictEqual(s.box(), 'tags:ui', 'the box keeps its text');
+  assert.strictEqual(s.page.run('isolateNow()'), null, 'and going to the Board turns nothing on');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
   assert.deepStrictEqual(s.ids(), []);
   assert.deepStrictEqual([...s.page.run('bulkTargets().map((c) => c.id)')], []);
-  assert.deepStrictEqual([...s.page.run('currentSearchMatch().ids')].map(Number).sort((x, y) => x - y), [2, 5, 8], 'the Board hides the other cards');
+  assert.strictEqual(s.page.run('currentSearchMatch().ids'), null, 'with isolate off the box hides no card on the Board');
+  assert.deepStrictEqual([...s.page.run('currentSearchMatch().matched')].map(Number).sort((x, y) => x - y), [2, 5, 8]);
+  assert.deepStrictEqual([...s.page.run('boxLitIds')].map(Number).sort((x, y) => x - y), [2, 5, 8], 'it lights its matches');
 });
 
 test('the same on every view the Graph can be left for', async () => {
@@ -542,9 +545,9 @@ test('cards added to a typed query by hand stay selected when the Graph is left,
   s.click(4, { shiftKey: true });
   s.page.run("toggleView('graph')");
   assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [] });
-  assert.deepStrictEqual(s.ids(), [], 'the Board, filtered by the box, does not show card 4, so it is not in the id set yet');
+  assert.deepStrictEqual(s.ids(), [4], 'the Board hides nothing with isolate off, so card 4 is in the id set');
   s.type('');
-  assert.deepStrictEqual(s.ids(), [4], 'it is back when the view shows it');
+  assert.deepStrictEqual(s.ids(), [4]);
 });
 
 test('typing outside the Graph never selects anything', async () => {

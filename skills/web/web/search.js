@@ -651,18 +651,12 @@ function searchIsolateText(parts) {
 // put back after it (searchSplitSlice, searchJoinSlice). The cut stays in effect, because
 // the selection only covers the cards the view shows and a card the cut hides is not in
 // it. The rest of the previous text goes; the page remembers it. No part to write, no text.
-// Where the box hides what it does not match (`limits`, every view but the Graph, where it
-// only lights) the rest stays too, ANDed on, when a card, a path or a tree is among the
-// parts: they are named whole, but the selection holds only those of their cards the box
-// shows, and the cards it hid would otherwise come back. A query part needs no such help:
-// a pill's query is an alternative of the box, and so inside it.
-function searchIsolateBox(previous, parts, { limits = false } = {}) {
+// The rest needs no keeping: with isolate off the box hides nothing but by its cut, so the
+// selection already holds every card, path and tree it names whole.
+function searchIsolateBox(previous, parts) {
   const text = searchIsolateText(parts);
   if (!text) return '';
-  const { rest, slices } = searchSplitSlice(previous);
-  const named = (Array.isArray(parts) ? parts : []).some((part) => part && (part.kind === 'card' || searchIsNamedPart(part)));
-  const held = limits && named && parseSearchQuery(rest).length > 0;
-  return searchJoinSlice(held ? `${searchBracket(text)} ${searchBracket(rest)}` : text, slices);
+  return searchJoinSlice(text, searchSplitSlice(previous).slices);
 }
 
 // What the box holds when isolate goes off: the text it held before, exactly as it was,
