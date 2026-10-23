@@ -286,14 +286,15 @@ test('a double click outside the Graph canvas leaves a typed search, so a double
   assert.deepStrictEqual(s.selection().anchor, typedQuery('tags:ui'));
 });
 
-test('Graph: a double click on the empty canvas drops a card selection carried in and leaves the box, which was not its anchor, alone', async () => {
+test('Graph: a double click on the empty canvas drops a card selection carried in, and the box that said it goes with it', async () => {
   const s = await open({ view: 'board' });
   s.typeBox('tags:ui');
   s.pick(5);
   s.page.run("toggleView('graph')");
+  assert.strictEqual(s.box(), '#5', 'the switch put the picked card in the box, though the box was not its text');
   doubleClick(s, emptyIn('graph'));
   assert.deepStrictEqual(s.selection(), NOTHING);
-  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.box(), '');
 });
 
 // --- what is not empty space ------------------------------------------------------------------

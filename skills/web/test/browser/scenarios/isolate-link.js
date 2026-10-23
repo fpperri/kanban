@@ -256,7 +256,7 @@ module.exports = {
     check('and the chip says isolated, and the Board shows only the two', await chipSaysIsolated() && await shows(SELECTORS.board, sorted(one, two)), await chip());
     await press('isolate-switch');
     check('after the reload, turning isolate off gives back the search from before isolating', await switchIs(false) && await boxIs(CASES.zephyr.query), await boxText());
-    check('and writes isolate=0 beside q, since the search is lit', await addressHas({ view: 'board', q: CASES.zephyr.query, isolate: '0' }), await addressParams());
+    check('and takes the isolate parameter out of the address, since this Board lights what is typed and opens a search lit without one', await addressHas({ view: 'board', q: CASES.zephyr.query }), await addressParams());
     check('and the Board shows every card again, the search lighting its cards', await shows(SELECTORS.board, liveBoard), await nowShown(SELECTORS.board));
 
     // --- a card's history step keeps the parameter ------------------------------------------------------------------------------------

@@ -105,16 +105,18 @@ test('a deep link\'s query is isolated where the view isolates what is typed, an
   assert.match(flat(skill), /`2 on: review, isolated` where the pill turned isolate on/);
 });
 
-test('both say the address carries isolate=0 outside the Graph while the box lights its query, and what each kind of link opens', () => {
+test('both say the address carries isolate=0 in a view whose Typing isolates is on while the box lights its query, and what each kind of link opens', () => {
   const skillAddress = flat(skill.slice(skill.indexOf('**The address follows the box.**'), skill.indexOf('The address replaces')));
-  assert.match(skillAddress, /Outside the Graph, with the box holding a query and isolate off, `isolate=0` stands there instead, so a reload reopens the same picture/);
+  assert.match(skillAddress, /In a view whose Typing isolates is ticked, with the box holding a query and isolate off, `isolate=0` stands there instead, so a reload reopens the same picture/);
   assert.match(skillAddress, /a link with `q` and `isolate=0` opens with isolate off \(`parseDeepLink` reports `isolateOff`, and the page writes the box with the reason `link-lit`\)/);
   assert.match(skillAddress, /a link with `q` and no isolate parameter, an old or hand-made one, turns isolate on where the view isolates what is typed; `isolate=1` opens isolated/);
-  assert.match(skillAddress, /In the Graph no parameter means off, and none is written/);
+  assert.match(skillAddress, /Where the view's Typing isolates is unticked, the Graph to start with, no parameter means off, and none is written/);
+  assert.match(skillAddress, /`declareOff`, which is the view's Typing isolates setting and not its name/);
   const webAddress = flat(docs.slice(docs.indexOf('The link carries it.'), docs.indexOf('**Typing isolates** —')));
-  assert.match(webAddress, /Outside the Graph, while the box holds a search and Isolate is off, the address says `isolate=0` instead, so a reload reopens the same picture, lit/);
+  assert.match(webAddress, /In a view whose Typing isolates is on, while the box holds a search and Isolate is off, the address says `isolate=0` instead, so a reload reopens the same picture, lit/);
   assert.match(webAddress, /a link with a search and no `isolate` parameter, an old or hand-made one, opens isolated in a view whose Typing isolates is on/);
-  assert.match(webAddress, /In the Graph no parameter means off, and none is written/);
+  assert.match(webAddress, /Where a view's Typing isolates is off, the Graph to start with, no parameter means off, and none is written/);
+  assert.doesNotMatch(skillAddress + webAddress, /Outside the Graph, (with|while) the box holds/, 'the address is not decided by the name of the view');
 });
 
 test('the glossary names the term', () => {

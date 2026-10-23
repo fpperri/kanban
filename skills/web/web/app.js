@@ -1177,13 +1177,13 @@ function setView(mode) {
   const before = selectionState.selection;
   if (kept !== before) setSelection(kept);
   const picked = partsOf(kept).some((part) => part.kind !== 'query'); // cards, paths and trees: the box says them in every view
-  const stale = picked && !searchBoxMirrors($('#search-input').value, partsOf(kept));
-  if (boxMirrorsSelection() && partsOf(kept).length && (kept !== before || stale)) mirrorSelectionInBox(before); // what is picked goes with the person to the next view with the box saying so; a typed search left alone goes on filtering
+  const unsaid = !searchBoxMirrors($('#search-input').value, partsOf(kept));
+  if (boxMirrorsSelection() && partsOf(kept).length && unsaid && (kept !== before || picked)) mirrorSelectionInBox(before); // what is picked goes with the person to the next view with the box saying so; a typed search left alone goes on filtering
   else {
     isolateStartFollowing(typingIsolatesIn(to)); // a query typed in the box isolates where this view's Typing isolates is on
     renderBoard();
   }
-  followSearchInAddress($('#search-input').value); // the address says isolate=0 outside the Graph and nothing in it
+  followSearchInAddress($('#search-input').value); // the address says isolate=0 where this view's Typing isolates is on and nothing elsewhere
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
@@ -3595,7 +3595,7 @@ function clearSearch() {
 // isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text, isolateNow() !== null, loadViewMode() !== 'graph');
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null, typingIsolatesIn(loadViewMode()));
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);

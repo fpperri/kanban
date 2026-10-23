@@ -452,14 +452,15 @@ test('a click on a control that keeps the selection leaves the typed query where
   assert.deepStrictEqual(s.selection().anchor, typed('tags:ui'));
 });
 
-test('a double click on the empty canvas with a selection carried in clears the selection and leaves the box, which was not its anchor, alone', async () => {
+test('a double click on the empty canvas with a selection carried in clears the selection, and the box that said it goes with it', async () => {
   const s = await open({ view: 'board' });
   s.type('tags:ui');
   s.page.run("setSelection(addPart(NO_SELECTION, cardPart(5)), 5)");
   s.page.run("toggleView('graph')");
+  assert.strictEqual(s.box(), '#5', 'the switch put the picked card in the box, though the box was not its text');
   s.canvasDoubleClick();
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
-  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.box(), '');
 });
 
 // --- the hover ------------------------------------------------------------------------
@@ -486,8 +487,10 @@ test('hovering a dot while a lone card is selected shows that dot\'s relations, 
 
 // --- leaving the Graph ----------------------------------------------------------
 
-test('a query typed in the Graph stops being the anchor on the Board: the Board lights its matches and hides nothing, nothing is selected and there are no bulk targets', async () => {
-  const s = await open();
+const BOARD_LIGHTS = { 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: false } }) };
+
+test('a query typed in the Graph stops being the anchor on the Board: where typing lights, the Board lights its matches and hides nothing, nothing is selected and there are no bulk targets', async () => {
+  const s = await open({ stored: BOARD_LIGHTS });
   s.type('tags:ui');
   assert.deepStrictEqual(s.ids(), [2, 5]);
   s.page.run("toggleView('graph')");
@@ -500,6 +503,19 @@ test('a query typed in the Graph stops being the anchor on the Board: the Board 
   assert.strictEqual(s.page.run('currentSearchMatch().ids'), null, 'with isolate off the box hides no card on the Board');
   assert.deepStrictEqual([...s.page.run('currentSearchMatch().matched')].map(Number).sort((x, y) => x - y), [2, 5, 8]);
   assert.deepStrictEqual([...s.page.run('boxLitIds')].map(Number).sort((x, y) => x - y), [2, 5, 8], 'it lights its matches');
+});
+
+test('a query typed in the Graph filters a Board whose Typing isolates is on, and ends again in the Graph', async () => {
+  const s = await open();
+  s.type('tags:ui');
+  s.page.run("toggleView('graph')");
+  assert.strictEqual(s.view(), 'board');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'it is still no selection');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(s.page.run('isolateNow()'))), { previous: 'tags:ui', following: true });
+  assert.deepStrictEqual([...s.page.run('currentSearchMatch().ids')].map(Number).sort((x, y) => x - y), [2, 5, 8], 'the Board hides what the box does not match');
+  s.page.run("toggleView('graph')");
+  assert.strictEqual(s.page.run('isolateNow()'), null);
+  assert.deepStrictEqual(s.selection().anchor, typed('tags:ui'));
 });
 
 test('the same on every view the Graph can be left for', async () => {
