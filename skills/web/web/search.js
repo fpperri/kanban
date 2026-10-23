@@ -69,6 +69,10 @@
 //                 everything waiting on it, transitively; dtree: is its connected set.
 //                 Both follow `waiting_for` only. Archived cards are walked as tree: walks
 //                 them, an unknown id matches nothing.
+//   dlinks:74 / hlinks:74   (`#` optional) card #74's direct neighbours, one hop and no further. dlinks: is the
+//                 card, what it waits for and what waits on it; hlinks: is the card, its parent and its
+//                 children. Each follows one relation alone, and treats a missing or
+//                 other-board parent, a self-link and an archived card as the four sets above do.
 //   slice:objective..2   the cards in a run of slices: the slices module's axis, the
 //                 tiers of the board's hierarchy top first, then the depths of the cards
 //                 with no tier. An end is a tier name (any letter case) or a depth
@@ -121,10 +125,10 @@ function searchKey(id) {
 }
 
 const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
-// tree:/path: and the four Explore sets are deliberately NOT in KNOWN_FIELDS — that array
+// tree:/path:, the four Explore sets and the two links sets are deliberately NOT in KNOWN_FIELDS — that array
 // drives the lowercased-substring value semantics, which don't apply to a card id. Each
 // names the graph function that resolves it (resolveTerms).
-const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS);
+const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS, EXS.LINK_KINDS);
 const graphFunctionName = (field) => `${field}Ids`;
 // ADR 0009: review:/blocked: are their own field family — a
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
@@ -715,7 +719,7 @@ function cardMatchesQuery(card, terms) {
 // tree:/path: terms need the FULL card graph to resolve (connected
 // component / directed cone), not just the one card being tested — so they're
 // resolved ONCE here, up front, against `cards` (the same array filterCards
-// was called with). Each 'tree'/'path'/'hpath'/'htree'/'dpath'/'dtree' term becomes an 'ids' term (an
+// was called with). Each 'tree'/'path'/'hpath'/'htree'/'dpath'/'dtree'/'dlinks'/'hlinks' term becomes an 'ids' term (an
 // already-resolved Set) before the per-card cardMatchesQuery pass runs, so
 // termMatchesCard's 'ids' case stays a pure, cheap Set.has() with no graph
 // access of its own.
@@ -731,7 +735,7 @@ function cardMatchesQuery(card, terms) {
 // from buildDependencyGraph(cards, null).edges, the exact edge set
 // (waiting_for + parent edges) the map's graph is built from (parent edges
 // shape layout but draw no line). A context with `graph: { treeIds, pathIds, hpathIds,
-// htreeIds, dpathIds, dtreeIds }` hands in its own functions instead, each called as
+// htreeIds, dpathIds, dtreeIds, dlinksIds, hlinksIds }` hands in its own functions instead, each called as
 // (cards, id, ctx), so the snapshot can resolve over the graph it already holds; one it
 // leaves out is the dependency graph's.
 //
@@ -753,7 +757,7 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     let next = term;
     if (GRAPH_FIELDS.includes(term.field)) {
       const name = graphFunctionName(term.field);
-      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
+      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) || EXS.LINK_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
     } else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'group') next = { field: 'ids', value: term.value, ids: groupIds(cards, term, ctx) };
     else if (term.field === 'waiting') {

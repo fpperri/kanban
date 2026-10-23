@@ -434,6 +434,12 @@ ends "Shift: add to the search". Isolate stays as it was: off stays off, so pres
 becomes the isolate text, as typing into the box would make it. `tree:` and
 `path:`, which follow both relations, are as they were.
 
+Two more terms name a card's direct neighbours and have no Explore item; you type them.
+`dlinks:<id>` is the card, what it waits for and what waits on it, one hop
+over `waiting_for` both ways; `hlinks:<id>` is the card, its parent on this board and its children, one
+hop over `parent`. The `#` is optional, an unknown id matches nothing, a parent on another board, a
+missing one and a self-link are no link, and archived cards count, as in the four sets above.
+
 **Add child…** in that menu (one live card only, in every view and in the card details' own
 menu) opens the New card form as **New card** does, headed "New card under #42", with Parent set
 to that card. Only the new card is written, never the parent; clear the Parent field and it saves
