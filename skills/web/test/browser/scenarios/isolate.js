@@ -1,5 +1,5 @@
 'use strict';
-// Isolate, on the plan board: the switch at the foot of the search panel and the i key show only
+// Isolate, on the plan board: the switch just right of the search box and the i key show only
 // the selection, in every view. Four parts, each from a cold page.
 //
 // The Graph. Dependency path on card 4 from its menu writes `dpath:4` into the box as typed text,
@@ -29,7 +29,7 @@
 // The switch writes `#1 | #2`; the first Esc closes the panel and leaves isolate
 // on, the second turns it off and the box holds `zephyr` again, lit. The i key, then Esc with focus
 // outside the box, does the same; the next Esc drops the addition. The switch clicked off gives
-// the text back. Tab reaches the switch from the last pill, and Enter and Space flip it. A double
+// the text back. Tab reaches the switch from the arrow, just right of the box, and Enter and Space flip it. A double
 // click on the switch leaves the selection. i typed in the box is a letter, and with a card menu
 // up it does nothing.
 //
@@ -188,6 +188,8 @@ module.exports = {
     await escape();
     check('the first Esc closes the panel, and leaves isolate on, the box and the cards as they were', await waitFor(panelShut) && await switchIs(true) && (await boxText()) === wantedText && await shows(SELECTORS.graph, wanted));
     check('with the panel closed, the chip says isolated', await chipSaysIsolated(), await chip());
+    check('with the panel closed the switch still shows in the top bar, just right of the box and inside the window, saying on',
+      await ev(`(()=>{const s=document.getElementById('isolate-switch').getBoundingClientRect();const b=document.querySelector('.search-box').getBoundingClientRect();return s.width>0&&s.height>0&&s.left>=b.right-1&&s.right<=innerWidth&&!document.getElementById('search-panel').contains(document.getElementById('isolate-switch'))})()`) && await switchIs(true));
 
     // A click on a shown card moves the anchor and leaves the box and the shown cards. The first shown dot with a clear point is clicked.
     let moved = null;
@@ -311,7 +313,12 @@ module.exports = {
     await openPanel();
     await ev(`(()=>{const b=document.querySelectorAll('#search-pills button');b[b.length-1].focus()})()`);
     await key('Tab');
-    check('Tab from the last pill reaches the switch', (await focusId()) === 'isolate-switch', await focusId());
+    check('Tab from the last pill goes on to the fold control of the Typing isolates section, the switch being behind it in the bar', (await focusId()) === 'search-typing-fold', await focusId());
+    await key('Tab');
+    check('and then to the fold control of the On hover show section', (await focusId()) === 'search-hover-fold', await focusId());
+    await ev(`document.getElementById('search-panel-toggle').focus()`);
+    await key('Tab');
+    check('Tab from the arrow reaches the switch, just right of the box', (await focusId()) === 'isolate-switch', await focusId());
     await key('Enter');
     check('Enter on the switch turns isolate on', await switchIs(true) && await boxIs(pickedText), await boxText());
     await key(' ');

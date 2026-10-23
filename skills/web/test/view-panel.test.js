@@ -5,7 +5,7 @@ const {
 } = require('../web/view-panel');
 
 // Whether the option panel of the Map and of the Graph is open: the person's choice kept in the
-// browser per board, else the width of the screen decides (open from 760 px, closed below).
+// browser per board, else it starts closed at every width.
 
 function storageOf(initial = {}) {
   const items = { ...initial };
@@ -18,33 +18,29 @@ function storageOf(initial = {}) {
 
 const NONE = { map: null, graph: null };
 
-test('the screen decides: open at 760 px and wider, closed below', () => {
+test('the panel starts closed at every width, and 760 px is where it opens beside the view instead of over it', () => {
   assert.strictEqual(VIEW_PANEL_WIDE_PX, 760);
-  assert.strictEqual(viewPanelDefault(1280), true);
-  assert.strictEqual(viewPanelDefault(760), true);
-  assert.strictEqual(viewPanelDefault(759), false);
-  assert.strictEqual(viewPanelDefault(400), false);
-  assert.strictEqual(viewPanelDefault(0), false);
-  assert.strictEqual(viewPanelDefault(undefined), false);
-  assert.strictEqual(viewPanelDefault('wide'), false);
+  for (const width of [1280, 760, 759, 400, 0, undefined, 'wide']) assert.strictEqual(viewPanelDefault(width), false, String(width));
 });
 
-test('with nothing stored there is no choice, and the width decides for each view', () => {
+test('with nothing stored there is no choice, and the panel is closed for each view whatever the width', () => {
   assert.deepStrictEqual(loadViewPanel(storageOf(), 'shop'), NONE);
   assert.deepStrictEqual(mergeViewPanel(null), NONE);
   assert.deepStrictEqual(mergeViewPanel(undefined), NONE);
   assert.deepStrictEqual(mergeViewPanel(''), NONE);
-  assert.strictEqual(viewPanelOpen(NONE, 'map', 1280), true);
+  assert.strictEqual(viewPanelOpen(NONE, 'map', 1280), false);
   assert.strictEqual(viewPanelOpen(NONE, 'graph', 400), false);
 });
 
-test('a stored choice beats the width, both ways, for the view it was made in alone', () => {
+test('a stored choice beats the default, both ways, for the view it was made in alone', () => {
   const closed = { map: false, graph: null };
   assert.strictEqual(viewPanelOpen(closed, 'map', 1280), false);
-  assert.strictEqual(viewPanelOpen(closed, 'graph', 1280), true);
+  assert.strictEqual(viewPanelOpen(closed, 'graph', 1280), false);
   const open = { map: null, graph: true };
+  assert.strictEqual(viewPanelOpen(open, 'graph', 1280), true);
   assert.strictEqual(viewPanelOpen(open, 'graph', 400), true);
-  assert.strictEqual(viewPanelOpen(open, 'map', 400), false);
+  assert.strictEqual(viewPanelOpen(open, 'map', 1280), false);
+  assert.strictEqual(viewPanelOpen({ map: true, graph: false }, 'map', 400), true);
 });
 
 test('the stored text and the parsed value read the same', () => {

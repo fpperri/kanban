@@ -22,7 +22,7 @@
 // its strongly connected parts first (Tarjan, iterative, so a long chain costs no stack), so it
 // never hangs the drawing.
 //
-// The Lanes switch (off by default) puts the cards in lanes. Off, there is one lane without a header,
+// The Lanes switch (on by default in the Graph, off when a caller asks for no lanes) puts the cards in lanes. Off, there is one lane without a header,
 // which holds every card with a dependency. On, each card with a dependency is in the lane of its
 // nearest parent with a tier, else of its root, and the lane's header leads with that card: its tier
 // name (none without a tier), its card, the lane's cards and its ready cards. A card is ready when it
@@ -38,6 +38,9 @@
 const GRAPH_FLOW_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
 const GRAPH_FLOW_DEPS = ['frontier', 'all'];
+// What the Flow opens on with nothing stored and nothing in the address: every dependency counted, and the lanes on.
+const GRAPH_FLOW_DEFAULT_DEPS = 'all';
+const GRAPH_FLOW_DEFAULT_LANES = true;
 // The Flow's sizes, in the Graph's world units.
 //   PITCH        a row of dots: the height one dot is given
 //   SUBW         the width of one stack of dots in a column (a tall column wraps into several stacks)
@@ -55,13 +58,14 @@ const GRAPH_FLOW_GEO = Object.freeze({
 
 // --- the switches and their address parameters --------------------------------------
 
-// The Dependencies switch from a value read from storage or an address: anything but `all` is frontier.
+// The Dependencies switch from a value read from storage or an address: anything but `frontier` or `all` is the default, `all`.
 function graphFlowMergeDeps(saved) {
-  return GRAPH_FLOW_DEPS.includes(saved) ? saved : 'frontier';
+  return GRAPH_FLOW_DEPS.includes(saved) ? saved : GRAPH_FLOW_DEFAULT_DEPS;
 }
 
 // The Lanes switch is a boolean everywhere in the code; storage and the address spell it `1` or `0`,
-// and these two are the only places that spelling is read and written. A text that is neither is null.
+// and these two are the only places that spelling is read and written. A text that is neither is null,
+// which the Graph reads as the default, on (GRAPH_FLOW_DEFAULT_LANES).
 function graphFlowLanesFromText(text) {
   return text === '1' ? true : text === '0' ? false : null;
 }
@@ -487,12 +491,14 @@ function graphFlowMarks(flow, look) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GRAPH_FLOW_DEPS, GRAPH_FLOW_GEO,
-    graphFlowMergeDeps, graphFlowLanesFromText, graphFlowLanesText, graphFlowLink, graphFlowSetParams, graphFlowDropParams,
+    GRAPH_FLOW_DEFAULT_DEPS, GRAPH_FLOW_DEFAULT_LANES, graphFlowMergeDeps, graphFlowLanesFromText, graphFlowLanesText, graphFlowLink, graphFlowSetParams, graphFlowDropParams,
     graphFlowPlace, graphFlowPath, graphFlowMarks,
   };
 } else {
   window.GRAPH_FLOW_DEPS = GRAPH_FLOW_DEPS;
   window.GRAPH_FLOW_GEO = GRAPH_FLOW_GEO;
+  window.GRAPH_FLOW_DEFAULT_DEPS = GRAPH_FLOW_DEFAULT_DEPS;
+  window.GRAPH_FLOW_DEFAULT_LANES = GRAPH_FLOW_DEFAULT_LANES;
   window.graphFlowMergeDeps = graphFlowMergeDeps;
   window.graphFlowLanesFromText = graphFlowLanesFromText;
   window.graphFlowLanesText = graphFlowLanesText;

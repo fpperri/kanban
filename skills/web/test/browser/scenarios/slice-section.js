@@ -209,11 +209,11 @@ module.exports = {
     // --- Tab reaches the fold control and every entry, Enter and Space act as a click ------------------------
     await ev(`${TOGGLE}.focus()`);
     const seen = [];
-    for (let i = 0; i < plan.keys.length + 2; i++) {
+    for (let i = 0; i < plan.keys.length + 3; i++) {
       await key('Tab');
       seen.push(await ev(FOCUS_NOW));
     }
-    check('Tab reaches the fold control, then every entry in order, then the pill section\'s fold control', JSON.stringify(seen) === JSON.stringify(['search-slices-fold', ...plan.keys, 'search-pills-fold']), seen);
+    check('Tab reaches the Isolate switch beside the box, then the fold control, then every entry in order, then the pill section\'s fold control', JSON.stringify(seen) === JSON.stringify(['isolate-switch', 'search-slices-fold', ...plan.keys, 'search-pills-fold']), seen);
     await focusEntry(plan.keyboard.enterKey);
     await key('Enter');
     check('Enter on a focused entry acts as a click', await boxIs(plan.keyboard.afterEnter), await boxNow());

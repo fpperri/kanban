@@ -917,9 +917,8 @@ to `127.0.0.1` only.
   in the browser per board, in the board's own `prefs` entry, and the preferences sheet
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
-  five regions, drawn on their own: the **Statuses section** first, then the **slice section**
-  (next entry) with its fold control, the **pill section** with its fold control, a divider, and a
-  foot that holds the **Isolate** switch (see Isolate). The Statuses section shows the current
+  five sections, drawn on their own: the **Statuses section** first, then the **slice section**
+  (next entry) with its fold control, the **pill section** with its fold control, a divider, then the **Typing isolates** section and the **On hover show** section, each with a fold control like the others (`#search-typing-fold`, `#search-hover-fold`) and each folded to start; the same fold code serves all five (`searchFoldSection`, `search-panel.js`). The **Isolate** switch stands in the bar, just right of the box, not in the panel (see Isolate); the panel has no foot. The Statuses section shows the current
   view's own status pills with their state, for the Map, the Gantt, the Calendar and the Graph,
   at every width: it is open to start and folds like the others, a tap on a pill switches that
   status in the view and a right-click solos it, as the view's own pills do. It is hidden on the
@@ -977,8 +976,9 @@ to `127.0.0.1` only.
   box's text and not the selection, so a cut and isolate come back but a pill shows off, with
   its query in the box as typed text. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
-  The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
-  and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
+  The arrow, the Isolate switch, the fold controls and every pill are buttons, so Tab reaches them and Enter
+  and Space act as a click. Tab follows the page order: the box, the arrow, the Isolate switch just right of the box, the panel's fold controls and pills
+  section by section, and last the fold controls of the Typing isolates and On hover show sections (a folded section's checkboxes are skipped). **Esc** closes the suggestion list first, then the panel (focus
   goes back to the arrow, and stays in the box when Esc was pressed there), and only then
   empties the box and the selection, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
   so the box, focused again, opens the panel again. The box keeps its text
@@ -1052,7 +1052,7 @@ to `127.0.0.1` only.
   focus across the poll and its count changes under it. The chip counts a pill that is on
   even while the button hides it. Next up is not built in: it is a pill a board defines, such
   as `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
-- **Isolate** — the foot of the search panel holds the **Isolate** switch (`#isolate-switch`, a
+- **Isolate** — the top bar holds the **Isolate** switch, just right of the search box and outside the search panel (`#isolate-switch`, in `.search-bar` after `.search-box`, kept whole by `flex: 0 0 auto` while the box gives way, so it shows with the panel shut; a
   button with `role="switch"` whose `aria-checked` says on or off; Tab reaches it, and Enter and
   Space act as a click), and the `i` key flips it. The key reads the shared key guard, so it does
   nothing while a text field has focus or a card menu, a dialog, the notifications panel or the
@@ -1098,7 +1098,7 @@ to `127.0.0.1` only.
   (the writes with the reasons `typing`, `pill`, `cue` and `link`, decided at `writeSearch` by
   `typingTurnsIsolateOn`). The clear button, the Ctrl+F prefill, a cut, a click's selection and a menu
   item turn nothing on, and a box that holds only a `slice:` cut has no query to isolate. The panel's
-  foot holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
+  Typing isolates section (`#search-typing-section`, folded to start) holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
   Calendar, Gantt, Map and Graph), kept per board in the browser under a key of their own, `typing.isolates`,
   as **On hover show** keeps `hover.show` (`typing-isolates.js`, the views listed by `VIEW_MODES`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
   as it always did. Unticked, the box lights what is typed: its matches wear the selected look, nothing
@@ -1160,7 +1160,9 @@ to `127.0.0.1` only.
   default: it says how the search panel's pill section starts, and the section's own fold
   control still folds it for the visit. **Status section starts folded** is off by default:
   it says how the Statuses section starts, and its own fold control still folds it for the
-  visit. **Panel opens when the search box is focused** is
+  visit. **Typing isolates section starts folded** and **On hover show section starts folded** are on by
+  default (`typingFolded` and `hoverFolded`): they say how those two sections of the panel start, and each fold control still unfolds its section for the visit.
+  **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
   from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
@@ -1615,7 +1617,7 @@ to `127.0.0.1` only.
   highlight forward on its own: every render call site reads `hoveredId` the same way it
   already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
   the highlight the way a naive `:hover`-only or event-only approach would.
-- **On hover show** — under the search panel's foot, a `fieldset#search-hover` of six checkboxes
+- **On hover show** — in a section of its own in the search panel (`#search-hover-section`, with the fold control `#search-hover-fold`, folded to start; its legend reads `For` and carries the note), a `fieldset#search-hover` of six checkboxes
   (`input[data-hover-kind]`: `dtree`, `htree`, `dpath`, `hpath`, `dlinks`, `hlinks`) chooses which sets a
   hover or a keyboard focus lights; the legend carries `#search-hover-for`, which says whose choice the
   boxes show (`Flow`, or `Hierarchy and the other views`). The panel is `hover-show-ui.js`
@@ -1626,7 +1628,7 @@ to `127.0.0.1` only.
   graph kind, `{ "hierarchy": [...], "flow": [...] }`, kept per board in `localStorage` under `hover.show`; a
   value this version does not offer, a set it does not know and storage that refuses read as the default,
   an empty list is a choice (nothing ticked). The defaults are what each view lit before the choice
-  existed: the Hierarchy `dlinks` and `hlinks`, the Flow `dlinks` alone. `hoverShowGraph` names the kind a
+  existed: the Hierarchy `dlinks` and `hlinks`, and the Flow the same. `hoverShowGraph` names the kind a
   view reads: the Flow's in the Graph's Flow, the Hierarchy's in the Hierarchy and in every view that is not
   the Graph (the Board, the Map, the Calendar and the Gantt), whatever layout the Graph last showed. `hoverLit` is
   the Set of ids the renderers read through `isHoverHighlighted`, null when nothing is hovered, and `syncHoverLit`
@@ -1637,12 +1639,16 @@ to `127.0.0.1` only.
   `graphSetFocus` lights the union with `graphLit`, dimming the rest, in place of the one-hop relations it lit
   before; with nothing ticked the union is empty and the Graph lights what it lights when the pointer is on no card.
   The sets are worked out from the whole board, archived cards included, and the Graph lights those it draws.
-  With the defaults the Graph lights what it lit before: in the Hierarchy a card and its parent, its children and
-  the cards it waits for or that wait for it, in the Flow the card and the cards its dependencies join to it. The
+  With the defaults the Hierarchy lights what it lit before: a card and its parent, its children and the cards it
+  waits for or that wait for it. The Flow lights the same, where before the choice it lit the card and the cards its
+  dependencies join to it alone. The
   Graph's option panel has the same six as an **On hover** section (`graphBuildHoverRow` in `graph-view.js`, a
   `div.graph-hover-options` after the Hierarchy's option row or the Flow's switches, drawn by `graphBuildSwitch` with
   `.graph-option-btn[data-key=hover][data-val=<set>]` and `aria-pressed` on each set the choice of that kind of Graph
-  ticks). Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls
+  ticks). Both places stand in `HOVER_SHOW_GRID` (`hover-show.js`), two columns by three rows read across, the h sets
+  left and the d sets right, links then path then tree (`.hover-kinds` in `app.html` and the grid on `.graph-option-seg`
+  in `app.css`); only the display, since the stored list and the terms Space writes keep `HOVER_SHOW_KINDS`' order.
+  Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls
   `syncHoverShowPanel` before `refreshHover`, and `syncHoverShowPanel` sets the boxes and the toggles from the choice
   that applies, so each shows a change made in the other at once and a card hovered at that moment lights again.
   The snapshot has no hover and no such section. **Space takes the hover**: `onHoverSpaceKey` (`hover-show-ui.js`), one
@@ -1973,7 +1979,7 @@ to `127.0.0.1` only.
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
-  **Option panel** — the Map's zoom toolbar and options row, and the Graph's layout buttons, zoom
+  **Option panel** — the Map's zoom toolbar and options row, and the Graph's zoom
   buttons and option row (Tiers), stand in an `<aside class="view-panel">` on the right of the view, built
   by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
   (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
@@ -1983,8 +1989,8 @@ to `127.0.0.1` only.
   control of it can take focus; the Graph then frames an untouched view again in the new width
   (`graphRefitNext`), and a view the person moved stays where it is. view-panel.js keeps whether it is open:
   per board in `localStorage` under `viewpanel` as `{ map, graph }` (a boolean for a view the person has
-  chosen for, null for one they have not, validated on every read like prefs.js), else the screen decides:
-  open from 760 px wide, closed below, and a window that crosses the line draws the view again. Under
+  chosen for, null for one they have not, validated on every read like prefs.js), else the panel starts closed at every width (`viewPanelDefault` is false):
+  a kept `true` opens it, from 760 px wide beside the view, and a window that crosses the line draws the view again. Under
   760 px the panel is a sheet over the view (`position: absolute` against `.map-view` / `.graph-view`, so it adds
   no width and no sideways scroll), with a `.view-panel-close` button that hands focus back to the icon button.
   The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,
@@ -2441,14 +2447,14 @@ to `127.0.0.1` only.
   `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
   The 5-second poll rebuilds the view and keeps the
   layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
-  Graph view. The Graph draws one of two graphs, chosen at the top of the option panel:
+  Graph view. The Graph draws one of two graphs, chosen by the Hierarchy and Flow buttons in the toolbar at the top right of the drawing, whether the option panel is open or shut:
   **Hierarchy**, which is all of the above, and **Flow** (see **Graph Flow**).
 - **Graph Flow** — the Graph's second graph, beside **Hierarchy** (the tier fan, above). The option
-  panel opens with a **Hierarchy | Flow** choice (`.graph-kind-btn`, `aria-pressed` on the one drawn), Hierarchy first;
+  toolbar at the top right (`.graph-controls`, left of the (i) and the panel's button) has a **Hierarchy | Flow** choice (`.graph-kinds` of two `.graph-kind-btn`, `aria-pressed` on the one drawn, built by `graphBuildKinds`), Hierarchy first, with the panel open or shut;
   under Flow the panel holds the zoom and the **Dependencies** and **Lanes** switches, and none of Hierarchy's option row.
   Flow lays the drawn cards out by their dependencies (`waiting_for`, read among the cards drawn) in **columns** from left to right, with no parent line
-  and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **frontier**
-  (the default) or **all**. **Frontier** counts the steps until a card is ready and only the dependencies that are not done (a card that
+  and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **all**
+  (the default) or **frontier**. **Frontier** counts the steps until a card is ready and only the dependencies that are not done (a card that
   is `done` or archived is done): the first column is `done`, faded, then `ready now`, `1 step`, `2 steps` and on,
   and a card in or behind a dependency loop stands in a last `loop` column. Only the open cards are read, so a loop with a done card in it is no loop.
   **All** counts the longest chain of dependencies behind a card, done ones included: `waits for nothing`, `chain 1`,
@@ -2456,7 +2462,7 @@ to `127.0.0.1` only.
   (`ready now · 4`); the `done` column is faded. A card with **no dependency either way** among the drawn cards sits in a **strip** below the
   columns, in either mode, titled `no dependency either way` with its count (`· 18 cards`). Within a column the cards are ordered to cut the
   arrows that cross (the mean place of what each waits for and what waits for it, two sweeps each way), ties by id, and a column of more than
-  fourteen cards wraps into side-by-side stacks. The **Lanes** switch (`.graph-option-btn[data-key=lanes]`, `off` or `on`, off by default) groups the
+  fourteen cards wraps into side-by-side stacks. The **Lanes** switch (`.graph-option-btn[data-key=lanes]`, `off` or `on`, on by default) groups the
   cards that are in a column into **lanes**: each card with a dependency is in the lane of its nearest parent with a tier, else of its root (the slice's own rule,
   read among the cards drawn, so a card whose parent is hidden is a root), under a header (`.graph-flow-lane-head`, with the lane card's `data-id`) that leads with that
   card's type mark in its type colour (`data-type-color`, painted by `paintTypeColors`), its tier name (none for a card with no tier), `#id title`, the lane's
@@ -2473,9 +2479,9 @@ to `127.0.0.1` only.
   length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,
   selection, the card menu, double-click, Enter, Ctrl+Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
   that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. A lone selected card lights the card with the cards its **dependencies** join to it, not its parent or children, and hover and focus
-  light what the Flow's *On hover show* ticks (`dlinks` alone by default, so the same cards), and the lit lines are the arrows. A dot
+  light what the Flow's *On hover show* ticks (`dlinks` and `hlinks` by default, so those cards and the card's parent and children), and the lit lines are the arrows. A dot
   cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
-  and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, frontier and lanes off. The address carries them as
+  and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, all and lanes on, the defaults (`GRAPH_FLOW_DEFAULT_DEPS`, `GRAPH_FLOW_DEFAULT_LANES`). The address carries them as
   `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;
   every draw of the Graph writes the address too (`graphWriteAddress`, a no-op once it says the picture), so a Graph that opened from the board's memory says so and a link copied after a plain reload opens the same picture;
   a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is

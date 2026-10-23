@@ -69,6 +69,8 @@ const UNNESTED_ROW = `(()=>{const s=${ROW_STATE};return s&&s.groups.find((g)=>g.
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 const sameSet = (a, b) => sameList(a.slice().sort(), b.slice().sort());
 
+const { openPanel } = require('../panel');
+
 module.exports = {
   name: 'tier-fan-unnested',
   board: 'plan',
@@ -85,6 +87,7 @@ module.exports = {
       await ev('window.__stale=true');
       await open('/?view=graph', key);
       await waitFor('!window.__stale', 10000);
+      await openPanel(page);
       return waitFor(`${DRAWN}&&${TIERS_PRESSED}`, 10000);
     };
     const pressOn = async (sel) => {

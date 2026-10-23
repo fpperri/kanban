@@ -1,4 +1,5 @@
 const { test, after } = require('node:test');
+const { isPanelProbe } = require('./browser/panel');
 const assert = require('node:assert');
 
 const scenario = require('./browser/scenarios/tier-fan-options');
@@ -213,6 +214,7 @@ function standIn(over = {}) {
       if (type === 'mouseReleased') { panning = false; pressing = null; }
     },
     waitFor: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       if (expr === '!window.__stale') return true;
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return kind === 'tiers';
       for (const name of ['tiers', 'flow']) if (expr === tierFan.layoutIs(name)) return kind === name;
@@ -232,6 +234,7 @@ function standIn(over = {}) {
       throw new Error(`the stand-in page was asked to wait on something it does not know: ${expr.slice(0, 100)}`);
     },
     ev: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       if (expr === 'window.__stale=true') return true;
       for (const name of ['tiers', 'flow']) if (expr === tierFan.pickLayout(name)) { kind = name; return true; }
       if (expr === scenario.ROW_STATE) {

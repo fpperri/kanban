@@ -26,13 +26,13 @@ const PREFS_CLICK_CHOICES = ['opens', 'selects'];
 // The Graph's plain click is always a selection; the sheet shows it fixed.
 const PREFS_GRAPH_CLICK = 'selects';
 // The sheet's on/off settings, which mergePrefs and prefsWith both validate by this list.
-const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'panelOnFocus'];
+const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'typingFolded', 'hoverFolded', 'panelOnFocus'];
 
 function prefsDefaults() {
   const click = {};
   for (const view of PREFS_CLICK_VIEWS) click[view] = 'opens';
   click.graph = PREFS_GRAPH_CLICK;
-  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, panelOnFocus: true };
+  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, typingFolded: true, hoverFolded: true, panelOnFocus: true };
 }
 
 function prefsParse(saved) {

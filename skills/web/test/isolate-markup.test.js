@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// The Isolate switch as the page ships it: the markup at the foot of the search panel, the
+// The Isolate switch as the page ships it: the markup just right of the search box, the
 // stylesheet rules that draw it (a strict CSP allows no inline style, so every rule is in
 // app.css, in the page's own tokens), the one script that carries it out, and the places in the
 // page code that read it. How it behaves is isolate.test.js; the real page is looked at in the
@@ -18,14 +18,16 @@ const isolateSrc = read('isolate.js');
 const graphViewSrc = read('graph-view.js');
 const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 
-const foot = html.slice(html.indexOf('<div id="search-foot"'), html.indexOf('</div>', html.indexOf('<div id="search-foot"')) + 6);
+const barAt = html.indexOf('<div class="search-bar"');
+const bar = html.slice(barAt, html.indexOf('<div id="search-panel"'));
+const foot = bar.slice(bar.indexOf('<button type="button" id="isolate-switch"'), bar.indexOf('</button>', bar.indexOf('id="isolate-switch"')) + 9);
 const attr = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}(?:="([^"]*)")?(?=[\\s>])`)); return m ? (m[1] === undefined ? '' : m[1]) : null; };
 const tag = (foot.match(/<button[^>]*id="isolate-switch"[^>]*>/) || [''])[0];
 
 // --- the markup ---------------------------------------------------------------------------
 
-test('the switch is the one thing in the panel\'s foot, a button that is a switch for assistive technology, off to start', () => {
-  assert.ok(tag, 'the switch is in the foot');
+test('the switch is a button in the top bar, a switch for assistive technology, off to start', () => {
+  assert.ok(tag, 'the switch is in the search bar');
   assert.strictEqual(attr(tag, 'type'), 'button', 'it cannot submit a form');
   assert.strictEqual(attr(tag, 'role'), 'switch');
   assert.strictEqual(attr(tag, 'aria-checked'), 'false', 'off to start; the page keeps it');
@@ -51,9 +53,13 @@ test('a click on the switch never clears a selection, and the switch holds neith
   assert.strictEqual(attr(tag, 'tabindex'), null, 'Tab reaches it by its place in the page');
 });
 
-test('the panel\'s foot comes after the divider, so the switch sits at the foot of the panel', () => {
-  assert.ok(html.indexOf('class="search-divider"') < html.indexOf('id="isolate-switch"'));
-  assert.ok(html.indexOf('id="search-pills"') < html.indexOf('id="isolate-switch"'));
+test('the switch stands just right of the box and outside the panel, so it shows with the panel shut', () => {
+  const box = bar.indexOf('<div class="search-box"');
+  assert.ok(box > -1 && bar.indexOf('id="isolate-switch"') > bar.indexOf('id="search-panel-toggle"'), 'after the box, with its arrow');
+  assert.ok(html.indexOf('id="isolate-switch"') < html.indexOf('<div id="search-panel"'), 'before the panel in the page');
+  assert.ok(!html.slice(html.indexOf('<div id="search-panel"')).includes('id="isolate-switch"'), 'the panel no longer holds it');
+  assert.ok(!html.includes('id="search-foot"'), 'and has no foot');
+  assert.match(css, /\.search-bar > \.isolate-switch \{[^}]*flex: 0 0 auto/, 'the bar keeps it whole while the box gives way');
 });
 
 // --- the script ---------------------------------------------------------------------------
@@ -147,18 +153,23 @@ test('the switch\'s colours are tokens, and its radius is on the page\'s scale',
   for (const m of rules.matchAll(/border-radius:\s*([^;]+);/g)) assert.ok(['.15rem', '50%'].includes(m[1].trim()), m[1]);
 });
 
-// --- the Typing isolates checkboxes in the foot ------------------------------------------------
+// --- the Typing isolates checkboxes in their section ------------------------------------------------
 
 const typingAt = html.indexOf('<div id="search-typing"');
 const typing = html.slice(typingAt, html.indexOf('</div>', typingAt) + 6);
 const boxes = [...typing.matchAll(/<label[^>]*>\s*<input[^>]*>[^<]*<\/label>/g)].map((m) => m[0]);
 
-test('the foot holds a Typing isolates group: a labelled checkbox for each view, in the order of the views, the Graph last', () => {
+test('the Typing isolates section holds a labelled checkbox for each view, in the order of the views, the Graph last, under a fold control like the other sections', () => {
   assert.ok(typingAt > html.indexOf('id="isolate-switch"'), 'it sits after the switch');
-  assert.ok(typingAt < html.indexOf('</div>', html.indexOf('<div id="search-foot"') + 1) + 400 && typingAt > html.indexOf('<div id="search-foot"'), 'inside the foot');
+  const sectionAt = html.indexOf('<section id="search-typing-section"');
+  assert.ok(sectionAt > html.indexOf('class="search-divider"') && sectionAt < typingAt, 'in a section of its own after the divider');
+  const fold = html.slice(html.indexOf('<button type="button" id="search-typing-fold"'), html.indexOf('</button>', html.indexOf('id="search-typing-fold"')) + 9);
+  assert.strictEqual(attr(fold.match(/<button[^>]*>/)[0], 'class'), 'search-fold');
+  assert.strictEqual(attr(fold.match(/<button[^>]*>/)[0], 'aria-controls'), 'search-typing');
+  assert.notStrictEqual(attr(fold.match(/<button[^>]*>/)[0], 'data-keeps-selection'), null);
+  assert.match(fold, />Typing isolates<\/button>/);
   assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'role'), 'group');
-  assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'aria-labelledby'), 'search-typing-title');
-  assert.match(typing, /<span id="search-typing-title"[^>]*>Typing isolates<\/span>/);
+  assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'aria-labelledby'), 'search-typing-fold');
   assert.deepStrictEqual(boxes.map((b) => attr(b.match(/<input[^>]*>/)[0], 'data-typing-view')), ['board', 'calendar', 'gantt', 'map', 'graph']);
   assert.deepStrictEqual(boxes.map((b) => b.replace(/<[^>]*>/g, '').trim()), ['Board', 'Calendar', 'Gantt', 'Map', 'Graph']);
 });

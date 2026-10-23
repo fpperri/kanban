@@ -1,4 +1,5 @@
 const { test, after } = require('node:test');
+const { isPanelProbe } = require('./browser/panel');
 const assert = require('node:assert');
 const vm = require('node:vm');
 
@@ -236,6 +237,7 @@ function standIn(over = {}) {
       return true;
     },
     waitFor: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       if (expr === '!window.__stale') return true;
       if (expr === `${scenario.DRAWN}&&${scenario.TIERS_PRESSED}`) return true;
       const more = /^.*&&document\.querySelectorAll\('#graph-view \.graph-node'\)\.length>(\d+)$/.exec(expr);
@@ -261,6 +263,7 @@ function standIn(over = {}) {
       throw new Error(`the stand-in page was asked to wait on something it does not know: ${expr.slice(0, 80)}`);
     },
     ev: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       if (expr === 'window.__stale=true') return true;
       if (expr === scenario.DOTS) return dotsOf();
       if (expr === scenario.BAND_EDGES) {

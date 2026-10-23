@@ -6,7 +6,7 @@ const path = require('node:path');
 const { searchIsolateText } = require('../web/search');
 const { cardPart, pathPart, queryPart } = require('../web/selection');
 
-// The web skill and the web docs describe Isolate: the switch at the foot of the search panel and
+// The web skill and the web docs describe Isolate: the switch just right of the search box and
 // the i key, what it writes into the box, what every view shows while it is on, what a click does,
 // the chip, how it goes off, and Esc's three stages. The one example of the text it writes is held
 // to the search module, so a doc cannot promise what the box does not get.
@@ -26,7 +26,7 @@ test('both have an Isolate entry', () => {
 
 test('both say where the switch is and that it is a switch announced as on or off, reached by Tab and flipped by Enter and Space', () => {
   for (const [where, text] of BOTH) {
-    assert.match(text, /foot of the search panel/, where);
+    assert.match(text, /just right of the search box/, where);
     assert.match(text, /Isolate\*\* switch/, where);
     assert.match(text, /Tab reaches it/, where);
     assert.match(text, /Enter and Space/, where);
@@ -117,9 +117,11 @@ test('the multi-select entry and the bulk actions entry name isolate in the Esc 
   assert.match(bulk, /isolate goes off before the additions/);
 });
 
-test('the search panel entry says the foot holds the switch, not that it is empty', () => {
+test('the search panel entry says the panel has no foot and the switch stands in the bar', () => {
   assert.doesNotMatch(flat(skill), /a foot \(empty so far\)/);
-  assert.match(flat(skill.slice(skill.indexOf('- **Search panel**'), skill.indexOf('- **Slice section**'))), /a foot that holds the \*\*Isolate\*\* switch/);
+  const entry = flat(skill.slice(skill.indexOf('- **Search panel**'), skill.indexOf('- **Slice section**')));
+  assert.doesNotMatch(entry, /a foot that holds the \*\*Isolate\*\* switch/);
+  assert.match(entry, /The \*\*Isolate\*\* switch stands in the bar, just right of the box, not in the panel/);
 });
 
 // The menus and the link were not built when this entry was first written, and a doc test held it

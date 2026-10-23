@@ -1,4 +1,5 @@
 const { test, after } = require('node:test');
+const { isPanelProbe } = require('./browser/panel');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -171,11 +172,13 @@ function standIn(over = {}) {
     },
     rightClick: async () => { surface = 'menu'; },
     waitFor: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       const known = query(expr);
       if (known !== undefined) return !!known;
       return !!(await page.ev(expr));
     },
     ev: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       const known = query(expr);
       if (known !== undefined) return known;
       return act(expr);

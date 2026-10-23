@@ -2,8 +2,8 @@
 // Whether the option panel on the right of the Map and of the Graph is open. A person's choice
 // is kept in the browser per board, one entry under the app's per-board key, validated on every
 // read like the preferences (prefs.js), so a hand-edited or stale value counts as no choice. With
-// no choice the panel follows the screen: open from 760 px wide, closed below it, where it opens
-// over the view as a sheet instead of beside it.
+// no choice the panel starts closed at every width; from 760 px wide it opens beside the view, below
+// it over the view as a sheet.
 //
 // Pure: the caller passes the storage and the screen's width, so Node tests drive it with a fake.
 // Same dual-environment export pattern as prefs.js.
@@ -18,9 +18,9 @@ const VIEW_PANEL_WIDE_PX = 760;
 
 const viewPanelIsObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
-// Open at 760 px and wider; the sheet below it starts closed.
-function viewPanelDefault(width) {
-  return Number(width) >= VIEW_PANEL_WIDE_PX;
+// Closed at every width until the person opens it; only a kept choice opens it on a load.
+function viewPanelDefault() {
+  return false;
 }
 
 // The choices in `saved` (the stored text, or the value parsed from it): true or false for a view

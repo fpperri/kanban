@@ -17,6 +17,8 @@
 // the list to the search module over the board's own cards.
 const LIGHT = { query: 'renew | zephyr', lit: [1, 2, 7, 11, 12], done: 12 };
 
+const { openPanel } = require('../panel');
+
 module.exports = {
   name: 'graph',
   board: 'fixture',
@@ -48,6 +50,7 @@ module.exports = {
 
     await open('/?view=graph');
     check('graph renders after deep link ?view=graph', await waitFor(`document.querySelectorAll('.graph-node').length>0`, 10000));
+    await openPanel(page);
     await waitFor(layoutIs('hierarchy'));
     let s = await stats();
     check('default graph is the Hierarchy', s.layout === 'hierarchy', s);

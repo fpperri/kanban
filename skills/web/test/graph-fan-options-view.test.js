@@ -60,7 +60,7 @@ async function open({ stored = {}, name = 'kanban', layout = null, size = null }
   const host = recordingElement('div');
   const elements = { '#graph-view': host };
   for (const sel of HIDDEN_SURFACES) elements[sel] = hiddenSurface();
-  const all = { [`kanban.${name}.view.mode`]: 'graph', ...stored };
+  const all = { [`kanban.${name}.view.mode`]: 'graph', [`kanban.${name}.viewpanel`]: '{"map":true,"graph":true}', ...stored };
   if (layout) all[`kanban.${name}.graph.layout`] = layout;
   const page = await loadPage({
     board: makeBoard(name), stored: all, elements, documentExtras: size ? sizedDocument(size) : recordingDocument(),

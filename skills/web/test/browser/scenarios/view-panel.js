@@ -1,15 +1,15 @@
 'use strict';
 // The option panel of the Map and of the Graph, on the plan board. One icon button at the
 // top right of each view, the side the panel comes out of, opens and closes a panel on its right:
-// the Graph's Hierarchy | Flow choice, zoom and Options section, the Map's zoom and Options section. The Options
+// the Graph's zoom and Options section, the Map's zoom and Options section; the Graph's Hierarchy | Flow choice stands in the
+// toolbar at the top right instead, left of the (i) and the icon button, whether the panel is open or shut. The Options
 // section is always expanded, with no toggle of its own: the panel is what hides it. The status
 // pills, the Graph's card count and its key stay in the view. The button says whether the panel is open (aria-expanded) and
 // has a label. Open, a control in the panel works as it did in the row it came from (Fit, a
 // graph choice, the zoom); closed, the panel is gone and the view has its width back, the Graph framed
 // again in it. The choice is kept per view in the browser: a reload keeps it, and one view's
-// choice does not change the other's. With no choice made the screen decides, open at 760 px
-// and wider and closed under it, and the view follows a window that crosses the line. Under
-// 760 px the panel opens over the view as a sheet, taking no width from it and adding no sideways
+// choice does not change the other's. With no choice made the panel starts closed at every width. Under
+// 760 px an opened panel lies over the view as a sheet, taking no width from it and adding no sideways
 // scroll to it, with a close button of its own that hands focus back to the icon button.
 //
 // A press is a real click at the centre of the element, as a person makes it, and every wait is
@@ -63,7 +63,9 @@ module.exports = {
     // --- the Graph, on a wide screen -----------------------------------------------------------
     await load('/?view=graph');
     check('the Graph draws the plan board', await graphDrawn());
-    check('the panel is open on a wide screen with nothing chosen', await waitFor(panelPresent('graph')) && (await stored()) === null, await stored());
+    check('the panel starts closed on a wide screen with nothing chosen', await waitFor(panelAbsent('graph')) && (await stored()) === null && (await buttonState('graph')).expanded === 'false', await stored());
+    await clickOn(toggleOf('graph'));
+    check('the button opens it, and the choice is kept for the Graph alone', await waitFor(panelPresent('graph')) && (await stored()) === '{"map":null,"graph":true}', await stored());
     const button = await buttonState('graph');
     check('the icon button is a panel glyph with a label and says the panel is open', !!button && button.expanded === 'true' && button.label === 'Options panel' && button.icon && button.title.length > 10, button);
     check('the button is not inside the panel, and it and the panel keep the selection', !!button && !button.inPanel && button.keeps && button.panelKeeps, button);
@@ -81,7 +83,9 @@ module.exports = {
     const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-options .graph-option-btn').length,hover:document.querySelectorAll('#graph-view .view-panel .graph-hover-options .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
     check('the Options section is always expanded: all its buttons are built, with no toggle', graphOptions.buttons === 15 && graphOptions.toggles === 0, graphOptions);
     check('the On hover row sits beside the Options section in the panel, its six toggles built', graphOptions.hover === 6, graphOptions);
-    check('the Hierarchy | Flow buttons, the zoom buttons and the Options section are in the panel', kindsIn.length === 2 && zoomIn.length === 3 && optionsIn.length === 1 && [...kindsIn, ...zoomIn, ...optionsIn].every(Boolean), { kindsIn, zoomIn, optionsIn });
+    check('the zoom buttons and the Options section are in the panel, and the Hierarchy | Flow buttons are not', kindsIn.length === 2 && kindsIn.every((x) => !x) && zoomIn.length === 3 && optionsIn.length === 1 && [...zoomIn, ...optionsIn].every(Boolean), { kindsIn, zoomIn, optionsIn });
+    const kindsBar = await ev(`(()=>{const k=[...document.querySelectorAll('#graph-view .graph-controls .graph-kind-btn')].map((b)=>b.getBoundingClientRect());const i=document.querySelector('#graph-view .graph-controls .graph-info-toggle').getBoundingClientRect();const t=document.querySelector('#graph-view .graph-controls .view-panel-toggle').getBoundingClientRect();return {n:k.length,leftOfInfo:k.every((r)=>r.right<=i.left+1),oneRow:k.every((r)=>Math.abs(r.top-i.top)<6),infoLeftOfToggle:i.right<=t.left+1}})()`);
+    check('the Hierarchy | Flow buttons stand in the toolbar, left of the (i) and the icon button, on their row', kindsBar.n === 2 && kindsBar.leftOfInfo && kindsBar.oneRow && kindsBar.infoLeftOfToggle, kindsBar);
     const staying = await ev(`['.graph-count','.graph-key'].map((s)=>{const e=document.querySelector('#graph-view '+s);return !!e&&!e.closest('.view-panel')})`);
     check('the card count and the key stay in the view', staying.every(Boolean), staying);
     check('no status pill stands in the Graph', await ev(`document.querySelectorAll('#graph-view .status-pill, #graph-view [class*="-filter-toggle"], #graph-view [class*="-filter-row"]').length===0`));
@@ -105,19 +109,22 @@ module.exports = {
     await load('/?view=graph');
     await graphDrawn();
     check('a reload keeps the panel closed', await waitFor(panelAbsent('graph')));
+    check('with the panel closed the Hierarchy | Flow buttons are still there, in the toolbar', await ev(`document.querySelectorAll('#graph-view .graph-controls .graph-kind-btn').length===2`));
 
     // --- open again, and a control of the panel still works -----------------------------------------
     await clickOn(toggleOf('graph'));
     check('the button opens the panel again', await waitFor(panelPresent('graph')) && (await buttonState('graph')).expanded === 'true');
     await clickOn('#graph-view .graph-kind-btn[data-graph-kind=flow]');
-    check('a graph pressed in the reopened panel switches the Graph', await waitFor(`document.querySelector('#graph-view .graph-kind-btn[data-graph-kind=flow]').getAttribute('aria-pressed')==='true'&&!!document.querySelector('#graph-view .graph-kind-flow')`));
+    check('a graph pressed in the toolbar switches the Graph', await waitFor(`document.querySelector('#graph-view .graph-kind-btn[data-graph-kind=flow]').getAttribute('aria-pressed')==='true'&&!!document.querySelector('#graph-view .graph-kind-flow')`));
     await clickOn('#graph-view .graph-kind-btn[data-graph-kind=hierarchy]');
     check('and back to the Hierarchy', await waitFor(`!!document.querySelector('#graph-view .graph-kind-hierarchy')&&!!document.querySelector('#graph-view .view-panel')`));
 
     // --- the Map ----------------------------------------------------------------------------------
     await load('/?view=map');
     check('the Map draws the plan board', await mapDrawn());
-    check('the Map\'s panel is open: the Graph\'s choice is not its own', await waitFor(panelPresent('map')));
+    check('the Map\'s panel starts closed: the Graph\'s choice is not its own', await waitFor(panelAbsent('map')));
+    await clickOn(toggleOf('map'));
+    check('the Map\'s button opens it', await waitFor(panelPresent('map')));
     const mapButton = await buttonState('map');
     check('the Map\'s button is the same glyph with the same label', !!mapButton && mapButton.expanded === 'true' && mapButton.label === 'Options panel' && mapButton.icon && !mapButton.inPanel, mapButton);
     const mapZoomIn = await inPanel('#map-view .map-zoom-btn');
@@ -153,15 +160,15 @@ module.exports = {
     await clickOn(toggleOf('map'));
     check('the Map\'s panel opens again with the zoom the Map had', await waitFor(panelPresent('map')) && (await pct()) === pctZoomed, { pctZoomed, now: await pct() });
 
-    // --- the screen decides until a choice is made ------------------------------------------------------
+    // --- nothing chosen: closed at every width ------------------------------------------------------------
     await ev(`localStorage.removeItem('kanban.plan.viewpanel')`);
     await load('/?view=graph');
     await graphDrawn();
-    check('with no choice the panel is open again', await waitFor(panelPresent('graph')));
+    check('with no choice the panel is closed on a wide screen', await waitFor(panelAbsent('graph')));
     await metrics(NARROW);
-    check('a window narrower than 760 px closes it, with no reload', await waitFor(panelAbsent('graph')), await ev('innerWidth'));
+    check('a window narrower than 760 px leaves it closed, with no reload, and keeps no choice', await waitFor(panelAbsent('graph')) && (await stored()) === null, await ev('innerWidth'));
     await metrics(WIDE);
-    check('and a wide one opens it again', await waitFor(panelPresent('graph')));
+    check('and a wide one leaves it closed too', await waitFor(panelAbsent('graph')));
     await metrics(NARROW);
     await waitFor(panelAbsent('graph'));
 

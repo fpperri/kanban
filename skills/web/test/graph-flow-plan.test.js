@@ -50,10 +50,10 @@ test('the layout is kept for what decides it: the same cards and switch give the
   const m = model();
   const frontier = graphLayout(m, 'flow', { deps: 'frontier' });
   assert.strictEqual(graphLayout(m, 'flow', { deps: 'frontier' }), frontier);
-  assert.strictEqual(graphLayout(m, 'flow', {}), frontier, 'no switch is frontier');
+  assert.strictEqual(graphLayout(m, 'flow', {}), graphLayout(m, 'flow', { deps: 'all' }), 'no switch is all');
   assert.notStrictEqual(graphLayout(m, 'flow', { deps: 'all' }), frontier);
   assert.notStrictEqual(graphSignature(m, 'flow', { deps: 'all' }), graphSignature(m, 'flow', { deps: 'frontier' }));
-  assert.strictEqual(graphSignature(m, 'flow', {}), graphSignature(m, 'flow', { deps: 'frontier' }));
+  assert.strictEqual(graphSignature(m, 'flow', {}), graphSignature(m, 'flow', { deps: 'all' }));
   assert.notStrictEqual(graphSignature(m, 'flow', {}), graphSignature(m, 'hierarchy', {}));
   assert.strictEqual(graphSignature(m, 'hierarchy', { deps: 'all' }), graphSignature(m, 'hierarchy', {}), 'the Hierarchy does not read the switch');
 });

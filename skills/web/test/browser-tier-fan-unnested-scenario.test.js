@@ -1,4 +1,5 @@
 const { test, after } = require('node:test');
+const { isPanelProbe } = require('./browser/panel');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -207,6 +208,7 @@ function standIn(over = {}) {
     },
     click: async (x, y) => press({ x, y }),
     waitFor: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       if (expr === '!window.__stale') return true;
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return kind === 'tiers';
       for (const name of ['tiers', 'flow']) if (expr === tierFan.layoutIs(name)) return kind === name;
@@ -226,6 +228,7 @@ function standIn(over = {}) {
       throw new Error(`the stand-in page was asked to wait on something it does not know: ${expr.slice(0, 100)}`);
     },
     ev: async (expr) => {
+      if (isPanelProbe(expr)) return true;
       if (expr === 'window.__stale=true') return true;
       if (expr === scenario.UNNESTED_ROW) return rowOf();
       if (expr === tierFan.DOTS) return dotsOf();
