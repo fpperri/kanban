@@ -341,8 +341,8 @@ test('the selection scenario finds a card\'s dot by its class and clicks it only
 // Graph after a click and two Shift+clicks, on the Board after three Ctrl+clicks,
 // and with text in the search box, where focus in the box opens its suggestion
 // menu, the first Esc closes that menu, the next turns the isolate that typing started
-// off, the next clears the box, and Esc away from the box turns isolate off and then
-// steps the selection.
+// off, the next clears the box, and Esc away from the box turns isolate off, then steps the
+// selection and, with nothing selected, clears the box.
 const ESC_STEPS_CHECKS = [
   'the Graph draws the plan board', 'three cards can be clicked without another dot in the way',
   'a click and two Shift+clicks select three cards, the clicked card the anchor',
@@ -357,6 +357,10 @@ const ESC_STEPS_CHECKS = [
   'the box has text again and focus has left it',
   'Esc with focus outside the search box turns isolate off first, and leaves the selection and the box text',
   'the Esc after that steps the selection back and leaves the box text as it was',
+  'the next Esc outside the box drops the anchor and leaves the box text',
+  'with nothing selected, the next Esc outside the box clears the box',
+  'a slice: run is in the box and focus has left it',
+  'Esc outside the box clears a slice: run too, and the page is back to its whole board',
   'none of those clicks opened a card',
 ];
 

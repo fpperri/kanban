@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { hpathIds, htreeIds, dpathIds, dtreeIds } = require('../web/explore-sets');
+const { EXPLORE_KINDS, LINK_KINDS, hpathIds, htreeIds, dpathIds, dtreeIds, dlinksIds, hlinksIds } = require('../web/explore-sets');
 
 const set = (ids) => new Set(ids);
 
@@ -107,4 +107,63 @@ test('prefixed ids key as their whole id and never meet a bare number', () => {
   assert.deepStrictEqual(htreeIds(cards, 'G2'), set(['G1', 'G2']));
   assert.deepStrictEqual(dtreeIds(cards, 'G1'), set(['G1', '2']));
   assert.deepStrictEqual(dtreeIds(cards, 1), set(['1']));
+});
+
+test('dlinksIds: the card and one hop over waiting_for both ways, no further', () => {
+  assert.deepStrictEqual(dlinksIds(BOARD, 5), set(['4', '5', '8', '9']), 'it waits for 4, and 8 and 9 wait for it');
+  assert.deepStrictEqual(dlinksIds(BOARD, 8), set(['5', '8']), 'the card it waits for, not that card\'s own waits, and not the sibling');
+  assert.deepStrictEqual(dlinksIds(BOARD, 4), set(['4', '5']), 'what waits on 4 is in, what waits on 5 is a second hop');
+  assert.deepStrictEqual(dlinksIds(BOARD, 3), set(['2', '3']));
+  assert.deepStrictEqual(dlinksIds(BOARD, 10), set(['10']));
+});
+
+test('hlinksIds: the card, its local parent and its children, one hop over parent', () => {
+  assert.deepStrictEqual(hlinksIds(BOARD, 2), set(['1', '2', '4']));
+  assert.deepStrictEqual(hlinksIds(BOARD, 1), set(['1', '2', '3']), 'its children, not its grandchildren');
+  assert.deepStrictEqual(hlinksIds(BOARD, 4), set(['2', '4']), 'its parent, not its grandparent');
+  assert.deepStrictEqual(hlinksIds(BOARD, 10), set(['10']));
+});
+
+test('the two links sets ignore the other relation, as the four do', () => {
+  assert.deepStrictEqual(dlinksIds(BOARD, 1), set(['1']), '1 is a parent of 2 and 3 and waits for nothing');
+  assert.deepStrictEqual(hlinksIds(BOARD, 8), set(['8']), '8 waits for 5 and has no parent');
+});
+
+test('LINK_KINDS names the two apart from the four EXPLORE_KINDS, which the menu wires one item to each', () => {
+  assert.deepStrictEqual(LINK_KINDS, ['dlinks', 'hlinks']);
+  assert.deepStrictEqual(EXPLORE_KINDS, ['hpath', 'htree', 'dpath', 'dtree']);
+});
+
+test('the links sets take an id as a string or a number; an unknown id, garbage and an empty board are an empty set', () => {
+  for (const fn of [dlinksIds, hlinksIds]) {
+    assert.deepStrictEqual(fn(BOARD, '5'), fn(BOARD, 5));
+    assert.deepStrictEqual(fn(BOARD, 999), set());
+    assert.deepStrictEqual(fn(BOARD, 'abc'), set());
+    assert.deepStrictEqual(fn([], 1), set());
+  }
+});
+
+test('the links sets: a missing parent or dependency, another board\'s parent, a self-link and a loop are no link', () => {
+  const lone = [{ id: '1', parent: 40, waiting_for: ['41'] }, { id: '2', parent: 1 }];
+  assert.deepStrictEqual(hlinksIds(lone, 1), set(['1', '2']), 'the missing parent 40 is no member');
+  assert.deepStrictEqual(dlinksIds(lone, 1), set(['1']));
+  const cards = [{ id: '12' }, { id: '13', parent: 'kanban#12' }, { id: '14', parent: 'fpp#12' }];
+  assert.deepStrictEqual(hlinksIds(cards, 13, { board: 'kanban' }), set(['12', '13']));
+  assert.deepStrictEqual(hlinksIds(cards, 14, { board: 'kanban' }), set(['14']), 'fpp#12 is another board\'s card');
+  assert.deepStrictEqual(hlinksIds(cards, 12, { board: 'kanban' }), set(['12', '13']));
+  const loops = [{ id: '1', parent: 2, waiting_for: ['2'] }, { id: '2', parent: 1, waiting_for: ['1'] }, { id: '3', parent: 3, waiting_for: ['3'] }];
+  assert.deepStrictEqual(hlinksIds(loops, 1), set(['1', '2']));
+  assert.deepStrictEqual(dlinksIds(loops, 1), set(['1', '2']));
+  assert.deepStrictEqual(hlinksIds(loops, 3), set(['3']));
+  assert.deepStrictEqual(dlinksIds(loops, 3), set(['3']));
+});
+
+test('the links sets walk archived cards and key a prefixed id as its whole id', () => {
+  const archived = [{ id: '1' }, { id: '2', parent: 1, archived: true }, { id: '3', waiting_for: ['2'] }];
+  assert.deepStrictEqual(hlinksIds(archived, 1), set(['1', '2']));
+  assert.deepStrictEqual(dlinksIds(archived, 3), set(['2', '3']));
+  const cards = [{ id: 'G1' }, { id: 'G2', parent: 'G1' }, { id: '1' }, { id: '2', waiting_for: ['G1'] }];
+  assert.deepStrictEqual(hlinksIds(cards, 'G1'), set(['G1', 'G2']));
+  assert.deepStrictEqual(dlinksIds(cards, 'G1'), set(['G1', '2']));
+  assert.deepStrictEqual(dlinksIds(cards, 1), set(['1']));
 });

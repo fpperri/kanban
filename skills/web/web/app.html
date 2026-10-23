@@ -66,6 +66,15 @@
           <label class="search-typing-opt" data-keeps-selection><input type="checkbox" data-typing-view="graph" data-keeps-selection> Graph</label>
         </div>
       </div>
+      <fieldset id="search-hover" class="search-hover" data-keeps-selection>
+        <legend>On hover show <span id="search-hover-for" class="search-hover-for"></span></legend>
+        <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dtree" data-keeps-selection><span>dtree</span></label>
+        <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="htree" data-keeps-selection><span>htree</span></label>
+        <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dpath" data-keeps-selection><span>dpath</span></label>
+        <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="hpath" data-keeps-selection><span>hpath</span></label>
+        <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dlinks" data-keeps-selection><span>dlinks</span></label>
+        <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="hlinks" data-keeps-selection><span>hlinks</span></label>
+      </fieldset>
     </div>
   </div>
   <div class="actions">
@@ -588,6 +597,7 @@
 
 <script src="/ids.js"></script>
 <script src="/explore-sets.js"></script>
+<script src="/hover-show.js"></script>
 <script src="/refresh-policy.js"></script>
 <script src="/column-state.js"></script>
 <script src="/column-sort.js"></script>
@@ -640,6 +650,7 @@
 <script src="/search-statuses.js"></script>
 <script src="/search-slices.js"></script>
 <script src="/isolate.js"></script>
+<script src="/hover-show-ui.js"></script>
 <script src="/hotkeys.js"></script>
 <script src="/hotkeys-sheet.js"></script>
 <script src="/days.js"></script>

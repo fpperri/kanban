@@ -54,7 +54,7 @@ test('no doc still says the four add a selection part, add to the selection or l
 
 test('the web skill lists the four terms in its grammar and keeps them out of the autocomplete', () => {
   assert.match(webSkill, /`hpath:<id>`\/`htree:<id>`\/`dpath:<id>`\/`dtree:<id>` \(`#` optional\) are the four sets Explore's Path and Tree write into the box, each by one relation alone/);
-  assert.match(webSkill, /`tree:`\/`path:` and the four above are excluded \(they take a card id, not free text\)/);
+  assert.match(webSkill, /`tree:`\/`path:`, the four above and `dlinks:`\/`hlinks:` are excluded \(they take a card id, not free text\)/);
 });
 
 test('the web skill says the four entries write the term for menuSubject.clicked, plain or with Shift, and the third level answers the keys and a tap', () => {

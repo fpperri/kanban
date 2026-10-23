@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  NO_SELECTION, cardPart, pathPart, queryPart, setAnchor, addPart, resolveSelection, selectionAfterEscape,
+  NO_SELECTION, cardPart, pathPart, queryPart, setAnchor, addPart, resolveSelection, selectionAfterEscape, escapeStage,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards } = require('../web/search');
 
@@ -27,6 +27,37 @@ test('the next Esc drops the anchor, and a third has nothing left to step back f
   const twice = selectionAfterEscape(once);
   assert.deepStrictEqual(twice.selection, NO_SELECTION);
   assert.strictEqual(selectionAfterEscape(twice), twice, 'nothing picked: the same state comes back, so the caller skips the repaint');
+});
+
+// --- the stage Esc is on, down to the empty box -----------------------------------------
+
+test('Esc is on the isolate stage while isolate is on, whatever is picked and whatever the box holds', () => {
+  const selection = grown(cardPart(3), cardPart(5));
+  assert.strictEqual(escapeStage({ selection, rangeStart: 5, isolate: { previous: '' } }, '#3 | #5'), 'isolate');
+  assert.strictEqual(escapeStage({ selection: NO_SELECTION, rangeStart: null, isolate: { previous: '' } }, ''), 'isolate');
+});
+
+test('Esc is on the selection stage while a card is picked, additions or only the anchor, the box text notwithstanding', () => {
+  assert.strictEqual(escapeStage({ selection: grown(cardPart(3), cardPart(5)), rangeStart: 5, isolate: null }, 'slice:objective..2'), 'selection');
+  assert.strictEqual(escapeStage({ selection: grown(cardPart(3)), rangeStart: 3 }, ''), 'selection');
+});
+
+test('with nothing picked and isolate off, Esc is on the box stage when the box holds anything, a `slice:` run included, and has nothing to do when it is empty', () => {
+  const state = { selection: NO_SELECTION, rangeStart: null, isolate: null };
+  assert.strictEqual(escapeStage(state, 'slice:objective..2'), 'box');
+  assert.strictEqual(escapeStage(state, 'tags:ui'), 'box');
+  assert.strictEqual(escapeStage(state, ''), null);
+});
+
+test('walking Esc from a pick with isolate on reaches an empty box in the order: isolate, selection, box', () => {
+  let state = { selection: grown(cardPart(3), cardPart(5)), rangeStart: 5, isolate: { previous: 'slice:objective..2' } };
+  const stages = [];
+  for (let stage = escapeStage(state, 'x'); stage; stage = escapeStage(state, 'x')) {
+    stages.push(stage);
+    if (stage === 'box') break;
+    state = { ...selectionAfterEscape(state), isolate: stage === 'isolate' ? null : state.isolate };
+  }
+  assert.deepStrictEqual(stages, ['isolate', 'selection', 'selection', 'box']);
 });
 
 test('the additions never drop one at a time: a selection of ten cards is anchor-only after one Esc', () => {

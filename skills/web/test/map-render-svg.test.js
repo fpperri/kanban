@@ -52,6 +52,7 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
     statusColorClass: colors.statusColorClass,
     isHoverHighlighted: () => false,
     hoveredId: null,
+    hoverLit: null,
     selectedIds: new Set(),
     paintsSelected: (id) => sandbox.selectedIds.has(id),
     state: { priorities: CTX.priorities, types: [] },
