@@ -24,6 +24,12 @@ test('docs/web.md says what Space writes, that it never turns isolate on, and wh
   assert.match(text, /`Shift\+Space` adds that text to what the box holds as one more alternative, so a set can be built from several cards; an empty box takes it as a plain `Space` does/);
 });
 
+test('docs/web.md says Space on a hovered line writes the cards the line lights, and Shift+Space adds them', () => {
+  const text = bullet(webDoc, '**Space takes the hover.**', '**Slice section**');
+  assert.match(text, /In the Graph, with no card hovered or focused, `Space` on a hovered line writes the cards that line lights as card terms, `#176 \| #50`: a parent line its parent and its child, a dependency the card waited for and the card that waits, a bracket its parent and its children in the order it draws them; `Shift\+Space` adds them, and the sets ticked make no difference/);
+  assert.match(webSkill.replace(/\s+/g, ' '), /With no such card, the line the pointer is on in the Graph supplies the text instead \(`graphHoverLineTerms`, `graph-view\.js`\): the cards it lights as card terms joined by ` \| ` \(`#176 \| #50`\), the parent or the card waited for first, a bracket's children in the order it draws them, whatever sets are ticked; a poll drops the line hover, so Space then does nothing new/);
+});
+
 test('docs/web.md says where Space keeps its own job, and that Ctrl+Space is the selecting key', () => {
   const text = bullet(webDoc, '**Space takes the hover.**', '**Slice section**');
   assert.match(text, /With no card hovered or focused, in a text field, on a button, link or switch, and behind a menu, a dialog, the notifications panel, the preferences sheet or the notes palette, `Space` keeps its own job: it scrolls, presses the button, or ticks a todo item/);

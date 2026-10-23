@@ -352,7 +352,10 @@ into the search box as alternatives (`dlinks:12 | hlinks:12`), the box's run of 
 Unlike typing, that write never turns isolate on: outside the Graph the box lights the cards it names, or hides the
 rest if isolate was already on, and in the Graph it is the typed search. `Shift+Space` adds that text to what the
 box holds as one more alternative, so a set can be built from several cards; an empty box takes it as a plain
-`Space` does. With no card hovered or focused, in a text field, on a button, link or switch, and behind a menu, a
+`Space` does. In the Graph, with no card hovered or focused, `Space` on a hovered line writes the cards that line
+lights as card terms, `#176 | #50`: a parent line its parent and its child, a dependency the card waited for and the
+card that waits, a bracket its parent and its children in the order it draws them; `Shift+Space` adds them, and the
+sets ticked make no difference. With no card hovered or focused, in a text field, on a button, link or switch, and behind a menu, a
 dialog, the notifications panel, the preferences sheet or the notes palette, `Space` keeps its own job: it scrolls,
 presses the button, or ticks a todo item. `Ctrl+Space` selects the focused card in the Graph, as a click does: it is
 the key `Space` was before.

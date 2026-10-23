@@ -1655,7 +1655,7 @@ to `127.0.0.1` only.
   `hoverShowTerms` (`hover-show.js`: one `kind:id` per ticked set, in the panel's order, joined by ` | `) put in the
   box by `searchWithTerms` (`search.js`, which Explore's Path and Tree use too): it replaces what the box held but for
   its run of slices, or with Shift joins it as more alternatives (`searchAddAlt`), and an empty box takes it either way.
-  The write is `writeSearch(text, 'hover')`. `hover` is a write reason of its own, not one of `ISOLATING_REASONS`
+  With no such card, the line the pointer is on in the Graph supplies the text instead (`graphHoverLineTerms`, `graph-view.js`): the cards it lights as card terms joined by ` | ` (`#176 | #50`), the parent or the card waited for first, a bracket's children in the order it draws them, whatever sets are ticked; a poll drops the line hover, so Space then does nothing new. The write is `writeSearch(text, 'hover')`. `hover` is a write reason of its own, not one of `ISOLATING_REASONS`
   (`selection.js`), so it never turns isolate on whatever the view's Typing isolates says, and `selectionFollowingBox`
   treats it as a write by hand: in the Graph the written terms are the typed anchor, and a pill the box no longer
   holds goes off. With no card, or no set ticked, nothing is written and the key is not prevented. In the Graph

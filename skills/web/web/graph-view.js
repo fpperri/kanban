@@ -81,7 +81,7 @@ const GRAPH_FLOW_LANES_LABEL = {
 };
 const GRAPH_HOVER_LABEL = {
   label: 'On hover',
-  hint: 'Which sets a hover or a keyboard focus on a card lights, any mix: dtree and htree the whole tree down or across, dpath and hpath the path to the roots, dlinks the cards one wait away, hlinks the parent and the children. The same choice as On hover show in the search panel, kept for each kind of Graph; Space writes the ticked terms into the box.',
+  hint: 'Which sets a hover or a keyboard focus on a card lights, any mix: dtree and htree the whole tree down or across, dpath and hpath the path to the roots, dlinks the cards one wait away, hlinks the parent and the children. The same choice as On hover show in the search panel, kept for each kind of Graph; Space writes the ticked terms into the box, and on a hovered line the cards it lights.',
 };
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
@@ -644,6 +644,7 @@ function graphClearFocus() {
   if (!graphCur) return;
   graphCur.svg.classList.remove('graph-dim');
   for (const el of graphCur.svg.querySelectorAll('.graph-near')) el.classList.remove('graph-near');
+  graphCur.hoverLine = null;
   graphLowerLine();
 }
 
@@ -687,6 +688,7 @@ function graphLightCards(lit) {
 // kind of Graph (hoverSetOf, hover-show-ui.js), lit with the rest dimmed. With none ticked the hover
 // lights nothing and the lighting of the selection stays.
 function graphSetFocus(id) {
+  if (graphCur) graphCur.hoverLine = null;
   if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
   const lit = graphLit(graphCur.model, hoverSetOf(id), graphCur.lines);
   if (lit) graphLightCards(lit);
@@ -700,9 +702,24 @@ function graphSetFocus(id) {
 function graphSetLineFocus(i) {
   const line = graphCur && graphCur.plan.links[i];
   if (!line) { graphClearFocus(); return; }
-  const ids = (line.kids ? [line.from, ...line.kids] : [line.from, line.to]).filter((id) => graphCur.model.byId.has(id));
-  graphLightCards({ nodes: new Set(ids), links: new Set([i]) });
+  graphLightCards({ nodes: new Set(graphLineCards(line)), links: new Set([i]) });
   graphRaiseLine(i);
+  graphCur.hoverLine = i;
+}
+
+// The cards a line joins, in the order they are written: the parent and then the child, the card
+// waited for and then the card that waits, a bracket's parent and then its children in the order
+// the bracket draws them (the plan lists them so).
+function graphLineCards(line) {
+  return (line.kids ? [line.from, ...line.kids] : [line.from, line.to]).filter((id) => graphCur.model.byId.has(id));
+}
+
+// What Space writes into the search box with the pointer on a line (hover-show-ui.js): the cards the
+// line lights as card terms, alternatives (`#176 | #50`), or '' when no line is under the pointer.
+// A render builds the Graph again and drops the hover, so a poll leaves nothing here.
+function graphHoverLineTerms() {
+  const line = graphCur && graphCur.hoverLine != null ? graphCur.plan.links[graphCur.hoverLine] : null;
+  return line ? graphLineCards(line).map((id) => `#${id}`).join(' | ') : '';
 }
 
 // The Flow draws the dependencies alone, so a lone card picked there lights with the cards those join to it.
@@ -721,6 +738,7 @@ function graphLoneCardId() {
 // matches included (graphRestLit).
 function graphRestFocus() {
   if (!graphCur) return;
+  graphCur.hoverLine = null;
   graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId(), linkKind: graphLinkKind() }, graphCur.lines));
 }
 
@@ -1040,7 +1058,7 @@ function renderGraphView() {
   view.sig = sig;
   graphCur = {
     kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
-    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, countEls: drawn.countEls, hitEls: drawn.hitEls, raised: null, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
+    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, countEls: drawn.countEls, hitEls: drawn.hitEls, raised: null, hoverLine: null, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
   if (refit) Object.assign(view, graphFrameFit(graphCur), { touched: false });
   graphPaintNames();

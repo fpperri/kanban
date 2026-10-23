@@ -8,7 +8,9 @@
 // scenario finds a point along the stroke where it is the topmost thing, so a dot lying over a line
 // cannot fail a check for the wrong reason. A card under the pointer wins over the line beneath it, the
 // line being drawn under the dots, and leaving a line brings back what was lit before: here a lone
-// card's relations. The lit line is drawn above the other lines while it is lit. A line has no click.
+// card's relations. The lit line is drawn above the other lines while it is lit. A line has no click. Space on a
+// hovered line writes the cards it lights into the box as card terms (`#1 | #3 | #4 | #5 | #6` for the bracket, the
+// parent first), and Shift+Space adds them, the way a card's Space does.
 //
 // The plan board's Hierarchy, with Lines all and Group brackets, draws card 1 over its children 2 (a
 // strategy), 3, 4, 5 and 6: 3 to 6 on one ring, so one bracket, and a plain line to card 2. Card 7
@@ -57,7 +59,7 @@ module.exports = {
   timeoutMs: 90000,
   CASES,
   async run(page) {
-    const { ev, open, waitFor, mouse, click, check } = page;
+    const { ev, open, waitFor, mouse, click, key, check } = page;
 
     const load = async (url) => {
       await ev('window.__stale=true');
@@ -102,6 +104,25 @@ module.exports = {
       await away();
       check(`leaving ${what} undims the Graph and puts the line back among the others`, await undimmed() && await ev(IN_PLACE));
     }
+
+    // Space on a hovered line writes the cards it lights into the box as card terms, parent first, and Shift+Space adds them.
+    const boxIs = (text) => waitFor(`document.getElementById('search-input').value===${JSON.stringify(text)}`);
+    const bracketIndex = await ev(LINE(CASES.hierarchy.bracket.from, '', true));
+    const bracketTerms = await ev(`['${CASES.hierarchy.bracket.from}',...graphCur.plan.links[${bracketIndex}].kids].map((id)=>'#'+id).join(' | ')`);
+    check('the terms of the bracket are its parent and then its four children', bracketTerms.split(' | ').length === 5 && bracketTerms.startsWith('#1 | '), bracketTerms);
+    await hover(bracketIndex);
+    await key(' ');
+    check('Space on a hovered bracket writes its parent and its children into the box as card terms', await boxIs(bracketTerms), await ev(`document.getElementById('search-input').value`));
+    await away();
+    await hover(await ev(LINE(CASES.hierarchy.dependency.from, CASES.hierarchy.dependency.to, false)));
+    await key(' ', { shift: true });
+    check('Shift+Space on a hovered dependency line adds its two cards to what the box holds as more alternatives',
+      await boxIs(`${bracketTerms} | #${CASES.hierarchy.dependency.from} | #${CASES.hierarchy.dependency.to}`), await ev(`document.getElementById('search-input').value`));
+    await ev(`document.getElementById('search-clear-btn').click()`);
+    await away();
+    check('with the box cleared and the pointer off every line, nothing is lit', await boxIs('') && await undimmed());
+    await key(' ');
+    check('and Space with no line hovered writes nothing', await boxIs(''));
 
     // A card the line runs into wins over it: the line is drawn under the dots.
     const c = CASES.card;

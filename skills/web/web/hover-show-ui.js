@@ -10,12 +10,15 @@
 //
 // Space takes the hover: on a hovered card, else the focused one, it writes the terms of the ticked sets into
 // the search box (`dlinks:12 | hlinks:12`), and Shift+Space adds them to what the box holds as more
-// alternatives (searchWithTerms, search.js). The write has its own reason, 'hover', which is not among the ones
+// alternatives (searchWithTerms, search.js). With no card under the pointer or focused, a line the pointer is on
+// in the Graph writes the cards it lights as card terms (`#176 | #50`: a parent line its parent and child, a
+// dependency the card waited for and the card that waits, a bracket its parent and its children as drawn),
+// whatever sets are ticked; a card under the pointer or focused wins over it. The write has its own reason, 'hover', which is not among the ones
 // that turn isolate on, so the box lights the sets or hides by the isolate switch as it stood.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the way search-panel.js
 // does: state, storageKey, loadViewMode, hoveredId, searchCtx, refreshHover, writeSearch, $. It also calls
-// graphLoadLayout (graph-view.js), hover-show.js (mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds,
+// graphLoadLayout and graphHoverLineTerms (graph-view.js), hover-show.js (mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds,
 // hoverShowTerms), hotkeys.js (hotkeySpace), search.js (searchWithTerms) and key-guard.js (keyGuardDetailOff).
 
 let hoverShowMemo = null;
@@ -87,6 +90,12 @@ function hoverSpaceSubject() {
   return focused ? focused.dataset.id : null;
 }
 
+// With no card to act on, the line the pointer is on in the Graph: its cards as card terms, the ones it lights
+// (graphHoverLineTerms, graph-view.js). A line always writes its cards, whatever the sets ticked.
+function hoverSpaceLineTerms() {
+  return loadViewMode() === 'graph' ? graphHoverLineTerms() : '';
+}
+
 // Space, a key that would scroll the page, so it reads the whole key guard (off while a field has focus and
 // while a menu, a dialog, the notifications panel, the preferences sheet or the notes palette is up) and
 // leaves a control that answers it alone, a todo item's tick included. With no card to act on, or no set
@@ -98,8 +107,7 @@ function onHoverSpaceKey(e) {
   if (keyGuardDetailOff(document)) return;
   if (e.target && e.target.closest && e.target.closest(HOVER_SPACE_OWN)) return;
   const id = hoverSpaceSubject();
-  if (id == null) return;
-  const terms = hoverShowTerms(hoverShowKindsNow(), window.kanbanIds.idKey(id) ?? id);
+  const terms = id == null ? hoverSpaceLineTerms() : hoverShowTerms(hoverShowKindsNow(), window.kanbanIds.idKey(id) ?? id);
   if (!terms) return;
   e.preventDefault();
   const box = $('#search-input');
