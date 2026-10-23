@@ -69,6 +69,10 @@
 //                 everything waiting on it, transitively; dtree: is its connected set.
 //                 Both follow `waiting_for` only. Archived cards are walked as tree: walks
 //                 them, an unknown id matches nothing.
+//   dlinks:74 / hlinks:74   (`#` optional) card #74's direct neighbours, one hop and no further. dlinks: is the
+//                 card, what it waits for and what waits on it; hlinks: is the card, its parent and its
+//                 children. Each follows one relation alone, and treats a missing or
+//                 other-board parent, a self-link and an archived card as the four sets above do.
 //   slice:objective..2   the cards in a run of slices: the slices module's axis, the
 //                 tiers of the board's hierarchy top first, then the depths of the cards
 //                 with no tier. An end is a tier name (any letter case) or a depth
@@ -121,10 +125,10 @@ function searchKey(id) {
 }
 
 const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
-// tree:/path: and the four Explore sets are deliberately NOT in KNOWN_FIELDS — that array
+// tree:/path:, the four Explore sets and the two links sets are deliberately NOT in KNOWN_FIELDS — that array
 // drives the lowercased-substring value semantics, which don't apply to a card id. Each
 // names the graph function that resolves it (resolveTerms).
-const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS);
+const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS, EXS.LINK_KINDS);
 const graphFunctionName = (field) => `${field}Ids`;
 // ADR 0009: review:/blocked: are their own field family — a
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
@@ -568,6 +572,14 @@ function searchAddAlt(raw, term) {
   return fresh.length ? searchJoinSlice(searchAltsText(have.concat(fresh)), slices) : text;
 }
 
+// The box after a pick writes `terms` (the text of one or more alternatives): they replace what the
+// box held but for its run of slices, or with `add` join it as more alternatives (searchAddAlt), so an
+// empty box takes them either way. Explore's Path and Tree and Space on a hovered card write this way.
+function searchWithTerms(raw, terms, add) {
+  const text = String(raw == null ? '' : raw);
+  return add ? searchAddAlt(text, terms) : searchJoinSlice(terms, searchSplitSlice(text).slices);
+}
+
 // Takes `term` out of the box as the alternative it is, whatever else the box
 // holds. Only a whole alternative goes: a term inside a longer one stays. What is
 // left is written as it would have been before the term was added, and a text
@@ -643,22 +655,55 @@ function searchIsolateText(parts) {
   return (Array.isArray(parts) ? parts : []).map(searchIsolatePartText).filter(Boolean).join(' | ');
 }
 
+// The box as it reads once `text` is written to it: the run of slices the box held put back after
+// it (searchSplitSlice, searchJoinSlice), but for one copy of each cut that `dropped`, the queries of
+// pills the write takes off, held in their own text: a pill's cut goes with the pill, and a cut the
+// box held before, if it is the same cut, stays (searchWithoutCuts). Isolate, a click's mirror and a
+// pill's gesture all write the box this way, so the cut is kept in one place.
+function searchBoxSaying(current, text, dropped) {
+  const held = searchSplitSlice(current).slices;
+  const slices = searchWithoutCuts(held, (dropped || []).flatMap((query) => searchSplitSlice(query).slices));
+  return searchJoinSlice(text, slices);
+}
+
 // What the box holds while isolated: the isolate text, with the run of slices the box held
-// put back after it (searchSplitSlice, searchJoinSlice). The cut stays in effect, because
+// put back after it. The cut stays in effect, because
 // the selection only covers the cards the view shows and a card the cut hides is not in
 // it. The rest of the previous text goes; the page remembers it. No part to write, no text.
-// Where the box hides what it does not match (`limits`, every view but the Graph, where it
-// only lights) the rest stays too, ANDed on, when a card, a path or a tree is among the
-// parts: they are named whole, but the selection holds only those of their cards the box
-// shows, and the cards it hid would otherwise come back. A query part needs no such help:
-// a pill's query is an alternative of the box, and so inside it.
-function searchIsolateBox(previous, parts, { limits = false } = {}) {
+// The rest needs no keeping: with isolate off the box hides nothing but by its cut, so the
+// selection already holds every card, path and tree it names whole.
+function searchIsolateBox(previous, parts) {
   const text = searchIsolateText(parts);
-  if (!text) return '';
-  const { rest, slices } = searchSplitSlice(previous);
-  const named = (Array.isArray(parts) ? parts : []).some((part) => part && (part.kind === 'card' || searchIsNamedPart(part)));
-  const held = limits && named && parseSearchQuery(rest).length > 0;
-  return searchJoinSlice(held ? `${searchBracket(text)} ${searchBracket(rest)}` : text, slices);
+  return text ? searchBoxSaying(previous, text) : '';
+}
+
+// What the box holds when a click, or a step of Esc, has left the selection as `parts` and isolate is
+// off: the isolate text of the parts, the box's run of slices kept (the cut is no selection). The
+// box mirrors the selection, it does not become a query typed: a part that is one query is written
+// as it was typed, in no bracket, so a step down to it leaves the box as the person wrote it; the
+// slices a query part carries are the box's run already, so they are not written twice. `dropped`
+// are the queries of the pills the click took off: a cut such a pill held in its own query goes with
+// it, one copy only, as when the pill is turned off (searchWithoutCuts). Nothing selected leaves the
+// cut alone.
+function searchMirrorBox(current, parts, dropped) {
+  const shown = (Array.isArray(parts) ? parts : []).map((part) => (part && part.kind === 'query' ? { ...part, text: searchSplitSlice(part.text).rest } : part));
+  const lone = shown.length === 1 && shown[0].kind === 'query';
+  return searchBoxSaying(current, lone ? String(shown[0].text).trim() : searchIsolateText(shown), dropped);
+}
+
+// Whether the box already says `parts` as searchMirrorBox would write them: the mirror of the
+// selection needs no write.
+function searchBoxMirrors(current, parts) {
+  return current === searchMirrorBox(current, parts, []);
+}
+
+// Whether the box holds a query the person made, as against the picks a click mirrored into it:
+// text beyond its run of slices that is not the isolate text of the picked cards, paths and trees.
+// A query part of the selection (a pill's, or the one typed in the Graph) is the person's own, so
+// it does not count as a pick here.
+function searchBoxHoldsTyped(current, parts) {
+  if (!searchSplitSlice(current).rest.trim()) return false;
+  return !searchBoxMirrors(current, (Array.isArray(parts) ? parts : []).filter((part) => part && part.kind !== 'query'));
 }
 
 // What the box holds when isolate goes off: the text it held before, exactly as it was,
@@ -715,7 +760,7 @@ function cardMatchesQuery(card, terms) {
 // tree:/path: terms need the FULL card graph to resolve (connected
 // component / directed cone), not just the one card being tested — so they're
 // resolved ONCE here, up front, against `cards` (the same array filterCards
-// was called with). Each 'tree'/'path'/'hpath'/'htree'/'dpath'/'dtree' term becomes an 'ids' term (an
+// was called with). Each 'tree'/'path'/'hpath'/'htree'/'dpath'/'dtree'/'dlinks'/'hlinks' term becomes an 'ids' term (an
 // already-resolved Set) before the per-card cardMatchesQuery pass runs, so
 // termMatchesCard's 'ids' case stays a pure, cheap Set.has() with no graph
 // access of its own.
@@ -731,7 +776,7 @@ function cardMatchesQuery(card, terms) {
 // from buildDependencyGraph(cards, null).edges, the exact edge set
 // (waiting_for + parent edges) the map's graph is built from (parent edges
 // shape layout but draw no line). A context with `graph: { treeIds, pathIds, hpathIds,
-// htreeIds, dpathIds, dtreeIds }` hands in its own functions instead, each called as
+// htreeIds, dpathIds, dtreeIds, dlinksIds, hlinksIds }` hands in its own functions instead, each called as
 // (cards, id, ctx), so the snapshot can resolve over the graph it already holds; one it
 // leaves out is the dependency graph's.
 //
@@ -753,7 +798,7 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     let next = term;
     if (GRAPH_FIELDS.includes(term.field)) {
       const name = graphFunctionName(term.field);
-      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
+      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) || EXS.LINK_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
     } else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'group') next = { field: 'ids', value: term.value, ids: groupIds(cards, term, ctx) };
     else if (term.field === 'waiting') {
@@ -932,9 +977,9 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
-    searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
+    searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchWithTerms, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
-    searchIsolateText, searchIsolateBox, searchIsolateRestore,
+    searchIsolateText, searchBoxSaying, searchIsolateBox, searchMirrorBox, searchBoxMirrors, searchBoxHoldsTyped, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -948,6 +993,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchBracket = searchBracket;
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;
+  window.searchWithTerms = searchWithTerms;
   window.searchRemoveAlt = searchRemoveAlt;
   window.searchRemoveGrownAlt = searchRemoveGrownAlt;
   window.searchSplitSlice = searchSplitSlice;
@@ -956,6 +1002,10 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSetSlice = searchSetSlice;
   window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;
+  window.searchBoxSaying = searchBoxSaying;
   window.searchIsolateBox = searchIsolateBox;
+  window.searchMirrorBox = searchMirrorBox;
+  window.searchBoxMirrors = searchBoxMirrors;
+  window.searchBoxHoldsTyped = searchBoxHoldsTyped;
   window.searchIsolateRestore = searchIsolateRestore;
 }

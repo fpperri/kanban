@@ -262,7 +262,7 @@ test('slice shows the cut the box holds, as a click on the slice section would w
 });
 
 test('isolate shows on while isolate is on: the i key turns it on for a selection, and off again', async () => {
-  const s = await open();
+  const s = await open({ stored: { 'kanban.kanban.typing.isolates': JSON.stringify({ board: false }) } });
   s.key('m');
   assert.strictEqual(s.key('i'), 1);
   s.clickGear();

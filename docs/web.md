@@ -56,8 +56,8 @@ that column. Outline puts a parent before its children and siblings in `rank`
 order; it is the default sort on a board where any card has a `rank` or a
 `parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
 one card when there is room between the neighbours, that parent's children renumbered
-in tens when there is not. The search box up top filters every view at once, except the
-Graph, which lights its matches and hides nothing but a `slice:` cut. Enter in the search box
+in tens when there is not. The search box up top hides what it does not match only while Isolate is on, and otherwise lights
+its matches and hides nothing but a `slice:` cut; typing turns Isolate on in every view but the Graph. Enter in the search box
 goes to the first match, and a second Enter opens it when it is the only one.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
@@ -206,12 +206,12 @@ at the bottom, which then reads `no open dependency`, when none of its cards wit
 lane whose open cards wait only on done cards stays, since those cards are ready now. With all no lane folds.
 A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it, not
 every card under its lane card. A header is its card's node: a click, Shift- or Ctrl-click,
-double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
+double-click, Enter, Ctrl+Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
 the header and the dot of its card light and select together. A dot keeps its status colour and its type mark,
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
-hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its
-parent. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
+a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a
+card lights what the Flow's *On hover show* ticks, `dlinks` alone at first, so the cards its dependencies join to it. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
 in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
 replaces the page's address without adding a step to Back. A load writes the address the same way, from the link and
 what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the choice and the switches
@@ -223,7 +223,7 @@ in that outline (circle, square, diamond, triangle, hexagon or star), still in t
 colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
 colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it
 means children; red is blocked, amber waiting, gold review. Hover or focus a dot to light
-that card and its relations and dim the rest. Click selects a dot and keeps its relations lit while it is the
+what *On hover show* ticks for that card, its relations at first, and dim the rest. Click selects a dot and keeps its relations lit while it is the
 only card picked; shift-click or ctrl-click adds one card or takes it out, and a
 selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.
@@ -231,8 +231,9 @@ card; right-click works as on the board.
 A search typed in the Graph hides nothing: its matches light, done cards included,
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
-click a card to start a new selection and clear the box but for its cut. Switch to another view and
-the box goes on filtering there, while nothing is selected by it. A dot is never dragged.
+click a card to start a new selection, which the box shows in place of the search (`#34`), its cut kept. Switch to another view and
+the box isolates it there where that view's Typing isolates is on, or lights its matches and hides nothing
+where it is off, while nothing is selected by it. A dot is never dragged.
 Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill)
@@ -241,8 +242,11 @@ Open it directly with `?view=graph`.
 
 ## More on the board
 
-**Search** — the box in the header filters every view as you type, except the Graph, where
-it lights its matches. Terms separated by
+**Search** — the box in the header says what to look for, and Isolate says whether the rest hides:
+with Isolate on the box hides what it does not match, and with it off the box lights its matches.
+Typing, a pill, a tag or assignee cue and a link with a search turn Isolate on in a view whose
+**Typing isolates** is on, which is every view but the Graph to start, so a search narrows the Board
+as ever and lights in the Graph. Terms separated by
 spaces AND together (`tags:ui status:doing`), and five forms go further, one example each:
 
 - `|` is or, and a space binds tighter: `tags:ui status:doing | #12` is ui and doing, or card 12.
@@ -308,11 +312,40 @@ but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
-arrow, and stays in the box when Esc was pressed there), and then clears the box, when
+arrow, and stays in the box when Esc was pressed there), and then empties the box and the selection, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
-the box; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
+the box, and with nothing selected empties it; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
+
+**On hover show** — under the foot of the search panel, six checkboxes (`dtree`, `htree`, `dpath`, `hpath`,
+`dlinks` and `hlinks`, the sets of the same names) choose which sets a hover lights. Hovering a card, or
+moving keyboard focus onto it, lights the union of the sets ticked for it, in every view: the Board, the Map, the
+Calendar and the Gantt give each card of the union the hover look, and the Graph lights the union, with the lines
+between its cards, and dims the rest, while the hover ring stays on the hovered card alone. Leaving the card clears
+it. With nothing ticked only the hovered card takes the hover look and the Graph dims nothing. The choice is
+remembered per board in your browser, for each kind of Graph: the Hierarchy starts with `dlinks` and `hlinks`
+ticked, which is what its hover lit before the choice existed, and the Flow with `dlinks` alone. Every view
+that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calendar and the Gantt included, even
+when the Graph last showed the Flow. The panel shows the choice of the view that is on and says whose it is. The
+snapshot has no hover, so it has no such section.
+
+The Graph's option panel, on the right of the drawing, has the same six under **On hover**, as toggles in the style of
+its other switches, in the Hierarchy and in the Flow, below Dependencies and Lanes. The toggles and the search panel's
+boxes are one choice: change it in either and the other shows it at once, and a card hovered at that moment lights
+again with no reload. The toggles show the choice of the kind of Graph the panel is for, so the Hierarchy and the Flow
+keep their own. The other views have no option panel, so the search panel is where they set it; `Space` writes the
+terms of whatever is ticked, wherever it was ticked.
+
+**Space takes the hover.** With a card hovered, else focused, `Space` writes the sets *On hover show* ticks for it
+into the search box as alternatives (`dlinks:12 | hlinks:12`), the box's run of slices kept and isolate as it was.
+Unlike typing, that write never turns isolate on: outside the Graph the box lights the cards it names, or hides the
+rest if isolate was already on, and in the Graph it is the typed search. `Shift+Space` adds that text to what the
+box holds as one more alternative, so a set can be built from several cards; an empty box takes it as a plain
+`Space` does. With no card hovered or focused, in a text field, on a button, link or switch, and behind a menu, a
+dialog, the notifications panel, the preferences sheet or the notes palette, `Space` keeps its own job: it scrolls,
+presses the button, or ticks a todo item. `Ctrl+Space` selects the focused card in the Graph, as a click does: it is
+the key `Space` was before.
 
 **Slice section** — the first region of the search panel lists the board's slices, top to
 bottom: the tiers some card of the board is in, each with the icon its type has in the
@@ -355,15 +388,14 @@ it, except while you type in a field or a menu, a dialog, the notifications pane
 preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
 selection into the search box as `part | part | ...`, each part by what it names, such as
 `#12 | path:40 | tags:grill` for a card, the path through card 40 and the `grill` tag, so a card
-that comes to match joins on the next refresh. The text the box held is kept, and where it was
-hiding cards a picked path or card would bring back, it stays beside them in the box
-(`path:40 tags:ui`), so those cards stay hidden. The Board, Map,
-Gantt and Calendar show only the matches, and so does the Graph, where a typed search only
-lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
+that comes to match joins on the next refresh. The text the box held is given back when you turn it off, and a `slice:` cut in it stays. The Board, Map,
+Gantt and Calendar hide what the box does not match, and so does the Graph, where a search typed with
+Isolate off only lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
 on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a
 click or a double click on empty space clears nothing. With the panel closed, the chip says
 *isolated*. Turn it off with the switch, `i` or Esc and the box gets its text back. Esc steps
-back in three stages: isolate off, then the additions, then the anchor; with the panel open the
+back in three stages: isolate off, then the additions, then the anchor, and with nothing left to step
+back one more Esc empties the box, a `slice:` run included; with the panel open the
 first Esc closes the panel, and the second turns isolate off. The switch is announced as on or
 off, and Tab reaches it, and Enter and Space flip it.
 
@@ -377,9 +409,25 @@ selected the entry says so, as the switch does.
 The link carries it. While isolate is on, the address holds a second parameter beside `q`,
 `isolate=1`, written as the box changes and never as a history entry. A reload, or a link opened
 in another browser, opens isolated: the Graph and every other view show only the isolated set.
+In a view whose Typing isolates is on, while the box holds a search and Isolate is off, the address says `isolate=0`
+instead, so a reload reopens the same picture, lit; a link with a search and no `isolate` parameter, an
+old or hand-made one, opens isolated in a view whose Typing isolates is on. Where a view's Typing isolates is off, the Graph to start with, no parameter
+means off, and none is written.
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
 the parameter and no query opens with isolate off, and the address drops the parameter.
+
+**Typing isolates** — the foot of the search panel holds a **Typing isolates** checkbox for each view:
+Board, Calendar, Gantt, Map and Graph. Where it is on, typing in the box, a pill, a tag or assignee cue
+on a card and a `?q=` link turn Isolate on by themselves, so the view hides what the box does not match.
+It is on in every view but the Graph, which lights what is typed and hides nothing. Where it is off, the
+box lights its matches with the look of a selected card, hides nothing, and selects nothing; the switch or
+`i` still isolates the query as it stands. The choice is kept in your browser, per board. Isolate turned on
+this way gives back the box's text as it stands when you turn it off, so the query stays in the box, lit,
+and the next Esc clears it; going to a view where the checkbox is off does the same, and coming back to a view where it
+is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch
+or `i` stays through the switches. A `slice:` cut hides
+in every view whatever Isolate is.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
@@ -392,6 +440,18 @@ expands to the full field set — status, priority, parent, rank, tags, `waiting
 blocked reason, type, the date triad, and a Markdown description.
 
 ![New-card form](images/web-new-card.png)
+
+**The box shows the selection** — with isolate off, a click that selects a card writes the selection into the
+search box as the text Isolate would write for it: `#34`, then `#34 | #36` as more are added, `dpath:185 | #14`
+beside a path you searched, with the `slice:` run kept. Isolate stays off, so the box lights those cards and
+hides nothing, and the text is the selection's own, not a search you typed: the next click still works on the
+cards. Ctrl-click on a picked card takes it out and the box shows what is left; with nothing left it holds only
+its `slice:` run. The Graph's plain click, Shift- and Ctrl-clicks in every view, a Flow lane header and the card
+menu's Add to selection all write it, and so does a switch of view with cards picked, whenever the box is not already their text. A click that
+opens a card writes nothing, and while isolate is on a click moves the anchor and leaves the box and its
+isolate text. Esc takes the box down with the selection, step by step, while the box holds the selection's text.
+A click never pages the Calendar or the Gantt; entering one with the box showing a selection jumps to it, as it
+does for any query whose matches are off screen.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
@@ -429,9 +489,15 @@ right-click on a card in a lit path searches that card's set alone. The terms ar
 a plain pick replaces what the box held but for its `slice:` run, so the Graph lights the set and
 the other views show only it; Shift (a Shift-click, or Shift+Enter on the focused item) adds the
 term to what the box holds as one more alternative, `htree:40 | dpath:185`, and each item's tooltip
-ends "Shift: add to the search". Isolate stays as it was: off stays off, so press it to keep the set, and with isolate already on the term
-becomes the isolate text, as typing into the box would make it. `tree:` and
+ends "Shift: add to the search". Isolate follows the Typing isolates of the view, as typing into the box does: where it is on, a pick turns
+Isolate on and the term is its text, and where it is off the set is lit. `tree:` and
 `path:`, which follow both relations, are as they were.
+
+Two more terms name a card's direct neighbours and have no Explore item; you type them.
+`dlinks:<id>` is the card, what it waits for and what waits on it, one hop
+over `waiting_for` both ways; `hlinks:<id>` is the card, its parent on this board and its children, one
+hop over `parent`. The `#` is optional, an unknown id matches nothing, a parent on another board, a
+missing one and a self-link are no link, and archived cards count, as in the four sets above.
 
 **Add child…** in that menu (one live card only, in every view and in the card details' own
 menu) opens the New card form as **New card** does, headed "New card under #42", with Parent set
@@ -442,7 +508,8 @@ A click on empty space never touches the selection, since it can be an accident.
 double click on empty space clears it: the additions, the anchor, and the anchor's text in
 the box (a pill's query or a search typed in the Graph), so the pill goes off. Esc still steps back
 one stage at a time: a popup, then the additions, then the anchor, and isolate goes off before
-the additions. Where a double click
+the additions; once nothing is selected, one more Esc empties the box, a `slice:` run included, so
+repeated Esc ends on a clean page. Where a double click
 already does something, as it does on the Calendar's empty days and time slots, it does that
 and the selection stays.
 
@@ -482,7 +549,7 @@ back button.
 - *Hotkeys* lists every key the page answers, each with what it does, and shows the state
   it is in for the keys that have one: `names: relevant`, `slice: all` or the cut,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys
-  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  are `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Shift+Space`, `Ctrl+Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   state is read each time the sheet opens, and the `panel on focus` row follows the checkbox
   at once. `?` opens the sheet at this section: it is typed, not read, while a field has

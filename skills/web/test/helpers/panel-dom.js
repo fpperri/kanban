@@ -53,7 +53,9 @@ const HIDDEN = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal'
 
 // The page with the board's answer, the panel's pill host drawn on the stand-in, and
 // the chip as an element that remembers its text and its accessible name.
-async function openPanelPage({ board, view = 'board', open = true } = {}) {
+// `typing` is whether the Board's Typing isolates is on: off unless a test says so, since a pill that
+// turns isolate on adds "isolated" to the chip and a test of the pills alone does not want it.
+async function openPanelPage({ board, view = 'board', open = true, typing = false } = {}) {
   const dom = fakeDom();
   const elements = {};
   for (const sel of HIDDEN) { const el = control(); el.classList.add('hidden'); elements[sel] = el; }
@@ -77,7 +79,7 @@ async function openPanelPage({ board, view = 'board', open = true } = {}) {
   let chipText = '';
   Object.defineProperty(chip, 'textContent', { configurable: true, get: () => chipText, set: (v) => { chipText = String(v); } });
   elements['#search-chip'] = chip;
-  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view }, elements }).start();
+  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }) }, elements }).start();
   if (page.failures.length) throw new Error(`the page starts without an error: ${page.failures.map((e) => e.message)}`);
   if (open) page.run('setSearchPanelOpen(true)');
   const sorted = (set) => [...set].sort((a, b) => a - b);

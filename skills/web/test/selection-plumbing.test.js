@@ -110,8 +110,8 @@ test('the pieces that wrote the selection before now call the entry point', () =
     applyBoardData: /dropGoneCards\(\)/,
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
-    addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
-    exploreIntoBox: /writeSearch\(text, 'typing'\)/,
+    addCardToSelection: /setSelection\(addPart\(before, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
+    exploreIntoBox: /writeSearch\(searchWithTerms\(input\.value, term, !!\(e && e\.shiftKey\)\), 'typing'\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,
@@ -138,13 +138,13 @@ const CARDS = [
 ];
 
 function clickSandbox({ view = 'board', selected = [], rangeStart = null, order = [1, 2, 3], click = {} } = {}) {
-  const calls = { open: [], render: 0, terms: [] };
+  const calls = { open: [], render: 0, terms: [], writes: [] };
   const listeners = [];
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     ...selectionGlobals(),
     $: () => ({ value: '' }),
-    writeSearch() {},
+    writeSearch(text, reason, repaint = true) { calls.writes.push([text, reason]); if (repaint) calls.render++; },
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
@@ -157,7 +157,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
@@ -341,7 +341,7 @@ function clickAwaySandbox({ selected = [1, 2], rangeStart = 1, isolated = false 
   vm.runInContext([
     declaration('selectionState'), declaration('selectedIds'), declaration('searchWriteListeners', 'const'),
     declaration('CALENDAR_CREATE_DAY_CELLS', 'const'), declaration('CALENDAR_CREATE_COLUMNS', 'const'), declaration('NOT_EMPTY_SPACE', 'const'), declaration('DOUBLE_CLICK_OWNED', 'const'),
-    fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('onClickAway'),
+    fn('setSelection'), fn('writeSearch'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('onClickAway'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
@@ -468,26 +468,28 @@ function escapeSandbox({ value = '', selected = [], active = 'body', open = [], 
   vm.createContext(sandbox);
   vm.runInContext([
     declaration('searchWriteListeners', 'const'), declaration('selectionState'), declaration('selectedIds'),
-    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('stepSelectionBack'), fn('escapeStep'),
+    fn('setSelection'), fn('writeSearch'), fn('clearSearch'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('stepSelectionBack'), fn('clearBoxAndSelection'), fn('escapeStep'),
   ].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   sandbox.state = () => asData({ ids: ids(vm.runInContext('selectedIds', sandbox)), anchor: vm.runInContext('selectionState.selection.anchor', sandbox), additions: vm.runInContext('selectionState.selection.additions.length', sandbox), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
   return sandbox;
 }
 
-test('with focus in the search box, the Esc step clears the box and repaints, and leaves the selection', () => {
+test('with focus in the search box, the Esc step clears the box and the selection with one repaint', () => {
   const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'box', rangeStart: 3 });
   s.escapeStep();
   assert.strictEqual(s.input.value, '');
   assert.strictEqual(s.calls.render, 1);
-  assert.deepStrictEqual(s.state(), { ids: [1, 2, 3], anchor: { kind: 'card', id: '1' }, additions: 2, rangeStart: 3 });
+  assert.deepStrictEqual(s.state(), { ids: [], anchor: null, additions: 0, rangeStart: null });
 });
 
-test('with focus in an empty search box, the Esc step does nothing', () => {
+test('with focus in an empty search box, the Esc step empties a selection and repaints once, and does nothing without one', () => {
   const s = escapeSandbox({ value: '', selected: [1, 2], active: 'box' });
   s.escapeStep();
-  assert.strictEqual(s.calls.render, 0);
-  assert.deepStrictEqual(s.state().ids, [1, 2]);
+  assert.strictEqual(s.calls.render, 1);
+  assert.deepStrictEqual(s.state().ids, []);
+  s.escapeStep();
+  assert.strictEqual(s.calls.render, 1, 'nothing picked and the box empty: no repaint');
 });
 
 test('with focus outside the search box, the Esc step leaves the box text as it was and steps the selection back', () => {
@@ -498,15 +500,50 @@ test('with focus outside the search box, the Esc step leaves the box text as it 
   assert.strictEqual(s.calls.render, 1);
 });
 
-test('the next Esc drops the anchor, and the one after has nothing to step back from and repaints nothing', () => {
+test('the next Esc drops the anchor, the one after clears the box, and the one after that has nothing left and repaints nothing', () => {
   const s = escapeSandbox({ value: 'tags:next-up', selected: [1, 2, 3], active: 'body', rangeStart: 3 });
   s.escapeStep();
   s.escapeStep();
   assert.deepStrictEqual(s.state(), { ids: [], anchor: null, additions: 0, rangeStart: null });
   assert.strictEqual(s.calls.render, 2);
+  assert.strictEqual(s.input.value, 'tags:next-up', 'the box stays through the selection stages');
   s.escapeStep();
-  assert.strictEqual(s.calls.render, 2, 'nothing picked: no repaint');
-  assert.strictEqual(s.input.value, 'tags:next-up');
+  assert.strictEqual(s.input.value, '', 'nothing picked: the last Esc empties the box');
+  assert.strictEqual(s.calls.render, 3);
+  s.escapeStep();
+  assert.strictEqual(s.calls.render, 3, 'nothing picked and the box empty: no repaint');
+});
+
+test('with nothing picked, one Esc away from the box clears a `slice:` run and what is typed beside it', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [], active: 'body' });
+  s.escapeStep();
+  assert.strictEqual(s.input.value, '');
+  assert.strictEqual(s.calls.render, 1);
+  assert.deepStrictEqual(s.state().ids, []);
+});
+
+test('with a card picked, Esc steps the selection back first and keeps the `slice:` run until the last Esc', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2', selected: [1], active: 'body', rangeStart: 1 });
+  s.escapeStep();
+  assert.deepStrictEqual(s.state().ids, []);
+  assert.strictEqual(s.input.value, 'slice:objective..2', 'the anchor stage leaves the cut');
+  s.escapeStep();
+  assert.strictEqual(s.input.value, '', 'the next Esc clears the cut');
+});
+
+test('Esc in the box reaches the same end: it clears the box, the `slice:` run included, and whatever is picked', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [1, 2], active: 'box', rangeStart: 2 });
+  s.escapeStep();
+  assert.strictEqual(s.input.value, '');
+  assert.deepStrictEqual(s.state().ids, []);
+});
+
+test('the last Esc stage clears the box through the one writer, with the reason clear, and tells its listeners', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [], active: 'body' });
+  const told = [];
+  vm.runInContext('searchWriteListeners', s).push((text, reason) => told.push([text, reason]));
+  s.escapeStep();
+  assert.deepStrictEqual(told, [['', 'clear']]);
 });
 
 test('while focus is in a text field other than the search box, or a select, the Esc step touches neither the selection nor the box', () => {

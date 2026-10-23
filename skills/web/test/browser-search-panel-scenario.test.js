@@ -130,13 +130,14 @@ test('the bulk popup\'s value box opens an assignee suggestion list on focus, so
   assert.ok(afterSecond.includes('!(${BULK_POPUP_OPEN})') && afterSecond.includes('panelOpen'), 'after the second Esc the popup is shut and the panel is still open');
 });
 
-test('the Esc chain is three presses, each asserted on its own: the box keeps its text after the list step and after the panel step, and no loop of presses stands in for them', () => {
+test('the Esc chain is four presses, each asserted on its own: the box keeps its text after the list step, the panel step and the isolate step, and no loop of presses stands in for them', () => {
   const from = code.indexOf("check('focus in the box holding text opens its suggestion list");
-  const third = code.indexOf("check('the third Esc, with focus in the box, clears it'");
-  const to = code.indexOf('await openPanel();', third);
+  const third = code.indexOf("check('the third Esc, with focus in the box, turns off the isolate that typing started and keeps the text'");
+  const fourth = code.indexOf("check('the fourth Esc, with focus in the box, clears it'");
+  const to = code.indexOf('await openPanel();', fourth);
   const span = code.slice(from, to);
-  assert.ok(from > 0 && third > from && to > third, 'the Esc chain is found');
-  assert.strictEqual(span.split("key('Escape')").length - 1, 3, 'one Esc for the list, one for the panel, one for the box');
+  assert.ok(from > 0 && third > from && fourth > third && to > fourth, 'the Esc chain is found');
+  assert.strictEqual(span.split("key('Escape')").length - 1, 4, 'one Esc for the list, one for the panel, one for the isolate typing started, one for the box');
   assert.ok(!/\bfor\s*\(|\bwhile\s*\(/.test(span), 'no loop of presses');
   const presses = [...span.matchAll(/key\('Escape'\)/g)].map((m) => m.index);
   const afterList = span.slice(presses[0], presses[1]);
@@ -145,7 +146,9 @@ test('the Esc chain is three presses, each asserted on its own: the box keeps it
   assert.ok(/panelShut/.test(afterPanel) && /boxText\(\)\) === 'zephyr'/.test(afterPanel), 'after the second Esc: the panel is shut and the text still there');
   assert.ok(/activeElement===document\.getElementById\('search-input'\)/.test(afterPanel), 'and focus is still in the box');
   assert.ok(!/TOGGLE/.test(afterPanel), 'focus is not on the toggle');
-  assert.ok(/boxIs\(''\)/.test(span.slice(presses[2])), 'after the third Esc the box is empty');
+  const afterIsolate = span.slice(presses[2], presses[3]);
+  assert.ok(/isolateNow\(\)===null/.test(afterIsolate) && /boxText\(\)\) === 'zephyr'/.test(afterIsolate), 'after the third Esc isolate is off and the text still there');
+  assert.ok(/boxIs\(''\)/.test(span.slice(presses[3])), 'after the fourth Esc the box is empty');
 });
 
 test('Esc with focus on a pill closes the panel and puts focus back on the toggle, where Esc from the box leaves focus in the box', () => {

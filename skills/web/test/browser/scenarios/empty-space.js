@@ -5,9 +5,10 @@
 // them. In the Calendar the empty space that is clicked is the weekday header; a
 // double click on a day cell already means something, so there it opens the new-card
 // form and the selection stays. A pill's query is an anchor too: with the review
-// pill on, a single click on empty space leaves the box, the chip and the anchor,
-// and a double click takes the query out of the box, turns the chip off and shows
-// every card again. A search typed in the Graph is the anchor there, and a double
+// pill on in a Board that lights what a pill matches (its Typing isolates off, since a
+// Board that isolates leaves the selection alone), a single click on empty space leaves
+// the box, the chip and the anchor, and a double click takes the query out of the box,
+// turns the chip off and leaves every card lit by nothing. A search typed in the Graph is the anchor there, and a double
 // click on the empty Graph clears the box. Each step waits on the page, never on a
 // fixed sleep; a "nothing happened" check waits two animation frames. A double click
 // is two real clicks, the second with a click count of 2, as the browser sends it.
@@ -138,6 +139,8 @@ module.exports = {
     }
 
     // --- a pill's query is an anchor: the double click takes it out of the box and turns the chip off ---
+    // The Board is set to light what a pill matches: a Board that isolates keeps its selection through a double click on empty space.
+    await ev(`localStorage.setItem('kanban.fixture.typing.isolates', JSON.stringify({board:false}))`);
     await open('/?view=board');
     await waitFor(ready.board, 10000);
     const shownBefore = (await cardIds('#board')).length;
@@ -149,7 +152,7 @@ module.exports = {
     await clickOn('#search-panel-toggle');
     check('the panel closes and its chip counts the pill', await waitFor(panelShut) && !(await chip()).hidden && (await chip()).text === '1', await chip());
     const shownWithPill = (await cardIds('#board')).length;
-    check('the Board shows fewer cards with the pill on', shownWithPill > 0 && shownWithPill < shownBefore, { shownBefore, shownWithPill });
+    check('the Board shows every card with the pill on, and the cards it matches wear the selected look', shownWithPill === shownBefore && await ev(`document.querySelectorAll('#board .card-el.selected').length>0`), { shownBefore, shownWithPill });
     const pillAway = await emptyPoint(CONTAINERS.board);
     check('the Board has empty space to click with the pill on', !!pillAway, pillAway);
     await click(pillAway.x, pillAway.y);
@@ -159,6 +162,8 @@ module.exports = {
     check('a double click on empty space takes the pill\'s query out of the box and the anchor with it', await boxIs('') && await noAnchor(), { box: await boxText(), anchor: await anchor() });
     check('and the chip goes off', await waitFor(`document.getElementById('search-chip').classList.contains('hidden')`) && (await chip()).hidden, await chip());
     check('and the Board shows every card again', await waitFor(`new Set([...document.querySelectorAll('#board .card-el')].map((e)=>e.dataset.id)).size===${shownBefore}`), { shownBefore });
+    await ev(`localStorage.removeItem('kanban.fixture.prefs')`);
+    await ev(`localStorage.removeItem('kanban.fixture.typing.isolates')`);
 
     // --- a search typed in the Graph is the anchor there ----------------------------------------------
     await open('/?view=graph');

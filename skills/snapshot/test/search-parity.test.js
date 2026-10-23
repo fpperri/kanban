@@ -19,11 +19,11 @@ describe('the shared table of queries on the plan board', () => {
     });
   });
 
-  test('the table covers an id, the board name and an id, every field prefix, a:, tree:, path:, hpath:, htree:, dpath:, dtree:, review:, blocked:, an unknown prefix and bare text', () => {
+  test('the table covers an id, the board name and an id, every field prefix, a:, tree:, path:, hpath:, htree:, dpath:, dtree:, dlinks:, hlinks:, review:, blocked:, an unknown prefix and bare text', () => {
     const typed = PLAN_QUERIES.map((r) => r.q);
     const has = (re) => assert.ok(typed.some((q) => re.test(q)), `no row for ${re}`);
     [/^#\d+$/, /^plan#\d+$/i, /^id:\d/, /^title:/, /^body:/, /^status:/, /^priority:/, /^tags:/, /^file:/, /^assignee:/,
-      /^type:/, /^a:@/i, /^tree:\d/, /^path:\d/, /^hpath:\d/, /^htree:\d/, /^dpath:\d/, /^dtree:#?\d/, /^review:/, /^blocked:/, /^foo:/, /^zephyr$/].forEach(has);
+      /^type:/, /^a:@/i, /^tree:\d/, /^path:\d/, /^hpath:\d/, /^htree:\d/, /^dpath:\d/, /^dtree:#?\d/, /^dlinks:#?\d/, /^hlinks:#?\d/, /^review:/, /^blocked:/, /^foo:/, /^zephyr$/].forEach(has);
   });
 
   test('a:@human and assignee:@human find the plan board\'s @human cards', () => {

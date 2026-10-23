@@ -186,7 +186,7 @@ const pageLine = (name) => {
   assert.ok(m, `the page declares ${name}`);
   return m[0];
 };
-const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('applyCardClick'), fn('searchByCue')].join('\n');
+const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('applyCardClick'), fn('searchByCue')].join('\n');
 
 function clickHarness() {
   const listeners = [];
@@ -298,6 +298,7 @@ function flipSandbox({ mode, detailId = null } = {}) {
     computeSearchMatch: () => ({ terms: [], ids: null }),
     renderSearchPanel: () => {},
     renderIterations: () => {},
+    syncHoverLit: () => {},
   });
   vm.runInContext([selectionSteps(), fn('renderBoard'), sharedClickHandler()].join('\n'), s);
   assert.strictEqual(listeners.length, 1);

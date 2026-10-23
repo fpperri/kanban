@@ -2,7 +2,8 @@
 // What the Graph lights, on the plan board: a selection lights and the rest dims,
 // a lone card lights with its one-hop relations, a search typed in the Graph is
 // the anchor and lights its matches instead of hiding the rest, and what clears
-// it. A lit dot wears .graph-near under a .graph-dim canvas, a dim one is drawn
+// it. A click on a card writes the selection into the box (`#id`, or the typed
+// query and the card side by side) with isolate off, so the box says what is picked. A lit dot wears .graph-near under a .graph-dim canvas, a dim one is drawn
 // at the opacity the stylesheet gives it. Each step waits on the page, never on
 // a fixed sleep. A card's dot is found by its class, and a card is only clicked
 // where its dot is the topmost thing, so two dots drawn over one another cannot
@@ -22,7 +23,7 @@
 // that carries the security tag.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// hoveredId, selectedIds.
+// hoveredId, isolateNow, selectedIds.
 
 const CASES = {
   docs: { query: 'tags:docs', lit: [5, 10], done: 5 },
@@ -144,15 +145,15 @@ module.exports = {
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));
     await clickCard(lone);
-    check('after a typed query, a plain click on a card clears the box and lights only that card and its relations',
-      await boxIs('') && await litIs(sorted(...LONE[lone])) && await pickedIs([lone]), { box: await boxText(), lit: await lit() });
+    check('after a typed query, a plain click on a card shows the card in the box and lights only that card and its relations',
+      await boxIs(`#${lone}`) && await litIs(sorted(...LONE[lone])) && await pickedIs([lone]), { box: await boxText(), lit: await lit() });
 
     await typeQuery(CASES.docs.query);
     await litIs(sorted(...CASES.docs.lit));
     const unlit = (await clickable(ids.filter((id) => !CASES.docs.lit.includes(id)), 1))[0];
     await clickCard(unlit, { modifiers: 8 });
-    check('after a typed query, Shift+click on an unlit card adds it: the box keeps its text, and the matches and the card light',
-      await litIs(sorted(...CASES.docs.lit, unlit)) && (await boxText()) === CASES.docs.query && await pickedIs(sorted(...CASES.docs.lit, unlit)), { unlit, box: await boxText(), lit: await lit() });
+    check('after a typed query, Shift+click on an unlit card adds it: the box shows the query and the card, and the matches and the card light',
+      await litIs(sorted(...CASES.docs.lit, unlit)) && await boxIs(`${CASES.docs.query} | #${unlit}`) && await pickedIs(sorted(...CASES.docs.lit, unlit)), { unlit, box: await boxText(), lit: await lit() });
 
     for (const inBox of [true, false]) {
       await typeQuery(CASES.docs.query);
@@ -179,14 +180,17 @@ module.exports = {
 
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     await waitFor(`!document.getElementById('board').classList.contains('hidden')`);
-    const onBoard = `${idsOf(`[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`)}===${JSON.stringify(JSON.stringify(sorted(...CASES.docs.lit)))}`;
-    check('after typing a query in the Graph and switching to the Board, the Board shows only the matches and no tile is marked selected',
-      await waitFor(onBoard) && (await ev(`document.querySelectorAll('#board .card-el.selected').length`)) === 0 && (await boxText()) === CASES.docs.query, { box: await boxText() });
+    // The Board's Typing isolates is on to start, so the query typed in the Graph isolates there on the switch: the Board shows
+    // the matches alone, and no card is a selected card.
+    const BOARD_IDS = `[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`;
+    const SHOWN_ON_BOARD = `${idsOf(BOARD_IDS)}===${JSON.stringify(JSON.stringify(sorted(...CASES.docs.lit)))}`;
+    check('after typing a query in the Graph and switching to the Board, the Board isolates it: only the matches are shown, the box keeps its text and the switch is on',
+      await waitFor(SHOWN_ON_BOARD) && (await boxText()) === CASES.docs.query && await ev(`isolateNow()!==null`), { box: await boxText(), shown: await ev(BOARD_IDS) });
     check('and nothing is selected, so a bulk action has no cards to act on', await pickedIs([]));
 
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     await waitFor(`!document.getElementById('graph-view').classList.contains('hidden')`);
-    check('back in the Graph with the box unchanged and nothing selected, the matches light again',
-      (await boxText()) === CASES.docs.query && await litIs(sorted(...CASES.docs.lit)) && same(await lit(), sorted(...CASES.docs.lit)), { lit: await lit() });
+    check('back in the Graph with the box unchanged and nothing selected, isolate ends and the matches light again',
+      (await boxText()) === CASES.docs.query && await ev(`isolateNow()===null`) && await litIs(sorted(...CASES.docs.lit)) && same(await lit(), sorted(...CASES.docs.lit)), { lit: await lit() });
   },
 };

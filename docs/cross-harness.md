@@ -17,7 +17,7 @@ that tag into the installer's selection menu.
   skill's nesting, slices, map and search modules (`skills/web/web/nesting.js`,
   `skills/web/web/slices.js`, `skills/web/web/map-relations.js`,
   `skills/web/web/search.js`), the Explore sets the search's `hpath:`, `htree:`, `dpath:` and `dtree:`
-  terms read (`skills/web/web/explore-sets.js`), the type icons
+  terms read, and its `dlinks:` and `hlinks:` terms (`skills/web/web/explore-sets.js`), the type icons
   module (`skills/web/web/type-icons.js`), the search panel's pill list and run of slices
   (`skills/web/web/pills.js`, `skills/web/web/slice-run.js`), the key guard and the combobox rules
   the panel's keys and suggestion list read (`skills/web/web/key-guard.js`,

@@ -66,7 +66,9 @@ const host = () => {
   return el;
 };
 
-async function open({ view = 'board', stored = UNFOLDED, board = makeBoard(), search = '' } = {}) {
+// `typing` is whether the Board's Typing isolates is on: off unless a test says so, since a query that turns
+// isolate on adds "isolated" to the chip, and these tests count the cut and the pills.
+async function open({ view = 'board', stored = UNFOLDED, board = makeBoard(), search = '', typing = false } = {}) {
   const elements = {};
   for (const sel of ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#search-panel']) elements[sel] = hidden();
   elements['#search-slices'] = host();
@@ -78,6 +80,7 @@ async function open({ view = 'board', stored = UNFOLDED, board = makeBoard(), se
   elements['#search-chip'] = chipEl();
   elements['#graph-view'] = control();
   const storage = { 'kanban.kanban.view.mode': view, ...stored };
+  storage['kanban.kanban.typing.isolates'] = JSON.stringify({ board: typing });
   const page = await loadPage({ board, search, stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const slices = elements['#search-slices'];
@@ -373,7 +376,7 @@ test('F10 without Shift, with a chord, and every other key on an entry leave the
 // --- a run in a box that holds a query --------------------------------------------------------------
 
 test('a run set on a box that holds | brackets the query, and the Board shows the query\'s matches inside the run', async () => {
-  const s = await open();
+  const s = await open({ typing: true });
   s.openPanel();
   s.type('tags:ui | #4');
   s.click('goal');

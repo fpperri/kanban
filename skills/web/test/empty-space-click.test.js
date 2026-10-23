@@ -55,14 +55,16 @@ const chipEl = () => {
 
 const CONTAINERS = { board: 'board', map: 'map-view', gantt: 'gantt-view', calendar: 'calendar-view', graph: 'graph-view' };
 
-async function open({ view = 'board', board = makeBoard() } = {}) {
+// `typing` is whether the Board's Typing isolates is on: off unless a test says so, since a pill that turns
+// isolate on keeps its selection through a click on empty space, and these tests are about the pills going.
+async function open({ view = 'board', board = makeBoard(), typing = false } = {}) {
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#graph-view'] = control();
   elements['#calendar-view'] = control();
   elements['#search-chip'] = chipEl();
   elements['#search-pills'] = control();
-  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view }, elements }).start();
+  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }) }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   let renders = 0;
   const real = page.ctx.renderBoard;
@@ -198,6 +200,16 @@ test('a double click on empty space takes a pill anchor out of the selection and
   assert.deepStrictEqual(s.ids(), []);
 });
 
+test('while a pill has isolate on, a double click on empty space leaves the selection and the box, as it does for any isolate', async () => {
+  const s = await open({ typing: true });
+  s.pill('review');
+  assert.notStrictEqual(s.page.run('isolateNow()'), null);
+  doubleClick(s, emptyIn('board'));
+  assert.deepStrictEqual(s.selection(), { anchor: pillQuery('review:'), additions: [] });
+  assert.strictEqual(s.box(), 'review:');
+  assert.ok(s.chipOn());
+});
+
 test('a double click takes every pill out at once, the added ones and the anchor, and leaves the other text the box holds', async () => {
   const s = await open();
   s.pill('review');
@@ -274,14 +286,15 @@ test('a double click outside the Graph canvas leaves a typed search, so a double
   assert.deepStrictEqual(s.selection().anchor, typedQuery('tags:ui'));
 });
 
-test('Graph: a double click on the empty canvas drops a card selection carried in and leaves the box, which was not its anchor, alone', async () => {
+test('Graph: a double click on the empty canvas drops a card selection carried in, and the box that said it goes with it', async () => {
   const s = await open({ view: 'board' });
   s.typeBox('tags:ui');
   s.pick(5);
   s.page.run("toggleView('graph')");
+  assert.strictEqual(s.box(), '#5', 'the switch put the picked card in the box, though the box was not its text');
   doubleClick(s, emptyIn('graph'));
   assert.deepStrictEqual(s.selection(), NOTHING);
-  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.box(), '');
 });
 
 // --- what is not empty space ------------------------------------------------------------------

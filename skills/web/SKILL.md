@@ -296,9 +296,14 @@ to `127.0.0.1` only.
   only the literal status `done` counts as finished, and an archived leaf counts as
   finished. Altitude, roll-up and the warning are worked out from the cards on every render
   and never written to a card.
-- **Search** — the header search box filters every view as you type, except the Graph,
-  where a typed search lights its matches and hides nothing but a `slice:` cut (see the Graph
-  view entry); the
+- **Search** — the header search box says *what* and Isolate says *hide or light*, in every
+  view: with isolate on the box hides what it does not match, and with isolate off it lights its
+  matches with the selected look (no card is selected by it, and no action reads it) and hides
+  nothing but a top-level `slice:` cut, which hides in every view whatever isolate is (the Graph
+  lights as it always did; see the Graph view entry). Typing in the box, a pill, a cue on a card
+  and a `?q=` link turn isolate on in a view whose **Typing isolates** checkbox is ticked (see
+  Isolate): every view but the Graph to start, so a typed search narrows the Board, the Map,
+  the Calendar and the Gantt and lights in the Graph. The
   query survives view switches and the poll. Enter in the search box goes to the first match,
   and a second Enter opens it when it is the only one: the first closes the panel (and the
   phone's field), brings the first matching card in the view's reading order to the middle
@@ -319,7 +324,9 @@ to `127.0.0.1` only.
   grammar in the Dependency map section; `hpath:<id>`/`htree:<id>`/`dpath:<id>`/`dtree:<id>`
   (`#` optional) are the four sets Explore's Path and Tree write into the box, each by one relation
   alone, the hierarchy ones over `parent` and the dependency ones over `waiting_for` — see
-  Multi-select; bare text is a substring on title OR body OR any
+  Multi-select; `dlinks:<id>`/`hlinks:<id>` (`#` optional) are a card's direct neighbours, one hop and
+  no further: `dlinks:` the card, what it waits for and what waits on it, `hlinks:` the card, its
+  parent on this board and its children (typed terms, no Explore item); bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
   string) rather than silently matching nothing on a typo'd field name. Five more forms,
   one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
@@ -358,7 +365,7 @@ to `127.0.0.1` only.
   autocomplete dropdown completes the token under the caret, inside brackets, inside
   quotes and after a `|` — the bare term plus every field-scoped form of it; nothing is
   offered once the token carries a colon, except after `slice:` and after `..`, and
-  `tree:`/`path:` and the four above are excluded (they take a card id, not free text). After `slice:` and
+  `tree:`/`path:`, the four above and `dlinks:`/`hlinks:` are excluded (they take a card id, not free text). After `slice:` and
   after `..` the dropdown lists the board's slices, narrowed to the names that start with
   what is typed (any letter case): the tiers of the `hierarchy:` in hierarchy order, every
   one it names, then the depth numbers from 0 to the deepest card with no tier. Picking a row writes the whole
@@ -765,13 +772,14 @@ to `127.0.0.1` only.
   dependency tree its connected set (both over `waiting_for` only). A plain pick writes
   the term into the search box as if it were typed (`writeSearch(text, 'typing')`, so the address follows
   and, in the Graph, the box is the typed anchor of the selection and the set is lit; in the other views
-  only the set is shown), in place of what the box held but for its `slice:` run
+  only the set is shown while the view's Typing isolates is ticked, and lit while it is not), in place of what the box held but for its `slice:` run
   (`searchSplitSlice`, `searchJoinSlice`). A Shift pick (a Shift-click, or Shift+Enter on the focused
   item) adds the term to the box as one more alternative (`searchAddAlt`: `htree:40 | dpath:185`,
   bracketing what needs it), still as if typed; with an empty box it is a plain pick. Each item's title
-  ends "Shift: add to the search". They add nothing to the selection by hand, and isolate is left as
-  typing into the box leaves it: off stays off, and on it keeps the term as its text, so Isolate on a
-  search so written is Isolate on typed text. A typed `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
+  ends "Shift: add to the search". They add nothing to the selection by hand, and isolate follows the view's
+  Typing isolates as typing into the box does: ticked, a pick turns isolate on and the term is its text;
+  unticked, isolate stays as it was, and with it already on the term becomes the isolate text, so Isolate
+  on a search so written is Isolate on typed text. A typed `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count (Delete's is the delete popup, once for the whole selection). **Add child…** opens the New card form (`openModal(null, undefined, undefined, parentId)`) exactly
   as New card does, with Parent preset to the card and the heading "New card under #<id>"; it shows
   only when the subject is one live card (not an archived one, not a batch, not the canvas), in the
@@ -837,15 +845,17 @@ to `127.0.0.1` only.
   its text back (see **Isolate**), so the steps are isolate off, then every addition, then the
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
-  closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection (in the Graph, where a typed search is the anchor, clearing the box takes the anchor
-  and the additions with it), and away from the box Esc no longer clears it (while isolated, Esc in the box turns
-  isolate off instead of clearing it). An open search panel takes
+  closes, as before); with focus in the search box Esc ends where repeated Esc does: it empties the
+  box, the run of `slice:` included, and leaves nothing selected, so the next click starts clean
+  (`clearBoxAndSelection`), and away from the box Esc steps the selection back and, once nothing is
+  picked, clears the box as well, the run of `slice:` included, so repeated Esc ends on an empty box (while
+  isolated, Esc in the box turns isolate off instead of clearing it). The stage is decided in the selection
+  module (`escapeStage`: isolate, selection, box) and carried out by `stepSelectionBack`. An open search panel takes
   Esc before the step and closes (a suggestion list closes before the panel), and a pill
   the step drops, the added ones first and then the anchor's, goes out of the box with it,
   so a box grown to `review: | blocked:` is back at `review:` after the first Esc and
-  empty after the next; any other text in the box stays, and clearing the box with Esc
-  in it turns off the pills it held. A plain click that selects a card (the Graph's, or a view
+  empty after the next; any other text in the box stays through those stages and goes with the last
+  Esc, and clearing the box with Esc in it turns off the pills it held. A plain click that selects a card (the Graph's, or a view
   the preferences sheet sets to selects) does the same to the pills the selection held: it replaces the selection,
   so the pills go off and their queries out of the box (not while isolated, when the box holds the
   isolate text). A click that opens a card changes no filter: every pill that is on stays on, the
@@ -855,7 +865,23 @@ to `127.0.0.1` only.
   clicks and an open: where a plain click selects (the Graph, or a view set to selects) its first
   click selects the card and takes the pills out, as any selecting click does, and the open that
   follows changes nothing. A Ctrl-click that takes out a card a pill lit turns the pill into its
-  other cards and leaves the box, so the view does not widen under the click. Bulk targets are
+  other cards, which the box then names, so the view does not widen under the click.
+  **The box shows the selection.** With isolate off a click that selects (the Graph's plain click;
+  Shift and Ctrl/Cmd clicks in every view; a Flow lane header as its card; the card menu's Add to
+  selection) writes the selection into the search box as the text Isolate would write for it, the
+  `slice:` run kept (`#34`, `#34 | #36`, `dpath:185 | #14`; a part that is one query is written as it was
+  typed). The write carries the reason `mirror` (`mirrorSelectionInBox`, with the text built by
+  `searchMirrorBox` in the search module): it turns isolate on for no one and never makes the box a typed
+  search, so the next click still sees the card parts. Ctrl-click on a picked card takes it out and the
+  box shows what is left; an empty selection leaves the box its `slice:` run. While isolate is on a click
+  keeps the rule above, and a click that opens a card writes nothing. Esc's step and a double click on empty
+  space take the box down with the selection only while it holds the selection's text; a switch of view
+  writes the picked cards, paths and trees whenever the box is not already their text, so a search typed
+  beside them goes as it does when a click picks (leaving the Graph with cards picked beside a typed search
+  is one case), and leaves a typed search with nothing picked in the box for the view's Typing isolates to
+  isolate or light. A `mirror` write never makes the Calendar or the
+  Gantt jump to the nearest match, though entering one with the box showing a selection does, as for any
+  query whose matches are off screen. Bulk targets are
   fixed when an
   action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
   delete and drag) takes its list of target cards once, when it starts, from the selection
@@ -911,9 +937,10 @@ to `127.0.0.1` only.
   (Shift+click is a plain click) turns that one pill on or off and leaves the others as
   they were. On, its query joins the box as one more alternative (`review:`, then
   `review: | blocked:`) and its matches join the selection: outside the Graph they are
-  the selection and so the bulk targets, and the box shows them; in the Graph they light
+  the selection and so the bulk targets, and the view shows only them while the pill has turned isolate on
+  (Typing isolates) or lights them while it has not; in the Graph they light
   and nothing is hidden, and the box grows there too, so a switch to another view keeps
-  the added cards shown and selected. Off, its query leaves the box and its matches leave
+  the added cards selected. Off, its query leaves the box and its matches leave
   the selection; the only pill that is on turns off and clears the box. A right-click
   solos a pill: it alone is on and the box holds its query alone, whatever else was on or
   in the box; a right-click on the soloed pill turns every pill off, the pills' default
@@ -938,7 +965,8 @@ to `127.0.0.1` only.
   text becomes the anchor). A query typed by hand is never a pill, even one that reads as a
   pill's query: type `review:` and the review pill stays off. A pill's anchor is not a typed search, so it
   stays the anchor when the Graph is left. With the panel closed, a chip inside the box
-  counts what is on and its accessible name says what (`1 on: review`), and the chip's
+  counts what is on and its accessible name says what (`1 on: review` in the Graph, `2 on: review, isolated`
+  where the pill turned isolate on), and the chip's
   hover text says it too; with nothing on there is no chip. The chip is a button: Tab
   reaches the chip while it is shown, between the box and the clear button, and it is no tab
   stop when it is hidden (the panel open, or nothing on); Enter and Space on it open the
@@ -952,7 +980,7 @@ to `127.0.0.1` only.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
   goes back to the arrow, and stays in the box when Esc was pressed there), and only then
-  clears the box, with focus in it, or steps the selection back. Esc leaves the switch on,
+  empties the box and the selection, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
   so the box, focused again, opens the panel again. The box keeps its text
   through the first two, because the browser's own Esc, which clears a search field, is
   stopped for them. The panel is no popup: the 5s poll runs while it is open and updates the
@@ -1036,15 +1064,15 @@ to `127.0.0.1` only.
   (a search typed or written by Explore, `dpath:185` included) is its own text, in brackets when it holds `|` or spaces (`(tags:ui status:doing)`). A card,
   the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
   with a card taken out of it is already its other cards (see Multi-select), so it is written as
-  them. The text the box held is kept, and so is a run of slices in it, applied to the whole of
-  the isolated text, because the selection only covers the cards the view shows. Outside the
-  Graph, where the box hides what it does not match, a path, a tree or a card the box was
-  hiding is not in the selection, so when the parts alone would bring such cards back the
-  box's own text stays beside them, ANDed on (`(#4 | path:40) tags:ui`). With nothing to
-  write (nothing selected, or only a half-typed term) the switch stays off and a toast says
-  nothing is selected. While isolate is on, **every view shows only the matches**: the Board,
-  the Map, the Gantt and the Calendar filter by the box as they always do, and the Graph, where
-  a typed search only lights, hides what the box does not match (the Graph's one pure decision
+  them. The text the box held is given back when isolate goes off, and a run of slices in it stays
+  in the isolate text, applied to the whole of it, because a cut hides whatever isolate is. The rest
+  of the text is not kept beside the parts: with isolate off the box hides nothing but a cut, so the
+  selection already holds every card, path and tree it names. With nothing selected, a query the box
+  lights is isolated as it stands (the box keeps its text and starts to hide); with nothing to
+  write (nothing selected and no query to isolate, or only a half-typed term) the switch stays off
+  and a toast says nothing is selected. While isolate is on, **every view shows only the matches**: the Board,
+  the Map, the Gantt and the Calendar hide what the box does not match, and the Graph, where
+  a search typed with isolate off only lights, hides what the box does not match (the Graph's one pure decision
   about a query, `graphQueryEffect`, takes `isolated`; the renderer is untouched). The Calendar
   and the Gantt jump to the nearest match when none is on screen, through the box writer's own
   listener, never on a poll. **Clicks move the anchor only**: a click on a card sets the anchor
@@ -1057,13 +1085,34 @@ to `127.0.0.1` only.
   says **isolated**, and its name lists what else is on (`2 on: review, isolated`). Turning it
   off, with the switch, `i` or Esc, gives the box back the text it held, with the run of slices
   as the box holds it now. **Esc** steps back in three stages: isolate off, then every addition,
-  then the anchor. With the search panel open the first Esc closes the panel and the second turns
+  then the anchor, and with nothing left to step back one more Esc clears the box, the run of slices
+  included. With the search panel open the first Esc closes the panel and the second turns
   isolate off; with focus in the box Esc turns isolate off rather than clearing the box, and the
   browser's own Esc, which clears a search field, is stopped for it. The text is built in the
   search module (`searchIsolateText`, `searchIsolateBox` and `searchIsolateRestore`), the stages
-  in the selection module (`selectionAfterEscape`, `boxAfterGraphClick`, `isolateAfterWrite`),
+  in the selection module (`selectionAfterEscape`, `isolateAfterWrite`),
   and the page carries it out in `isolate.js`, which writes the box only through `writeSearch`
   with the reason `isolate` and never writes the selection.
+  **Typing isolates.** A query the person makes turns isolate on by itself where the view's
+  **Typing isolates** checkbox is ticked: typing in the box, a pill, a cue on a card and a `?q=` link
+  (the writes with the reasons `typing`, `pill`, `cue` and `link`, decided at `writeSearch` by
+  `typingTurnsIsolateOn`). The clear button, the Ctrl+F prefill, a cut, a click's selection and a menu
+  item turn nothing on, and a box that holds only a `slice:` cut has no query to isolate. The panel's
+  foot holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
+  Calendar, Gantt, Map and Graph), kept per board in the browser under a key of their own, `typing.isolates`,
+  as **On hover show** keeps `hover.show` (`typing-isolates.js`, the views listed by `VIEW_MODES`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
+  as it always did. Unticked, the box lights what is typed: its matches wear the selected look, nothing
+  hides and no card is selected, and the switch or `i` can still isolate the query as it stands. An
+  isolate the box's own query started is `{ previous, following }`: what turning isolate off gives
+  back is the box's text as it stands, so the typed query stays in the box, lit, and the next Esc
+  clears it; going to a view whose checkbox is unticked ends such an isolate the same way, and coming
+  back to a view whose checkbox is ticked starts it again while the box holds a query of the person's
+  (`isolateStartFollowing`; the picks a click mirrored into the box are no query, `searchBoxHoldsTyped`),
+  so a view's setting decides on every switch, while an isolate the switch or `i` turned on stays. The address
+  then carries `isolate=1` beside `q`. A pill taken out, by a click or by Esc, turns nothing on (the
+  reason `unpill`). Where the box hides is worked out once per repaint (`boxHidingTerms`,
+  `boxLightsMatches`, `computeSearchMatch`): `ids` is what it hides by, `matched` what the whole query
+  matches, which the jump to the nearest match and Enter read, and `lit` what it lights.
   **The menus offer it.** A right-click on a card inside the selection offers **Isolate** in
   the menu that acts on the selection (`cardMenuFor`, `isolate`), which does what the switch
   does, and the menu of a card outside the selection and the card details' own menu do not offer
@@ -1079,7 +1128,8 @@ to `127.0.0.1` only.
   browser, where the Graph, with no dot dimmed, and every other view show only the isolated set.
   The text the box held before isolating is kept in the browser per board (`localStorage`, the
   board's `isolate.kept` entry, beside its other remembered choices), with the isolate text it
-  goes with, and given back when isolate is turned off after the reload; where it is unknown (no
+  goes with and whether the box's own query started the isolate (`following`, so a reload keeps the
+  switch's isolate the switch's and a typed one a typed one), and given back when isolate is turned off after the reload; where it is unknown (no
   record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
   The page works without browser storage. Opening a card while isolated keeps the parameter,
   and Back and Forward bring the entry they land on in line with the box, isolate included.
@@ -1122,7 +1172,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Shift+Space`, `Ctrl+Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1541,7 +1591,7 @@ to `127.0.0.1` only.
   calendar a run cut at a week boundary is two chips, and the card's own deadline chip is
   a third on a different day — this is the only way to see a card's whole extent at a
   glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
-  hovered/focused at a time), a different tone from selection's own wash (`--accent-soft`) so the two
+  hovered/focused at a time; the cards that take the wash are the Set `hoverLit`, see **On hover show**), a different tone from selection's own wash (`--accent-soft`) so the two
   never read alike, and never an outline, so a selected card stays reading as selected
   while hovered. Applies everywhere `.selected` does (board tiles, archived tiles,
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
@@ -1565,6 +1615,52 @@ to `127.0.0.1` only.
   highlight forward on its own: every render call site reads `hoveredId` the same way it
   already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
   the highlight the way a naive `:hover`-only or event-only approach would.
+- **On hover show** — under the search panel's foot, a `fieldset#search-hover` of six checkboxes
+  (`input[data-hover-kind]`: `dtree`, `htree`, `dpath`, `hpath`, `dlinks`, `hlinks`) chooses which sets a
+  hover or a keyboard focus lights; the legend carries `#search-hover-for`, which says whose choice the
+  boxes show (`Flow`, or `Hierarchy and the other views`). The panel is `hover-show-ui.js`
+  (`syncHoverShowPanel` on every repaint, one delegated `change` that calls `hoverShowPick`) and the choice and the
+  union are `hover-show.js`, pure, with no DOM, on the dual-environment pattern: `mergeHoverShow`,
+  `hoverShowWith`, `hoverShowGraph`, `hoverShowIds` (the union of the sets for a card, through the Explore sets
+  of `explore-sets.js`, so `dlinks` and `hlinks` too) and `hoverShowTiles`. The choice is one list of sets per
+  graph kind, `{ "hierarchy": [...], "flow": [...] }`, kept per board in `localStorage` under `hover.show`; a
+  value this version does not offer, a set it does not know and storage that refuses read as the default,
+  an empty list is a choice (nothing ticked). The defaults are what each view lit before the choice
+  existed: the Hierarchy `dlinks` and `hlinks`, the Flow `dlinks` alone. `hoverShowGraph` names the kind a
+  view reads: the Flow's in the Graph's Flow, the Hierarchy's in the Hierarchy and in every view that is not
+  the Graph (the Board, the Map, the Calendar and the Gantt), whatever layout the Graph last showed. `hoverLit` is
+  the Set of ids the renderers read through `isHoverHighlighted`, null when nothing is hovered, and `syncHoverLit`
+  keeps it in step with `hoveredId`, at every `setHoveredId` and every `renderBoard`, and `refreshHover` after a
+  box is ticked. Outside the Graph it is the hovered card and the union (`hoverShowTiles`), and
+  `applyHoverHighlight` gives each card of it the wash in one pass over the cards on the page, not one query per
+  id. In the Graph the hover ring stays on the hovered card alone (`hoverLit` holds that card), and
+  `graphSetFocus` lights the union with `graphLit`, dimming the rest, in place of the one-hop relations it lit
+  before; with nothing ticked the union is empty and the Graph lights what it lights when the pointer is on no card.
+  The sets are worked out from the whole board, archived cards included, and the Graph lights those it draws.
+  With the defaults the Graph lights what it lit before: in the Hierarchy a card and its parent, its children and
+  the cards it waits for or that wait for it, in the Flow the card and the cards its dependencies join to it. The
+  Graph's option panel has the same six as an **On hover** section (`graphBuildHoverRow` in `graph-view.js`, a
+  `div.graph-hover-options` after the Hierarchy's option row or the Flow's switches, drawn by `graphBuildSwitch` with
+  `.graph-option-btn[data-key=hover][data-val=<set>]` and `aria-pressed` on each set the choice of that kind of Graph
+  ticks). Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls
+  `syncHoverShowPanel` before `refreshHover`, and `syncHoverShowPanel` sets the boxes and the toggles from the choice
+  that applies, so each shows a change made in the other at once and a card hovered at that moment lights again.
+  The snapshot has no hover and no such section. **Space takes the hover**: `onHoverSpaceKey` (`hover-show-ui.js`), one
+  `keydown` listener on the document that reads the whole key guard (`keyGuardDetailOff`: off in a field, behind a
+  menu, a dialog, the notifications panel, the preferences sheet or the notes palette), leaves a target that answers
+  Space itself (`HOVER_SPACE_OWN`: an input, textarea, select, button, link, summary, contenteditable, or a
+  `button`, `checkbox`, `switch` or `tab` role), and a key a handler already took (a todo item's tick). `hotkeySpace`
+  (`hotkeys.js`, pure) reads the chord: Space is `write`, Shift+Space `add`, Ctrl or Cmd with Space `select`, any other
+  chord and a held key none. The card is `hoveredId`, else the one with the focus (`hoverSpaceSubject`); the text is
+  `hoverShowTerms` (`hover-show.js`: one `kind:id` per ticked set, in the panel's order, joined by ` | `) put in the
+  box by `searchWithTerms` (`search.js`, which Explore's Path and Tree use too): it replaces what the box held but for
+  its run of slices, or with Shift joins it as more alternatives (`searchAddAlt`), and an empty box takes it either way.
+  The write is `writeSearch(text, 'hover')`. `hover` is a write reason of its own, not one of `ISOLATING_REASONS`
+  (`selection.js`), so it never turns isolate on whatever the view's Typing isolates says, and `selectionFollowingBox`
+  treats it as a write by hand: in the Graph the written terms are the typed anchor, and a pill the box no longer
+  holds goes off. With no card, or no set ticked, nothing is written and the key is not prevented. In the Graph
+  `Ctrl+Space` (or Cmd) on a focused dot is the selection (`wireGraphView`'s `keydown`, which reads `hotkeySpace`),
+  what Space was before.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
   delete and clear-all; Delete's confirmation is the delete popup, which also says what goes
@@ -1645,9 +1741,9 @@ to `127.0.0.1` only.
 - **Deep links** — loading the app with `?card=<id>` (an id is a plain number or a prefix
   and a number, `?card=G3`; `?card=0` opens card 0, which the page used to read as no card),
   `?q=<search>` and/or
-  `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, filters the
-  board by the query (and, with `isolate=1` beside a query, shows it as an isolate, see
-  Isolate), opens that card's detail popup, and scrolls its representation
+  `?view=<board|map|gantt|calendar|graph>` in the URL switches to the named view, puts the
+  query in the box (which isolates it where the view's Typing isolates is ticked, and with `isolate=1` beside a
+  query always shows it as an isolate, see Isolate), opens that card's detail popup, and scrolls its representation
   into view (found by `data-id` in whichever view container is now active, same lookup
   the shared card-el grammar's click handler uses) — a bookmarkable or shared link
   straight to one card, or to a set of them. **The three keys are independent**: `card`
@@ -1672,11 +1768,17 @@ to `127.0.0.1` only.
     card-less links never fire one.
   - **The address follows the box.** Whatever the search box holds is in the address as
     `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
-    link, and a click in the Graph that drops a typed search) replaces `q` with the box's
+    link, and a click that selects a card) replaces `q` with the box's
     text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. While isolate is on,
     `isolate=1` stands beside `q` (and goes with it when the box is emptied), written by the
-    same listener. The address replaces
+    same listener. In a view whose Typing isolates is ticked, with the box holding a query and isolate off, `isolate=0`
+    stands there instead, so a reload reopens the same picture: a link with `q` and `isolate=0` opens
+    with isolate off (`parseDeepLink` reports `isolateOff`, and the page writes the box with the reason
+    `link-lit`); a link with `q` and no isolate parameter, an old or hand-made one, turns isolate on where
+    the view isolates what is typed; `isolate=1` opens isolated. Where the view's Typing isolates is unticked, the Graph to start with, no parameter means off, and none is
+    written. The view switch brings the address in line too (`nextSearchAddress` takes whether to declare
+    isolate off, `declareOff`, which is the view's Typing isolates setting and not its name). The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
     when `q` would change. A browser may refuse a replacement when there are too many in
@@ -2294,8 +2396,8 @@ to `127.0.0.1` only.
   and relations sits in the header; a board with nothing to draw says "No cards to show".
   **Lighting.** The Graph dims everything but what is lit, and one dimming serves the
   pointer, a lone card, a selection and a search typed in the box. **Hover or keyboard
-  focus** on a dot lights that card and the cards it has a relation with, with the lines
-  between them, until the pointer leaves. **Click** a dot to select it (painted in place,
+  focus** on a dot lights the sets *On hover show* ticks for that card (by default the card and the cards it has a
+  relation with), with the lines between them, until the pointer leaves. **Click** a dot to select it (painted in place,
   so a double click is not interrupted by a rebuild): a **lone card** picked by a click
   stays lit with its one-hop relations after the pointer leaves, and the relations light
   without being selected; hovering another dot shows that one's relations until the
@@ -2309,18 +2411,21 @@ to `127.0.0.1` only.
   inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
   term to match, so it lights and hides nothing. Emptying the box, **Esc** and a double click on the empty Graph drop the anchor and
   the dimming (Esc and the double click leave the box its cut, the `slice:` terms that stand on their own: a cut is no search);
-  a plain click on a card sets a new card anchor and clears the box but for its cut, so the Graph
+  a plain click on a card sets a new card anchor and the box shows that card in place of the search, its cut kept, so the Graph
   keeps drawing what the box says;
-  shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
-  the query lit takes it out and turns the query into its other cards, which clears the
-  box but for its cut, since it no longer names the anchor. The status pills still decide which cards are
+  shift+click or ctrl/cmd+click on an unlit card adds it and writes it beside the query (`move the | #5`), which stays the
+  typed anchor, and on a card
+  the query lit takes it out and turns the query into its other cards, which the box then names (`#2 | #8`),
+  since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
-  search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
-  Calendar keep hiding what does not match, nothing is selected by it there, and a bulk
-  action has no cards to act on. Back in the Graph with the box unchanged and nothing
-  selected, its matches light again; a selection carried in from another view stays, and
+  search stops being the anchor when you leave the Graph, and each view follows its own Typing
+  isolates: where it is ticked (the Board, Map, Gantt and Calendar to start) the typed search isolates
+  there on the switch and shows its matches alone, and where it is unticked the view lights its matches
+  with the selected look and hides nothing; nothing is selected by it, and a bulk action has no cards to
+  act on. Back in the Graph with the box unchanged and nothing selected, isolate ends and its matches
+  light again; a selection carried in from another view stays, and
   the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on
-  a focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
+  a focused dot) opens the card, and **Ctrl+Space** on a focused dot selects it, as a click does. The Graph is a deliberate exception to
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
   shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
   order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click
@@ -2359,14 +2464,14 @@ to `127.0.0.1` only.
   folds into the strip when none of its cards with a dependency is open (every such card is done), and the strip then reads `no open dependency`; a lane whose open cards wait only on done cards
   stays, since those cards are ready now. With all no lane folds. A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it
   (`header.count`), not every card under its lane card. A header is its card's node: a `.graph-node.card-el.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots,
-  so every handler of the dots (click, Shift/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu) takes it for that card, with the same items;
+  so every handler of the dots (click, Shift/Ctrl-click, double-click, Enter, Ctrl+Space, hover and focus lighting, the card menu) takes it for that card, with the same items;
   `graphCur.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together. It is not a second dot: the card keeps its one dot. An **arrow** runs from the card waited for to the card that waits, leaving to the right
   and arriving from the left with its head at the rim; a dot keeps its status colour and its type mark, grows with the waits it is in (a parent
   does not enlarge it), and is faded in frontier when done or archived. A loop, a card that waits for itself and a chain of any
   length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,
-  selection, the card menu, double-click, Enter, Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
-  that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. Hover, focus and a
-  lone selected card light the card with the cards its **dependencies** join to it, not its parent or children, and the lit lines are the arrows. A dot
+  selection, the card menu, double-click, Enter, Ctrl+Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
+  that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. A lone selected card lights the card with the cards its **dependencies** join to it, not its parent or children, and hover and focus
+  light what the Flow's *On hover show* ticks (`dlinks` alone by default, so the same cards), and the lit lines are the arrows. A dot
   cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
   and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, frontier and lanes off. The address carries them as
   `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;

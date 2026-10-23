@@ -49,7 +49,8 @@ const chipEl = () => {
   return el;
 };
 
-async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
+// `typing` is whether the Board's Typing isolates is on, as it is by default: a pill then turns isolate on.
+async function open({ view = 'board', stored = {}, board = makeBoard(), typing = true } = {}) {
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -57,7 +58,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
   elements['#search-chip'] = chipEl();
-  const page = loadPage({ board, stored: { 'kanban.kanban.view.mode': view, ...stored }, elements });
+  const page = loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }), ...stored }, elements });
   const session = attachSessionHistory(page);
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
@@ -86,7 +87,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
     nodeClick: (id, m = {}) => elements['#graph-view'].fire('click', nodeEvent(id, m)),
     nodeDoubleClick: async (id) => { elements['#graph-view'].fire('dblclick', nodeEvent(id)); await page.settle(); },
     nodeEnter: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: 'Enter' })); await page.settle(); },
-    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ' })); await page.settle(); },
+    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ', ctrlKey: true })); await page.settle(); },
     close: async () => { session.close.fire('click'); await page.settle(); },
   };
   return s;
@@ -167,7 +168,7 @@ test('the pill stays on when it is not the first part: the anchor was a hand-pic
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [q('review:')] });
   await s.click(1);
   assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] }, 'the pill is the anchor now');
-  assert.strictEqual(s.box(), '', 'the box was empty and stays empty: an empty box hides nothing');
+  assert.strictEqual(s.box(), '#5 | review:', 'a click that opens a card leaves the box as it was: the card Ctrl-click showed in it stays');
   assert.deepStrictEqual(s.on(), ['review']);
 });
 
@@ -218,7 +219,17 @@ test('closing the card details leaves the pill on, the box and the shown cards a
 test('the address keeps the box\'s text through opening and closing the card', async () => {
   const s = await open();
   s.pillClick('review');
-  assert.strictEqual(s.address(), '?q=review%3A');
+  assert.strictEqual(s.address(), '?q=review%3A&isolate=1', 'the pill turned isolate on, which the address carries');
+  await s.click(5);
+  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', isolate: '1', card: '5' });
+  await s.close();
+  assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', isolate: '1' });
+});
+
+test('the address keeps the box\'s text through opening and closing the card where the pill isolates nothing', async () => {
+  const s = await open({ typing: false });
+  s.pillClick('review');
+  assert.strictEqual(s.address(), '?q=review%3A', 'where typing lights the address says nothing about isolate');
   await s.click(5);
   assert.deepStrictEqual(Object.fromEntries(new URLSearchParams(s.address())), { q: 'review:', card: '5' });
   await s.close();
@@ -240,14 +251,23 @@ test('a poll while the card is closed again keeps the pill, which the selection 
 // --- a click that only selects ----------------------------------------------------------------
 
 test('a click that selects a card without opening it still takes the pill out of the box, in a view the preferences sheet sets to selects', async () => {
-  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }) } });
+  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }), 'kanban.kanban.typing.isolates': JSON.stringify({ board: false }) } });
   s.pillClick('review');
   assert.strictEqual(s.box(), 'review:');
   await s.click(5);
   assert.strictEqual(s.detail(), null, 'nothing opened');
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
-  assert.strictEqual(s.box(), '', 'the pill is off and its query is gone from the box');
+  assert.strictEqual(s.box(), '#5', 'the pill is off and its query is gone from the box, which shows the card');
   assert.deepStrictEqual(s.on(), []);
+});
+
+test('while the pill has isolate on, a click that selects a card moves the anchor and leaves the pill\'s query in the box', async () => {
+  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }) } });
+  s.pillClick('review');
+  assert.notStrictEqual(s.page.run('isolateNow()'), null);
+  await s.click(5);
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
+  assert.strictEqual(s.box(), 'review:', 'the box is the isolate text, and a click never writes it');
 });
 
 test('a plain click on a card in the Graph, which selects it, still takes the pill out of the box', async () => {
@@ -256,7 +276,7 @@ test('a plain click on a card in the Graph, which selects it, still takes the pi
   assert.strictEqual(s.box(), 'review:');
   s.nodeClick(5);
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#5', 'the box shows the card now');
   assert.deepStrictEqual(s.on(), []);
 });
 
@@ -265,18 +285,18 @@ test('a plain click on a card in the Graph, which paints in place, takes the pil
   s.pillClick('review');
   assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' }, 'the chip counts the pill');
   s.nodeClick(5);
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#5');
   assert.deepStrictEqual(s.on(), []);
   assert.deepStrictEqual(s.chip(), { hidden: true, text: '' }, 'the chip counts nothing, as the box and the selection say');
 });
 
-test('Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
+test('Ctrl+Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
   const s = await open({ view: 'graph' });
   s.pillClick('review');
   assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' });
   await s.nodeSpace(5);
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#5');
   assert.deepStrictEqual(s.chip(), { hidden: true, text: '' });
 });
 
@@ -289,11 +309,24 @@ test('a Shift+click in the Graph that adds a card to a pill keeps the pill and i
 });
 
 test('Esc still takes the pill out of the box and off the selection', async () => {
-  const s = await open();
+  const s = await open({ typing: false });
   s.pillClick('review');
   s.page.run('stepSelectionBack()');
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.on(), []);
+});
+
+test('with the pill isolating, the first Esc turns isolate off and leaves the pill, and the next takes it out of the box and off the selection', async () => {
+  const s = await open();
+  s.pillClick('review');
+  s.page.run('stepSelectionBack()');
+  assert.strictEqual(s.page.run('isolateNow()'), null);
+  assert.strictEqual(s.box(), 'review:');
+  assert.deepStrictEqual(s.on(), ['review']);
+  s.page.run('stepSelectionBack()');
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.on(), []);
+  assert.strictEqual(s.page.run('isolateNow()'), null, 'taking the pill out turned nothing on');
 });
 
 // --- the Graph's open gestures ----------------------------------------------------------------

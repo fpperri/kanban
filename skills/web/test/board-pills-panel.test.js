@@ -108,7 +108,7 @@ test('next up is no built-in: with no pill of that name defined, no pill says ne
 // --- a click --------------------------------------------------------------------------------
 
 test('a click on the grill pill puts tags:"grill" in the box and shows the grill cards, and not the grilling card', async () => {
-  const s = await openPanelPage({ board: makeBoard() });
+  const s = await openPanelPage({ typing: true, board: makeBoard() });
   s.click(s.byLabel('grill'));
   assert.strictEqual(s.box(), 'tags:"grill"');
   assert.deepStrictEqual(s.shown(), ['1', '3']);
@@ -118,7 +118,7 @@ test('a click on the grill pill puts tags:"grill" in the box and shows the grill
 });
 
 test('a click on a board pill makes its query the anchor, and a second click on it takes it out again', async () => {
-  const s = await openPanelPage({ board: makeBoard() });
+  const s = await openPanelPage({ typing: true, board: makeBoard() });
   s.click(s.byLabel('assignee:@human'));
   assert.deepStrictEqual(s.selection(), { anchor: q('assignee:@human'), additions: [] });
   assert.strictEqual(s.box(), 'assignee:@human');
@@ -130,7 +130,7 @@ test('a click on a board pill makes its query the anchor, and a second click on 
 
 test('Shift+click on a second pill grows the box to "anchor | pill", as a click does', async () => {
   for (const shiftKey of [false, true]) {
-    const s = await openPanelPage({ board: makeBoard() });
+    const s = await openPanelPage({ typing: true, board: makeBoard() });
     s.click(s.byLabel('grilling'));
     s.click(s.byLabel('next'), { shiftKey });
     assert.strictEqual(s.box(), 'tags:"grilling" | tags:"next-up"', `shift ${shiftKey}`);
@@ -143,7 +143,7 @@ test('Shift+click on a second pill grows the box to "anchor | pill", as a click 
 });
 
 test('a right-click on a value pill solos it, and on the soloed pill turns every pill off, as for a built-in', async () => {
-  const s = await openPanelPage({ board: makeBoard() });
+  const s = await openPanelPage({ typing: true, board: makeBoard() });
   s.click(s.byLabel('review'));
   s.click(s.byLabel('grill'));
   assert.strictEqual(s.box(), 'review: | tags:"grill"');
@@ -159,7 +159,7 @@ test('a right-click on a value pill solos it, and on the soloed pill turns every
 test('a value with a space is one exact term: its pill finds the card whose tag is those words and nothing that merely holds one of them', async () => {
   const board = makeBoard();
   board.active.push(card(8, { title: 'Another', tags: ['two'] }), card(9, { title: 'More', tags: ['words of wisdom'] }));
-  const s = await openPanelPage({ board });
+  const s = await openPanelPage({ typing: true, board });
   s.click(s.byLabel('two words'));
   assert.strictEqual(s.box(), 'tags:"two words"');
   assert.deepStrictEqual(s.shown(), ['4']);

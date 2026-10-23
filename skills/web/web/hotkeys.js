@@ -18,9 +18,10 @@
 const HOTKEYS = [
   { id: 'search', keys: ['/'], reads: ['/'], what: 'Focus the search box.' },
   { id: 'find', keys: ['Ctrl/Cmd+F'], reads: ['f'], what: 'Focus the search box with # ready for a card number, or select what it holds. Works from inside a text field.' },
-  { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. In the edit form opened from a card\'s details, leave it and return to the details (after the unsaved-changes question, when there are changes). In the notes palette it clears the card chip first, then closes the palette (at once from its filter field). With none up, in the search box it clears the box, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor.' },
+  { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. In the edit form opened from a card\'s details, leave it and return to the details (after the unsaved-changes question, when there are changes). In the notes palette it clears the card chip first, then closes the palette (at once from its filter field). With none up, in the search box it empties the box and the selection, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor, and then it clears what the box still holds, a slice: run included, so repeated Esc ends on an empty box.' },
   { id: 'enter', keys: ['Enter'], reads: ['Enter'], what: 'Open the focused card. In a list of suggestions, take the highlighted one. In the search box, go to the first match; a second Enter opens it when it is the only one.' },
-  { id: 'space', keys: ['Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
+  { id: 'space', keys: ['Space', 'Shift+Space'], reads: [' '], what: 'Write the sets On hover show ticks for the hovered card, else the focused one, into the search box as alternatives (dlinks:12 | hlinks:12), its run of slices kept and isolate as it was. With Shift, add them to what the box holds as one more alternative; an empty box takes them as a plain Space does. With no card hovered or focused, in a text field, or on a button, link or switch, Space keeps its own job (scrolling, pressing, a todo item\'s tick).' },
+  { id: 'space-select', keys: ['Ctrl+Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
   { id: 'save', keys: ['Ctrl/Cmd+S'], reads: ['s'], what: 'Save the edit or bulk popup that is open.' },
   { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open; with the notes palette up over the card details, on the palette. In the palette it does nothing while another popup is up, and on a phone.' },
   { id: 'note', keys: ['n'], reads: ['n'], what: 'Add a note on the card whose details are open, else on the hovered or selected card: opens the notes palette, where Enter writes the note and Shift+Enter starts a new line. With no card, on the Calendar it opens on the Calendar\'s own range, or on the day under the pointer; elsewhere on today. Needs a logbook: line in config.yaml.' },
@@ -74,10 +75,21 @@ function hotkeyIsHelp(e) {
   return !!e && e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
 }
 
+// What a press of Space asks for: 'write' (Space: the hovered card's sets into the box), 'add'
+// (Shift+Space: the same, added to what the box holds) or 'select' (Ctrl or Cmd with Space: select the
+// focused card in the Graph), and null for any other chord, Alt included, and for a held key. Whether the
+// page may act is for the key guard and the target to say.
+function hotkeySpace(e) {
+  if (!e || e.key !== ' ' || e.altKey || e.repeat) return null;
+  if (e.ctrlKey || e.metaKey) return e.shiftKey ? null : 'select';
+  return e.shiftKey ? 'add' : 'write';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { HOTKEYS, hotkeyRows, hotkeyIsHelp };
+  module.exports = { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace };
 } else {
   window.HOTKEYS = HOTKEYS;
   window.hotkeyRows = hotkeyRows;
   window.hotkeyIsHelp = hotkeyIsHelp;
+  window.hotkeySpace = hotkeySpace;
 }
