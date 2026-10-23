@@ -329,5 +329,5 @@ isolate; the search grammar, the slices and the pills are shared, the snapshot r
 web's own search module and drawing the same panel, where a pill filters.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
 the snapshot as `tree:`/`path:` search terms, and the four Explore sets, `hpath:`, `htree:`, `dpath:`
-and `dtree:`, as search terms plus card-sheet "Hierarchy path", "Hierarchy tree", "Dependency path"
-and "Dependency tree" tap actions.
+and `dtree:`, as search terms plus "Hierarchy path", "Dependency path", "Hierarchy tree"
+and "Dependency tree" tap actions on the card sheet and in the right-click card menu.

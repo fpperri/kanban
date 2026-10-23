@@ -51,7 +51,7 @@ test('the web skill says Isolate writes the four terms', () => {
 
 test('the snapshot docs say the card sheet has the four buttons, writing the four terms', () => {
   assert.match(snapshotDoc, /\*\*Hierarchy path \/ tree\*\* and \*\*Dependency path \/ tree\*\* buttons that narrow every view down to that card's set/);
-  assert.match(snapshotSkill, /four read-only buttons, "Hierarchy path", "Hierarchy tree", "Dependency path" and "Dependency tree"/);
+  assert.match(snapshotSkill, /four read-only buttons, "Hierarchy path", "Dependency path", "Hierarchy tree" and "Dependency tree"/);
   assert.match(snapshotSkill, /writes `hpath:<id>`, `htree:<id>`, `dpath:<id>` or `dtree:<id>` into the search box and closes the sheet/);
   assert.match(snapshotSkill, /`hpath:<id>`\/`htree:<id>`\/`dpath:<id>`\/`dtree:<id>` \(`#`-tolerant\) are the four sets of kanban-web's Explore, each by one relation alone/);
   assert.doesNotMatch(snapshotSkill, /two read-only "Dependency tree"\/"Dependency path" buttons/);
@@ -60,5 +60,6 @@ test('the snapshot docs say the card sheet has the four buttons, writing the fou
 test('the glossary names the Explore set and the parity table the four terms and buttons', () => {
   assert.match(glossary, /\*\*Explore set\*\* \(derived\): One of four sets of cards found from one card, each by one relation alone/);
   assert.match(glossary, /the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`/);
-  assert.match(glossary, /the four Explore sets, `hpath:`, `htree:`, `dpath:` and `dtree:`, as search terms plus card-sheet "Hierarchy path", "Hierarchy tree", "Dependency path" and "Dependency tree" tap actions/);
+  assert.match(glossary, /the four Explore sets, `hpath:`, `htree:`, `dpath:` and `dtree:`, as search terms plus "Hierarchy path", "Dependency path", "Hierarchy tree" and "Dependency tree" tap actions on the card sheet and in the right-click card menu/);
+  assert.match(snapshotSkill, /then the four Explore sets as flat items, Hierarchy path, Dependency path, Hierarchy tree and Dependency tree \(the menu does not nest\), each writing its `hpath:`, `dpath:`, `htree:` or `dtree:` term as the sheet's buttons do/);
 });

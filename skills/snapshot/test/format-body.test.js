@@ -434,11 +434,12 @@ test('Move rows sit above a separator, keeping Archive/Delete visually grouped a
   assert.match(src, /\.ctxsep\{[^}]*height:1px/, 'the separator needs a rule in the stylesheet');
 });
 
-test('the menu\'s "Dependency tree"/"Dependency path" items and the detail sheet\'s own buttons call the SAME graphFocus() helper — one tree:/path: implementation, not two', () => {
+test('the menu\'s four Explore items and the detail sheet\'s own buttons are made from one EXPLORE_LABELS table and call the SAME graphFocus() helper — one implementation, not two', () => {
   assert.match(src, /function graphFocus\(gk,id\)\{/);
   assert.match(src, /if\(act==="graphfocus"\)\{graphFocus\(t\.dataset\.gk,id\);return\}/);
-  assert.match(src, /item\("Dependency tree",\(\)=>\{closeCtxMenu\(\);graphFocus\("tree",id\)\}\)/);
-  assert.match(src, /item\("Dependency path",\(\)=>\{closeCtxMenu\(\);graphFocus\("path",id\)\}\)/);
+  assert.match(src, /Object\.entries\(EXPLORE_LABELS\)\.forEach\(\(\[gk,label\]\)=>item\(label,\(\)=>\{closeCtxMenu\(\);graphFocus\(gk,id\)\}\)\)/);
+  assert.match(src, /Object\.entries\(EXPLORE_LABELS\)\.forEach\(\(\[gk,label\]\)=>gr\.appendChild\(btn\(label,"graphfocus",\{gk:gk\}\)\)\)/);
+  assert.doesNotMatch(src, /item\("Dependency (tree|path)"/);
 });
 
 test('the menu closes on click-away, Esc, scroll, and view switch', () => {

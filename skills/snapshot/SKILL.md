@@ -280,7 +280,7 @@ chips + due markers, tap month navigation, and month/week/3-day/day sub-views
 — the sub-month views are stacked tap-friendly day rows). Tapping a
 card in any view opens its detail pop-up in place with the full
 action set; edits always queue through the tray. The sheet
-also carries four read-only buttons, "Hierarchy path", "Hierarchy tree", "Dependency path" and
+also carries four read-only buttons, "Hierarchy path", "Dependency path", "Hierarchy tree" and
 "Dependency tree" (any card with a real id, including archived read-only sheets), the same four
 Explore adds in kanban-web — tapping one
 writes `hpath:<id>`, `htree:<id>`, `dpath:<id>` or `dtree:<id>` into the search box and closes the sheet, no
@@ -580,7 +580,9 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   "Move to `<Status>`" row per status in `statuses` order except the card's
   own, then (below a separator) Archive, Delete (arms red with "Delete?" on
   the first click, fires on the second, same two-tap shape as the mobile
-  stack's own delete arm), Dependency tree, Dependency path — every action
+  stack's own delete arm), then the four Explore sets as flat items, Hierarchy path, Dependency
+  path, Hierarchy tree and Dependency tree (the menu does not nest), each writing its `hpath:`,
+  `dpath:`, `htree:` or `dtree:` term as the sheet's buttons do — every action
   routes through the same `queue()`/`graphFocus()` machinery the detail
   sheet's own buttons use, no parallel path. Move is the tap
   alternative to drag-and-drop (see "Drag and drop" below) for anyone
