@@ -53,7 +53,7 @@ test('tint: a wash is a whole ring from the inner edge of its band to the outer 
   const plan = graphPlan(m, l, OPTS);
   const tiers = scenario.CASES.plan.tiers;
   plan.tints.forEach((t, i) => {
-    const band = l.bands[t.band];
+    const band = l.bands.find((b) => b.index === t.band);
     assert.strictEqual(band.slice.name, t.tier);
     const [outer, inner] = circlesOf(t.d);
     assert.ok(Math.abs(outer - band.r1) < 0.01 && Math.abs(inner - band.r0) < 0.01, `${t.tier}: ${inner} to ${outer}, the band is ${band.r0} to ${band.r1}`);
@@ -69,10 +69,10 @@ test('tint: a wash is a whole ring from the inner edge of its band to the outer 
 
 // --- only a tier band that holds a card is washed ------------------------------------------------
 
-test('tint: a tier nobody is in has no wash, though its thin band and its muted caption are drawn', () => {
+test('tint: a tier nobody is in has no wash, and neither a band nor a caption', () => {
   const m = buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']);
   const plan = planOf(m, { ...OPTS, types: [{ name: 'goal', color: 'red' }, { name: 'epic', color: 'blue' }] });
-  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.muted]), [['goal', true], ['epic', false], ['depth 0', false]]);
+  assert.deepStrictEqual(plan.captions.map((c) => c.name), ['epic', 'depth 0']);
   assert.deepStrictEqual(plan.tints.map((t) => [t.tier, t.color]), [['epic', 'blue']]);
 });
 
@@ -144,7 +144,7 @@ test('tint: a slice cut, a status pill and isolate keep the washes of the bands 
     const plan = graphPlan(m, l, OPTS);
     assert.deepStrictEqual(plan.tints.map((t) => t.tier), tiers, what);
     for (const t of plan.tints) {
-      const band = l.bands[t.band];
+      const band = l.bands.find((b) => b.index === t.band);
       assert.deepStrictEqual(circlesOf(t.d), [band.r1, band.r0].map((r) => Math.round(r * 100) / 100), `${what}: ${t.tier} follows its band`);
       assert.strictEqual(t.color, whole.tints.find((w) => w.tier === t.tier).color, `${what}: ${t.tier} keeps its colour`);
     }

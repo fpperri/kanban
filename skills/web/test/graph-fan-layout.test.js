@@ -62,12 +62,10 @@ test('fan: each band is a stretch of radius that holds its dots, tier 1 first, w
   }
 });
 
-test('fan: a tier nobody is in keeps a thin band, and a ring is drawn through every row of dots', () => {
+test('fan: a tier nobody is in has no band and no ring, and a ring is drawn through every row of dots', () => {
   const l = fanOf(buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']));
-  assert.deepStrictEqual(l.bands.map((b) => b.count), [0, 1, 1]);
-  const [goal, epic] = l.bands;
-  assert.ok(goal.r1 - goal.r0 > 0 && goal.r1 - goal.r0 < epic.r1 - epic.r0, 'the empty band is thinner than one with a card in it');
-  assert.deepStrictEqual(l.rings.map((r) => r.label), ['goal', 'epic', 'depth 0']);
+  assert.deepStrictEqual(l.bands.map((b) => b.count), [1, 1]);
+  assert.deepStrictEqual(l.rings.map((r) => r.label), ['epic', 'depth 0']);
   assert.deepStrictEqual(l.rings.map((r) => r.r), l.bands.flatMap((b) => b.rings));
 });
 

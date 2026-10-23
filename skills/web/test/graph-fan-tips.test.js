@@ -50,9 +50,9 @@ test('tips: a status the board does not list counts under its first column, as i
   assert.deepStrictEqual(plan.captions[0].tip.lines, ['3 cards', 'backlog 1 · doing 1 · archived 1']);
 });
 
-test('tips: a tier nobody is in says 0 cards and has no split to show, and still names the term', () => {
+test('tips: a tier nobody is in has no caption, so no tip', () => {
   const plan = planOf(buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']));
-  assert.deepStrictEqual(plan.captions[0].tip, { lines: ['0 cards'], term: 'slice:goal' });
+  assert.deepStrictEqual(plan.captions.map((c) => c.tip.term), ['slice:epic', 'slice:0']);
 });
 
 test('tips: the count is the number of cards drawn on the band, whatever the caption says', () => {

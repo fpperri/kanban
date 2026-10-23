@@ -254,6 +254,8 @@ function standIn(over = {}) {
       }
       const dotted = /\.sort\(\(a,b\)=>a-b\)\)===("\[[\d,]*\]")$/.exec(expr);
       if (dotted) return JSON.stringify([...new Set(view().plan.nodes.map((n) => Number(n.id)))].sort((a, b) => a - b)) === JSON.parse(dotted[1]);
+      const banded = /^!!graphCur&&graphCur\.layout\.bands\.length===(\d+)$/.exec(expr);
+      if (banded) return view().layout.bands.length === Number(banded[1]);
       const counted = /^document\.querySelectorAll\('#graph-view \.graph-node'\)\.length===(\d+)$/.exec(expr);
       if (counted) return view().plan.nodes.length === Number(counted[1]);
       const ids = [...expr.matchAll(/data-id="(\d+)"/g)].map((m) => Number(m[1]));
@@ -269,6 +271,7 @@ function standIn(over = {}) {
         const edges = { tiers: bands.filter((b) => !!b.slice && b.slice.kind === 'tier').map((b) => b.r1), outer: bands.length ? bands[bands.length - 1].r1 : 0 };
         return over.edges ? over.edges(key, edges) : edges;
       }
+      if (expr === scenario.FIRST_BAND) { const bands = view().layout.bands; return bands.length ? bands[0].r0 : 0; }
       if (expr === scenario.USE_TABLE) { if (!over.ignoreTable) tables.add(key); return true; }
       if (expr === scenario.FAN_MARKS) return marksOf();
       if (expr === scenario.NO_COUNT) return over.countElements ? 1 : 0;
@@ -360,6 +363,9 @@ test('each check listed here is in the scenario', async () => {
   has(/plan: moving the pointer off a caption hides the tooltip/);
   has(/plan: keyboard focus on a caption shows the same tooltip, and moving focus off it hides the tooltip/);
   has(/plan: typing the term a tooltip names cuts the Graph to the cards of that band/);
+  has(/plan: a cut that keeps only the depths draws a ring, an arc and a caption for each depth and none for a tier/);
+  has(/plan: and the fan closes in, its dividers starting just inside the first ring and not where the tiers would have stood/);
+  has(/plan: clearing the cut brings the rings and names of the tiers back/);
   has(/plan: every loose card without a tier is in the block under the caption for its status/);
   has(/plan: and none of them is on a ring/);
   has(/plan: every live card is drawn, and no archived one/);
@@ -437,7 +443,7 @@ test('captions out of hierarchy order, a missing tier caption or a wrong count f
   assert.ok(failed(swapped).includes('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards'), failed(swapped).join('; '));
   const missing = await run({ marks: (key, m) => { if (key === 'plan') m.captions = m.captions.filter((c) => c.name !== 'objective'); return m; } });
   assert.ok(failed(missing).includes('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards'));
-  const wrong = await run({ marks: (key, m) => { if (key === 'plan') m.captions[3].count = 9; return m; } });
+  const wrong = await run({ marks: (key, m) => { if (key === 'plan' && m.captions[3]) m.captions[3].count = 9; return m; } });
   assert.ok(failed(wrong).includes('plan: each tier that has a card shows one caption with its name, in hierarchy order from the centre, and its tip counts the cards'));
 });
 
@@ -703,6 +709,22 @@ test('a term that does not cut the Graph to its band fails, and the box is empti
   assert.ok(fine.checks.some(([n, ok]) => ok && n === TERM));
 });
 
+const CUT = 'plan: a cut that keeps only the depths draws a ring, an arc and a caption for each depth and none for a tier';
+const CLOSED = 'plan: and the fan closes in, its dividers starting just inside the first ring and not where the tiers would have stood';
+
+test('a cut that still draws the tiers it leaves out, or a fan that does not close in on the cut, fails', async () => {
+  const fine = await run();
+  assert.ok(fine.checks.some(([n, ok]) => ok && n === CUT) && fine.checks.some(([n, ok]) => ok && n === CLOSED), failed(fine).join('; '));
+  const named = await run({ marks: (k, m) => (k === 'plan' && m.captions.length === 2 ? { ...m, captions: [{ ...m.captions[0], name: 'goal' }, ...m.captions] } : m) });
+  assert.ok(failed(named).includes(CUT), failed(named).join('; '));
+  const arcs = await run({ marks: (k, m) => (k === 'plan' && m.guides.length === 2 ? { ...m, guides: m.guides.concat(m.guides) } : m) });
+  assert.ok(failed(arcs).includes(CUT), failed(arcs).join('; '));
+  const same = await run({ edges: (k, e) => (k === 'plan' && e.tiers.length === 0 ? { ...e, outer: 1e6 } : e) });
+  assert.ok(failed(same).includes(CLOSED), failed(same).join('; '));
+  const spokes = await run({ marks: (k, m) => (k === 'plan' && m.captions.length === 2 ? { ...m, dividers: m.dividers.map((d) => [d[0] * 0.2, d[1] * 0.2, d[2], d[3]]) } : m) });
+  assert.ok(failed(spokes).includes(CLOSED), failed(spokes).join('; '));
+});
+
 // --- the scenario's own helpers --------------------------------------------------------------------------
 
 test('outsideStage names what lies outside the stage, with a pixel of slack', () => {
@@ -766,7 +788,7 @@ test('every scenario expression parses, so a typo does not wait for CI', () => {
     scenario.ARCHIVE_PILL, scenario.FIT, scenario.ZOOM_IN, scenario.FITTED, scenario.ZOOMED, scenario.FRAMES, scenario.layoutIs('flow'), scenario.pickLayout('tiers'),
     scenario.addLoose(scenario.CASES.plan.extraLoose), scenario.hasDot(19), DOT_SHAPES,
     scenario.NO_COUNT, scenario.BLUR, scenario.TIP, scenario.TIP_HIDDEN, scenario.EMPTY_POINT, scenario.captionCentre('goal'), scenario.focusCaption('Unnested, with a tier'),
-    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.writeBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26),
+    scenario.tipHas(['2 cards', 'backlog 1 · doing 1', 'slice:goal']), scenario.writeBox('slice:epic'), scenario.dotsAre([22, 3]), scenario.dotCountIs(26), scenario.FIRST_BAND, scenario.bandsAre(2), scenario.writeBox('slice:0..1'),
     scenario.USE_TABLE, scenario.TABLE_DRAWN, scenario.POLL, scenario.focusedCaption('epic')];
   for (const e of exprs) assert.doesNotThrow(() => new vm.Script(e), e.slice(0, 60));
 });

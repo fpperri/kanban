@@ -56,15 +56,15 @@ test('place: the bands run from tier 1 innermost to the last tier, then the dept
   assert.deepStrictEqual(place.bands.map((b) => b.count), [2, 2, 1, 1, 6, 1]);
 });
 
-test('place: a depth with no card without a tier gets no ring, and a tier nobody is in keeps a thin band', () => {
+test('place: a depth with no card without a tier gets no ring, and neither does a tier nobody is in', () => {
   const place = graphFanPlace(planModel(), { statuses: STATUSES });
   const names = bandNames(place);
   assert.ok(!names.includes('depth 2'), 'no card without a tier is two parents below a tier card');
   const loose = graphFanPlace(buildOf([card(1, { type: 'epic' }), card(2), card(3)], ['goal', 'epic']), { statuses: STATUSES });
-  assert.deepStrictEqual(bandNames(loose), ['goal', 'epic'], 'depth 0 holds only loose cards, which are in the Unnested block');
+  assert.deepStrictEqual(bandNames(loose), ['epic'], 'depth 0 holds only loose cards, which are in the Unnested block');
   const sparse = graphFanPlace(buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']), { statuses: STATUSES });
-  assert.deepStrictEqual(bandNames(sparse), ['goal', 'epic', 'depth 0']);
-  assert.deepStrictEqual(sparse.bands.map((b) => [b.count, b.subs]), [[0, 0], [1, 1], [1, 1]]);
+  assert.deepStrictEqual(bandNames(sparse), ['epic', 'depth 0']);
+  assert.deepStrictEqual(sparse.bands.map((b) => [b.count, b.subs]), [[1, 1], [1, 1]]);
 });
 
 test('place: a goal nested under an epic sits in the goal band, with no warning', () => {

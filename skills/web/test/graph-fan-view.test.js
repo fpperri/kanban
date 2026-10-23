@@ -68,7 +68,6 @@ test('the fan is stamped from the plan: an arc for each guide, a line for each d
     assert.strictEqual(g.attrs.d, v.plan.guides[i].d);
     assert.strictEqual(g.attrs['vector-effect'], 'non-scaling-stroke');
   });
-  assert.strictEqual(v.by('graph-guide-empty').length, v.plan.guides.filter((g) => g.cls.includes('graph-guide-empty')).length);
   const dividers = v.by('graph-divider');
   assert.strictEqual(dividers.length, v.plan.dividers.length);
   assert.ok(dividers.length >= 1);
@@ -145,7 +144,7 @@ test('app.css has a rule for each class the fan\'s marks use, drawn in tokens an
   for (const c of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-caption-name', 'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-tip']) {
     assert.ok(used.has(c), `${c} is stamped`);
   }
-  for (const c of ['graph-guide', 'graph-guide-empty', 'graph-guide-sub', 'graph-divider', 'graph-caption', 'graph-caption-muted', 'graph-caption-name',
+  for (const c of ['graph-guide', 'graph-guide-sub', 'graph-divider', 'graph-caption', 'graph-caption-name',
     'graph-loose-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-tip', 'graph-tip-line', 'graph-tip-term']) {
     assert.ok(new RegExp(`\\.${c}(?![\\w-])`).test(css), `${c} has a rule`);
   }

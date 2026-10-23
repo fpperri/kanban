@@ -88,31 +88,26 @@ test('drawing: a caption stands on the seam level with its band\'s first ring, a
   assert.strictEqual(plan.captions[0].dy, plan.captions[1].dy, 'each is centred on its ring');
 });
 
-test('drawing: a tier nobody is in keeps a faint guide arc and a muted caption with the count 0', () => {
+test('drawing: a tier nobody is in draws no guide arc and no caption', () => {
   const m = buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'epic']);
   const plan = planOf(m);
-  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.count, c.muted]), [['goal', 0, true], ['epic', 1, false], ['depth 0', 1, false]]);
-  assert.deepStrictEqual(plan.guides.map((g) => g.cls.includes('graph-guide-empty')), [true, false, false]);
+  assert.deepStrictEqual(plan.captions.map((c) => [c.name, c.count]), [['epic', 1], ['depth 0', 1]]);
+  assert.strictEqual(plan.guides.length, 2);
 });
 
-test('drawing: a muted caption that would run into a caption on its side of the seam is left out, and the arc stays', () => {
+test('drawing: a tall chain keeps one caption for every band that holds a card, a line apart on each side of the seam', () => {
   const chain = [card(1, { type: 'epic' })];
   for (let i = 2; i <= 15; i++) chain.push(card(i, { parent: i - 1 }));
   const m = buildOf(chain, ['goal', 'strategy', 'objective', 'epic']);
   const l = layoutOf(m);
   const plan = graphPlan(m, l, OPTS);
-  const names = plan.captions.map((c) => c.name);
-  assert.ok(names.includes('epic'), 'the tier with a card is always captioned');
+  assert.deepStrictEqual(plan.captions.map((c) => c.name), ['epic'].concat(Array.from({ length: 14 }, (_, i) => `depth ${i}`)));
+  assert.strictEqual(plan.guides.length, 1 + 14);
   assert.ok(l.textScale < 0.5, 'the fan is big, so a line of text is a long way in the world');
-  assert.ok(!names.includes('objective'), `the thin empty bands 20 apart cannot all be captioned: ${names.join(', ')}`);
-  assert.deepStrictEqual(names.slice(0, 2), ['goal', 'strategy'], 'the first of them is, on opposite sides');
-  assert.strictEqual(plan.guides.length, 3 + 1 + 14, 'but every band keeps its arc');
   for (const side of ['left', 'right']) {
     const column = plan.captions.filter((c) => c.side === side).sort((p, q) => p.y - q.y);
     for (let i = 0; i + 1 < column.length; i++) assert.ok(column[i + 1].y - column[i].y >= 14 / l.textScale - 1e-9, 'two captions on a side are a line apart');
   }
-  const small = planOf(buildOf([card(1, { type: 'epic' }), card(2, { parent: 1 })], ['goal', 'strategy', 'objective', 'epic']));
-  assert.deepStrictEqual(small.captions.map((c) => c.name), ['goal', 'strategy', 'objective', 'epic', 'depth 0'], 'a small fan has room for them all');
 });
 
 test('drawing: a board without a hierarchy captions the depth rings by depth, and no tier', () => {
