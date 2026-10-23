@@ -29,7 +29,7 @@
 // The switch writes `#1 | #2`; the first Esc closes the panel and leaves isolate
 // on, the second turns it off and the box holds `zephyr` again, lit. The i key, then Esc with focus
 // outside the box, does the same; the next Esc drops the addition. The switch clicked off gives
-// the text back. Tab reaches the switch from the last pill, and Enter and Space flip it. A double
+// the text back. Tab reaches the switch from the arrow, just right of the box, and Enter and Space flip it. A double
 // click on the switch leaves the selection. i typed in the box is a letter, and with a card menu
 // up it does nothing.
 //
@@ -313,7 +313,12 @@ module.exports = {
     await openPanel();
     await ev(`(()=>{const b=document.querySelectorAll('#search-pills button');b[b.length-1].focus()})()`);
     await key('Tab');
-    check('Tab from the last pill reaches the switch', (await focusId()) === 'isolate-switch', await focusId());
+    check('Tab from the last pill goes on to the fold control of the Typing isolates section, the switch being behind it in the bar', (await focusId()) === 'search-typing-fold', await focusId());
+    await key('Tab');
+    check('and then to the fold control of the On hover show section', (await focusId()) === 'search-hover-fold', await focusId());
+    await ev(`document.getElementById('search-panel-toggle').focus()`);
+    await key('Tab');
+    check('Tab from the arrow reaches the switch, just right of the box', (await focusId()) === 'isolate-switch', await focusId());
     await key('Enter');
     check('Enter on the switch turns isolate on', await switchIs(true) && await boxIs(pickedText), await boxText());
     await key(' ');

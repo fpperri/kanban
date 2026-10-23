@@ -251,3 +251,8 @@ test("both say a query typed by hand is never a pill, and a reload or a link car
     assert.match(text, /a pill shows off/, where);
   }
 });
+
+test('both give the Tab order: the box, the arrow, the Isolate switch, the panel\'s folds and pills section by section, and last the Typing isolates and On hover show folds', () => {
+  assert.match(docsPanel, /Tab goes along the bar and down the panel in the order they stand: the box, the arrow, the Isolate switch, then the fold controls and pills section by section, ending with the fold controls of the Typing isolates and On hover show sections \(a folded section's checkboxes are skipped\)/);
+  assert.match(skillPanel, /Tab follows the page order: the box, the arrow, the Isolate switch just right of the box, the panel's fold controls and pills section by section, and last the fold controls of the Typing isolates and On hover show sections/);
+});

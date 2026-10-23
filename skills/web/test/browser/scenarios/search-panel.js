@@ -397,8 +397,8 @@ module.exports = {
     await key(' ');
     check('Space on the toggle switches it on and opens the panel', await waitFor(panelOpen) && await waitFor(SWITCH_ON));
     const reached = [];
-    for (let i = 0; i < 5; i++) { await key('Tab'); reached.push(await focusId()); }
-    check('Tab goes on to the fold control of the slice section, the fold control of the pill section and the three built-in pills, in order', sameIds(reached, ['search-slices-fold', 'search-pills-fold', 'blocked', 'review', 'waiting']), reached);
+    for (let i = 0; i < 6; i++) { await key('Tab'); reached.push(await focusId()); }
+    check('Tab goes on from the arrow to the Isolate switch, the fold control of the slice section, the fold control of the pill section and the three built-in pills, in order', sameIds(reached, ['isolate-switch', 'search-slices-fold', 'search-pills-fold', 'blocked', 'review', 'waiting']), reached);
     await key('Enter');
     check('Enter on a pill acts as a click', await boxIs('waiting:') && await pickedIs(CASES.waiting), await boxText());
     check('the pill keeps focus after Enter', (await focusId()) === 'waiting', await focusId());

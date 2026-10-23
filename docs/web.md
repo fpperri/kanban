@@ -314,8 +314,9 @@ panel and does not flip the switch.
 A reload, or a link, carries the box's text and not the selection, so a cut and isolate come back
 but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
-it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
-as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
+it starts. Tab goes along the bar and down the panel in the order they stand: the box, the arrow, the Isolate switch, then the fold controls and pills
+section by section, ending with the fold controls of the Typing isolates and On hover show sections (a folded section's checkboxes are skipped);
+Enter and Space act as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
 arrow, and stays in the box when Esc was pressed there), and then empties the box and the selection, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
 the box, and with nothing selected empties it; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which

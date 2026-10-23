@@ -976,8 +976,9 @@ to `127.0.0.1` only.
   box's text and not the selection, so a cut and isolate come back but a pill shows off, with
   its query in the box as typed text. The pill section folds with its fold control for the visit, and the
   preferences sheet's **Pill section starts folded** (off by default) says how it starts.
-  The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
-  and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
+  The arrow, the Isolate switch, the fold controls and every pill are buttons, so Tab reaches them and Enter
+  and Space act as a click. Tab follows the page order: the box, the arrow, the Isolate switch just right of the box, the panel's fold controls and pills
+  section by section, and last the fold controls of the Typing isolates and On hover show sections (a folded section's checkboxes are skipped). **Esc** closes the suggestion list first, then the panel (focus
   goes back to the arrow, and stays in the box when Esc was pressed there), and only then
   empties the box and the selection, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
   so the box, focused again, opens the panel again. The box keeps its text
