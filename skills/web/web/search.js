@@ -655,16 +655,26 @@ function searchIsolateText(parts) {
   return (Array.isArray(parts) ? parts : []).map(searchIsolatePartText).filter(Boolean).join(' | ');
 }
 
+// The box as it reads once `text` is written to it: the run of slices the box held put back after
+// it (searchSplitSlice, searchJoinSlice), but for one copy of each cut that `dropped`, the queries of
+// pills the write takes off, held in their own text: a pill's cut goes with the pill, and a cut the
+// box held before, if it is the same cut, stays (searchWithoutCuts). Isolate, a click's mirror and a
+// pill's gesture all write the box this way, so the cut is kept in one place.
+function searchBoxSaying(current, text, dropped) {
+  const held = searchSplitSlice(current).slices;
+  const slices = searchWithoutCuts(held, (dropped || []).flatMap((query) => searchSplitSlice(query).slices));
+  return searchJoinSlice(text, slices);
+}
+
 // What the box holds while isolated: the isolate text, with the run of slices the box held
-// put back after it (searchSplitSlice, searchJoinSlice). The cut stays in effect, because
+// put back after it. The cut stays in effect, because
 // the selection only covers the cards the view shows and a card the cut hides is not in
 // it. The rest of the previous text goes; the page remembers it. No part to write, no text.
 // The rest needs no keeping: with isolate off the box hides nothing but by its cut, so the
 // selection already holds every card, path and tree it names whole.
 function searchIsolateBox(previous, parts) {
   const text = searchIsolateText(parts);
-  if (!text) return '';
-  return searchJoinSlice(text, searchSplitSlice(previous).slices);
+  return text ? searchBoxSaying(previous, text) : '';
 }
 
 // What the box holds when a click, or a step of Esc, has left the selection as `parts` and isolate is
@@ -676,11 +686,9 @@ function searchIsolateBox(previous, parts) {
 // it, one copy only, as when the pill is turned off (searchWithoutCuts). Nothing selected leaves the
 // cut alone.
 function searchMirrorBox(current, parts, dropped) {
-  const held = searchSplitSlice(current).slices;
-  const slices = searchWithoutCuts(held, (dropped || []).flatMap((query) => searchSplitSlice(query).slices));
   const shown = (Array.isArray(parts) ? parts : []).map((part) => (part && part.kind === 'query' ? { ...part, text: searchSplitSlice(part.text).rest } : part));
   const lone = shown.length === 1 && shown[0].kind === 'query';
-  return searchJoinSlice(lone ? String(shown[0].text).trim() : searchIsolateText(shown), slices);
+  return searchBoxSaying(current, lone ? String(shown[0].text).trim() : searchIsolateText(shown), dropped);
 }
 
 // Whether the box already says `parts` as searchMirrorBox would write them: the mirror of the
@@ -971,7 +979,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchWithTerms, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
-    searchIsolateText, searchIsolateBox, searchMirrorBox, searchBoxMirrors, searchBoxHoldsTyped, searchIsolateRestore,
+    searchIsolateText, searchBoxSaying, searchIsolateBox, searchMirrorBox, searchBoxMirrors, searchBoxHoldsTyped, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -994,6 +1002,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchSetSlice = searchSetSlice;
   window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;
+  window.searchBoxSaying = searchBoxSaying;
   window.searchIsolateBox = searchIsolateBox;
   window.searchMirrorBox = searchMirrorBox;
   window.searchBoxMirrors = searchBoxMirrors;

@@ -162,3 +162,26 @@ test('a write the person makes turns isolate on before the repaint, so every lis
   s.write('', 'clear');
   assert.deepStrictEqual(seen, [['tags:ui', 'typing', true], ['', 'clear', false]]);
 });
+
+test('a pill gesture writes with the reason pill when a pill came on and unpill when none did, Esc\'s step takes a pill out with unpill, and a click that selects a card writes mirror', async () => {
+  const s = await open();
+  const told = [];
+  s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
+  s.pillClick('review');
+  s.pillClick('blocked');
+  s.pillClick('blocked');
+  assert.deepStrictEqual(told, [['review:', 'pill'], ['review: | blocked:', 'pill'], ['review:', 'unpill']]);
+  told.length = 0;
+  s.page.run('stepSelectionBack()');
+  assert.deepStrictEqual(told, [['', 'mirror']], 'Esc takes the anchor pill, which was the box\'s whole text, out through the mirror');
+  s.pillClick('review');
+  s.pillClick('blocked');
+  s.type('review: | blocked: | zephyr');
+  told.length = 0;
+  s.page.run('stepSelectionBack()');
+  assert.deepStrictEqual(told, [['review: | zephyr', 'unpill']], 'a box that is more than the pills says: the added pill goes out of it and turns nothing on');
+  told.length = 0;
+  const target = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.card-el' ? { dataset: { id: '2' } } : null) : harmless(String(key))) });
+  s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: true, metaKey: false });
+  assert.deepStrictEqual(told, [['review: | #2', 'mirror']], 'a click that selects a card writes the selection with the mirror reason, the pill still in it');
+});
