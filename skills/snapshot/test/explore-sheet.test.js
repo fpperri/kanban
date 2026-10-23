@@ -78,7 +78,7 @@ test('the page\'s four sets match kanban-web\'s for every card of a board with a
   const cards = live.map((r) => asWeb(r, false)).concat(gone.map((r) => asWeb(r, true)));
   open(board('', live, gone), (page) => {
     for (const id of cards.map((c) => c.id).concat(['99', '15'])) {
-      for (const [name, fn] of [['hpathIds', web.hpathIds], ['htreeIds', web.htreeIds], ['dpathIds', web.dpathIds], ['dtreeIds', web.dtreeIds]]) {
+      for (const [name, fn] of [['hpathIds', web.hpathIds], ['htreeIds', web.htreeIds], ['dpathIds', web.dpathIds], ['dtreeIds', web.dtreeIds], ['dlinksIds', web.dlinksIds], ['hlinksIds', web.hlinksIds]]) {
         const onPage = JSON.parse(page.run(`JSON.stringify([...${name}(searchUniverse(), ${JSON.stringify(id)}, searchCtx)].sort())`));
         assert.deepStrictEqual(onPage, [...fn(cards, id, { board: 'order' })].sort(), `${name}(${id})`);
       }
