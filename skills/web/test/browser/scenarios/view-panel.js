@@ -78,8 +78,9 @@ module.exports = {
     check('the (i) shows the count and the key', await waitFor(`document.querySelector('#graph-view .graph-info').getBoundingClientRect().height>0`));
     await clickOn('#graph-view .graph-info-toggle');
     check('and hides them again', await waitFor(`document.querySelector('#graph-view .graph-info').getBoundingClientRect().height===0`));
-    const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
+    const graphOptions = await ev(`({buttons:document.querySelectorAll('#graph-view .view-panel .graph-options .graph-option-btn').length,hover:document.querySelectorAll('#graph-view .view-panel .graph-hover-options .graph-option-btn').length,toggles:document.querySelectorAll('#graph-view .view-panel .map-section-toggle').length})`);
     check('the Options section is always expanded: all its buttons are built, with no toggle', graphOptions.buttons === 15 && graphOptions.toggles === 0, graphOptions);
+    check('the On hover row sits beside the Options section in the panel, its six toggles built', graphOptions.hover === 6, graphOptions);
     check('the Hierarchy | Flow buttons, the zoom buttons and the Options section are in the panel', kindsIn.length === 2 && zoomIn.length === 3 && optionsIn.length === 1 && [...kindsIn, ...zoomIn, ...optionsIn].every(Boolean), { kindsIn, zoomIn, optionsIn });
     const staying = await ev(`['.graph-count','.graph-key'].map((s)=>{const e=document.querySelector('#graph-view '+s);return !!e&&!e.closest('.view-panel')})`);
     check('the card count and the key stay in the view', staying.every(Boolean), staying);

@@ -84,7 +84,7 @@ const DRAWN_LINES = `graphCur.lines.length===document.querySelectorAll('#graph-v
 
 const ROW_PRESENT = `!!document.querySelector('${ROW}')`;
 const ROW_ABSENT = `!document.querySelector('${ROW}')&&document.querySelectorAll('#graph-view .graph-node').length>0`;
-const ROW_SHOWN = `document.querySelectorAll('#graph-view .graph-option-btn').length>0`;
+const ROW_SHOWN = `document.querySelectorAll('#graph-view .graph-options:not(.graph-flow-options) .graph-option-btn').length>0`;
 const pressedIs = (key, val) => `(()=>{const b=document.querySelector('${optionButton(key, val)}');return !!b&&b.getAttribute('aria-pressed')==='true'})()`;
 // Whether a focused control holds the poll, and one poll tick as the timer makes it.
 const HOLDS_POLL = `boardControlFocused()`;
