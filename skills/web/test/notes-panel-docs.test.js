@@ -69,7 +69,7 @@ test('the Calendar section describes the notes strip and its divider', () => {
 
 test('the card menu is described as nested: its entries, its groups, its panels and its keys', () => {
   assert.match(bulk, /Peek, Add note… \(with its key, `n`, muted at the right\), Add child…, then \*\*Edit\*\*/);
-  assert.match(bulk, /\*\*Group\*\* \(Add to group…, Make a group from them…\) and \*\*Explore\*\* \(Isolate, Dependency tree, Dependency path\)/);
+  assert.match(bulk, /\*\*Group\*\* \(Add to group…, Make a group from them…\) and \*\*Explore\*\* \(Isolate, \*\*Path\*\* and \*\*Tree\*\*\)/);
   assert.match(bulk, /Archive, Restore and Delete, which is never in a group/);
   assert.match(bulk, /hover it for a moment or click it/);
   assert.match(bulk, /a panel with no room on the right opens on the left/);

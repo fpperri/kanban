@@ -395,13 +395,14 @@ blocked reason, type, the date triad, and a Markdown description.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,
-archive, restore, delete, isolate (inside the selection only), or add a dependency tree/path to
-the selection (on every card's menu, one part for each card when the menu is for several). A
+archive, restore, delete, isolate (inside the selection only), or add the path or the tree of
+the card you right-clicked to the selection, by its hierarchy or by its dependencies (on every
+card's menu, whatever the selection). A
 right-click on a card outside the selection opens the menu for that card alone,
 leading with Peek (open its details), and leaves your
 selection as it was. The menu reads Peek, Add note… (with its key, `n`, muted at the right),
 Add child…, then **Edit** (Assign…, Set priority…, Edit tags…, Schedule…), **Group** (Add to
-group…, Make a group from them…) and **Explore** (Isolate, Dependency tree, Dependency path), then
+group…, Make a group from them…) and **Explore** (Isolate, **Path** and **Tree**), then
 Scratchpad…, Todos… and Add to selection, and last Archive, Restore and Delete, which is never in a group.
 Each of the three is a row marked ▸ that opens its entries in a panel beside it: hover it for a
 moment or click it. A pointer on its way to the panel across the next row does not lose it, and a
@@ -413,6 +414,18 @@ row, and Esc closes the panel first and the menu second. On a phone the panel op
 row, inside the menu. A group whose entries are all out (Group with no `groups:` line) is out
 itself, and every entry shows when it always did. The same selection grammar works in every view, and
 right-clicking inside an open card opens the same menu for that card, without Peek.
+
+**Path** and **Tree** in Explore are rows of their own, a third level: each opens **Hierarchy** and
+**Dependency**, by hover, click, tap or the keys (Right or Enter opens one, Left or Esc closes that
+panel alone and returns to its row, one level back). The hierarchy path is the card's parents up to
+its root and every card nested under it, and the hierarchy tree the whole parent tree from its root
+down; both follow `parent` only. The dependency path is everything the card waits for and everything
+waiting on it, transitively, and the dependency tree its connected set; both follow `waiting_for`
+only. Each adds one part to the selection, for the card you right-clicked (the open card, in the
+card details' menu) and never for the whole selection, even when that card is inside it, so a
+right-click on a card in a lit path adds that card's set alone. In the search box the four are
+`hpath:<id>`, `htree:<id>`, `dpath:<id>` and `dtree:<id>` (the `#` is optional), and Isolate writes
+them as those terms; `tree:` and `path:`, which follow both relations, are as they were.
 
 **Add child…** in that menu (one live card only, in every view and in the card details' own
 menu) opens the New card form as **New card** does, headed "New card under #42", with Parent set

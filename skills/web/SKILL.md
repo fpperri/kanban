@@ -316,7 +316,9 @@ to `127.0.0.1` only.
   case-insensitive substring on its text; unlike the field scopes, a bare sticker scope
   is a complete term, never dropped;
   `tree:<id>`/`path:<id>` are dependency focus, `#` optional (`tree:74` = `tree:#74`) —
-  grammar in the Dependency map section; bare text is a substring on title OR body OR any
+  grammar in the Dependency map section; `hpath:<id>`/`htree:<id>`/`dpath:<id>`/`dtree:<id>`
+  (`#` optional) are the four sets Explore's Path and Tree add, each by one relation alone, the
+  hierarchy ones over `parent` and the dependency ones over `waiting_for` — see Multi-select; bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
   string) rather than silently matching nothing on a typo'd field name. Five more forms,
   one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
@@ -355,7 +357,7 @@ to `127.0.0.1` only.
   autocomplete dropdown completes the token under the caret, inside brackets, inside
   quotes and after a `|` — the bare term plus every field-scoped form of it; nothing is
   offered once the token carries a colon, except after `slice:` and after `..`, and
-  `tree:`/`path:` are excluded (they take a card id, not free text). After `slice:` and
+  `tree:`/`path:` and the four above are excluded (they take a card id, not free text). After `slice:` and
   after `..` the dropdown lists the board's slices, narrowed to the names that start with
   what is typed (any letter case): the tiers of the `hierarchy:` in hierarchy order, every
   one it names, then the depth numbers from 0 to the deepest card with no tier. Picking a row writes the whole
@@ -747,16 +749,24 @@ to `127.0.0.1` only.
   already handles the right-click itself, the browser's own menu shows instead. The card details
   keep the selection when they close, so a peek costs nothing. The menu — **Peek**, **Add note…**, **Add child…**, then the groups **Edit**
   (**Assign…**, **Set priority…**, **Edit tags…**, **Schedule…**), **Group** (**Add to group…**,
-  **Make a group from them…**) and **Explore** (**Isolate**, **Dependency tree**, **Dependency
-  path**), then **Scratchpad…**, **Todos…**, **Add to selection**, and Archive, Restore, Delete (never in a
+  **Make a group from them…**) and **Explore** (**Isolate**, **Path** and **Tree**), then **Scratchpad…**, **Todos…**, **Add to selection**, and Archive, Restore, Delete (never in a
   group) — acts on the menu's subject, the right-clicked card alone outside the selection and the resolved
   selection inside it, regardless of which view opened it. The subject is fixed when the menu
   opens, and a popup the menu opens acts on the cards it captured, never on the selection as it
-  is when Apply is pressed. **Dependency tree**/
-  **Dependency path** add the tree or path of each card in the menu's subject to the selection, one part per card (a selection of several cards adds one part for each, in the order they were picked): the cards they
-  reach among the cards the view shows are marked (lit in the Graph) and are bulk targets
+  is when Apply is pressed. **Path** and **Tree** are groups of their own inside Explore, a third
+  level (see The groups): each opens **Hierarchy** and **Dependency**, four entries (`ctx-hpath`,
+  `ctx-dpath`, `ctx-htree`, `ctx-dtree`) that add one part of the matching kind (`hpath`, `dpath`,
+  `htree`, `dtree`) to the selection for the card that was right-clicked, `menuSubject.clicked`
+  (the open card, in the card details' menu), and never for the whole subject, even when that card
+  is inside it. The hierarchy path is the card's parents up to its root and every card nested under
+  it, the hierarchy tree the whole parent tree from its root down (both over `parent` only); the
+  dependency path is everything it waits for and everything waiting on it, transitively, and the
+  dependency tree its connected set (both over `waiting_for` only). The cards a part
+  reaches among the cards the view shows are marked (lit in the Graph) and are bulk targets
   with the rest (the Gantt and the Calendar show only the cards with a range or a due date, so a
-  card with neither is no target there, and no pill counts it). They no longer write the search box, which is left as it was; a typed
+  card with neither is no target there, and no pill counts it). They do not write the search box, which is left as it was; each part is
+  its search term (`hpath:<id>`, `htree:<id>`, `dpath:<id>`, `dtree:<id>`, `#` optional), which resolves
+  it and which Isolate writes. A typed
   `tree:<id>`/`path:<id>` term still works. Archive and Delete keep their confirmation, which
   names the resolved count (Delete's is the delete popup, once for the whole selection). **Add child…** opens the New card form (`openModal(null, undefined, undefined, parentId)`) exactly
   as New card does, with Parent preset to the card and the heading "New card under #<id>"; it shows
@@ -777,7 +787,11 @@ to `127.0.0.1` only.
   it is drawn in the flow under its row, a second tap on the row shutting it. Up and Down move the
   highlight among the entries that show (wrapping), Right or Enter on a row open its panel and
   highlight its first entry, Left or Esc shut it and return to the row, Home and End go to the first and
-  last entry of the level; the menu takes the focus when it opens (`tabindex="-1"`,
+  last entry of the level; the keys work the same at the third level, where Right or Enter on Path or
+  Tree opens its panel and Left or Esc shut that panel alone and return to its row, one level back (a
+  `.ctx-sub` may sit in a `.ctx-sub-panel`: `menuNestSubs` are the menu's own groups, `menuNestAllSubs`
+  the nested ones too, and opening a group shuts the others of its level only); a tap opens a
+  third-level panel in place at phone width and a second tap shuts it, Explore staying open; the menu takes the focus when it opens (`tabindex="-1"`,
   `menuNestFocus`) and gives it back when it closes (`menuNestRelease`), and its keys are read in the
   capture phase only while focus is inside it, so they reach nothing behind it and nothing in a field
   outside it; Esc at the top level is the page's, which closes the menu. The group rows carry
@@ -785,8 +799,8 @@ to `127.0.0.1` only.
   alternative text, so they are not in an accessible name. **Add note…** shows its key as `data-hint="n"` drawn by the stylesheet, so the entry's text
   is its name; no other entry shows a key. The empty Graph or Map canvas's menu is still Isolate
   alone: its group's panel stands in the menu with no row (`canvas-menu`). The conditionally-hidden items: Peek and Add to selection show only
-  outside the selection (Peek is also left out of the card details' own menu), Dependency tree and
-  Dependency path show on every card's menu, whatever the subject, and Isolate shows only inside the selection and never
+  outside the selection (Peek is also left out of the card details' own menu), Path and Tree
+  show on every card's menu, whatever the subject, and Isolate shows only inside the selection and never
   in the card details' own menu; the others always render (mixed-selection handling
   lives inside each click handler). A right-click on the **empty Graph or Map canvas** (the
   Graph's or the Map's canvas, where no card, Graph dot, Map node, link or control is) opens the
@@ -1013,7 +1027,8 @@ to `127.0.0.1` only.
   Cmd, Alt), Shift or a held key is not it. A click on the switch never clears a selection.
   Turning isolate on writes the selection into the search box as `part | part | ...`, each part
   by its criterion rather than as a frozen list of cards, so a card that comes to match a query
-  part joins on the next poll: a card is `#12`, a path `path:40`, a tree `tree:40`, and a query
+  part joins on the next poll: a card is `#12`, a path `path:40`, a tree `tree:40` (and the four Explore
+  sets `hpath:40`, `htree:40`, `dpath:40` and `dtree:40`), and a query
   is its own text, in brackets when it holds `|` or spaces (`(tags:ui status:doing)`). A card,
   the path through card 40 and the `grill` tag make `#12 | path:40 | tags:grill`; a query part
   with a card taken out of it is already its other cards (see Multi-select), so it is written as
@@ -1869,7 +1884,7 @@ to `127.0.0.1` only.
   The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,
   so a poll's redraw gives them focus back. Every control keeps its class, label, title, data attributes and hotkey
   (the `l` key still steps the Graph's names with the panel closed).
-  **Dependency tree / Dependency path** — a second way to populate the map's visible
+  **Dependency focus** — a second way to populate the map's visible
   set, alongside typed search and the status pills: the `tree:<id>` and `path:<id>`
   search terms, resolved over dependency-graph.js's dependency edge set (`waiting_for`
   + `parent:` relation, with sequencing-wins-the-pair/terminal-only suppression
@@ -1884,8 +1899,9 @@ to `127.0.0.1` only.
   error), and a card with no edges resolves to a component/cone of one — itself.
   Focusing hides everything outside the result and re-lays-out, exactly like a typed
   search — a cone edge exiting the focused set renders as the existing ghost stub, no
-  new rendering path. The right-click menu adds a card's tree or path to the selection
-  instead of writing a term — see Multi-select.
+  new rendering path. The right-click menu does not offer these two: its Path and Tree add the
+  narrower `hpath:`, `htree:`, `dpath:` and `dtree:` sets to the selection instead of writing a
+  term — see Multi-select.
   Mirrored in the snapshot (same search terms + card-sheet tap actions) — see
   GLOSSARY.md's parity table.
   **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
