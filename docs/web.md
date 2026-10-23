@@ -56,8 +56,8 @@ that column. Outline puts a parent before its children and siblings in `rank`
 order; it is the default sort on a board where any card has a `rank` or a
 `parent`, except in the Archive column, which keeps id order. In an Outline column, dragging a card between two siblings writes its `rank`:
 one card when there is room between the neighbours, that parent's children renumbered
-in tens when there is not. The search box up top filters every view at once, except the
-Graph, which lights its matches and hides nothing but a `slice:` cut. Enter in the search box
+in tens when there is not. The search box up top hides what it does not match only while Isolate is on, and otherwise lights
+its matches and hides nothing but a `slice:` cut; typing turns Isolate on in every view but the Graph. Enter in the search box
 goes to the first match, and a second Enter opens it when it is the only one.
 
 A card with children shows `▲n` (how many layers sit below it) and a status bar
@@ -241,8 +241,11 @@ Open it directly with `?view=graph`.
 
 ## More on the board
 
-**Search** — the box in the header filters every view as you type, except the Graph, where
-it lights its matches. Terms separated by
+**Search** — the box in the header says what to look for, and Isolate says whether the rest hides:
+with Isolate on the box hides what it does not match, and with it off the box lights its matches.
+Typing, a pill, a tag or assignee cue and a link with a search turn Isolate on in a view whose
+**Typing isolates** is on, which is every view but the Graph to start, so a search narrows the Board
+as ever and lights in the Graph. Terms separated by
 spaces AND together (`tags:ui status:doing`), and five forms go further, one example each:
 
 - `|` is or, and a space binds tighter: `tags:ui status:doing | #12` is ui and doing, or card 12.
@@ -355,11 +358,9 @@ it, except while you type in a field or a menu, a dialog, the notifications pane
 preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
 selection into the search box as `part | part | ...`, each part by what it names, such as
 `#12 | path:40 | tags:grill` for a card, the path through card 40 and the `grill` tag, so a card
-that comes to match joins on the next refresh. The text the box held is kept, and where it was
-hiding cards a picked path or card would bring back, it stays beside them in the box
-(`path:40 tags:ui`), so those cards stay hidden. The Board, Map,
-Gantt and Calendar show only the matches, and so does the Graph, where a typed search only
-lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
+that comes to match joins on the next refresh. The text the box held is given back when you turn it off, and a `slice:` cut in it stays. The Board, Map,
+Gantt and Calendar hide what the box does not match, and so does the Graph, where a search typed with
+Isolate off only lights; the Calendar and the Gantt jump to the nearest match when none is on screen. While it is
 on, a click on a card moves the anchor and leaves the box and the shown cards as they are, and a
 click or a double click on empty space clears nothing. With the panel closed, the chip says
 *isolated*. Turn it off with the switch, `i` or Esc and the box gets its text back. Esc steps
@@ -380,6 +381,16 @@ in another browser, opens isolated: the Graph and every other view show only the
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
 the parameter and no query opens with isolate off, and the address drops the parameter.
+
+**Typing isolates** — the foot of the search panel holds a **Typing isolates** checkbox for each view:
+Board, Calendar, Gantt, Map and Graph. Where it is on, typing in the box, a pill, a tag or assignee cue
+on a card and a `?q=` link turn Isolate on by themselves, so the view hides what the box does not match.
+It is on in every view but the Graph, which lights what is typed and hides nothing. Where it is off, the
+box lights its matches with the look of a selected card, hides nothing, and selects nothing; the switch or
+`i` still isolates the query as it stands. The choice is kept in your browser, per board. Isolate turned on
+this way gives back the box's text as it stands when you turn it off, so the query stays in the box, lit,
+and the next Esc clears it; going to a view where the checkbox is off does the same. A `slice:` cut hides
+in every view whatever Isolate is.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
 `notifications.md`: a bolded TLDR, a level tint (debug / info / warning /
@@ -429,8 +440,8 @@ right-click on a card in a lit path searches that card's set alone. The terms ar
 a plain pick replaces what the box held but for its `slice:` run, so the Graph lights the set and
 the other views show only it; Shift (a Shift-click, or Shift+Enter on the focused item) adds the
 term to what the box holds as one more alternative, `htree:40 | dpath:185`, and each item's tooltip
-ends "Shift: add to the search". Isolate stays as it was: off stays off, so press it to keep the set, and with isolate already on the term
-becomes the isolate text, as typing into the box would make it. `tree:` and
+ends "Shift: add to the search". Isolate follows the Typing isolates of the view, as typing into the box does: where it is on, a pick turns
+Isolate on and the term is its text, and where it is off the set is lit. `tree:` and
 `path:`, which follow both relations, are as they were.
 
 **Add child…** in that menu (one live card only, in every view and in the card details' own

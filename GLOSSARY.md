@@ -285,6 +285,10 @@ _Avoid_: pill (alone), filter chip.
 Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion, so the address carries it.
 _Avoid_: solo (a view's status pills), focus, filter.
 
+**Typing isolates**:
+A per-view choice, kept per board, whether a query the person makes (typing, a pill, a cue on a card, a `?q=` link) turns Isolate on; on in every view but the Graph, so the box hides what it does not match there and lights its matches in the Graph.
+_Avoid_: filter mode, search mode.
+
 **Peek**:
 Opening a card's details without changing the selection.
 _Avoid_: preview, open (a plain open may replace the selection).
