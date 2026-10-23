@@ -267,7 +267,7 @@ module.exports = {
     check('a keystroke typed at the end of the box keeps the text\'s leading #', await boxIs(`#${CASES.dated.card}x`), await boxText());
 
     // --- the box's text, and Esc ------------------------------------------------------------------------------------
-    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
+    await ev(`localStorage.setItem('kanban.plan.typing.isolates', JSON.stringify({board:false}))`);
     check('the Board draws the plan board for the Esc steps', await goto('/?view=board', boardReady));
     const liveBoard = JSON.parse(await nowShown(SELECTORS.board));
     for (const id of CASES.zephyr.picked) await clickTile(id, { modifiers: 2 });

@@ -1024,17 +1024,6 @@ function countArchivedLeaves() {
   return loadPrefsState().archivedDone;
 }
 
-// Whether a query typed into the box turns isolate on in a view: the panel's Typing isolates
-// checkboxes (prefs.js typingIsolates), on in every view but the Graph.
-function typingIsolatesIn(view) {
-  return loadPrefsState().typingIsolates[view] === true;
-}
-
-function setTypingIsolates(view, on) {
-  prefsMemo = prefsWith(loadPrefsState(), { typingIsolates: { [view]: on } });
-  savePrefsState();
-}
-
 function setClickPref(view, value) {
   prefsMemo = prefsWith(loadPrefsState(), { click: { [view]: value } });
   savePrefsState();
@@ -1171,14 +1160,21 @@ function setView(mode) {
   if (to === from) return;
   viewMode = to;
   saveViewMode();
-  isolateEndFollowing(to, typingIsolatesIn(to)); // an isolate the box's own query started ends in a view that lights what is typed
-  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, which is never the anchor
-  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
+  isolateEndFollowing(typingIsolatesIn(to)); // an isolate the box's own query started ends where the view lights what is typed
+  const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, never the anchor
+  const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a Graph search is no anchor elsewhere
   const before = selectionState.selection;
   if (kept !== before) setSelection(kept);
-  if (kept !== before && partsOf(kept).length && boxMirrorsSelection()) mirrorSelectionInBox(before); // what is picked leaves the Graph with the box saying so; a typed search left alone goes on filtering
-  else renderBoard();
-  followSearchInAddress($('#search-input').value); // the address says isolate=0 outside the Graph and nothing in it
+  const picked = partsOf(kept).some((part) => part.kind !== 'query'); // cards, paths and trees: the box says them in every view
+  const unsaid = !searchBoxMirrors($('#search-input').value, partsOf(kept));
+  const mirrors = boxMirrorsSelection() && partsOf(kept).length && unsaid && (kept !== before || picked);
+  if (mirrors) {
+    mirrorSelectionInBox(before); // what is picked goes with the person to the next view, the box saying so
+  } else {
+    isolateStartFollowing(typingIsolatesIn(to)); // a typed query isolates where this view's Typing isolates is on
+    renderBoard();
+  }
+  followSearchInAddress($('#search-input').value); // isolate=0 where this view's Typing isolates is on, nothing elsewhere
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
@@ -2167,6 +2163,7 @@ function applyProjectName(name) {
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
     prefsMemo = null; // the preferences entry too
+    typingIsolatesMemo = null; // typing.isolates too
     iterationUi.choice = undefined; // the iteration pick too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too
@@ -2621,7 +2618,8 @@ function consumeDeepLink() {
     // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
     // and the listeners told of it (the address, the chip) see it on.
     if (link.isolate) isolateFromLink(link.q);
-    writeSearch(link.q, link.isolateOff ? 'link-lit' : 'link'); // isolate=0 opens it lit; no parameter is an old link, isolated where the view isolates
+    // isolate=0 opens it lit; no parameter is an old link, isolated where the view isolates.
+    writeSearch(link.q, linkWriteReason(link.isolateOff));
   } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
@@ -3537,13 +3535,11 @@ window.addEventListener('DOMContentLoaded', () => {
 // The one writer of the box: typing, the clear button, a cue click, a pill, a click or a key
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
-// on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'link-lit', 'prefill', 'selection', 'mirror' (a click
-// that selects writes the selection as its own text) and 'hover' (Space on a hovered card writes its sets as
-// typing writes, but never turns isolate on: neither is among ISOLATING_REASONS, selection.js). A write that carries a
-// query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
-// Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping, isolate.js). It sets the
-// box, repaints the board, then tells each listener (text, reason). Code that
+// on empty space) all come through writeSearch(text, reason). What each reason means, and every rule
+// that reads one, is in selection.js ("Why the box was written": ISOLATING_REASONS, writeKeepsSelection,
+// writeEditsPills, writeSkipsJump, ...). A write that carries a query the person made turns isolate on
+// first where the view's Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping,
+// isolate.js). It sets the box, repaints the board, then tells each listener (text, reason). Code that
 // must react to a write registers with onSearchWrite rather than editing a
 // writer. The poll repaints without writing the box, so it tells no one. A write
 // whose caller paints in place passes repaint false (a click in the Graph that
@@ -3558,7 +3554,10 @@ function onSearchWrite(listener) {
 function writeSearch(text, reason, repaint = true) {
   const input = $('#search-input');
   if (!input) return;
-  if (typingTurnsIsolateOn({ reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()) })) isolateFromTyping(text); // before the repaint, so it and every listener see isolate on
+  const turnsOn = typingTurnsIsolateOn({
+    reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()),
+  });
+  if (turnsOn) isolateFromTyping(text); // before the repaint, so it and every listener see isolate on
   isolateEndIfEmptied(text, reason); // and off, when the write leaves the box with no query
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret
   if (repaint) {
@@ -3590,7 +3589,7 @@ function clearSearch() {
 // isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text, isolateNow() !== null, loadViewMode() !== 'graph');
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null, typingIsolatesIn(loadViewMode()));
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);
@@ -3646,18 +3645,18 @@ function mirrorSelectionInBox(from, repaint = true) {
 function selectionFollowingBox(selection) {
   const reason = pendingWriteReason;
   pendingWriteReason = null;
-  if (!reason || reason === 'pill' || reason === 'unpill' || reason === 'isolate' || reason === 'mirror') return selection;
+  if (writeKeepsSelection(reason)) return selection;
   const text = $('#search-input').value;
   const isolated = isolateNow() !== null;
-  if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
+  if (writeIsCut(reason)) return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
   const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
-  if (reason !== 'typing' && reason !== 'clear' && reason !== 'hover') return followed;
+  if (!writeEditsPills(reason)) return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
 
 // What Esc does when nothing is open for it to close, and the one place the end
 // of the Esc chain lives. The key guard (key-guard.js) says which: with focus in
-// the search box Esc clears the box and leaves the selection; with nothing open
+// the search box Esc ends where repeated Esc does (clearBoxAndSelection); with nothing open
 // and nobody typing it steps the selection back, and once nothing is picked clears the box;
 // anywhere else (another text field, a select, an open surface) it does nothing. While
 // isolated the box holds the isolate text, and Esc in it gives back the text it held
@@ -3667,8 +3666,19 @@ function escapeStep(e) {
   const action = keyGuardEscape(document, $('#search-input'));
   if (action === 'clear-box') {
     if (isolateTurnOff()) e.preventDefault();
-    else clearSearch();
+    else clearBoxAndSelection();
   } else if (action === 'step') stepSelectionBack();
+}
+
+// Esc with focus in the box, isolate off: the end of repeated Esc in one step, an empty box with the
+// run of slices gone and nothing selected, so the next click starts from a clean page and the card Esc
+// let go of does not come back beside it. The selection goes first, so the one repaint of the clear
+// finds nothing to follow.
+function clearBoxAndSelection() {
+  const picked = partsOf(selectionState.selection).length > 0;
+  if (picked) setSelection(NO_SELECTION, null);
+  if ($('#search-input').value) clearSearch();
+  else if (picked) renderBoard();
 }
 
 // One stage back, as selectionAfterEscape (selection.js) works it out: isolate goes off
@@ -5330,7 +5340,8 @@ function moveViewToNearestMatch() {
   else if (mode === 'gantt' && jumpGanttToMatch()) renderGanttView();
 }
 
-onSearchWrite((text, reason) => { if (reason !== 'mirror') moveViewToNearestMatch(); }); // a click on a card moves the box, never the page the view is on
+// A click on a card moves the box, never the page the view is on.
+onSearchWrite((text, reason) => { if (!writeSkipsJump(reason)) moveViewToNearestMatch(); });
 
 const GANTT_SUBVIEW_LABELS = { all: 'All', month: 'Month', week: 'Week', '3day': '3 days', day: 'Day' };
 

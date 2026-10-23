@@ -56,7 +56,7 @@ test('the multi-select section says Esc steps the selection back one stage at a 
 test('the multi-select section says where the Esc step runs: with nothing open and nobody typing, and how it differs in the search box', () => {
   const text = bullet('- **Multi-select**');
   assert.match(text, /only while nothing is open and nobody is typing/);
-  assert.match(text, /with focus in the search box Esc clears the box and leaves the selection/);
+  assert.match(text, /with focus in the search box Esc ends where repeated Esc does: it empties the box, the run of `slice:` included, and leaves nothing selected/);
   assert.match(text, /away from the box Esc steps the selection back and, once nothing is picked, clears the box as well, the run of `slice:` included, so repeated Esc ends on an empty box/);
   assert.doesNotMatch(text, /away from the box Esc no longer clears it/, 'the old promise is false now');
 });

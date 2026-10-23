@@ -99,11 +99,7 @@ test('the Graph\'s one decision about a query is told whether isolate is on', ()
   assert.match(appSrc.match(/function currentGraphQueryEffect\([\s\S]*?\n\}/)[0], /\{ isolated: isolateNow\(\) !== null \}/);
 });
 
-test('a write with the reason isolate leaves the selection as it is, and so does any write while a typed search could take it over', () => {
-  const body = appSrc.match(/function selectionFollowingBox\([\s\S]*?\n\}/)[0];
-  assert.match(body, /reason === 'isolate'/);
-  assert.match(body, /!isolated/, 'the isolate text never becomes the typed anchor');
-});
+// A write with the reason isolate leaves the selection as it is, in the Graph too: write-reasons.test.js.
 
 test('Esc stops the browser\'s own Esc with isolate on, in the step that ends the chain after the held-key check, and the step reads the flag', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
@@ -115,11 +111,9 @@ test('Esc stops the browser\'s own Esc with isolate on, in the step that ends th
   assert.doesNotMatch(isolateSrc, /isolateEscapeKeepsBox/, 'the second reading of the key guard is gone');
 });
 
-test('a click on empty space and a click on a Graph card leave what isolate wrote', () => {
+test('a click on empty space leaves what isolate wrote, and a click on a card writes nothing while isolate is on', () => {
   assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /if \(isolateNow\(\)\) return;/);
-  const click = graphViewSrc.match(/function graphClickNode\([\s\S]*?\n\}/)[0];
-  assert.match(click, /if \(boxMirrorsSelection\(\)\) mirrorSelectionInBox\(before, false\);/);
-  assert.doesNotMatch(click, /writeSearch/, 'while isolated the click writes nothing: the only write is the mirror, which is off while isolate is on');
+  // A click on a Graph card or a Board card while isolated writes nothing: box-mirror-wiring.test.js runs it in the page.
 });
 
 test('the keystroke handler leaves the isolate text\'s leading # alone, and nothing else reads the strip', () => {
@@ -181,25 +175,22 @@ test('each checkbox is a checkbox that never clears a selection, holds no poll, 
   assert.notStrictEqual(attr(typing.match(/<div[^>]*>/)[0], 'data-keeps-selection'), null);
 });
 
-test('the script wires the group once, reads and writes the choice through the page\'s preferences, and the stylesheet draws it', () => {
-  assert.match(isolateSrc, /\$\('#search-typing'\)\.addEventListener\('change', onTypingIsolatesChange\)/);
-  assert.match(code(isolateSrc), /setTypingIsolates\(box\.dataset\.typingView, box\.checked\)/);
+test('the boxes show the choice on every repaint, and the stylesheet draws the group', () => {
+  // A change of a box sets the choice of its view: isolate.test.js fires it in the page.
   assert.match(code(isolateSrc), /typingIsolatesIn\(box\.dataset\.typingView\)/);
-  assert.match(appSrc, /function typingIsolatesIn\(view\) \{\s*return loadPrefsState\(\)\.typingIsolates\[view\] === true;/);
-  assert.match(appSrc, /prefsWith\(loadPrefsState\(\), \{ typingIsolates: \{ \[view\]: on \} \}\)/);
   assert.match(css, /\.search-typing \{/);
   assert.match(read('search-panel.js'), /syncTypingIsolates\(\);/, 'every repaint of the board keeps the boxes right');
 });
 
-test('the writer asks the pure decision, and the view switch ends an isolate the box started', () => {
-  assert.match(appSrc, /typingTurnsIsolateOn\(\{ reason, text: searchSplitSlice\(String\(text\)\)\.rest, isolated: isolateNow\(\) !== null, setting: typingIsolatesIn\(loadViewMode\(\)\) \}\)\) isolateFromTyping\(text\)/);
-  assert.match(appSrc, /isolateEndIfEmptied\(text, reason\);/);
-  assert.match(appSrc.match(/function setView\([\s\S]*?\n\}/)[0], /isolateEndFollowing\(to, typingIsolatesIn\(to\)\)/);
-});
+// The writer turns isolate on before the repaint and a view switch ends and starts the isolate the box's own query
+// made: write-reasons.test.js and isolate.test.js.
 
-test('every view paints a lit card with the selected look through one predicate, and the Graph keeps its own', () => {
+// Every surface paints a lit card with the selected look through paintsSelected: box-lit-paint.test.js draws the
+// Board's tiles, a Calendar chip and a Gantt bar in the page, map-render-svg.test.js the Map's node and
+// graph-flow-view.test.js the Flow's lane headers. The Gantt's label and the Graph's dots have no seam to draw
+// them from, so this keeps the one source check: no surface paints the look from the selection alone.
+test('no surface paints the selected look from the selection alone', () => {
   assert.match(appSrc, /function paintsSelected\(id\) \{\s*return selectedIds\.has\(id\) \|\| \(boxLitIds !== null && boxLitIds\.has\(id\)\);/);
-  assert.strictEqual((appSrc.match(/paintsSelected\(/g) || []).length, 7, 'its definition, the Board tile, the archived tile, the Map node, the Calendar chip, and the Gantt bar and its label');
-  assert.doesNotMatch(appSrc.replace(/function paintsSelected[\s\S]*?\n\}/, ''), /selectedIds\.has\([a-z.]*\) \? ' selected'/, 'no view paints the selected look from the selection alone');
-  assert.doesNotMatch(graphViewSrc, /paintsSelected|boxLitIds/, 'the Graph lights through graphQueryEffect');
+  assert.doesNotMatch(appSrc.replace(/function paintsSelected[\s\S]*?\n\}/, ''), /selectedIds\.has\([a-z.]*\) \? ' selected'/);
+  assert.doesNotMatch(graphViewSrc, /selectedIds\.has\([a-z.]*\) \? ' selected'/);
 });

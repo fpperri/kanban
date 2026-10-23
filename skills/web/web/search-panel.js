@@ -50,7 +50,7 @@
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
 // searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
-// page globals of selection.js (selectionAfterPill, pillQueriesDropped), pills.js, isolate.js
+// page globals of selection.js (selectionAfterPill, pillQueriesDropped, pillQueriesAdded), pills.js, isolate.js
 // (isolateNow, syncIsolateSwitch, syncTypingIsolates), hover-show-ui.js (syncHoverShowPanel), search-slices.js (renderSearchSlices,
 // searchSlicesChipNames), the search module (searchOtherBoardMentions, searchTermText and the alternatives and slice
 // functions: searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchAddAlt,
@@ -396,19 +396,16 @@ const foldSearchPills = pillsFold.set;
 function applyPillGesture(gesture, key) {
   const pill = searchPanelEntries().find((p) => p.key === key);
   if (!pill) return;
-  const { rest, slices: held } = searchSplitSlice($('#search-input').value);
+  const box = $('#search-input').value;
   const before = selectionState.selection;
   const next = selectionAfterPill(gesture, pill.query, {
     selection: before,
-    boxText: rest,
+    boxText: searchSplitSlice(box).rest,
     alts: { add: searchAddAlt, remove: searchRemoveGrownAlt },
   });
-  const cut = pillQueriesDropped(before, next.selection).flatMap((query) => searchSplitSlice(query).slices);
-  const slices = searchWithoutCuts(held, cut);
   setSelection(next.selection, next.rangeStart);
-  const pillQueries = (selection) => partsOf(selection).filter((part) => part.kind === 'query' && !part.source).map((part) => part.text);
-  const turnedOn = pillQueries(next.selection).some((query) => !pillQueries(before).includes(query));
-  writeSearch(searchJoinSlice(next.boxText, slices), turnedOn ? 'pill' : 'unpill'); // turning a pill off leaves isolate as it was
+  const text = searchBoxSaying(box, next.boxText, pillQueriesDropped(before, next.selection));
+  writeSearch(text, pillQueriesAdded(before, next.selection).length ? 'pill' : 'unpill'); // turning a pill off leaves isolate as it was
 }
 
 // The m key: one step through the pills, forward (1) or back (-1). The step is a solo, as a

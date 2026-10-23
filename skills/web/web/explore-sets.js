@@ -1,9 +1,8 @@
 'use strict';
-// The four sets Explore writes into the search box for one card, each by one relation alone (the tree: and path: terms
-// walk both at once, over the edges the map is built from; dependency-graph.js), and the two links sets beside them.
-// Pure, no DOM, the
-// dual-environment pattern of search.js: loaded as a plain <script> in the browser and embedded in
-// the snapshot, and required directly by node --test.
+// The four sets Explore writes into the search box for one card, each by one relation alone (the tree: and
+// path: terms walk both at once, over the edges the map is built from; dependency-graph.js), and the two
+// links sets beside them. Pure, no DOM, the dual-environment pattern of search.js: loaded as a plain
+// <script> in the browser and embedded in the snapshot, and required directly by node --test.
 //
 // - hpathIds: the card, its parents up to the root, and every card nested under it.
 // - htreeIds: the whole parent tree from the card's root down.

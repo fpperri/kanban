@@ -3,7 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { prefsDefaults, PREFS_TYPING_VIEWS } = require('../web/prefs');
+const { typingIsolatesDefaults } = require('../web/typing-isolates');
+const { VIEW_MODES } = require('../web/calendar-model');
 const { ISOLATING_REASONS } = require('../web/selection');
 
 // The web skill, the web docs and the glossary say that outside the Graph the search box hides what
@@ -47,11 +48,12 @@ test('the skill and the docs say which writes turn isolate on, and the views it 
 });
 
 test('both describe the checkboxes: one for each view in the panel\'s foot, kept per board, on in every view but the Graph', () => {
-  assert.deepStrictEqual(PREFS_TYPING_VIEWS, ['board', 'map', 'calendar', 'gantt', 'graph']);
-  const defaults = prefsDefaults().typingIsolates;
+  assert.deepStrictEqual(Object.keys(typingIsolatesDefaults()), VIEW_MODES, 'one flag for each view the page has');
+  const defaults = typingIsolatesDefaults();
   assert.deepStrictEqual(Object.keys(defaults).filter((view) => !defaults[view]), ['graph'], 'the Graph alone starts unticked');
   assert.match(skillTyping, /one checkbox for each view \(`#search-typing`, an input with `data-typing-view` for Board, Calendar, Gantt, Map and Graph\)/);
-  assert.match(skillTyping, /kept per board in the browser's preferences \(`typingIsolates`, `prefs\.js`\)/);
+  assert.match(skillTyping, /kept per board in the browser under a key of their own, `typing\.isolates`, as \*\*On hover show\*\* keeps `hover\.show` \(`typing-isolates\.js`, the views listed by `VIEW_MODES`\)/);
+  assert.doesNotMatch(skillTyping, /`typingIsolates`|`prefs\.js`/, 'the choice is no longer in the preferences entry');
   assert.match(skillTyping, /ticked in every view but the Graph, so typing narrows the Board and lights in the Graph as it always did/);
   assert.match(docsTyping, /a \*\*Typing isolates\*\* checkbox for each view: Board, Calendar, Gantt, Map and Graph/);
   assert.match(docsTyping, /on in every view but the Graph/);
@@ -70,6 +72,11 @@ test('both say what turning such an isolate off gives back, and that a view with
   assert.match(skillTyping, /going to a view whose checkbox is unticked ends such an isolate the same way/);
   assert.match(docsTyping, /gives back the box's text as it stands when you turn it off, so the query stays in the box, lit, and the next Esc clears it/);
   assert.match(docsTyping, /going to a view where the checkbox is off does the same/);
+});
+
+test('both say a view with the checkbox on starts the isolate again on a switch, and that one the switch or i turned on stays', () => {
+  assert.match(skillTyping, /coming back to a view whose checkbox is ticked starts it again while the box holds a query of the person's \(`isolateStartFollowing`; the picks a click mirrored into the box are no query, `searchBoxHoldsTyped`\), so a view's setting decides on every switch, while an isolate the switch or `i` turned on stays/);
+  assert.match(docsTyping, /coming back to a view where it is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch or `i` stays through the switches/);
 });
 
 test('the skill says a pill taken out turns nothing on, that the address carries the isolate parameter, and what the match holds', () => {
@@ -100,16 +107,18 @@ test('a deep link\'s query is isolated where the view isolates what is typed, an
   assert.match(flat(skill), /`2 on: review, isolated` where the pill turned isolate on/);
 });
 
-test('both say the address carries isolate=0 outside the Graph while the box lights its query, and what each kind of link opens', () => {
+test('both say the address carries isolate=0 in a view whose Typing isolates is on while the box lights its query, and what each kind of link opens', () => {
   const skillAddress = flat(skill.slice(skill.indexOf('**The address follows the box.**'), skill.indexOf('The address replaces')));
-  assert.match(skillAddress, /Outside the Graph, with the box holding a query and isolate off, `isolate=0` stands there instead, so a reload reopens the same picture/);
+  assert.match(skillAddress, /In a view whose Typing isolates is ticked, with the box holding a query and isolate off, `isolate=0` stands there instead, so a reload reopens the same picture/);
   assert.match(skillAddress, /a link with `q` and `isolate=0` opens with isolate off \(`parseDeepLink` reports `isolateOff`, and the page writes the box with the reason `link-lit`\)/);
   assert.match(skillAddress, /a link with `q` and no isolate parameter, an old or hand-made one, turns isolate on where the view isolates what is typed; `isolate=1` opens isolated/);
-  assert.match(skillAddress, /In the Graph no parameter means off, and none is written/);
+  assert.match(skillAddress, /Where the view's Typing isolates is unticked, the Graph to start with, no parameter means off, and none is written/);
+  assert.match(skillAddress, /`declareOff`, which is the view's Typing isolates setting and not its name/);
   const webAddress = flat(docs.slice(docs.indexOf('The link carries it.'), docs.indexOf('**Typing isolates** —')));
-  assert.match(webAddress, /Outside the Graph, while the box holds a search and Isolate is off, the address says `isolate=0` instead, so a reload reopens the same picture, lit/);
+  assert.match(webAddress, /In a view whose Typing isolates is on, while the box holds a search and Isolate is off, the address says `isolate=0` instead, so a reload reopens the same picture, lit/);
   assert.match(webAddress, /a link with a search and no `isolate` parameter, an old or hand-made one, opens isolated in a view whose Typing isolates is on/);
-  assert.match(webAddress, /In the Graph no parameter means off, and none is written/);
+  assert.match(webAddress, /Where a view's Typing isolates is off, the Graph to start with, no parameter means off, and none is written/);
+  assert.doesNotMatch(skillAddress + webAddress, /Outside the Graph, (with|while) the box holds/, 'the address is not decided by the name of the view');
 });
 
 test('the glossary names the term', () => {
@@ -132,4 +141,8 @@ test('the words the change made false are gone from all three', () => {
     assert.doesNotMatch(text, /the box goes on filtering there/, where);
     assert.doesNotMatch(text, /The text the box held is kept/, where);
   }
+});
+
+test('the skill says the browser keeps whether a query typed in the box started the isolate, so a reload does not guess it', () => {
+  assert.match(flat(skill), /with the isolate text it goes with and whether the box's own query started the isolate \(\x60following\x60, so a reload keeps the switch's isolate the switch's and a typed one a typed one\)/);
 });

@@ -845,9 +845,9 @@ to `127.0.0.1` only.
   its text back (see **Isolate**), so the steps are isolate off, then every addition, then the
   anchor. The step runs only while nothing is open and nobody is typing (an open menu,
   popup, dialog, the notifications panel or the preferences sheet takes Esc first and
-  closes, as before); with focus in the search box Esc clears the box and leaves the
-  selection (in the Graph, where a typed search is the anchor, clearing the box takes the anchor
-  and the additions with it), and away from the box Esc steps the selection back and, once nothing is
+  closes, as before); with focus in the search box Esc ends where repeated Esc does: it empties the
+  box, the run of `slice:` included, and leaves nothing selected, so the next click starts clean
+  (`clearBoxAndSelection`), and away from the box Esc steps the selection back and, once nothing is
   picked, clears the box as well, the run of `slice:` included, so repeated Esc ends on an empty box (while
   isolated, Esc in the box turns isolate off instead of clearing it). The stage is decided in the selection
   module (`escapeStage`: isolate, selection, box) and carried out by `stepSelectionBack`. An open search panel takes
@@ -876,8 +876,10 @@ to `127.0.0.1` only.
   box shows what is left; an empty selection leaves the box its `slice:` run. While isolate is on a click
   keeps the rule above, and a click that opens a card writes nothing. Esc's step and a double click on empty
   space take the box down with the selection only while it holds the selection's text; a switch of view
-  writes the selection when it changed it (leaving the Graph with cards picked beside a typed search) and
-  leaves a typed search with nothing picked in the box. A `mirror` write never makes the Calendar or the
+  writes the picked cards, paths and trees whenever the box is not already their text, so a search typed
+  beside them goes as it does when a click picks (leaving the Graph with cards picked beside a typed search
+  is one case), and leaves a typed search with nothing picked in the box for the view's Typing isolates to
+  isolate or light. A `mirror` write never makes the Calendar or the
   Gantt jump to the nearest match, though entering one with the box showing a selection does, as for any
   query whose matches are off screen. Bulk targets are
   fixed when an
@@ -978,7 +980,7 @@ to `127.0.0.1` only.
   The arrow, the fold control and every pill are buttons, so Tab reaches them and Enter
   and Space act as a click. **Esc** closes the suggestion list first, then the panel (focus
   goes back to the arrow, and stays in the box when Esc was pressed there), and only then
-  clears the box, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
+  empties the box and the selection, with focus in it, or steps the selection back (and clears the box once nothing is picked). Esc leaves the switch on,
   so the box, focused again, opens the panel again. The box keeps its text
   through the first two, because the browser's own Esc, which clears a search field, is
   stopped for them. The panel is no popup: the 5s poll runs while it is open and updates the
@@ -1097,13 +1099,16 @@ to `127.0.0.1` only.
   `typingTurnsIsolateOn`). The clear button, the Ctrl+F prefill, a cut, a click's selection and a menu
   item turn nothing on, and a box that holds only a `slice:` cut has no query to isolate. The panel's
   foot holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
-  Calendar, Gantt, Map and Graph), kept per board in the browser's preferences (`typingIsolates`,
-  `prefs.js`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
+  Calendar, Gantt, Map and Graph), kept per board in the browser under a key of their own, `typing.isolates`,
+  as **On hover show** keeps `hover.show` (`typing-isolates.js`, the views listed by `VIEW_MODES`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
   as it always did. Unticked, the box lights what is typed: its matches wear the selected look, nothing
   hides and no card is selected, and the switch or `i` can still isolate the query as it stands. An
   isolate the box's own query started is `{ previous, following }`: what turning isolate off gives
   back is the box's text as it stands, so the typed query stays in the box, lit, and the next Esc
-  clears it; going to a view whose checkbox is unticked ends such an isolate the same way. The address
+  clears it; going to a view whose checkbox is unticked ends such an isolate the same way, and coming
+  back to a view whose checkbox is ticked starts it again while the box holds a query of the person's
+  (`isolateStartFollowing`; the picks a click mirrored into the box are no query, `searchBoxHoldsTyped`),
+  so a view's setting decides on every switch, while an isolate the switch or `i` turned on stays. The address
   then carries `isolate=1` beside `q`. A pill taken out, by a click or by Esc, turns nothing on (the
   reason `unpill`). Where the box hides is worked out once per repaint (`boxHidingTerms`,
   `boxLightsMatches`, `computeSearchMatch`): `ids` is what it hides by, `matched` what the whole query
@@ -1123,7 +1128,8 @@ to `127.0.0.1` only.
   browser, where the Graph, with no dot dimmed, and every other view show only the isolated set.
   The text the box held before isolating is kept in the browser per board (`localStorage`, the
   board's `isolate.kept` entry, beside its other remembered choices), with the isolate text it
-  goes with, and given back when isolate is turned off after the reload; where it is unknown (no
+  goes with and whether the box's own query started the isolate (`following`, so a reload keeps the
+  switch's isolate the switch's and a typed one a typed one), and given back when isolate is turned off after the reload; where it is unknown (no
   record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
   The page works without browser storage. Opening a card while isolated keeps the parameter,
   and Back and Forward bring the entry they land on in line with the box, isolate included.
@@ -1760,13 +1766,13 @@ to `127.0.0.1` only.
     text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. While isolate is on,
     `isolate=1` stands beside `q` (and goes with it when the box is emptied), written by the
-    same listener. Outside the Graph, with the box holding a query and isolate off, `isolate=0`
+    same listener. In a view whose Typing isolates is ticked, with the box holding a query and isolate off, `isolate=0`
     stands there instead, so a reload reopens the same picture: a link with `q` and `isolate=0` opens
     with isolate off (`parseDeepLink` reports `isolateOff`, and the page writes the box with the reason
     `link-lit`); a link with `q` and no isolate parameter, an old or hand-made one, turns isolate on where
-    the view isolates what is typed; `isolate=1` opens isolated. In the Graph no parameter means off, and none is
+    the view isolates what is typed; `isolate=1` opens isolated. Where the view's Typing isolates is unticked, the Graph to start with, no parameter means off, and none is
     written. The view switch brings the address in line too (`nextSearchAddress` takes whether to declare
-    isolate off). The address replaces
+    isolate off, `declareOff`, which is the view's Typing isolates setting and not its name). The address replaces
     the history entry the page is on and never pushes one, so typing adds no history
     entries (Back and Forward still step only between opened cards), and it replaces only
     when `q` would change. A browser may refuse a replacement when there are too many in
@@ -2406,10 +2412,12 @@ to `127.0.0.1` only.
   the query lit takes it out and turns the query into its other cards, which the box then names (`#2 | #8`),
   since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
-  search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
-  Calendar light its matches with the selected look and hide nothing (isolate is off), nothing is selected by it there, and a bulk
-  action has no cards to act on. Back in the Graph with the box unchanged and nothing
-  selected, its matches light again; a selection carried in from another view stays, and
+  search stops being the anchor when you leave the Graph, and each view follows its own Typing
+  isolates: where it is ticked (the Board, Map, Gantt and Calendar to start) the typed search isolates
+  there on the switch and shows its matches alone, and where it is unticked the view lights its matches
+  with the selected look and hides nothing; nothing is selected by it, and a bulk action has no cards to
+  act on. Back in the Graph with the box unchanged and nothing selected, isolate ends and its matches
+  light again; a selection carried in from another view stays, and
   the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on
   a focused dot) opens the card, and **Ctrl+Space** on a focused dot selects it, as a click does. The Graph is a deliberate exception to
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and

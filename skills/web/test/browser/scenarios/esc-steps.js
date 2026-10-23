@@ -6,8 +6,8 @@
 // With text in the search box and a selection, focus in the box opens its
 // suggestion menu, and that menu takes the first Esc: it closes and the selection
 // and the box text are untouched. Text typed on the Board turns isolate on, so the next Esc
-// turns it off and leaves the box and the selection, and the one after clears the box and keeps
-// the selection. Esc with focus outside the box turns isolate off first too, and the Esc after it
+// turns it off and leaves the box and the selection, and the one after ends where repeated Esc does:
+// the box empty and nothing selected, so three cards are picked again for what follows. Esc with focus outside the box turns isolate off first too, and the Esc after it
 // steps the selection back and leaves the box text as it was; with the selection gone, the next Esc
 // outside the box clears the box, and a `slice:` run goes the same way, so repeated Esc ends on an
 // empty box. Each step waits on the page, never on a fixed sleep. Escape goes through
@@ -116,13 +116,17 @@ module.exports = {
     await escape();
     check('the next Esc in the search box turns isolate off, as Esc does anywhere: the box keeps its text and the selection stays', await waitFor(`isolateNow()===null`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked(), parts: await parts() });
     await escape();
-    check('the Esc after that clears the box and keeps the selection', await waitFor(`document.getElementById('search-input').value===''`) && sameIds(await picked(), sorted(x, y, z)) && sameIds(await parts(), { anchor: x, additions: [y, z] }), { box: await boxText(), picked: await picked(), parts: await parts() });
+    check('the Esc after that empties the box and the selection with it', await waitFor(`document.getElementById('search-input').value===''`) && await hasSelection(0) && sameIds(await parts(), { anchor: null, additions: [] }), { box: await boxText(), picked: await picked(), parts: await parts() });
 
     await focusBoxAtEnd();
     await send('Input.insertText', { text: 'zephyr' });
     await waitFor(`document.getElementById('search-input').value==='zephyr'`);
+    await clickCard(x, { modifiers: 2 });
+    await clickCard(y, { modifiers: 2 });
+    await clickCard(z, { modifiers: 2 });
+    await hasSelection(3);
     await ev(`document.activeElement.blur()`);
-    check('the box has text again and focus has left it', (await boxText()) === 'zephyr' && await ev(`document.activeElement!==document.getElementById('search-input')`));
+    check('the box has text again with three cards picked and focus has left it', (await boxText()) === 'zephyr' && sameIds(await picked(), sorted(x, y, z)) && await ev(`document.activeElement!==document.getElementById('search-input')`));
     await escape();
     check('Esc with focus outside the search box turns isolate off first, and leaves the selection and the box text', await waitFor(`isolateNow()===null`) && sameIds(await picked(), sorted(x, y, z)) && (await boxText()) === 'zephyr', { box: await boxText(), picked: await picked() });
     await escape();

@@ -74,7 +74,7 @@ test('the scenario does not wait on a fixed sleep, presses Escape through the ru
 // and the pages it opens, the keys it presses and the text it types are logged. Whether each check holds
 // is for the browser to say.
 function standIn() {
-  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], clicks: [], inserted: [], rightClicks: [] };
+  const log = { exprs: [], bad: [], checks: [], opened: [], keys: [], clicks: [], inserted: [], rightClicks: [], order: [] };
   const parse = (expr) => {
     try { new vm.Script(`(${expr})`); } catch (e) { log.bad.push(`${e.message}: ${String(expr).slice(0, 140)}`); }
   };
@@ -87,7 +87,8 @@ function standIn() {
   return {
     log,
     ev: async (expr) => { log.exprs.push(expr); parse(expr); return answer(expr); },
-    send: async (method, params) => { log.exprs.push(`send ${method}`); if (method === 'Input.insertText') log.inserted.push(params.text); return params; },
+    send: async (method, params) => { log.exprs.push(`send ${method}`); if (method === 'Input.insertText') { log.inserted.push(params.text); log.order.push('type'); } return params; },
+    mouse: async (type) => { log.order.push(`mouse ${type}`); },
     open: async (p) => { log.opened.push(p); },
     waitFor: async (expr) => { log.exprs.push(expr); parse(expr); return true; },
     click: async (x, y, extra) => { log.clicks.push(extra || {}); },
@@ -117,6 +118,13 @@ test('it loads the Board and then the Graph cold, types the cut and the Graph se
   const shift = page.log.clicks.filter((c) => c.modifiers === 8).length;
   assert.ok(ctrl >= 8 && shift >= 2, `Ctrl+clicks ${ctrl}, Shift+clicks ${shift}`);
   assert.ok(page.log.keys.filter((k) => k === 'Escape').length === 4, 'the card, two Board steps, one Graph step');
+});
+
+test('the pointer leaves the dot it clicked before the Graph search is typed, so no hover lights over the search', async () => {
+  const page = standIn();
+  await scenario.run(page);
+  assert.deepStrictEqual(page.log.order, ['type', 'mouse mouseMoved', 'type']);
+  assert.ok(page.log.exprs.some((e) => /hoveredId===null/.test(e)), 'it waits for the hover to clear');
 });
 
 test('it covers every behaviour listed at its head, each by a check of its own', async () => {

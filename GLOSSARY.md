@@ -290,7 +290,7 @@ A per-view choice, kept per board, whether a query the person makes (typing, a p
 _Avoid_: filter mode, search mode.
 
 **Mirror**:
-The selection written into the search box as the text Isolate would write for it, when a click that selects, an Add to selection, a step of Esc or a switch of view changes the selection while Isolate is off. The box lights those cards and hides nothing, and the text is the selection's own, not a query typed, so the next click still works on the cards.
+The selection written into the search box as the text Isolate would write for it, when a click that selects, an Add to selection, a step of Esc or a switch of view with cards picked changes the box while Isolate is off. The box lights those cards and hides nothing, and the text is the selection's own, not a query typed, so the next click still works on the cards.
 _Avoid_: sync, echo.
 
 **On hover show**:

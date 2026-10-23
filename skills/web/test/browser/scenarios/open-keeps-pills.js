@@ -160,7 +160,8 @@ module.exports = {
     check('closing the card leaves both pills on and the box as it was', await pillsOn(2) && (await boxText()) === 'review: | blocked:', await boxText());
 
     // --- a click that only selects: the pill goes out of the box where the Board lights, and the anchor moves where it isolates ----
-    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({click:{board:'selects'},typingIsolates:{board:false}}))`);
+    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({click:{board:'selects'}}))`);
+    await ev(`localStorage.setItem('kanban.plan.typing.isolates', JSON.stringify({board:false}))`);
     check('the Board draws the plan board set to selects and to light what is typed', await goto('/?view=board', ready.board));
     await openPanel();
     await clickOn(pillSel('review'));

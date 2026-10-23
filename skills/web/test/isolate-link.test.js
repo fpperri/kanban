@@ -51,7 +51,7 @@ const spied = (el = control()) => {
 // off unless a test says so, since most of what follows is isolate turned on by the switch.
 async function openAt(search = '', { stored = {}, board = makeBoard(), view = 'board', typing = false } = {}) {
   if (!('kanban.kanban.view.mode' in stored)) stored['kanban.kanban.view.mode'] = view;
-  if (!('kanban.kanban.prefs' in stored)) stored['kanban.kanban.prefs'] = JSON.stringify({ typingIsolates: { board: typing } });
+  if (!('kanban.kanban.typing.isolates' in stored)) stored['kanban.kanban.typing.isolates'] = JSON.stringify({ board: typing });
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -75,7 +75,7 @@ async function openAt(search = '', { stored = {}, board = makeBoard(), view = 'b
     flip: () => elements['#isolate-switch'].fire('click', { preventDefault() {} }),
     ctrlClick: (id) => page.fireDocument('click', { target: cardTarget(id), detail: 1, shiftKey: false, ctrlKey: true, metaKey: false }),
     params: () => Object.fromEntries(new URLSearchParams(session.search)),
-    kept: () => Object.keys(stored).filter((k) => /isolate/.test(k)),
+    kept: () => Object.keys(stored).filter((k) => /isolate\.kept/.test(k)),
   };
 }
 
@@ -88,8 +88,8 @@ const clickTile = (page, id) => page.fireDocument('click', { target: cardTarget(
 
 // --- the address ------------------------------------------------------------------------------
 
-test('turning isolate on puts the isolate parameter beside q, and turning it off writes isolate=0 in its place, with no history entry', async () => {
-  const s = await openAt();
+test('turning isolate on puts the isolate parameter beside q, and turning it off writes isolate=0 in its place where typing isolates, with no history entry', async () => {
+  const s = await openAt('', { typing: true });
   s.ctrlClick(2);
   s.ctrlClick(5);
   assert.deepStrictEqual(s.params(), { q: '#2 | #5', isolate: '0' }, 'the clicks wrote the box, and the address says it lights');
@@ -116,14 +116,31 @@ test('turning isolate on or off adds no browser-history entry, however often it 
   assert.strictEqual(s.session.replaces - replaced, 4, 'each flip replaced the entry it is on');
 });
 
-test('isolating a selection whose text equals the box still puts the parameter in, and turning it off writes isolate=0', async () => {
+test('isolating a selection whose text equals the box still puts the parameter in, and turning it off drops it where the Board lights what is typed', async () => {
   const s = await openAt('?q=%232');
   s.ctrlClick(2);
   s.flip();
   assert.strictEqual(s.box(), '#2');
   assert.deepStrictEqual(s.params(), { q: '#2', isolate: '1' }, 'q did not change, the parameter still arrives');
   s.flip();
-  assert.deepStrictEqual(s.params(), { q: '#2', isolate: '0' }, 'back to the text it held, lit: isolate=0 says so');
+  assert.deepStrictEqual(s.params(), { q: '#2' }, 'back to the text it held, lit: the Board needs no parameter to open lit');
+});
+
+test('a reload tells the switch\'s isolate from the box\'s own query by what was kept, not by the two texts being alike', async () => {
+  const typed = await openAt('', { typing: true });
+  typed.type('tags:ui');
+  assert.deepStrictEqual(typed.isolate(), { previous: 'tags:ui', following: true });
+  const typedAgain = await openAt(typed.session.search, { stored: typed.stored, typing: true });
+  assert.deepStrictEqual(typedAgain.isolate(), { previous: 'tags:ui', following: true }, 'the query started it');
+  const picked = await openAt('?q=%232');
+  picked.ctrlClick(2);
+  picked.flip();
+  assert.strictEqual(picked.box(), '#2');
+  assert.deepStrictEqual(picked.isolate(), { previous: '#2' }, 'the switch started it, though the text it kept is the isolate text itself');
+  const pickedAgain = await openAt(picked.session.search, { stored: picked.stored });
+  assert.deepStrictEqual(pickedAgain.isolate(), { previous: '#2' }, 'and a reload keeps it the switch\'s: a view whose typing lights does not end it');
+  pickedAgain.page.run("setView('graph')");
+  assert.notStrictEqual(pickedAgain.isolate(), null);
 });
 
 // --- a reload, and a link opened in another browser ----------------------------------------------
@@ -136,7 +153,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
   const address = first.session.search;
   assert.strictEqual(first.params().isolate, '1');
   const second = await openAt(address, { stored: first.stored });
-  assert.deepStrictEqual(second.isolate(), { previous: '#2 | #5', following: true }, 'isolate is on again, and the text kept is the isolate text itself, the box having shown the selection before');
+  assert.deepStrictEqual(second.isolate(), { previous: '#2 | #5' }, 'isolate is on again, still the switch\'s: the text kept is the isolate text itself, the box having shown the selection before, but the box\'s own query did not start it');
   assert.strictEqual(second.elements['#isolate-switch'].getAttribute('aria-checked'), 'true', 'the switch says on');
   assert.strictEqual(second.box(), '#2 | #5');
   assert.strictEqual(second.session.search, address, 'the address is as the link had it');
@@ -145,7 +162,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
   assert.deepStrictEqual(second.shown(), ['2', '5'], 'the Board shows only the isolated cards');
 });
 
-test('after a reload, turning isolate off gives the box the text it held before isolating, and writes isolate=0 in its place', async () => {
+test('after a reload, turning isolate off gives the box the text it held before isolating, and drops the parameter where the Board lights what is typed', async () => {
   const first = await openAt();
   first.ctrlClick(2);
   first.ctrlClick(5);
@@ -157,7 +174,7 @@ test('after a reload, turning isolate off gives the box the text it held before 
   second.flip();
   assert.strictEqual(second.box(), 'tags:ui', 'the text from before isolating, kept in the browser, is back');
   assert.strictEqual(second.isolate(), null);
-  assert.deepStrictEqual(second.params(), { q: 'tags:ui', isolate: '0' });
+  assert.deepStrictEqual(second.params(), { q: 'tags:ui' });
   assert.deepStrictEqual(second.shown(), ['1', '2', '3', '4', '5', '6'], 'and the Board shows every card again, the box lighting its matches');
 });
 

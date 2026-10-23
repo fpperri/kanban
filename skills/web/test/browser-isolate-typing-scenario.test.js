@@ -8,7 +8,8 @@ const vm = require('node:vm');
 const { listActive, toJSON } = require('../scripts/card-store');
 const { materialize } = require('./browser/boards');
 const { parseSearchQuery, filterCards } = require('../web/search');
-const { PREFS_TYPING_VIEWS, prefsDefaults } = require('../web/prefs');
+const { typingIsolatesDefaults } = require('../web/typing-isolates');
+const { VIEW_MODES } = require('../web/calendar-model');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate-typing');
 
@@ -45,12 +46,12 @@ test('the query it types matches the cards it says among the fixture board\'s li
   assert.deepStrictEqual(matched, CASES.cards);
 });
 
-test('the checkboxes it expects are the panel\'s, in the order the panel lists the views, each at the choice the preferences start it at', () => {
+test('the checkboxes it expects are the panel\'s, in the order the panel lists the views, each at the choice Typing isolates starts it at', () => {
   const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');
   const listed = [...html.matchAll(/<input type="checkbox" data-typing-view="([a-z]+)"/g)].map((m) => m[1]);
   assert.deepStrictEqual(CASES.checkboxes.map(([view]) => view), listed);
-  assert.deepStrictEqual([...listed].sort(), [...PREFS_TYPING_VIEWS].sort(), 'one for each view the preferences keep');
-  const defaults = prefsDefaults().typingIsolates;
+  assert.deepStrictEqual([...listed].sort(), [...VIEW_MODES].sort(), 'one for each view the page has');
+  const defaults = typingIsolatesDefaults();
   for (const [view, on] of CASES.checkboxes) assert.strictEqual(defaults[view], on, view);
 });
 

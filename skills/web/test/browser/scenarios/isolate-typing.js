@@ -10,6 +10,9 @@
 // key then isolates that lit query as it stands, and the clear button ends it. The links: a ?q= link into the
 // Board opens isolated, and into the Graph opens lighting, with isolate off and every dot drawn.
 //
+// The switch between views. A query typed on the Board isolates it; the Graph, whose checkbox is unticked, lights
+// it, and back on the Board it isolates again, since each view follows its own checkbox on every switch.
+//
 // The Graph. Typing lights the matches and dims the rest, with isolate off and every dot drawn. Ticking the
 // Graph's checkbox makes the same typing isolate: only the matches are drawn.
 //
@@ -112,6 +115,19 @@ module.exports = {
     await clearBox();
     check('the clear button empties the box and ends isolate, and every card is back', await switchIs(false) && await shows(BOARD, live), await nowShown(BOARD));
 
+    // --- each view follows its own checkbox on every switch ---------------------------------------------------
+    const toggleGraph = () => ev(`document.getElementById('graph-toggle-btn').click()`);
+    await typeQuery(CASES.query);
+    await isolateIs(true);
+    await blur();
+    await toggleGraph();
+    check('going to the Graph lights the typed query: isolate ends, every dot is drawn and the zephyr cards are lit', await waitFor(graphReady) && await isolateIs(false) && await switchIs(false) && await shows(DOTS_LIT, CASES.cards), { lit: await nowShown(DOTS_LIT) });
+    check('and the query stays in the box', await boxIs(CASES.query), await boxText());
+    await toggleGraph();
+    check('back on the Board the typed query isolates again: the switch is on and the Board shows the zephyr cards alone', await waitFor(`!document.getElementById('board').classList.contains('hidden')`) && await isolateIs(true) && await switchIs(true) && await shows(BOARD, CASES.cards), await nowShown(BOARD));
+    await clearBox();
+    await shows(BOARD, live);
+
     // --- a ?q= link isolates in the Board, and lights in the Graph ------------------------------------------------
     check('a ?q= link into the Board opens it', await goto(`/?view=board&q=${CASES.query}`, `document.getElementById('search-input').value==='${CASES.query}'&&document.querySelectorAll('#board .card-el').length>0`));
     check('and opens isolated: the switch is on and the Board shows the zephyr cards alone', await switchIs(true) && await shows(BOARD, CASES.cards) && await boxIs(CASES.query), await nowShown(BOARD));
@@ -147,13 +163,13 @@ module.exports = {
     await waitFor(panelOpen);
     await clickOn('#search-typing [data-typing-view="board"]');
     check('unticking the Board\'s checkbox shows it unticked', await checkboxesAre([['board', false], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]]), await ev(CHECKS));
-    check('and the choice is kept in the browser, under the board\'s own preferences', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.prefs')).typingIsolates.board===false`));
+    check('and the choice is kept in the browser, under a key of its own for the board', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.typing.isolates')).board===false`));
     await reload();
     await waitFor(boardReady, 10000);
     check('after a reload the Board\'s checkbox is still unticked', await checkboxesAre([['board', false], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]]), await ev(CHECKS));
     await typeQuery(CASES.query);
     check('typing on the Board then lights: isolate stays off, every card is shown and the zephyr cards wear the selected look', await isolateIs(false) && await switchIs(false) && await shows(BOARD, live) && await shows(BOARD_LIT, CASES.cards), { shown: await nowShown(BOARD), lit: await nowShown(BOARD_LIT) });
     await clearBox();
-    await ev(`localStorage.removeItem('kanban.fixture.prefs')`);
+    await ev(`localStorage.removeItem('kanban.fixture.typing.isolates')`);
   },
 };

@@ -232,7 +232,8 @@ A search typed in the Graph hides nothing: its matches light, done cards include
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
 click a card to start a new selection, which the box shows in place of the search (`#34`), its cut kept. Switch to another view and
-the box lights its matches there and hides nothing, while nothing is selected by it. A dot is never dragged.
+the box isolates it there where that view's Typing isolates is on, or lights its matches and hides nothing
+where it is off, while nothing is selected by it. A dot is never dragged.
 Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill)
@@ -311,7 +312,7 @@ but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
 it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
 as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
-arrow, and stays in the box when Esc was pressed there), and then clears the box, when
+arrow, and stays in the box when Esc was pressed there), and then empties the box and the selection, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
 the box, and with nothing selected empties it; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
@@ -401,9 +402,9 @@ selected the entry says so, as the switch does.
 The link carries it. While isolate is on, the address holds a second parameter beside `q`,
 `isolate=1`, written as the box changes and never as a history entry. A reload, or a link opened
 in another browser, opens isolated: the Graph and every other view show only the isolated set.
-Outside the Graph, while the box holds a search and Isolate is off, the address says `isolate=0`
+In a view whose Typing isolates is on, while the box holds a search and Isolate is off, the address says `isolate=0`
 instead, so a reload reopens the same picture, lit; a link with a search and no `isolate` parameter, an
-old or hand-made one, opens isolated in a view whose Typing isolates is on. In the Graph no parameter
+old or hand-made one, opens isolated in a view whose Typing isolates is on. Where a view's Typing isolates is off, the Graph to start with, no parameter
 means off, and none is written.
 The text the box held before isolating is kept in your browser, per board, so turning isolate
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
@@ -416,7 +417,9 @@ It is on in every view but the Graph, which lights what is typed and hides nothi
 box lights its matches with the look of a selected card, hides nothing, and selects nothing; the switch or
 `i` still isolates the query as it stands. The choice is kept in your browser, per board. Isolate turned on
 this way gives back the box's text as it stands when you turn it off, so the query stays in the box, lit,
-and the next Esc clears it; going to a view where the checkbox is off does the same. A `slice:` cut hides
+and the next Esc clears it; going to a view where the checkbox is off does the same, and coming back to a view where it
+is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch
+or `i` stays through the switches. A `slice:` cut hides
 in every view whatever Isolate is.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
@@ -437,7 +440,7 @@ beside a path you searched, with the `slice:` run kept. Isolate stays off, so th
 hides nothing, and the text is the selection's own, not a search you typed: the next click still works on the
 cards. Ctrl-click on a picked card takes it out and the box shows what is left; with nothing left it holds only
 its `slice:` run. The Graph's plain click, Shift- and Ctrl-clicks in every view, a Flow lane header and the card
-menu's Add to selection all write it, and so does a switch of view that changes the selection. A click that
+menu's Add to selection all write it, and so does a switch of view with cards picked, whenever the box is not already their text. A click that
 opens a card writes nothing, and while isolate is on a click moves the anchor and leaves the box and its
 isolate text. Esc takes the box down with the selection, step by step, while the box holds the selection's text.
 A click never pages the Calendar or the Gantt; entering one with the box showing a selection jumps to it, as it

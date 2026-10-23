@@ -180,17 +180,17 @@ module.exports = {
 
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     await waitFor(`!document.getElementById('board').classList.contains('hidden')`);
-    // The Board hides what the box does not match only while isolate is on, and a switch writes nothing, so it is off: the Board
-    // shows every card and the matches wear the selected look, though none is a selected card.
+    // The Board's Typing isolates is on to start, so the query typed in the Graph isolates there on the switch: the Board shows
+    // the matches alone, and no card is a selected card.
     const BOARD_IDS = `[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`;
-    const LIT_ON_BOARD = `${idsOf(`[...new Set([...document.querySelectorAll('#board .card-el.selected')].map((e)=>Number(e.dataset.id)))].sort((x,y)=>x-y)`)}===${JSON.stringify(JSON.stringify(sorted(...CASES.docs.lit)))}`;
-    check('after typing a query in the Graph and switching to the Board, the Board lights the matches with the selected look and hides no card',
-      await waitFor(LIT_ON_BOARD) && (await ev(`${BOARD_IDS}.length`)) > CASES.docs.lit.length && (await boxText()) === CASES.docs.query && await ev(`isolateNow()===null`), { box: await boxText(), shown: await ev(BOARD_IDS) });
+    const SHOWN_ON_BOARD = `${idsOf(BOARD_IDS)}===${JSON.stringify(JSON.stringify(sorted(...CASES.docs.lit)))}`;
+    check('after typing a query in the Graph and switching to the Board, the Board isolates it: only the matches are shown, the box keeps its text and the switch is on',
+      await waitFor(SHOWN_ON_BOARD) && (await boxText()) === CASES.docs.query && await ev(`isolateNow()!==null`), { box: await boxText(), shown: await ev(BOARD_IDS) });
     check('and nothing is selected, so a bulk action has no cards to act on', await pickedIs([]));
 
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     await waitFor(`!document.getElementById('graph-view').classList.contains('hidden')`);
-    check('back in the Graph with the box unchanged and nothing selected, the matches light again',
-      (await boxText()) === CASES.docs.query && await litIs(sorted(...CASES.docs.lit)) && same(await lit(), sorted(...CASES.docs.lit)), { lit: await lit() });
+    check('back in the Graph with the box unchanged and nothing selected, isolate ends and the matches light again',
+      (await boxText()) === CASES.docs.query && await ev(`isolateNow()===null`) && await litIs(sorted(...CASES.docs.lit)) && same(await lit(), sorted(...CASES.docs.lit)), { lit: await lit() });
   },
 };

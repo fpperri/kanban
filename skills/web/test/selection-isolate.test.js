@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, setAnchor, addPart, selectionAfterEscape,
-  selectionAfterClick, isTypedAnchor, pillQueriesDropped, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor,
+  selectionAfterClick, isTypedAnchor, pillQueriesDropped, isolateAfterWrite, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor,
 } = require('../web/selection');
 const { searchMirrorBox } = require('../web/search');
 
@@ -150,23 +150,30 @@ test('with isolate off a write changes nothing', () => {
 
 test('the kept record gives the text from before isolating back, for the very isolate text it was kept with', () => {
   const raw = isolateRecord('zephyr tags:ui', '#2 | #5');
-  assert.strictEqual(isolatePreviousFrom(raw, '#2 | #5'), 'zephyr tags:ui');
-  assert.strictEqual(isolatePreviousFrom(raw, '  #2 | #5  '), 'zephyr tags:ui', 'the link\'s query is trimmed, as the deep-link reader trims it');
-  assert.strictEqual(isolatePreviousFrom(isolateRecord('', '#2'), '#2'), '', 'an empty text before is empty');
+  assert.deepStrictEqual(isolateKeptFrom(raw, '#2 | #5'), { previous: 'zephyr tags:ui', following: false });
+  assert.deepStrictEqual(isolateKeptFrom(raw, '  #2 | #5  '), { previous: 'zephyr tags:ui', following: false }, 'the link\'s query is trimmed, as the deep-link reader trims it');
+  assert.deepStrictEqual(isolateKeptFrom(isolateRecord('', '#2'), '#2'), { previous: '', following: false }, 'an empty text before is empty');
+  assert.deepStrictEqual(isolateKeptFrom(isolateRecord('tags:ui', 'tags:ui', true), 'tags:ui'), { previous: 'tags:ui', following: true }, 'and whether the box\'s own query started it');
 });
 
 test('the kept text is unknown, and so empty, for another isolate text or for a record that is missing or unreadable', () => {
   const raw = isolateRecord('zephyr', '#2 | #5');
-  assert.strictEqual(isolatePreviousFrom(raw, '#2'), '', 'another isolate text');
+  const unknown = { previous: '', following: false };
+  assert.deepStrictEqual(isolateKeptFrom(raw, '#2'), unknown, 'another isolate text');
+  assert.deepStrictEqual(isolateKeptFrom(isolateRecord('x', '#2', true), '#5'), unknown, 'and its following goes unknown with it');
   for (const bad of [null, undefined, '', 'not json', '42', 'null', '[]', '{}', '{"previous":3,"text":"#2"}', '{"previous":"x"}']) {
-    assert.strictEqual(isolatePreviousFrom(bad, '#2'), '', String(bad));
+    assert.deepStrictEqual(isolateKeptFrom(bad, '#2'), unknown, String(bad));
   }
-  assert.strictEqual(isolatePreviousFrom(raw, undefined), '');
+  assert.deepStrictEqual(isolateKeptFrom(raw, undefined), unknown);
+  assert.deepStrictEqual(isolateKeptFrom('{"previous":"x","text":"#2","following":"yes"}', '#2'), { previous: 'x', following: false }, 'only true is a fact');
+  assert.deepStrictEqual(isolateKeptFrom('{"previous":"x","text":"#2"}', '#2'), { previous: 'x', following: false }, 'a record kept before the fact existed was the switch\'s');
 });
 
-test('the record is JSON of the previous text and the trimmed isolate text, and tolerates missing values', () => {
-  assert.deepStrictEqual(JSON.parse(isolateRecord('a', ' #2 ')), { previous: 'a', text: '#2' });
-  assert.deepStrictEqual(JSON.parse(isolateRecord(undefined, null)), { previous: '', text: '' });
+test('the record is JSON of the previous text, the trimmed isolate text and whether the box\'s own query started it, and tolerates missing values', () => {
+  assert.deepStrictEqual(JSON.parse(isolateRecord('a', ' #2 ')), { previous: 'a', text: '#2', following: false });
+  assert.deepStrictEqual(JSON.parse(isolateRecord('a', '#2', true)), { previous: 'a', text: '#2', following: true });
+  assert.deepStrictEqual(JSON.parse(isolateRecord(undefined, null)), { previous: '', text: '', following: false });
+  assert.deepStrictEqual(JSON.parse(isolateRecord('a', '#2', 'yes')), { previous: 'a', text: '#2', following: false });
 });
 
 // --- the menu on a card -----------------------------------------------------------------------

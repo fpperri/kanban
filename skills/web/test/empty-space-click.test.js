@@ -64,7 +64,7 @@ async function open({ view = 'board', board = makeBoard(), typing = false } = {}
   elements['#calendar-view'] = control();
   elements['#search-chip'] = chipEl();
   elements['#search-pills'] = control();
-  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing } }) }, elements }).start();
+  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }) }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   let renders = 0;
   const real = page.ctx.renderBoard;
@@ -286,14 +286,15 @@ test('a double click outside the Graph canvas leaves a typed search, so a double
   assert.deepStrictEqual(s.selection().anchor, typedQuery('tags:ui'));
 });
 
-test('Graph: a double click on the empty canvas drops a card selection carried in and leaves the box, which was not its anchor, alone', async () => {
+test('Graph: a double click on the empty canvas drops a card selection carried in, and the box that said it goes with it', async () => {
   const s = await open({ view: 'board' });
   s.typeBox('tags:ui');
   s.pick(5);
   s.page.run("toggleView('graph')");
+  assert.strictEqual(s.box(), '#5', 'the switch put the picked card in the box, though the box was not its text');
   doubleClick(s, emptyIn('graph'));
   assert.deepStrictEqual(s.selection(), NOTHING);
-  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.box(), '');
 });
 
 // --- what is not empty space ------------------------------------------------------------------

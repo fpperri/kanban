@@ -6,7 +6,7 @@ const { cardPart, pathPart, queryPart, typedQueryPart } = require('../web/select
 // A click on a card writes the selection into the box with isolate off (searchMirrorBox): the isolate
 // text of its parts, the box's run of slices kept, and a part that is one query written as it was typed.
 // Where the page writes it, and why the write is never a typed search, is pinned in
-// selection-mirror-wiring.test.js.
+// box-mirror-wiring.test.js.
 
 test('a card is #id, and several parts are joined with |, as Isolate writes them', () => {
   assert.strictEqual(searchMirrorBox('', [cardPart(34)]), '#34');
@@ -54,4 +54,21 @@ test('the same selection written twice gives the same text, so a repeat click le
   const parts = [cardPart(34), cardPart(36)];
   const once = searchMirrorBox('foo slice:epic..2', parts);
   assert.strictEqual(searchMirrorBox(once, parts), once);
+});
+
+const { searchBoxSaying, searchIsolateBox } = require('../web/search');
+
+test('the box says its text with the run of slices it held after it, and the isolate text and the mirror both write it that way', () => {
+  assert.strictEqual(searchBoxSaying('foo slice:epic..2', '#34', []), '#34 slice:epic..2');
+  assert.strictEqual(searchBoxSaying('foo', '#34', undefined), '#34');
+  assert.strictEqual(searchBoxSaying('', 'a | b', []), 'a | b');
+  assert.strictEqual(searchBoxSaying('foo slice:epic..2', '', []), 'slice:epic..2', 'no text leaves the cut alone');
+  assert.strictEqual(searchIsolateBox('foo slice:epic..2', [cardPart(34)]), searchBoxSaying('foo slice:epic..2', '#34', []));
+  assert.strictEqual(searchMirrorBox('foo slice:epic..2', [cardPart(34)], []), searchBoxSaying('foo slice:epic..2', '#34', []));
+});
+
+test('a pill that goes off takes the cut its own query held with it, one copy only, in every write of the box', () => {
+  assert.strictEqual(searchBoxSaying('review: slice:goal slice:goal', 'x', ['slice:goal review:']), 'x slice:goal');
+  assert.strictEqual(searchBoxSaying('slice:goal', 'x', ['slice:goal']), 'x');
+  assert.strictEqual(searchMirrorBox('slice:goal slice:goal', [cardPart(34)], ['slice:goal']), '#34 slice:goal');
 });

@@ -1,12 +1,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { PREFS_FEATURE, MD_COLOUR_KEY, PREFS_TYPING_VIEWS, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs, loadMdColour, saveMdColour } = require('../web/prefs');
+const { PREFS_FEATURE, MD_COLOUR_KEY, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs, loadMdColour, saveMdColour } = require('../web/prefs');
 
 // The preferences kept in the browser per board: what a plain click on a card
 // does in each view, whether archived leaves count as done, whether the
-// search panel's pill section starts folded, whether the panel opens when
-// the search box is focused (the arrow's switch), and, per view, whether typing
-// in the box turns isolate on (the panel's Typing isolates checkboxes). The roll-up
+// search panel's pill section starts folded, and whether the panel opens when
+// the search box is focused (the arrow's switch). The roll-up
 // bar's open or collapsed choice is the one a click on a bar already writes
 // (column-state.js); it is not stored a second time here.
 
@@ -19,11 +18,8 @@ function storageOf(initial = {}) {
   };
 }
 
-const TYPING_DEFAULTS = { board: true, map: true, gantt: true, calendar: true, graph: false };
-
 const DEFAULTS = {
   click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
-  typingIsolates: TYPING_DEFAULTS,
   archivedDone: true,
   pillsFolded: false,
   statusesFolded: false,
@@ -54,7 +50,6 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
   const saved = JSON.stringify({ click: { board: 'selects', calendar: 'selects' }, archivedDone: false });
   assert.deepStrictEqual(mergePrefs(saved), {
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
-    typingIsolates: TYPING_DEFAULTS,
     archivedDone: false,
     pillsFolded: false,
     statusesFolded: false,
@@ -65,7 +60,7 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
 
 test('unknown keys are dropped, at the top and inside the click choices', () => {
   const merged = mergePrefs(JSON.stringify({ click: { board: 'selects', list: 'selects' }, archivedDone: false, theme: 'dark' }));
-  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded', 'typingIsolates']);
+  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded']);
   assert.deepStrictEqual(Object.keys(merged.click).sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
 });
 
@@ -73,7 +68,6 @@ test('a bad value falls back to that setting\'s default and leaves the good ones
   const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', statusesFolded: 'true', slicesFolded: 'false', panelOnFocus: 'false' }));
   assert.deepStrictEqual(merged, {
     click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
-    typingIsolates: TYPING_DEFAULTS,
     archivedDone: true,
     pillsFolded: false,
     statusesFolded: false,
@@ -225,7 +219,6 @@ test('what is saved is the merged, validated set, never what the caller passed i
   savePrefs(storage, 'shop', { click: { board: 'selects', graph: 'opens', bogus: 'x' }, archivedDone: 'no', pillsFolded: 1, statusesFolded: 1, slicesFolded: 0, panelOnFocus: 'off', extra: 1 });
   assert.deepStrictEqual(JSON.parse(storage.items['kanban.shop.prefs']), {
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
-    typingIsolates: TYPING_DEFAULTS,
     archivedDone: true,
     pillsFolded: false,
     statusesFolded: false,
@@ -295,40 +288,4 @@ test('a stored value that is not false, text that does not parse and storage tha
   assert.doesNotThrow(() => saveMdColour(broken, false));
   assert.strictEqual(loadMdColour(null), true);
   assert.doesNotThrow(() => saveMdColour(null, false));
-});
-
-test('typing turns isolate on in every view but the Graph until a choice says otherwise', () => {
-  assert.deepStrictEqual(prefsDefaults().typingIsolates, { board: true, map: true, gantt: true, calendar: true, graph: false });
-  assert.deepStrictEqual(PREFS_TYPING_VIEWS, ['board', 'map', 'calendar', 'gantt', 'graph']);
-  assert.deepStrictEqual(mergePrefs(JSON.stringify({ archivedDone: false })).typingIsolates, TYPING_DEFAULTS, 'an entry saved before the setting existed has the defaults');
-});
-
-test('a saved Typing isolates choice comes back as saved, per view, and the Graph can be turned on', () => {
-  const merged = mergePrefs(JSON.stringify({ typingIsolates: { board: false, graph: true } }));
-  assert.deepStrictEqual(merged.typingIsolates, { board: false, map: true, gantt: true, calendar: true, graph: true });
-});
-
-test('a Typing isolates value that is not a boolean, a view that is not listed and a prototype key are dropped', () => {
-  const merged = mergePrefs(JSON.stringify({ typingIsolates: { board: 'no', map: 0, gantt: null, calendar: false, list: false, __proto__: { graph: true } } }));
-  assert.deepStrictEqual(merged.typingIsolates, { board: true, map: true, gantt: true, calendar: false, graph: false });
-  assert.deepStrictEqual(Object.keys(merged.typingIsolates).sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
-  for (const raw of ['{"typingIsolates":"off"}', '{"typingIsolates":[false]}', '{"typingIsolates":null}']) assert.deepStrictEqual(mergePrefs(raw), DEFAULTS, raw);
-});
-
-test('the Typing isolates of one view changes alone, a bad change is dropped, and the set passed in is not touched', () => {
-  const prefs = prefsDefaults();
-  const next = prefsWith(prefs, { typingIsolates: { board: false } });
-  assert.deepStrictEqual(next.typingIsolates, { board: false, map: true, gantt: true, calendar: true, graph: false });
-  assert.deepStrictEqual(next.click, DEFAULTS.click);
-  assert.deepStrictEqual(prefs, DEFAULTS, 'the set passed in is left as it was');
-  assert.deepStrictEqual(prefsWith(next, { typingIsolates: { graph: true } }).typingIsolates, { board: false, map: true, gantt: true, calendar: true, graph: true });
-  assert.deepStrictEqual(prefsWith(next, { typingIsolates: { map: 'yes', list: false } }), next);
-  assert.deepStrictEqual(prefsWith(next, { archivedDone: false }).typingIsolates, next.typingIsolates, 'a change to another setting leaves it alone');
-});
-
-test('a Typing isolates choice is kept per board with the rest of the entry', () => {
-  const storage = storageOf();
-  savePrefs(storage, 'shop', prefsWith(prefsDefaults(), { typingIsolates: { board: false } }));
-  assert.strictEqual(loadPrefs(storage, 'shop').typingIsolates.board, false);
-  assert.strictEqual(loadPrefs(storage, 'lab').typingIsolates.board, true, 'another board keeps the default');
 });

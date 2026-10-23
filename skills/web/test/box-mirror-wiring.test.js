@@ -38,7 +38,7 @@ async function open({ view = 'board', typing = false, prefs = {} } = {}) {
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
   elements['#graph-view'] = control();
-  const stored = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing, graph: typing }, ...prefs }) };
+  const stored = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify(prefs), 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing, graph: typing }) };
   const page = await loadPage({ board: makeBoard(), stored, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const cardTarget = (id) => {
@@ -73,6 +73,12 @@ async function open({ view = 'board', typing = false, prefs = {} } = {}) {
       page.ctx.document.activeElement = null;
       const e = { key: 'Escape', target: null, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {} };
       (page.documentListeners.keydown || []).slice().forEach((fn) => fn(e));
+    },
+    pressInBox: () => {
+      page.ctx.document.activeElement = page.input;
+      const e = { key: 'Escape', target: page.input, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {} };
+      (page.documentListeners.keydown || []).slice().forEach((fn) => fn(e));
+      page.ctx.document.activeElement = null;
     },
     told: [],
   };
@@ -273,7 +279,79 @@ test('the Graph does not take the box the click wrote for a typed search, on a r
   assert.strictEqual(b.box(), '#2 | #5');
 });
 
-test('a click moves no Calendar or Gantt: the nearest-match jump listens to every write but the click\'s', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /onSearchWrite\(\(text, reason\) => \{ if \(reason !== 'mirror'\) moveViewToNearestMatch\(\); \}\);/);
+test('a click moves no Calendar or Gantt: the nearest-match jump listens to every write but the click\'s', async () => {
+  const s = await open();
+  let jumps = 0;
+  s.page.ctx.moveViewToNearestMatch = () => { jumps++; };
+  s.ctrlClick(2);
+  s.nodeClick(5);
+  assert.strictEqual(jumps, 0);
+  s.type('zephyr');
+  assert.strictEqual(jumps, 1);
+});
+
+test('Esc with focus in the box ends where repeated Esc does: an empty box, nothing selected, isolate off, so the next click starts clean', async () => {
+  const s = await open();
+  s.ctrlClick(2);
+  assert.strictEqual(s.box(), '#2');
+  s.pressInBox();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  assert.deepStrictEqual(s.ids(), []);
+  assert.strictEqual(s.isolate(), null);
+  s.ctrlClick(5);
+  assert.strictEqual(s.box(), '#5', 'the card Esc let go of does not come back beside the next one');
+});
+
+test('Esc in the box takes the cut, the additions and a pill with it, in the Board and in the Graph', async () => {
+  const s = await open();
+  s.type('slice:0..1');
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  s.pillClick('review');
+  s.pressInBox();
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  const g = await open({ view: 'graph' });
+  g.nodeClick(2);
+  g.nodeClick(5, { shiftKey: true });
+  g.pressInBox();
+  assert.strictEqual(g.box(), '');
+  assert.deepStrictEqual(g.selection(), { anchor: null, additions: [] });
+});
+
+test('Esc in the box with isolate on still only turns isolate off, as before', async () => {
+  const s = await open();
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  s.flip();
+  s.pressInBox();
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.ids(), [2, 5], 'the selection stays for the next Esc');
+});
+
+test('a view switch says what is picked whenever the box is not already its text, though the switch changed no selection', async () => {
+  const s = await open();
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  s.type('zephyr');
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
+  s.told.length = 0;
+  s.view('map');
+  assert.strictEqual(s.box(), '#2 | #5');
+  assert.deepStrictEqual(s.told, [['#2 | #5', 'mirror']]);
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
+  s.told.length = 0;
+  s.view('graph');
+  assert.deepStrictEqual(s.told, [], 'and a box that says it already is left alone');
+});
+
+test('a view switch with only a pill in the selection leaves the text typed beside it', async () => {
+  const s = await open();
+  s.pillClick('review');
+  s.type('review: | zephyr');
+  s.told.length = 0;
+  s.view('map');
+  assert.strictEqual(s.box(), 'review: | zephyr');
+  assert.deepStrictEqual(s.told, []);
 });

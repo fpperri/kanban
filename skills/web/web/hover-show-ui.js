@@ -12,8 +12,9 @@
 // that turn isolate on, so the box lights the sets or hides by the isolate switch as it stood.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the way search-panel.js
-// does: state, storageKey, loadViewMode, searchCtx, refreshHover, writeSearch, $. It also calls graphLoadLayout
-// (graph-view.js), hover-show.js, hotkeys.js (hotkeySpace), search.js and key-guard.js.
+// does: state, storageKey, loadViewMode, hoveredId, searchCtx, refreshHover, writeSearch, $. It also calls
+// graphLoadLayout (graph-view.js), hover-show.js (mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds,
+// hoverShowTerms), hotkeys.js (hotkeySpace), search.js (searchWithTerms) and key-guard.js (keyGuardDetailOff).
 
 let hoverShowMemo = null;
 

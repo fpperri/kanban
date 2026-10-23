@@ -251,10 +251,7 @@ test('the panel is not a surface the key guard names: the slice keys and the res
 });
 
 test('a pill\'s write to the box carries its reason, and nothing else writes with it', () => {
-  assert.strictEqual(panelSrc.split("writeSearch(searchJoinSlice(next.boxText, slices), turnedOn ? 'pill' : 'unpill')").length - 1, 1, 'the one write of a pill gesture puts the run of slices back, with the reason pill when a pill came on and unpill when none did');
-  const writers = [...appSrc.matchAll(/writeSearch\([^)]*'unpill'\)/g)];
-  assert.strictEqual(writers.length, 1, 'the step down the selection is the one other: it takes a dropped pill out of the box, and turns isolate on for nobody');
-  assert.match(appSrc.match(/function moveSelectionTo\([\s\S]*?\n\}/)[0], /writeSearch\(shrunk, 'unpill'\)/);
+  // The reasons each write carries (pill, unpill, mirror) are run in the real page in write-reasons.test.js.
   assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /moveSelectionTo\(next\)/, 'Esc takes it');
   assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /moveSelectionTo\(/, 'so does a double click on empty space');
   const cardClick = appSrc.match(/function applyCardClick\([\s\S]*?\n\}/)[0];
