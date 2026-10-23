@@ -2184,7 +2184,7 @@ to `127.0.0.1` only.
   A depth with no such card has no ring, and neither has a tier with no drawn card: its band, arc and
   caption are not drawn and the rings left close up, with Types on or off, so a board with no
   cards draws no ring, and a `slice:` cut that leaves out the top tiers pulls the fan in to the
-  rings it keeps. A card is in
+  rings it keeps, the dividers between sectors starting at the first ring drawn. A card is in
   the band of its slice, worked out from the whole board, so a hidden or archived parent
   never moves it, and a tier 1 card under the lowest tier sits in its own tier's band,
   with no warning. Each band and each ring has a faint **guide arc** and a **caption** on

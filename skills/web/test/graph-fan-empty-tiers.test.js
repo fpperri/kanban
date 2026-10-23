@@ -92,3 +92,56 @@ test('empty tiers: the Hierarchy hint, the web skill and the web doc say a tier 
   assert.match(read('SKILL.md'), /neither has a tier with no drawn card: its band, arc and caption are not drawn and the rings left close up, with Types on or off/);
   assert.match(read('..', '..', 'docs', 'web.md'), /a tier or a depth with no drawn card has no ring, no arc and no name, and the rings left close up/);
 });
+
+// --- a slice cut that leaves out the top tiers: the fan closes in on what is left ----------------
+
+const trees = () => [
+  card(1, { type: 'goal' }), card(2, { type: 'strategy', parent: 1 }), card(3, { type: 'objective', parent: 2 }), card(4, { type: 'epic', parent: 3 }),
+  card(5, { parent: 4 }), card(6, { parent: 5 }),
+  card(7, { type: 'goal' }), card(8, { type: 'epic', parent: 7 }), card(9, { parent: 8 }), card(10, { parent: 9 }),
+];
+const dividerRadii = (plan) => plan.dividers.map((d) => [Math.hypot(d.x1, d.y1), Math.hypot(d.x2, d.y2)]);
+const outerOf = (l) => l.bands[l.bands.length - 1].r1;
+
+test('cut: keeping only the cards with no tier leaves one ring for each depth, the first where the first ring always starts', () => {
+  const m = buildOf(trees(), HIERARCHY, [5, 6, 9, 10]);
+  const l = layoutOf(m);
+  assert.deepStrictEqual(labels(l), ['depth 0', 'depth 1']);
+  const whole = layoutOf(buildOf(trees()));
+  assert.deepStrictEqual(labels(whole), ['goal', 'strategy', 'objective', 'epic', 'depth 0', 'depth 1']);
+  assert.strictEqual(l.bands[0].r0, whole.bands[0].r0, 'the apex keeps the room it always had');
+  assert.strictEqual(l.bands[0].r1 - l.bands[0].r0, l.bands[1].r1 - l.bands[1].r0);
+  assert.ok(outerOf(l) < outerOf(whole), 'and the fan ends where its rings do, no farther');
+});
+
+test('cut: the sector dividers start at the first ring drawn, not at the room the tiers left out would have taken', () => {
+  const m = buildOf(trees(), HIERARCHY, [5, 6, 9, 10]);
+  const l = layoutOf(m);
+  assert.strictEqual(l.spokes.length, 1);
+  const cut = dividerRadii(planOf(m));
+  const whole = dividerRadii(planOf(buildOf(trees())));
+  assert.ok(cut.length > 0);
+  const innermost = Math.min(...cut.map((d) => d[0]));
+  assert.ok(innermost < l.bands[0].r0 && l.bands[0].r0 - innermost < 30, `the divider starts just inside the first ring (${innermost})`);
+  assert.ok(Math.abs(innermost - Math.min(...whole.map((d) => d[0]))) < 1e-6, 'where it starts when every tier is drawn');
+  assert.ok(Math.max(...cut.map((d) => d[1])) <= outerOf(l), 'and it ends among the cards of the sectors it parts');
+  assert.ok(Math.max(...cut.map((d) => d[1])) < Math.max(...whole.map((d) => d[1])));
+});
+
+test('cut: a cut that keeps every tier, or no cut at all, draws the fan as a board with no cut does', () => {
+  const all = trees().map((c) => c.id);
+  const none = layoutOf(buildOf(trees()));
+  const every = layoutOf(buildOf(trees(), HIERARCHY, all));
+  assert.deepStrictEqual(labels(every), labels(none));
+  assert.deepStrictEqual(every.rings.map((r) => r.r), none.rings.map((r) => r.r));
+  assert.deepStrictEqual(dividerRadii(planOf(buildOf(trees(), HIERARCHY, all))), dividerRadii(planOf(buildOf(trees()))));
+  const one = layoutOf(buildOf(trees(), HIERARCHY, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((id) => id !== 10)));
+  assert.deepStrictEqual(labels(one), labels(none), 'a cut that drops a card but no ring changes no ring');
+});
+
+test('cut: a cut that keeps only the top tiers leaves the depth rings out and the centre as it was', () => {
+  const l = layoutOf(buildOf(trees(), HIERARCHY, [1, 2, 7, 8]));
+  assert.deepStrictEqual(labels(l), ['goal', 'strategy', 'epic']);
+  assert.deepStrictEqual(l.captions.map((c) => c.name), ['goal', 'strategy', 'epic']);
+  assert.strictEqual(l.bands[0].r0, layoutOf(buildOf(trees())).bands[0].r0);
+});
