@@ -6,7 +6,7 @@ const { loadPage, control } = require('./helpers/page-vm');
 // vm): Space on a hovered, else focused, card writes the sets On hover show ticks into the search box as the write
 // 'hover', which never turns isolate on; Shift+Space adds them to what the box holds; Space keeps its own job with
 // no card, in a field, on a control and behind a surface; Ctrl+Space is not its key. The
-// browser runner presses the real keys (scenarios/hover-show.js).
+// browser runner presses the real keys (scenarios/hover-space.js).
 
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
