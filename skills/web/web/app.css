@@ -343,7 +343,7 @@ button:hover { background: var(--btn-hover); }
   .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #stale-indicator { max-width: 1.2em; overflow: hidden; white-space: nowrap; }
 }
-.search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 420px; }
+.search-bar { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 300px; min-width: 220px; max-width: 520px; }
 .search-input { width: 100%; background: var(--paper); border: 1px solid var(--line); color: var(--ink); padding: 6px 10px; border-radius: .15rem; font-size: 0.85em; font-family: inherit; }
 .search-input:focus { outline: none; border-color: var(--accent); }
 .search-input::placeholder { color: var(--mut); }
@@ -397,6 +397,7 @@ button:hover { background: var(--btn-hover); }
 .search-divider { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--line); }
 .isolate-switch { display: inline-flex; align-items: center; gap: 8px; padding: 2px 6px; background: transparent; border-color: transparent; color: var(--ink); font-size: 0.85em; cursor: pointer; user-select: none; }
 .isolate-switch:hover { background: var(--btn-hover); }
+.search-bar > .isolate-switch { flex: 0 0 auto; white-space: nowrap; }
 .isolate-switch-track { position: relative; flex-shrink: 0; width: 28px; height: 16px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: .15rem; }
 .isolate-switch-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: var(--mut); border-radius: 50%; }
 .isolate-switch[aria-checked="true"] .isolate-switch-track { background: var(--accent-soft); border-color: var(--accent); }

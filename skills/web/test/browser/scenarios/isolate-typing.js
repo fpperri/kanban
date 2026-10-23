@@ -16,7 +16,7 @@
 // The Graph. Typing lights the matches and dims the rest, with isolate off and every dot drawn. Ticking the
 // Graph's checkbox makes the same typing isolate: only the matches are drawn.
 //
-// The checkboxes. The panel's foot holds one for each view, the Graph's unticked. Unticking the Board's is kept
+// The checkboxes. The panel's Typing isolates section holds one for each view, the Graph's unticked. Unticking the Board's is kept
 // per board in the browser, survives a reload, and makes typing on the Board light its matches, with isolate off.
 //
 // The zephyr cards are 1, 2, 7 and 11 of the fixture board's 18 live cards. Each step waits on the page, never
@@ -29,7 +29,7 @@ const CASES = {
   query: 'zephyr',
   cards: [1, 2, 7, 11],
   boards: ['fixture'],
-  // The checkboxes, in the order the panel's foot lists the views, with the choice each starts at.
+  // The checkboxes, in the order the panel's Typing isolates section lists the views, with the choice each starts at.
   checkboxes: [['board', true], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]],
 };
 

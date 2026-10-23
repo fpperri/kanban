@@ -1,5 +1,5 @@
 'use strict';
-// Isolate: show only the selection, in every view. The switch at the foot of the search panel
+// Isolate: show only the selection, in every view. The switch just right of the search box, in the top bar
 // (#isolate-switch, a button that is a switch for assistive technology) and the i key turn it
 // on and off. It is no state of its own beyond a flag: turning it on writes the selection into
 // the search box as a query that names each part by its criterion (`#12 | path:40 | tags:grill`,

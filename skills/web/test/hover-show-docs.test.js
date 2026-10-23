@@ -82,7 +82,7 @@ test('the search panel\'s markup has the section, the six boxes in the panel\'s 
   const kinds = [...section.matchAll(/<input type="checkbox" data-hover-kind="([a-z]+)"/g)].map((m) => m[1]);
   assert.deepStrictEqual(kinds, ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'], 'two columns by three rows read across: h left, d right; links, path, tree');
   assert.match(section, /<div class="hover-kinds">/);
-  assert.ok(html.indexOf('id="search-foot"') < html.indexOf('<fieldset id="search-hover"'), 'it sits under the foot');
+  assert.ok(html.indexOf('class="search-divider"') < html.indexOf('<fieldset id="search-hover"'), 'it sits under the divider');
   assert.ok(html.indexOf('<fieldset id="search-hover"') < html.indexOf('<div class="actions">'), 'and inside the panel');
   assert.match(html.slice(html.indexOf('<fieldset id="search-hover"'), html.indexOf('<fieldset id="search-hover"') + 80), /data-keeps-selection/, 'a click on it never clears a selection');
   const scripts = [...html.matchAll(/<script src="\/([a-z-]+\.js)">/g)].map((m) => m[1]);

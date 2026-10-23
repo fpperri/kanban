@@ -917,9 +917,8 @@ to `127.0.0.1` only.
   in the browser per board, in the board's own `prefs` entry, and the preferences sheet
   shows and sets it. An open panel adds nothing to the header's height, and a press
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
-  five regions, drawn on their own: the **Statuses section** first, then the **slice section**
-  (next entry) with its fold control, the **pill section** with its fold control, a divider, and a
-  foot that holds the **Isolate** switch (see Isolate), then the **Typing isolates** section and the **On hover show** section, each with a fold control like the others (`#search-typing-fold`, `#search-hover-fold`) and each folded to start; the same fold code serves all five (`searchFoldSection`, `search-panel.js`). The Statuses section shows the current
+  five sections, drawn on their own: the **Statuses section** first, then the **slice section**
+  (next entry) with its fold control, the **pill section** with its fold control, a divider, then the **Typing isolates** section and the **On hover show** section, each with a fold control like the others (`#search-typing-fold`, `#search-hover-fold`) and each folded to start; the same fold code serves all five (`searchFoldSection`, `search-panel.js`). The **Isolate** switch stands in the bar, just right of the box, not in the panel (see Isolate); the panel has no foot. The Statuses section shows the current
   view's own status pills with their state, for the Map, the Gantt, the Calendar and the Graph,
   at every width: it is open to start and folds like the others, a tap on a pill switches that
   status in the view and a right-click solos it, as the view's own pills do. It is hidden on the
@@ -1052,7 +1051,7 @@ to `127.0.0.1` only.
   focus across the poll and its count changes under it. The chip counts a pill that is on
   even while the button hides it. Next up is not built in: it is a pill a board defines, such
   as `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
-- **Isolate** — the foot of the search panel holds the **Isolate** switch (`#isolate-switch`, a
+- **Isolate** — the top bar holds the **Isolate** switch, just right of the search box and outside the search panel (`#isolate-switch`, in `.search-bar` after `.search-box`, kept whole by `flex: 0 0 auto` while the box gives way, so it shows with the panel shut; a
   button with `role="switch"` whose `aria-checked` says on or off; Tab reaches it, and Enter and
   Space act as a click), and the `i` key flips it. The key reads the shared key guard, so it does
   nothing while a text field has focus or a card menu, a dialog, the notifications panel or the

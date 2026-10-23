@@ -23,10 +23,12 @@
        opens the panel under it; off, nothing does. The p key flips it too.
        The chip is a button, so it is a tab stop while it is shown (hidden, it is none):
        a click, Enter and Space on it open the panel.
+       The Isolate switch (a button with role switch: aria-checked says whether isolate is
+       on; the i key flips it too) stands just right of the box, in the bar, so it shows with the
+       panel shut.
        The panel hangs from the bar without adding to the header's height. It has a
-       region for the slices, the pill section, a divider and a foot, which holds the
-       Isolate switch (a button with role switch: aria-checked says whether isolate is
-       on; the i key flips it too); each is drawn on its own, so what joins the panel
+       Statuses section, a region for the slices, the pill section, a divider, and the Typing
+       isolates and On hover show sections; each is drawn on its own, so what joins the panel
        later extends one without editing another.
        Every control in the bar and the panel wears data-keeps-selection, so a click on
        it never clears a selection, and none wears data-holds-poll: a focused pill is
@@ -40,6 +42,7 @@
       <button type="button" id="search-clear-btn" class="search-clear hidden" title="Clear search" aria-label="Clear search">&#10005;</button>
       <button type="button" id="search-panel-toggle" class="search-panel-toggle" data-keeps-selection aria-pressed="true" aria-expanded="false" aria-controls="search-panel" title="Search panel: opens when the box is focused. Click, or press p, to switch it off." aria-label="Search panel opens on focus">&#9662;</button>
     </div>
+    <button type="button" id="isolate-switch" class="isolate-switch" role="switch" aria-checked="false" data-keeps-selection title="Isolate: show only the selection, in every view, by writing it into the search box. Click, or press i, to turn it on."><span class="isolate-switch-track" aria-hidden="true"></span><span class="isolate-switch-label">Isolate</span></button>
     <div id="search-panel" class="search-panel hidden" role="group" aria-label="Search filters" data-keeps-selection>
       <p id="search-board-note" class="search-board-note hidden" role="status"></p>
       <section id="search-statuses-section" class="search-section" aria-labelledby="search-statuses-fold">
@@ -55,9 +58,6 @@
         <div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
       </section>
       <hr class="search-divider">
-      <div id="search-foot">
-        <button type="button" id="isolate-switch" class="isolate-switch" role="switch" aria-checked="false" data-keeps-selection title="Isolate: show only the selection, in every view, by writing it into the search box. Click, or press i, to turn it on."><span class="isolate-switch-track" aria-hidden="true"></span><span class="isolate-switch-label">Isolate</span></button>
-      </div>
       <section id="search-typing-section" class="search-section" aria-labelledby="search-typing-fold">
         <button type="button" id="search-typing-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-typing" aria-label="Typing isolates" title="Fold or unfold the typing isolates">Typing isolates</button>
         <div id="search-typing" class="search-typing" role="group" aria-labelledby="search-typing-fold" data-keeps-selection title="Per view: whether typing in the search box, a pill, a cue on a card or a link with a search turns Isolate on, which hides what the box does not match. Off, the box lights what it matches.">

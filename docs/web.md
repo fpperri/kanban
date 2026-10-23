@@ -391,7 +391,7 @@ and a value with a space stays one term. The first eight values of a field show,
 across the poll. Next up is not built in: it is a pill a board defines, such as
 `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 
-**Isolate** — the foot of the search panel holds the **Isolate** switch, and the `i` key flips
+**Isolate** — the top bar holds the **Isolate** switch, just right of the search box, so it shows with the panel shut in every view (on a phone, while the search field is open); the `i` key flips
 it, except while you type in a field or a menu, a dialog, the notifications panel or the
 preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
 selection into the search box as `part | part | ...`, each part by what it names, such as

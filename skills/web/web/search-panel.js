@@ -6,13 +6,13 @@
 // now and opens on focus again. The p key flips the same switch, through the key guard
 // (key-guard.js); the panel is no surface there, so p works with the panel open. The
 // choice is kept per board in the preferences (prefs.js, panelOnFocus) and the
-// preferences sheet shows and sets it too (app.js, setPanelOnFocus). The panel has four
-// regions, each drawn on its own so that what joins the panel later extends one
-// without editing another: the slice section (#search-slices, with its fold control,
+// preferences sheet shows and sets it too (app.js, setPanelOnFocus). The Isolate switch (isolate.js)
+// stands in the bar just right of the box, not in the panel, so it shows with the panel shut. The panel has
+// regions, each drawn on its own so that what joins the panel later extends one without editing another: the
+// statuses (search-statuses.js), the slice section (#search-slices, with its fold control,
 // drawn by search-slices.js), the pill section (#search-pills, with its fold control), a
-// divider, and a foot (#search-foot, which holds the Isolate switch and the Typing isolates
-// checkboxes, one per view: isolate.js). Under the foot
-// sits "On hover show" (#search-hover, hover-show-ui.js): which sets a hover lights.
+// divider, then "Typing isolates" (#search-typing: a checkbox for each view, isolate.js) and "On hover show"
+// (#search-hover, hover-show-ui.js: which sets a hover lights), each under a fold control of its own.
 //
 // The pills come from pills.js (the list, the counts, which are on) and are drawn
 // here: the three built-ins, then the board's own pills (state.pills, the config's
