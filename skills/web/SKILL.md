@@ -360,7 +360,7 @@ to `127.0.0.1` only.
   autocomplete dropdown completes the token under the caret, inside brackets, inside
   quotes and after a `|` — the bare term plus every field-scoped form of it; nothing is
   offered once the token carries a colon, except after `slice:` and after `..`, and
-  `tree:`/`path:` and the four above are excluded (they take a card id, not free text). After `slice:` and
+  `tree:`/`path:`, the four above and `dlinks:`/`hlinks:` are excluded (they take a card id, not free text). After `slice:` and
   after `..` the dropdown lists the board's slices, narrowed to the names that start with
   what is typed (any letter case): the tiers of the `hierarchy:` in hierarchy order, every
   one it names, then the depth numbers from 0 to the deepest card with no tier. Picking a row writes the whole

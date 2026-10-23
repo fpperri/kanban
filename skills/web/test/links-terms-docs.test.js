@@ -17,7 +17,8 @@ const glossary = read('GLOSSARY.md');
 test('docs/web.md says what the two terms are, that they are typed, and which cards they leave out', () => {
   assert.match(webDoc, /`dlinks:<id>` is the card, what it waits for and what waits on it, one hop over `waiting_for` both ways/);
   assert.match(webDoc, /`hlinks:<id>` is the card, its parent on this board and its children, one hop over `parent`/);
-  assert.match(webDoc, /have no Explore item; you type them/);
+  assert.match(webDoc, /have no Explore item; you type them./);
+  assert.doesNotMatch(webDoc, /pick them from the box's suggestions/);
   assert.match(webDoc, /an unknown id matches nothing, a parent on another board, a missing one and a self-link are no link, and archived cards count, as in the four sets above/);
 });
 

@@ -433,8 +433,8 @@ ends "Shift: add to the search". Isolate stays as it was: off stays off, so pres
 becomes the isolate text, as typing into the box would make it. `tree:` and
 `path:`, which follow both relations, are as they were.
 
-Two more terms name a card's direct neighbours and have no Explore item; you type them (or pick them
-from the box's suggestions). `dlinks:<id>` is the card, what it waits for and what waits on it, one hop
+Two more terms name a card's direct neighbours and have no Explore item; you type them.
+`dlinks:<id>` is the card, what it waits for and what waits on it, one hop
 over `waiting_for` both ways; `hlinks:<id>` is the card, its parent on this board and its children, one
 hop over `parent`. The `#` is optional, an unknown id matches nothing, a parent on another board, a
 missing one and a self-link are no link, and archived cards count, as in the four sets above.

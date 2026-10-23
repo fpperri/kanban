@@ -36,9 +36,10 @@ test('the web docs say the same in the Search paragraph', () => {
   assert.match(searchDocs, /quoted, the quote holding both ends \(`slice:"big goal\.\.2"`\)/);
 });
 
-test('the skill still says nothing is offered once a token carries a colon, apart from slice:, and that tree:, path: and the four Explore terms are left out', () => {
+test('the skill still says nothing is offered once a token carries a colon, apart from slice:, and that tree:, path:, the four Explore terms and dlinks:/hlinks: are left out', () => {
   assert.match(dropdown, /nothing is\s+offered once the token carries a colon, except after `slice:` and after `\.\.`/);
-  assert.match(dropdown, /`tree:`\/`path:` and the four above are excluded/);
+  assert.match(dropdown, /`tree:`\/`path:`, the four above and `dlinks:`\/`hlinks:` are excluded/);
+  assert.doesNotMatch(dropdown, /`path:` and the four above are excluded/);
 });
 
 test('the documented suggestions are what the search module offers', () => {
