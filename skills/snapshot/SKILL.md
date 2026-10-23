@@ -116,6 +116,9 @@ Explore, each by one relation alone: the hierarchy path (the card's parents up t
 card nested under it) and tree (the whole parent tree from its root) follow `parent:` only, the
 dependency path (everything it waits for and everything waiting on it, transitively) and tree (its
 connected set) follow `waiting_for` only; the page answers them over its own cards as kanban-web does.
+`dlinks:<id>`/`hlinks:<id>` (`#`-tolerant) are a card's direct neighbours, one hop: `dlinks:` the card, what
+it waits for and what waits on it, `hlinks:` the card, its parent and its children. The search knows them as
+kanban-web's does; the sheet and the card menu offer no item for them.
 `tree:<id>`/`path:<id>`
 (`#`-tolerant, e.g. `tree:#153`): tree is the card's whole dependency
 component (undirected flood-fill over `waiting_for` + `parent:`

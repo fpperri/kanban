@@ -319,7 +319,9 @@ to `127.0.0.1` only.
   grammar in the Dependency map section; `hpath:<id>`/`htree:<id>`/`dpath:<id>`/`dtree:<id>`
   (`#` optional) are the four sets Explore's Path and Tree write into the box, each by one relation
   alone, the hierarchy ones over `parent` and the dependency ones over `waiting_for` — see
-  Multi-select; bare text is a substring on title OR body OR any
+  Multi-select; `dlinks:<id>`/`hlinks:<id>` (`#` optional) are a card's direct neighbours, one hop and
+  no further: `dlinks:` the card, what it waits for and what waits on it, `hlinks:` the card, its
+  parent on this board and its children (typed terms, no Explore item); bare text is a substring on title OR body OR any
   tag, and an unrecognized `foo:bar` prefix lands there too (searched as the literal
   string) rather than silently matching nothing on a typo'd field name. Five more forms,
   one example each: `|` is or and a space binds tighter, so `tags:ui status:doing | #12`
