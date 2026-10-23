@@ -111,3 +111,43 @@ test('a Shift pick joins alternatives with the search module own join: one term 
   assert.strictEqual(searchAddAlt('htree:40 | dpath:185', 'dpath:185'), 'htree:40 | dpath:185');
   assert.strictEqual(searchAddAlt('tags:ui status:doing slice:goal..epic', 'dtree:2'), '((tags:ui status:doing) | dtree:2) slice:goal..epic');
 });
+
+test('dlinks: and hlinks: match the card and its direct neighbours, the hash optional and the scope in any letter case', () => {
+  assert.deepStrictEqual(ids('dlinks:4'), ['2', '4', '5']);
+  assert.deepStrictEqual(ids('dlinks:2'), ['2', '4']);
+  assert.deepStrictEqual(ids('hlinks:1'), ['1', '2', '3']);
+  assert.deepStrictEqual(ids('hlinks:2'), ['1', '2', '6']);
+  assert.deepStrictEqual(ids('hlinks:8'), ['8'], 'fpp#1 is another board\'s card');
+  assert.deepStrictEqual(ids('hlinks:9'), ['9', '10']);
+  for (const kind of ['dlinks', 'hlinks']) {
+    assert.deepStrictEqual(ids(`${kind}:#4`), ids(`${kind}:4`));
+    assert.deepStrictEqual(ids(`${kind.toUpperCase()}:4`), ids(`${kind}:4`));
+    assert.deepStrictEqual(ids(`${kind}:"#4"`), ids(`${kind}:4`));
+    assert.deepStrictEqual(parseSearchQuery(`${kind}:#4`), [{ field: kind, value: '4' }]);
+    assert.deepStrictEqual(ids(`${kind}:999`), []);
+    assert.deepStrictEqual(parseSearchQuery(`${kind}:`), []);
+    assert.strictEqual(ids(`${kind}:`).length, CARDS.length, 'a dropped term cuts nothing');
+    assert.strictEqual(cardMatchesQuery(CARDS[0], [{ field: kind, value: '1' }]), false, 'an unresolved one matches nothing');
+  }
+  assert.ok(ids('hlinks:2').includes('6'), 'archived cards are in the set');
+  assert.deepStrictEqual(ids('hlinks:3 | dlinks:5'), ['1', '3', '4', '5']);
+});
+
+test('the resolver hands dlinks: and hlinks: to the context\'s graph functions, and to the explore sets when it has none', () => {
+  const graph = {
+    treeIds: () => new Set(),
+    pathIds: () => new Set(),
+    dlinksIds: () => new Set(['7']),
+    hlinksIds: () => new Set(['8']),
+  };
+  const resolved = resolveTerms(CARDS, parseSearchQuery('dlinks:1 hlinks:1'), { graph });
+  assert.deepStrictEqual(resolved.map((t) => [...t.ids][0]), ['7', '8']);
+  const fallback = resolveTerms(CARDS, parseSearchQuery('dlinks:4'), { graph: { treeIds: () => new Set(), pathIds: () => new Set() } });
+  assert.deepStrictEqual([...fallback[0].ids].sort(), ['2', '4', '5']);
+});
+
+test('a Shift pick and an isolate keep dlinks: and hlinks: as typed', () => {
+  const { searchAddAlt } = require('../web/search');
+  assert.strictEqual(searchAddAlt('hlinks:40', 'dlinks:185'), 'hlinks:40 | dlinks:185');
+  assert.strictEqual(searchIsolateText([typedQueryPart('hlinks:3 | dlinks:5')]), '(hlinks:3 | dlinks:5)');
+});

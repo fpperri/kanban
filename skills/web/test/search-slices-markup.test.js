@@ -116,10 +116,7 @@ test('the panel draws the section on every repaint and counts the run in the chi
   assert.match(panel.match(/function applyPillGesture\([\s\S]*?\n\}/)[0], /searchSplitSlice\(/);
 });
 
-test('a write with the reason slice never makes the box the anchor, and a typed anchor follows it', () => {
-  const body = appSrc.match(/function selectionFollowingBox\([\s\S]*?\n\}/)[0];
-  assert.match(body, /reason === 'slice'/);
-});
+// A write with the reason slice never makes the box the anchor, and a typed anchor follows it: write-reasons.test.js.
 
 // --- the stylesheet -------------------------------------------------------------------------------
 

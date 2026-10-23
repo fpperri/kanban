@@ -31,7 +31,7 @@ test('docs/web.md says the four write their term for the right-clicked card, nev
   assert.match(webDoc, /`hpath:<id>`, `htree:<id>`, `dpath:<id>` and `dtree:<id>` \(the `#` is optional\), written as if you had typed them/);
   assert.match(webDoc, /a plain pick replaces what the box held but for its `slice:` run, so the Graph lights the set and the other views show only it/);
   assert.match(webDoc, /Shift \(a Shift-click, or Shift\+Enter on the focused item\) adds the term to what the box holds as one more alternative, `htree:40 \| dpath:185`, and each item's tooltip ends "Shift: add to the search"/);
-  assert.match(webDoc, /Isolate stays as it was: off stays off, so press it to keep the set, and with isolate already on the term becomes the isolate text, as typing into the box would make it/);
+  assert.match(webDoc, /Isolate follows the Typing isolates of the view, as typing into the box does: where it is on, a pick turns Isolate on and the term is its text, and where it is off the set is lit/);
   assert.doesNotMatch(webDoc, /Isolate stays as it was; press it/);
   assert.match(webDoc, /`tree:` and `path:`, which follow both relations, are as they were/);
 });
@@ -54,7 +54,7 @@ test('no doc still says the four add a selection part, add to the selection or l
 
 test('the web skill lists the four terms in its grammar and keeps them out of the autocomplete', () => {
   assert.match(webSkill, /`hpath:<id>`\/`htree:<id>`\/`dpath:<id>`\/`dtree:<id>` \(`#` optional\) are the four sets Explore's Path and Tree write into the box, each by one relation alone/);
-  assert.match(webSkill, /`tree:`\/`path:` and the four above are excluded \(they take a card id, not free text\)/);
+  assert.match(webSkill, /`tree:`\/`path:`, the four above and `dlinks:`\/`hlinks:` are excluded \(they take a card id, not free text\)/);
 });
 
 test('the web skill says the four entries write the term for menuSubject.clicked, plain or with Shift, and the third level answers the keys and a tap', () => {
@@ -63,7 +63,7 @@ test('the web skill says the four entries write the term for menuSubject.clicked
   assert.match(webSkill, /in place of what the box held but for its `slice:` run \(`searchSplitSlice`, `searchJoinSlice`\)/);
   assert.match(webSkill, /A Shift pick \(a Shift-click, or Shift\+Enter on the focused item\) adds the term to the box as one more alternative \(`searchAddAlt`: `htree:40 \| dpath:185`, bracketing what needs it\), still as if typed; with an empty box it is a plain pick/);
   assert.match(webSkill, /Each item's title ends "Shift: add to the search"/);
-  assert.match(webSkill, /isolate is left as typing into the box leaves it: off stays off, and on it keeps the term as its text/);
+  assert.match(webSkill, /isolate follows the view's Typing isolates as typing into the box does: ticked, a pick turns isolate on and the term is its text/);
   assert.match(webSkill, /the keys work the same at the third level, where Right or Enter on Path or Tree opens its panel and Left or Esc shut that panel alone and return to its row, one level back/);
   assert.match(webSkill, /a tap opens a third-level panel in place at phone width and a second tap shuts it, Explore staying open/);
   assert.match(webSkill, /`menuNestTopGroups` are the menu's own groups, `menuNestAllGroups` the nested ones too/);

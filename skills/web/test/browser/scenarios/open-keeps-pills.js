@@ -4,8 +4,12 @@
 // and the box still holds review:, the pill is still on, and the view behind the card details
 // shows the same card; closing the card with Esc leaves all of that as it was. In the Board a
 // second pill on (Shift+click) and a click on its card leaves both pills and the box as they
-// were. A click that only selects a card (the Board set to selects in the preferences) still takes
-// the pill out of the box, and so does a plain click on a dot in the Graph, which selects; in the
+// were. A pill turns isolate on in every view but the Graph, so the closed panel's chip reads
+// isolated there, with the pills in its name, and counts the pills alone in the Graph. A click
+// that only selects a card (the Board set to selects in the preferences) takes the pill out of
+// the box where the Board does not isolate, the box showing the card in its place, and moves the
+// anchor only where the pill isolates; a plain click on a dot in the Graph, which selects, does the
+// same as the first; in the
 // Graph, Enter on a focused dot opens the card and leaves the pill and the box. Each step waits
 // on the page, never on a fixed sleep; a "nothing happened" check waits two animation frames.
 //
@@ -42,13 +46,19 @@ module.exports = {
     const additions = () => ev(`selectionState.selection.additions.map((p)=>p.text||null)`);
     const cardIds = (container) => ev(`[...new Set([...document.querySelectorAll('${container} .card-el')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b)`);
     const cardsAre = (container, ids) => waitFor(`JSON.stringify([...new Set([...document.querySelectorAll('${container} .card-el')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
+    const selectedIn = (container) => ev(`[...new Set([...document.querySelectorAll('${container} .card-el.selected')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b)`);
+    const selectedAre = (container, ids) => waitFor(`JSON.stringify([...new Set([...document.querySelectorAll('${container} .card-el.selected')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))===${JSON.stringify(JSON.stringify(ids))}`);
     const PANEL = `document.getElementById('search-panel')`;
     const panelOpen = `!${PANEL}.classList.contains('hidden')&&${PANEL}.getBoundingClientRect().height>0`;
     const pillSel = (name) => `#search-pills .query-pill[data-pill-key="${name}"]`;
     const panelShut = `${PANEL}.classList.contains('hidden')`;
     // The panel is shut for every click on a card, so the chip in the box is what counts the pills that are on.
-    const chip = () => ev(`(()=>{const c=document.getElementById('search-chip');return {hidden:c.classList.contains('hidden')||c.getBoundingClientRect().width===0,text:c.textContent}})()`);
-    const pillsOn = async (n) => { const c = await chip(); return !c.hidden && c.text === String(n); };
+    const chip = () => ev(`(()=>{const c=document.getElementById('search-chip');return {hidden:c.classList.contains('hidden')||c.getBoundingClientRect().width===0,text:c.textContent,name:c.getAttribute('aria-label')||''}})()`);
+    // Where the pills isolate (every view but the Graph) the chip reads isolated and counts isolate beside the pills in its name.
+    const pillsOn = async (n, isolated = true) => {
+      const c = await chip();
+      return !c.hidden && (isolated ? c.text === 'isolated' && String(c.name).startsWith(`${n + 1} on:`) : c.text === String(n));
+    };
     const noPillOn = async () => (await chip()).hidden;
     const patchCard = (id, changes) => ev(`fetch('/api/cards/${id}',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(changes)})}).then((r)=>r.status)`);
     const clickOn = async (sel, extra = {}) => {
@@ -96,6 +106,7 @@ module.exports = {
 
     const today = await ev(`(()=>{const d=new Date();const p=(n)=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())})()`);
     check('the Board draws the plan board', await goto('/', ready.board));
+    const liveIds = await cardIds('#board');
     for (const id of DATED) {
       check(`card ${id} is dated today for the Calendar and the Gantt`, (await patchCard(id, { start_date: today, end_date: today })) === 200);
     }
@@ -148,41 +159,57 @@ module.exports = {
     await frames();
     check('closing the card leaves both pills on and the box as it was', await pillsOn(2) && (await boxText()) === 'review: | blocked:', await boxText());
 
-    // --- a click that only selects still takes the pill out of the box ---------------------------------------
+    // --- a click that only selects: the pill goes out of the box where the Board lights, and the anchor moves where it isolates ----
     await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({click:{board:'selects'}}))`);
-    check('the Board draws the plan board set to selects', await goto('/?view=board', ready.board));
+    await ev(`localStorage.setItem('kanban.plan.typing.isolates', JSON.stringify({board:false}))`);
+    check('the Board draws the plan board set to selects and to light what is typed', await goto('/?view=board', ready.board));
     await openPanel();
     await clickOn(pillSel('review'));
     await boxIs('review:');
-    await cardsAre('#board', [REVIEW_CARD]);
+    check('with the Board not isolating, the pill leaves every card in the Board and the card it matches wears the selected look', await cardsAre('#board', liveIds) && await selectedAre('#board', [REVIEW_CARD]), { shown: await cardIds('#board'), selected: await selectedIn('#board') });
     await closePanel();
     const selectPoint = await cardPoint('#board', REVIEW_CARD);
     check('the review card has a point to click in the Board set to selects', !!selectPoint, selectPoint);
     await click(selectPoint.x, selectPoint.y);
     check('a plain click in a Board set to selects selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
-    check('and it takes the pill\'s query out of the box', await boxIs(''), await boxText());
+    check('and it replaces the pill\'s query in the box with the card', await boxIs(`#${REVIEW_CARD}`), await boxText());
     check('and the pill is off in the Board', await noPillOn());
+
+    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({click:{board:'selects'}}))`);
+    await ev(`localStorage.removeItem('kanban.plan.typing.isolates')`);
+    check('the Board draws the plan board set to selects, isolating what is typed', await goto('/?view=board', ready.board));
+    await openPanel();
+    await clickOn(pillSel('review'));
+    await boxIs('review:');
+    check('with the Board isolating, the pill leaves the one card it matches', await cardsAre('#board', [REVIEW_CARD]), await cardIds('#board'));
+    await closePanel();
+    const isolatedPoint = await cardPoint('#board', REVIEW_CARD);
+    await click(isolatedPoint.x, isolatedPoint.y);
+    check('a plain click in a Board that isolates selects the card, moving the anchor only', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
+    await frames();
+    check('and leaves the pill\'s query in the box, which is the isolate text', (await boxText()) === 'review:', await boxText());
     await ev(`localStorage.removeItem('kanban.plan.prefs')`);
+    await ev(`localStorage.removeItem('kanban.plan.typing.isolates')`);
 
     // --- the Graph: Enter opens and changes nothing, a plain click on a dot selects and drops the pill ----------
     check('the Graph draws the plan board', await goto('/?view=graph', ready.graph));
     await openPanel();
     await clickOn(pillSel('review'));
     check('in the Graph a click on the review pill puts review: in the box and makes it the anchor', await boxIs('review:') && await pillIsAnchor('review:'), await anchor());
-    check('the panel closes and its chip counts the pill', await closePanel() && await pillsOn(1), await chip());
+    check('the panel closes and its chip counts the pill', await closePanel() && await pillsOn(1, false), await chip());
     await ev(`document.querySelector('#graph-view .graph-node[data-id="${REVIEW_CARD}"]').focus()`);
     check('the review card\'s dot holds the focus', await ev(`document.activeElement===document.querySelector('#graph-view .graph-node[data-id="${REVIEW_CARD}"]')`));
     await key('Enter');
     check('in the Graph, Enter on a focused dot opens the card', await waitFor(hasCard(REVIEW_CARD), 3000), await ev('location.search'));
     await frames();
-    check('and leaves the box, the pill and the anchor as they were', (await boxText()) === 'review:' && await pillsOn(1) && await pillIsAnchor('review:'), { box: await boxText(), anchor: await anchor() });
+    check('and leaves the box, the pill and the anchor as they were', (await boxText()) === 'review:' && await pillsOn(1, false) && await pillIsAnchor('review:'), { box: await boxText(), anchor: await anchor() });
     await key('Escape');
-    check('Esc closes the card and the pill is still on', await waitFor(noCard, 2500) && (await boxText()) === 'review:' && await pillsOn(1), await boxText());
+    check('Esc closes the card and the pill is still on', await waitFor(noCard, 2500) && (await boxText()) === 'review:' && await pillsOn(1, false), await boxText());
     const dot = await dotPoint(REVIEW_CARD);
     check('the review card\'s dot has a point to click', !!dot, dot);
     await click(dot.x, dot.y);
     check('a plain click on the dot selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
-    check('and takes the pill\'s query out of the box', await boxIs(''), await boxText());
+    check('and replaces the pill\'s query in the box with the card', await boxIs(`#${REVIEW_CARD}`), await boxText());
     check('and the pill is off in the Graph', await noPillOn());
   },
 };

@@ -204,7 +204,7 @@ module.exports = {
     await ev(`(()=>{const rows=[...document.querySelectorAll('#notes-palette .np-note')];rows.find((r)=>r.querySelector('.np-note-text').textContent==='line time wins').focus()})()`);
     check('notes: a listed note takes focus', await focusedRow() && await rowTextFocused() === 'line time wins');
     await key('i');
-    check('notes: i typed on a note goes to the note box, not to the board\'s isolate key', await waitFor(`${BOX}==='i'`, 2500) && await ev(`document.getElementById('search-input').value===''`), await ev(BOX));
+    check('notes: i typed on a note goes to the note box, not to the board\'s isolate key', await waitFor(`${BOX}==='i'`, 2500) && await ev(`!/i$/.test(document.getElementById('search-input').value)&&document.getElementById('isolate-switch').getAttribute('aria-checked')==='false'`), await ev(BOX));
     await setBox('');
     await ev(`[...document.querySelectorAll('#notes-palette .np-note')].find((r)=>r.querySelector('.np-note-text').textContent==='line time wins').focus()`);
     await key('e');

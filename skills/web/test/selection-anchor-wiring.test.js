@@ -362,17 +362,29 @@ test('Graph: a click that is not on a node is left alone', async () => {
   assert.deepStrictEqual(g.ids(), [1]);
 });
 
-test('Graph: Space on a focused card acts as a plain click, and Enter opens the card without touching the selection', async () => {
+test('Graph: Ctrl+Space on a focused card acts as a plain click, and Enter opens the card without touching the selection', async () => {
   const g = await inGraph();
   g.click(1);
   g.click(5, { shiftKey: true });
-  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ' }));
+  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ', ctrlKey: true }));
   assert.deepStrictEqual(g.selection(), { anchor: a(4), additions: [] });
   const opened = [];
   g.page.ctx.openCard = (id) => { opened.push(Number(id)); };
   g.graphHost.fire('keydown', nodeEvent(2, { key: 'Enter' }));
   assert.deepStrictEqual(opened, [2]);
   assert.deepStrictEqual(g.selection(), { anchor: a(4), additions: [] });
+});
+
+test('Graph: Space and Shift+Space on a focused card select nothing: Space writes the hovered card, Ctrl+Space selects', async () => {
+  const g = await inGraph();
+  g.click(1);
+  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ' }));
+  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ', shiftKey: true }));
+  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ', ctrlKey: true, shiftKey: true }));
+  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ', ctrlKey: true, repeat: true }));
+  assert.deepStrictEqual(g.selection(), { anchor: a(1), additions: [] });
+  g.graphHost.fire('keydown', nodeEvent(4, { key: ' ', metaKey: true }));
+  assert.deepStrictEqual(g.selection(), { anchor: a(4), additions: [] }, 'Cmd+Space selects as Ctrl+Space does');
 });
 
 test('Graph: a double click opens the card', async () => {

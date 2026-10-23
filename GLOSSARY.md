@@ -162,7 +162,7 @@ Every card that a chain of relations joins, whichever way each points and whethe
 _Avoid_: component, cluster, web.
 
 **Explore set** (derived):
-One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree write one into the search box for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations.
+One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree write one into the search box for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations. Two smaller sets sit beside them as search terms only, with no menu item: `dlinks:` is the card, what it waits for and what waits on it, and `hlinks:` is the card, its parent and its children, one hop each and no further; they treat a missing or other-board parent, a self-link and an archived card as the four do.
 _Avoid_: branch, subtree, lineage.
 
 **Chain end** (derived):
@@ -288,6 +288,18 @@ _Avoid_: pill (alone), filter chip.
 **Isolate**:
 Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion, so the address carries it.
 _Avoid_: solo (a view's status pills), focus, filter.
+
+**Typing isolates**:
+A per-view choice, kept per board, whether a query the person makes (typing, a pill, a cue on a card, a `?q=` link) turns Isolate on; on in every view but the Graph, so the box hides what it does not match there and lights its matches in the Graph.
+_Avoid_: filter mode, search mode.
+
+**Mirror**:
+The selection written into the search box as the text Isolate would write for it, when a click that selects, an Add to selection, a step of Esc or a switch of view with cards picked changes the box while Isolate is off. The box lights those cards and hides nothing, and the text is the selection's own, not a query typed, so the next click still works on the cards.
+_Avoid_: sync, echo.
+
+**On hover show**:
+The choice, made in the search panel and in the Graph's option panel (one choice, shown in both), of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads.
+_Avoid_: hover mode, hover filter.
 
 **Peek**:
 Opening a card's details without changing the selection.

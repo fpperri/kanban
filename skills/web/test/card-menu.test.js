@@ -333,7 +333,7 @@ test('with isolate on, the term replaces the isolate text in the box as typing w
   assert.notStrictEqual(s.page.run('isolateNow()'), null);
 });
 
-test('a Shift pick adds the term to what the box holds as one more alternative, as if typed, and leaves isolate alone', async () => {
+test('a Shift pick adds the term to what the box holds as one more alternative, as if typed, and isolate follows Typing isolates of the view as typing does', async () => {
   const s = await open();
   const shift = { shiftKey: true };
   s.page.input.typed('htree:1');
@@ -350,7 +350,16 @@ test('a Shift pick adds the term to what the box holds as one more alternative, 
   s.rightClick(2);
   s.click('#ctx-dtree', shift);
   assert.strictEqual(box(s), '((tags:ui status:doing) | dtree:2) slice:goal..epic', 'bracketed where it needs it, the slice run after');
-  assert.deepStrictEqual(s.page.run('isolateNow()'), null);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(s.page.run('isolateNow()'))), { previous: '((tags:ui status:doing) | dtree:2) slice:goal..epic', following: true }, 'the Board isolates what is typed, and what isolate off gives back follows the box');
+});
+
+test('a pick lights its set where the view has Typing isolates off, and leaves isolate alone', async () => {
+  const s = await open();
+  s.page.run("setTypingIsolates('board', false)");
+  s.rightClick(2);
+  s.click('#ctx-dpath');
+  assert.strictEqual(box(s), 'dpath:2');
+  assert.strictEqual(s.page.run('isolateNow()'), null);
 });
 
 test('a Shift pick on an empty box is a plain pick, and a plain pick after it replaces the alternatives', async () => {

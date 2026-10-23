@@ -54,9 +54,9 @@ test('it covers a plain click that opens a card in the Board, the Map, the Gantt
 test('it also covers two pills on, a click that only selects, and the Graph\'s Enter and plain click', () => {
   for (const name of [
     'both pills stay on, the first the anchor and the second an addition', 'the box still holds both queries',
-    'a plain click in a Board set to selects selects the card and opens nothing', 'and it takes the pill\\\'s query out of the box',
+    'a plain click in a Board set to selects selects the card and opens nothing', 'and it replaces the pill\\\'s query in the box with the card',
     'in the Graph, Enter on a focused dot opens the card', 'and leaves the box, the pill and the anchor as they were',
-    'a plain click on the dot selects the card and opens nothing', 'and takes the pill\\\'s query out of the box',
+    'a plain click on the dot selects the card and opens nothing', 'and replaces the pill\\\'s query in the box with the card',
   ]) {
     assert.ok(source.includes(`'${name}'`) || source.includes(`check('${name}'`), name);
   }
@@ -145,10 +145,10 @@ test('run once against a stand-in page the scenario finishes, and every expressi
   assert.deepStrictEqual(names.filter((n, i) => names.indexOf(n) !== i), [], 'a check name used twice');
 });
 
-test('it loads each view cold, then the Board for two pills, the Board set to selects and the Graph', async () => {
+test('it loads each view cold, then the Board for two pills, the Board set to selects, with and without isolating, and the Graph', async () => {
   const page = standIn();
   await scenario.run(page);
-  assert.deepStrictEqual(page.log.opened, ['/', '/?view=board', '/?view=map', '/?view=gantt', '/?view=calendar', '/?view=board', '/?view=board', '/?view=graph']);
+  assert.deepStrictEqual(page.log.opened, ['/', '/?view=board', '/?view=map', '/?view=gantt', '/?view=calendar', '/?view=board', '/?view=board', '/?view=board', '/?view=graph']);
 });
 
 test('it presses Escape to close the card after each open and Enter once in the Graph, and Shift+clicks once', async () => {

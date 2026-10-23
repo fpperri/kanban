@@ -26,8 +26,13 @@ const BOARD = {
   archived: [],
 };
 
-async function openAt(search = '') {
-  const page = loadPage({ board: BOARD, search });
+// The address follows the box whether or not isolate is on; `typing` is whether the Board's Typing
+// isolates is on, and `graph` the Graph's. These tests are about q alone, so both are off unless a test says
+// otherwise: with one on, a query put in the box by the person turns isolate on in that view and
+// `isolate=1` stands beside q; and where typing does not isolate the address says nothing about isolate.
+async function openAt(search = '', { typing = false, graph = false } = {}) {
+  const stored = { 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing, map: typing, graph }) };
+  const page = loadPage({ board: BOARD, search, stored });
   const session = attachSessionHistory(page);
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
@@ -65,6 +70,22 @@ test('typing puts the box\'s text in the address as q, one keystroke at a time, 
   assert.strictEqual(session.pushes, 0, 'typing pushed no history entry');
   assert.strictEqual(session.entries.length, lengthBefore, 'and the history is no longer');
   assert.strictEqual(session.replaces, 6, 'each keystroke replaced the entry it is on');
+});
+
+test('with Typing isolates on, typing puts isolate=1 in the address beside q, and the clear button takes both out', async () => {
+  const { page, session } = await openAt('?view=board', { typing: true });
+  page.input.typed('zephyr');
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'board', q: 'zephyr', isolate: '1' });
+  assert.strictEqual(session.pushes, 0, 'typing pushed no history entry');
+  page.clear.fire('click');
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'board' });
+});
+
+test('with Typing isolates on, a link opened with q is isolated, and its address says so', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=board', { typing: true });
+  assert.strictEqual(page.input.value, 'zephyr');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1' });
+  assert.strictEqual(session.pushes, 0);
 });
 
 test('a write that leaves q as it is replaces nothing', async () => {
@@ -337,4 +358,87 @@ test('landing never writes the box: a Back onto a step with another q tells no s
   await page.settle();
   assert.deepStrictEqual(told, []);
   assert.strictEqual(page.input.writes.length, writes);
+});
+
+// --- how a reload reopens the picture: isolate=0 beside q ---------------------------------------
+// Outside the Graph the page writes isolate=0 beside q while the box holds a query and isolate is off, so a
+// reload opens it lit; a link with a query and no isolate parameter is an old or hand-made one and opens
+// isolated there; isolate=1 opens isolated. In the Graph no parameter means off, and none is written.
+
+test('where typing isolates, a box that lights its query writes isolate=0 beside q, and the address it writes reopens lit', async () => {
+  const first = await openAt('?view=board', { typing: true });
+  first.page.input.typed('zephyr');
+  assert.deepStrictEqual(paramsOf(first.session.search), { view: 'board', q: 'zephyr', isolate: '1' });
+  first.page.run('isolateTurnOff()');
+  assert.deepStrictEqual(paramsOf(first.session.search), { view: 'board', q: 'zephyr', isolate: '0' });
+  const reloaded = await openAt(first.session.search, { typing: true });
+  assert.strictEqual(reloaded.page.input.value, 'zephyr');
+  assert.strictEqual(reloaded.page.run('isolateNow()'), null, 'isolate=0 opens with isolate off, though the Board isolates what is typed');
+  assert.strictEqual(reloaded.session.replaces, 0, 'and the address is left alone');
+});
+
+test('a link with a query and no isolate parameter turns isolate on where the view isolates what is typed, and the address then says so', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=board', { typing: true });
+  assert.notStrictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1' });
+});
+
+test('a link with a query and no isolate parameter opens lit where the view does not isolate what is typed, and the address says nothing about isolate', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=board');
+  assert.strictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board' });
+  assert.strictEqual(session.replaces, 0);
+});
+
+test('a link with isolate=0 into a view that does not isolate what is typed opens lit, and the parameter goes since the view needs none', async () => {
+  const { page, session } = await openAt('?q=zephyr&isolate=0&view=board');
+  assert.strictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board' });
+});
+
+test('isolate=1 opens isolated, whatever the view\'s Typing isolates', async () => {
+  const { page } = await openAt('?q=zephyr&isolate=1&view=board');
+  assert.notStrictEqual(page.run('isolateNow()'), null);
+});
+
+test('in the Graph, with its Typing isolates off, no isolate parameter means off, and none is written', async () => {
+  const { page, session } = await openAt('?q=zephyr&view=graph', { typing: true });
+  assert.strictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'graph', graph: 'hierarchy' });
+  page.input.typed('zephyr s');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr s', view: 'graph', graph: 'hierarchy' });
+});
+
+test('in the Graph, with its Typing isolates on, typing isolates, and a lit query writes isolate=0 beside q so a reload keeps it lit', async () => {
+  const { page, session } = await openAt('?view=graph', { graph: true });
+  page.input.typed('zephyr');
+  assert.notStrictEqual(page.run('isolateNow()'), null);
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'graph', graph: 'hierarchy', q: 'zephyr', isolate: '1' });
+  page.run('isolateTurnOff()');
+  assert.deepStrictEqual(paramsOf(session.search), { view: 'graph', graph: 'hierarchy', q: 'zephyr', isolate: '0' });
+  const reloaded = await openAt(session.search, { graph: true });
+  assert.strictEqual(reloaded.page.input.value, 'zephyr');
+  assert.strictEqual(reloaded.page.run('isolateNow()'), null, 'a reload keeps it lit');
+  assert.strictEqual(reloaded.session.replaces, 0);
+  const bare = await openAt('?q=zephyr&view=graph', { graph: true });
+  assert.notStrictEqual(bare.page.run('isolateNow()'), null, 'while a link with no parameter isolates there');
+});
+
+test('the name of the view decides nothing: with its Typing isolates off a lit query writes no isolate parameter, and a Graph set to isolate does', async () => {
+  const board = await openAt('?view=board', { graph: true });
+  board.page.input.typed('zephyr');
+  assert.deepStrictEqual(paramsOf(board.session.search), { view: 'board', q: 'zephyr' });
+  board.page.run("setView('graph')");
+  assert.notStrictEqual(board.page.run('isolateNow()'), null, 'entering the Graph isolates the typed query there');
+  assert.deepStrictEqual(paramsOf(board.session.search), { view: 'board', graph: 'hierarchy', q: 'zephyr', isolate: '1' });
+});
+
+test('going from the Board to the Graph and back keeps the address in line with the picture', async () => {
+  const { page, session } = await openAt('?view=board', { typing: true });
+  page.input.typed('zephyr');
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1' });
+  page.run("setView('graph')");
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', graph: 'hierarchy' }, 'in the Graph, where typing lights, nothing is written');
+  page.run("setView('board')");
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1', graph: 'hierarchy' }, 'and the Board isolates the query again');
 });

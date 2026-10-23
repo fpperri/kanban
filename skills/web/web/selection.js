@@ -23,13 +23,13 @@ function rangeSelection(set, orderedIds, startId, targetId) {
   return next;
 }
 
-// Hover/focus highlight (kanban.proj#261): unlike selection, only ever ONE
-// card is hovered or focused at a time, so the membership test every
-// render call site needs is a plain equality check — pulled out so it has
-// one tested place to live rather than a raw `===` repeated at each of the
-// six card-representing surfaces.
-function isHoverHighlighted(hoveredId, cardId) {
-  return hoveredId != null && hoveredId === cardId;
+// Hover/focus highlight: one card is hovered or focused at a time, and the cards that take
+// the hover look are that card and the sets "On hover show" ticks for it (hover-show.js), so
+// the membership test every render call site needs is a lookup in that set (null when
+// nothing is hovered) — pulled out so it has one tested place to live rather than a raw
+// `.has` repeated at each of the card-representing surfaces.
+function isHoverHighlighted(lit, cardId) {
+  return lit != null && lit.has(cardId);
 }
 
 // The card menu a right-click on card `id` opens, as one decision the page only
@@ -275,6 +275,16 @@ function selectionAfterEscape(current) {
   return { selection: next, rangeStart: rangeStartOf(next) };
 }
 
+// Which stage the next Esc away from the box is on: 'isolate' while isolate is on, 'selection'
+// while something is picked, 'box' once only the box's text is left (a typed search outside the
+// Graph, a `slice:` run), and null when the box is empty too, so Esc has nothing left to do. The
+// caller carries out 'box' by clearing the box, the run of slices included.
+function escapeStage(current, boxText) {
+  if (current.isolate) return 'isolate';
+  if (stepBack(current.selection) !== current.selection) return 'selection';
+  return boxText ? 'box' : null;
+}
+
 // The parts a poll leaves standing: a card, path or tree part whose card is no
 // longer on the board goes, and a query stays (it may match again). The first
 // part left becomes the anchor if the anchor went.
@@ -463,53 +473,134 @@ function pillQueriesDropped(before, after) {
     .map((part) => part.text);
 }
 
+// The pill queries a step from `before` to `after` put into the selection, in the order they were
+// picked: the other side of pillQueriesDropped. A pill gesture reads it to tell a pill coming on
+// (which can turn isolate on) from one only going off.
+function pillQueriesAdded(before, after) {
+  return pillQueriesDropped(after, before);
+}
+
 // --- Isolate -------------------------------------------------------------------
 // Isolate shows only the selection by writing it into the search box as a query
 // (searchIsolateBox, search.js), so it is no selection state: it is a flag, { previous },
 // the text the box held before, kept while it is on (null while off). A click on a
 // card while it is on moves the anchor and writes nothing to the box, and it ends
-// when the box is left holding no query.
-
-// The text the box holds after a click on a card in the Graph, given the gesture
-// (`action`, from cardClickAction) and whether the selection's anchor was the typed
-// query before and after it. A plain click sets a new anchor and clears the box. Shift
-// or Ctrl keeps the query, unless it took out a card the typed query lit: the query is
-// then its other cards, and the box no longer names the anchor. What a clear leaves is
-// `cut`, the run of slices the box holds (searchCutOnly, search.js; none when the page
-// names none): the cut is no search, and the Graph keeps drawing what it hides. While
-// isolated the box holds the isolate text, which a click never touches: it moves the
-// anchor only.
-function boxAfterGraphClick(action, { boxText, cut = '', typedBefore, typedAfter, isolated }) {
-  if (isolated) return boxText;
-  return action === 'select' || (typedBefore && !typedAfter) ? cut : boxText;
-}
+// when the box is left holding no query. With isolate off a click writes the selection
+// into the box instead (searchMirrorBox, search.js).
 
 // The isolate state after the box was written with `reason`. Isolate is a query in the
 // box, so a write that leaves the box holding none (a hand edit, the clear button, a
 // pill turned off) ends it. Its own writes, turning it on and off, never do: the page
 // ends it itself when it gives the box its text back.
 function isolateAfterWrite(isolate, text, reason) {
-  if (!isolate || reason === 'isolate') return isolate;
+  if (!isolate || writeIsIsolateSwitch(reason)) return isolate;
   return String(text == null ? '' : text).trim() ? isolate : null;
 }
 
-// What the browser keeps, per board, while isolate is on: the text the box held before isolating
-// (what turning isolate off gives back) and the isolate text the box held when it was last
-// written, as one JSON string. The text says which isolate the previous text belongs to.
-function isolateRecord(previous, text) {
-  return JSON.stringify({ previous: String(previous == null ? '' : previous), text: String(text == null ? '' : text).trim() });
+// --- What the box does, hiding and lighting ---------------------------------------
+// The box says what, isolate says hide or light, in every view. In the Graph the box lights its
+// matches and hides only by a slice: cut (graphQueryEffect, graph-model.js), and while isolate is
+// on the whole query is the cut. Every other view reads the same rule: with isolate off the box
+// hides only by the slice: terms that stand on their own in the query, and its other terms light
+// the cards they match, with the selected look; with isolate on the whole query hides. A cut
+// hides in every view whatever isolate is.
+
+// The terms of the box that hide cards in `view`. The Graph's own effect works its hiding out
+// from the whole query and the isolate flag, so there it is every term. The array comes back
+// as it was given when every term hides, and empty when none does.
+function boxHidingTerms(terms, { view, isolated }) {
+  const all = Array.isArray(terms) ? terms : [];
+  if (view === 'graph' || isolated) return all;
+  return all.filter((t) => t && t.field === 'slice');
 }
 
-// The text to give back when isolate comes from a link whose query is `q`: the record's previous
-// text when the record is for that very query, and the empty string when it is unknown (no
-// record, an unreadable one, storage that refused, or a record kept for another isolate), so
-// turning isolate off leaves the box empty rather than restoring an unrelated text.
-function isolatePreviousFrom(raw, q) {
-  if (typeof raw !== 'string') return '';
+// Whether the box lights its matches outside the Graph: isolate is off and the query holds
+// something besides a cut, which is no search and lights nothing.
+function boxLightsMatches(terms, { view, isolated }) {
+  if (view === 'graph' || isolated) return false;
+  return (Array.isArray(terms) ? terms : []).some((t) => t && t.field !== 'slice');
+}
+
+// --- Why the box was written ------------------------------------------------------------------
+// Every write to the box goes through writeSearch(text, reason) in app.js, and the reason is the one
+// thing the listeners and the selection read to decide what the write means. The rule for each kind of
+// reason lives here, once, as a name and a predicate; nothing else lists reasons.
+//
+//   typing    a keystroke in the box
+//   clear     the clear button
+//   cue       a click on a tag, assignee or sticker cue on a card
+//   pill      a pill turned on (or off, with another one on), changing the selection and the box together
+//   unpill    a pill taken out with none turned on (a click, or Esc's step)
+//   slice     the slice section, a run of `slice:` terms that is a cut and no search
+//   isolate   the switch, the i key or a menu entry, turning isolate on or off
+//   mirror    a click that selects, Add to selection, Esc's step down and a view switch writing the
+//             selection as its own text
+//   hover     Space on a hovered card writing its sets
+//   link      a ?q= link, isolated where the view's Typing isolates is on
+//   link-lit  a ?q= link with isolate=0, opened lit (linkWriteReason)
+//   prefill, selection, menu   the Ctrl+F prefill, a step that leaves only a cut, a menu item
+
+// The writes that carry a query the person made: typing, a pill, a cue on a card and a ?q= link.
+// The others (the clear button, the Ctrl+F prefill, a slice, a click's selection, isolate's own
+// write, a link that opens lit) say nothing to turn isolate on.
+const ISOLATING_REASONS = ['typing', 'pill', 'cue', 'link'];
+
+// The writes that settle the selection themselves or are its own text: the box they leave is never a
+// typed search, and the selection stays as the write made it.
+const SELECTION_OWN_REASONS = ['pill', 'unpill', 'isolate', 'mirror'];
+
+// The writes by hand that take a pill off when the box no longer holds its query. A Space write is one:
+// it replaces what the box held.
+const PILL_EDITING_REASONS = ['typing', 'clear', 'hover'];
+
+// A write with no reason, or one that settles the selection itself, leaves the selection as it is.
+function writeKeepsSelection(reason) {
+  return !reason || SELECTION_OWN_REASONS.includes(reason);
+}
+
+function writeIsCut(reason) { return reason === 'slice'; }
+
+function writeEditsPills(reason) { return PILL_EDITING_REASONS.includes(reason); }
+
+function writeIsIsolateSwitch(reason) { return reason === 'isolate'; }
+
+// A click's write moves the box, never the page the Calendar or the Gantt is on; every other write may
+// make the view jump to the nearest match.
+function writeSkipsJump(reason) { return reason === 'mirror'; }
+
+// The reason a ?q= link is written with: isolate=0 opens it lit, so it turns nothing on; a link without
+// the parameter is isolated where the view isolates what is typed.
+function linkWriteReason(isolateOff) { return isolateOff ? 'link-lit' : 'link'; }
+
+// Whether a write to the box turns isolate on: it carries a query, isolate is off, and the view
+// being shown has Typing isolates on (typing-isolates.js; on by default in every view but
+// the Graph, so typing filters the Board and lights in the Graph). `setting` is that view's
+// choice, and `text` is what was written without its run of slices (searchSplitSlice, search.js):
+// a cut alone is no query to isolate.
+function typingTurnsIsolateOn({ reason, text, isolated, setting }) {
+  return !isolated && setting === true && ISOLATING_REASONS.includes(reason) && String(text == null ? '' : text).trim() !== '';
+}
+
+// What the browser keeps, per board, while isolate is on: the text the box held before isolating
+// (what turning isolate off gives back), the isolate text the box held when it was last written, and
+// whether the box's own query started the isolate (`following`: typing, a pill, a cue or a link, as against
+// the switch or the i key), as one JSON string. The text says which isolate the rest belongs to.
+function isolateRecord(previous, text, following = false) {
+  return JSON.stringify({ previous: String(previous == null ? '' : previous), text: String(text == null ? '' : text).trim(), following: following === true });
+}
+
+// What to give back, and whose isolate it was, when isolate comes from a link whose query is `q`:
+// the record's previous text and its `following` fact when the record is for that very query, and
+// nothing ({ previous: '', following: false }) when it is unknown (no record, an unreadable one,
+// storage that refused, or a record kept for another isolate), so turning isolate off leaves the box
+// empty rather than restoring an unrelated text.
+function isolateKeptFrom(raw, q) {
+  const unknown = { previous: '', following: false };
+  if (typeof raw !== 'string') return unknown;
   let record;
-  try { record = JSON.parse(raw); } catch (e) { return ''; }
-  if (!record || typeof record.previous !== 'string' || record.text !== String(q == null ? '' : q).trim()) return '';
-  return record.previous;
+  try { record = JSON.parse(raw); } catch (e) { return unknown; }
+  if (!record || typeof record.previous !== 'string' || record.text !== String(q == null ? '' : q).trim()) return unknown;
+  return { previous: record.previous, following: record.following === true };
 }
 
 // The card a click picked on its own, or null: a selection that is one card part,
@@ -521,12 +612,13 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
   window.selectionAfterBoxEdit = selectionAfterBoxEdit;
   window.pillQueriesDropped = pillQueriesDropped;
+  window.pillQueriesAdded = pillQueriesAdded;
   window.partsOf = partsOf;
   window.typedQueryPart = typedQueryPart;
   window.isTypedAnchor = isTypedAnchor;
@@ -546,11 +638,20 @@ if (typeof module !== 'undefined' && module.exports) {
   window.selectionWithoutCard = selectionWithoutCard;
   window.stepBack = stepBack;
   window.selectionAfterEscape = selectionAfterEscape;
+  window.escapeStage = escapeStage;
   window.pruneSelectionParts = pruneSelectionParts;
-  window.boxAfterGraphClick = boxAfterGraphClick;
   window.isolateAfterWrite = isolateAfterWrite;
+  window.boxHidingTerms = boxHidingTerms;
+  window.boxLightsMatches = boxLightsMatches;
+  window.typingTurnsIsolateOn = typingTurnsIsolateOn;
+  window.writeKeepsSelection = writeKeepsSelection;
+  window.writeIsCut = writeIsCut;
+  window.writeEditsPills = writeEditsPills;
+  window.writeIsIsolateSwitch = writeIsIsolateSwitch;
+  window.writeSkipsJump = writeSkipsJump;
+  window.linkWriteReason = linkWriteReason;
   window.isolateRecord = isolateRecord;
-  window.isolatePreviousFrom = isolatePreviousFrom;
+  window.isolateKeptFrom = isolateKeptFrom;
   window.cardMenuFor = cardMenuFor;
   window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;

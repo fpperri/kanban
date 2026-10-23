@@ -67,7 +67,7 @@ const GRAPH_FAN_OPTION_LABELS = {
   },
 };
 const GRAPH_KIND_TITLES = {
-  hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
+  hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier that holds a drawn card, with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier (a tier or a depth with no drawn card has no ring); a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
   flow: 'Flow: the cards in columns by their dependencies, left to right; an arrow runs from the card waited for to the card that waits',
 };
 const GRAPH_FLOW_DEPS_LABEL = {
@@ -77,6 +77,10 @@ const GRAPH_FLOW_DEPS_LABEL = {
 const GRAPH_FLOW_LANES_LABEL = {
   label: 'Lanes',
   hint: 'Off: the cards in columns alone. On: each card in the lane of its nearest parent with a tier, else its root, under a header with the type mark of that card, its tier, title, cards and ready cards. Frontier puts the lanes with ready cards first, the most ready first, and folds a lane into the strip when none of its cards with a dependency is open; all keeps the outline order and folds none. A card with no dependency stays in the strip.',
+};
+const GRAPH_HOVER_LABEL = {
+  label: 'On hover',
+  hint: 'Which sets a hover or a keyboard focus on a card lights, any mix: dtree and htree the whole tree down or across, dpath and hpath the path to the roots, dlinks the cards one wait away, hlinks the parent and the children. The same choice as On hover show in the search panel, kept for each kind of Graph; Space writes the ticked terms into the box.',
 };
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
@@ -413,7 +417,7 @@ function graphBuildSwitch(def, key, values, current) {
   seg.setAttribute('role', 'group');
   seg.setAttribute('aria-label', def.label);
   for (const value of values) {
-    const on = current === value;
+    const on = Array.isArray(current) ? current.includes(value) : current === value;
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `graph-option-btn${on ? ' active' : ''}`;
@@ -452,9 +456,20 @@ function graphBuildFlowRow(deps, lanes) {
   return row;
 }
 
+// The On hover section: the six sets as toggles, any mix, the choice of this kind of Graph (hover-show.js).
+// A press edits the one choice the search panel's boxes edit (hoverShowPick, hover-show-ui.js), which
+// hands the buttons their new state without a redraw.
+function graphBuildHoverRow(kind) {
+  const row = document.createElement('div');
+  row.className = 'graph-hover-options';
+  row.dataset.keepsSelection = '';
+  row.appendChild(graphBuildSwitch(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_KINDS, hoverShowLoad()[hoverShowGraph('graph', kind)]));
+  return row;
+}
+
 // The option panel's contents (app.js builds the panel itself): the Hierarchy | Flow choice, the zoom,
-// then for Hierarchy the option row of the tier fan and for Flow the Flow's switches. These stood in the
-// top row of the view before.
+// then for Hierarchy the option row of the tier fan and for Flow the Flow's switches, then On hover for
+// both. These stood in the top row of the view before.
 function graphBuildPanel(kind, fan, deps, lanes) {
   const panel = buildViewPanel('graph', 'Graph options');
   const kinds = document.createElement('div');
@@ -473,6 +488,7 @@ function graphBuildPanel(kind, fan, deps, lanes) {
   panel.appendChild(zoom);
   if (fan) panel.appendChild(graphBuildOptionsRow(fan.options));
   if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps, lanes));
+  panel.appendChild(graphBuildHoverRow(kind));
   return panel;
 }
 
@@ -642,13 +658,17 @@ function graphLightCards(lit) {
   for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
 
-// The pointer or keyboard focus on a card: that card and its one-hop relations.
+// The pointer or keyboard focus on a card: the sets the search panel's "On hover show" ticks for this
+// kind of Graph (hoverSetOf, hover-show-ui.js), lit with the rest dimmed. With none ticked the hover
+// lights nothing and the lighting of the selection stays.
 function graphSetFocus(id) {
   if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
-  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id, graphLinkKind()), graphCur.lines));
+  const lit = graphLit(graphCur.model, hoverSetOf(id), graphCur.lines);
+  if (lit) graphLightCards(lit);
+  else graphRestFocus();
 }
 
-// The Flow draws the dependencies alone, so it lights a card with the cards those join to it.
+// The Flow draws the dependencies alone, so a lone card picked there lights with the cards those join to it.
 function graphLinkKind() {
   return graphCur && graphCur.kind === 'flow' ? 'wait' : undefined;
 }
@@ -759,7 +779,7 @@ function graphQueueNames() {
 function graphPaintSelection() {
   if (!graphCur) return;
   for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', selectedIds.has(nid));
-  for (const [nid, els] of graphCur.headEls) for (const h of els) h.classList.toggle('selected', selectedIds.has(nid));
+  for (const [nid, els] of graphCur.headEls) for (const h of els) h.classList.toggle('selected', paintsSelected(nid));
   graphPaintNames();
   graphRestFocus();
 }
@@ -774,16 +794,12 @@ function graphClickNode(id, mods) {
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
     plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
   });
-  const typedBefore = isTypedAnchor(selectionState.selection);
+  const before = selectionState.selection;
   selectByClick(action, id);
-  // A plain click sets a new anchor and clears the box, but for its cut: the Graph
-  // keeps drawing what the cut hides, so the painting in place stays true. Shift or Ctrl keeps
-  // the query, unless it took out a card the query lit: the query is then its other
-  // cards, and the box no longer names the anchor. While isolated the box holds the
-  // isolate text and a click moves the anchor only (boxAfterGraphClick).
-  const box = $('#search-input').value;
-  const text = boxAfterGraphClick(action, { boxText: box, cut: searchCutOnly(box), typedBefore, typedAfter: isTypedAnchor(selectionState.selection), isolated: isolateNow() !== null });
-  if (text !== box) writeSearch(text, 'selection', false);
+  // With isolate off the box shows the selection the click made (mirrorSelectionInBox), its cut
+  // kept: the Graph keeps drawing what the cut hides, so the painting in place stays true. While
+  // isolated the box holds the isolate text, which a click never writes: it moves the anchor only.
+  if (boxMirrorsSelection()) mirrorSelectionInBox(before, false);
   graphPaintSelection();
   renderSearchPanel();
 }
@@ -855,7 +871,7 @@ function graphDrawPlan(plan) {
   // and select them with the dots.
   const headEls = new Map();
   for (const h of plan.flow.heads) {
-    const cls = `graph-node card-el graph-flow-lane-head${selectedIds.has(h.id) ? ' selected' : ''}${isHoverHighlighted(hoveredId, h.id) ? ' hover-highlight' : ''}`;
+    const cls = `graph-node card-el graph-flow-lane-head${paintsSelected(h.id) ? ' selected' : ''}${isHoverHighlighted(hoverLit, h.id) ? ' hover-highlight' : ''}`;
     const g = graphEl('g', { transform: `translate(${h.x} ${h.y})`, tabindex: 0 }, cls);
     g.setAttribute('data-id', String(h.id));
     const tip = graphEl('title');
@@ -1080,6 +1096,10 @@ function wireGraphView(host) {
     const infoBtn = e.target.closest('.graph-info-toggle');
     if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
+    if (option && option.dataset.key === 'hover') {
+      hoverShowPick(option.dataset.val, !hoverShowKindsNow().includes(option.dataset.val));
+      return;
+    }
     if (option) {
       keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : option.dataset.key === 'lanes' ? graphSetLanes(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
       return;
@@ -1154,11 +1174,11 @@ function wireGraphView(host) {
     if (node) openCard(node.dataset.id);
   });
   host.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     const node = e.target.closest('.graph-node');
     if (!node) return;
+    if (hotkeySpace(e) === 'select') { e.preventDefault(); graphClickNode(node.dataset.id, {}); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(node.dataset.id); }
-    else if (e.key === ' ') { e.preventDefault(); graphClickNode(node.dataset.id, {}); }
   });
 
   const enter = (e) => {

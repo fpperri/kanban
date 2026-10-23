@@ -16,8 +16,9 @@
 // grows the box to "review: | blocked:" and selects both sets, and a click on it again
 // takes it out and leaves the first. A right-click solos a pill, so the box holds its
 // query alone and the other pills are off, and a right-click on the soloed pill turns
-// every pill off. With the panel closed Esc outside the box takes the added pill back
-// out of the box, and the next Esc clears it. A pill is on, and announced as pressed, while its
+// every pill off. A pill turns isolate on in every view but the Graph, so the chip of a closed panel
+// reads isolated there. With the panel closed Esc outside the box turns isolate off, the next takes the
+// added pill back out of the box, and the next clears it. A pill is on, and announced as pressed, while its
 // query is the anchor or an addition, and typing in the box turns it off. A closed
 // panel shows a chip counting what is on, named for a screen reader. The chip is a tab
 // stop while it is shown: Shift+Tab from the arrow passes the clear button and reaches it,
@@ -25,9 +26,9 @@
 // panel and put focus on the arrow, Enter held down on it opens the panel once and the repeats of
 // the held key do not flip the arrow's switch, and Tab skips it while it is hidden. Tab reaches the
 // toggle, the fold control and every pill, and Enter and Space act as a click. Esc
-// closes the suggestion list first, then the panel, then clears the box: with focus in
-// the box the text stays through the first two presses (the browser's own Esc, which
-// clears a search field, is stopped for them) and focus stays in the box, and with
+// closes the suggestion list first, then the panel, then turns off the isolate that typing started,
+// then clears the box: with focus in the box the text stays through the first three presses
+// (the browser's own Esc, which clears a search field, is stopped for them) and focus stays in the box, and with
 // focus on a pill the panel closes and focus goes back to the toggle. A focused pill keeps its focus across a poll and
 // its count changes under it. A click on the toggle, the fold control or the panel's
 // empty space never clears a card selection, and a double click on the Board's empty
@@ -48,7 +49,7 @@
 // a real key press, and a Shift+click is a real click with the Shift modifier.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// selectedIds, autoRefreshTick.
+// isolateNow, selectedIds, autoRefreshTick.
 
 const { NOT_EMPTY } = require('./empty-space');
 
@@ -307,8 +308,10 @@ module.exports = {
     await clickOn(pillSel('blocked'), { modifiers: 8 });
     await boxIs('review: | blocked:');
     await closePanel();
-    check('with the panel closed the chip counts the two pills on and names them', !(await chip()).hidden && (await chip()).text === '2' && /blocked/.test((await chip()).name) && /review/.test((await chip()).name), await chip());
+    check('with the panel closed the chip counts the two pills on and names them', !(await chip()).hidden && (await chip()).text === 'isolated' && /^3 on:/.test((await chip()).name) && /blocked/.test((await chip()).name) && /review/.test((await chip()).name), await chip());
     check('focus is on the toggle, outside the box', await ev(`document.activeElement===${TOGGLE}`));
+    await key('Escape');
+    check('Esc with focus outside the box turns isolate off first, and leaves the box, the pills and the selection', await waitFor(`isolateNow()===null`) && await boxIs('review: | blocked:') && await pickedIs(CASES.both), await boxText());
     await key('Escape');
     check('Esc with focus outside the box returns the box to "review:"', await boxIs('review:') && await pickedIs(CASES.review), await boxText());
     check('the chip counts one', (await chip()).text === '1' && /review/.test((await chip()).name) && !(await chip()).hidden, await chip());
@@ -337,7 +340,7 @@ module.exports = {
     await boxIs('review:');
     await closePanel();
     const facts = await ev(CHIP_FACTS);
-    check('with the panel closed and a pill on, the chip is a button in the Tab order, named for the pill and pointing at the panel', !(await chip()).hidden && /1 on: review/.test((await chip()).name) && facts.tag === 'BUTTON' && facts.tabIndex === 0 && facts.controls === 'search-panel' && facts.expanded === 'false', { chip: await chip(), facts });
+    check('with the panel closed and a pill on, the chip is a button in the Tab order, named for the pill and pointing at the panel', !(await chip()).hidden && /2 on: review, isolated/.test((await chip()).name) && facts.tag === 'BUTTON' && facts.tabIndex === 0 && facts.controls === 'search-panel' && facts.expanded === 'false', { chip: await chip(), facts });
     await key('Tab', { shift: true });
     const passed = await focusId();
     await key('Tab', { shift: true });
@@ -424,7 +427,9 @@ module.exports = {
     await key('Escape');
     check('the second Esc closes the panel, keeps the text and leaves focus in the box', await waitFor(panelShut) && (await boxText()) === 'zephyr' && await ev(`document.activeElement===document.getElementById('search-input')`), { box: await boxText(), focus: await focusId() });
     await key('Escape');
-    check('the third Esc, with focus in the box, clears it', await boxIs(''), await boxText());
+    check('the third Esc, with focus in the box, turns off the isolate that typing started and keeps the text', await waitFor(`isolateNow()===null`) && (await boxText()) === 'zephyr' && await ev(`document.activeElement===document.getElementById('search-input')`), await boxText());
+    await key('Escape');
+    check('the fourth Esc, with focus in the box, clears it', await boxIs(''), await boxText());
     await focusBoxAtEnd();
     check('Esc left the switch on: focusing the box opens the panel again', await waitFor(panelOpen) && await ev(SWITCH_ON));
     await closePanel();

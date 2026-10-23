@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, addPart, stepBack, resolveSelection,
-  selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped,
+  selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded,
 } = require('../web/selection');
 const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt } = require('../web/search');
 
@@ -308,4 +308,17 @@ test('stepping back from a grown pill selection and taking each step out of the 
   const none = stepBack(one);
   const boxNone = pillQueriesDropped(one, none).reduce((text, query) => searchRemoveAlt(text, query), boxOne);
   assert.strictEqual(boxNone, '');
+});
+
+test('pillQueriesAdded is the other side of pillQueriesDropped: the pill queries a step put in, in the order they were picked', () => {
+  const none = selectionOf(cardPart(1));
+  const one = selectionOf(cardPart(1), queryPart(REVIEW));
+  const two = selectionOf(cardPart(1), queryPart(REVIEW), queryPart(BLOCKED));
+  assert.deepStrictEqual(pillQueriesAdded(none, one), [REVIEW]);
+  assert.deepStrictEqual(pillQueriesAdded(one, two), [BLOCKED]);
+  assert.deepStrictEqual(pillQueriesAdded(none, two), [REVIEW, BLOCKED]);
+  assert.deepStrictEqual(pillQueriesAdded(two, one), [], 'a pill going off adds nothing');
+  assert.deepStrictEqual(pillQueriesAdded(one, one), []);
+  assert.deepStrictEqual(pillQueriesAdded(none, selectionOf(cardPart(1), pathPart(2), typedQueryPart('zeph'))), [], 'cards, paths and a typed query are no pill queries');
+  assert.deepStrictEqual(pillQueriesAdded(two, none), pillQueriesDropped(none, two));
 });

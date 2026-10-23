@@ -28,10 +28,11 @@ test('the Graph section says each tier band that holds a card is washed in its t
   assert.match(text, /one \*\*wash\*\* across its whole ring, behind the lines, the dots and the captions, so the hierarchy reads as coloured areas/);
 });
 
-test('the Graph section says a type with no colour gets a neutral wash, and a tier nobody is in, a depth ring, the Unnested ring and the Unnested block get none', () => {
+test('the Graph section says a type with no colour gets a neutral wash, and a depth ring, the Unnested ring and the Unnested block get none, a tier with no drawn card having no band to wash', () => {
   const text = graph();
   assert.match(text, /a tier whose type has no colour gets a neutral wash/);
-  assert.match(text, /a tier nobody is in, a depth ring, the Unnested ring and the Unnested block get none/);
+  assert.match(text, /a depth ring, the Unnested ring and the Unnested block get none \(a tier with no drawn card has no band, so no wash\)/);
+  assert.doesNotMatch(text, /a tier nobody is in, a depth ring/);
 });
 
 test('the Graph section says a click on a wash is a click on empty space, and a slice: cut, a status pill and isolate drop only the washes of the bands they empty', () => {
