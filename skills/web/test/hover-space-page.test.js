@@ -266,3 +266,19 @@ test('with no set ticked Space has nothing to write and keeps its job', async ()
   assert.strictEqual(s.space(), 0);
   assert.strictEqual(s.box(), '');
 });
+
+// --- the address ----------------------------------------------------------------------------------------------------
+
+test('a Space write outside the Graph leaves isolate=0 in the address beside q, as any lit query does, and in the Graph just q', async () => {
+  for (const [view, expected] of [['board', 'dlinks%3A1+%7C+hlinks%3A1&isolate=0'], ['graph', 'dlinks%3A1+%7C+hlinks%3A1']]) {
+    const s = await open({ view });
+    const replaced = [];
+    s.page.ctx.history = { replaceState: (st, t, url) => { replaced.push(url); }, pushState() {} };
+    s.over(1);
+    s.space();
+    const url = replaced[replaced.length - 1] || '';
+    const params = new URLSearchParams(url.slice(url.indexOf('?')));
+    assert.strictEqual(params.get('q'), 'dlinks:1 | hlinks:1', view);
+    assert.strictEqual(params.get('isolate'), view === 'board' ? '0' : null, `${view}: ${url} (${expected})`);
+  }
+});
