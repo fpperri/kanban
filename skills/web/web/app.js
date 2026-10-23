@@ -3554,7 +3554,9 @@ function onSearchWrite(listener) {
 function writeSearch(text, reason, repaint = true) {
   const input = $('#search-input');
   if (!input) return;
-  const turnsOn = typingTurnsIsolateOn({ reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()) });
+  const turnsOn = typingTurnsIsolateOn({
+    reason, text: searchSplitSlice(String(text)).rest, isolated: isolateNow() !== null, setting: typingIsolatesIn(loadViewMode()),
+  });
   if (turnsOn) isolateFromTyping(text); // before the repaint, so it and every listener see isolate on
   isolateEndIfEmptied(text, reason); // and off, when the write leaves the box with no query
   if (input.value !== text) input.value = text; // typing already holds it, and an assignment would move the caret

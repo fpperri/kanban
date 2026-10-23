@@ -54,11 +54,15 @@
 // This script reads app.js's globals at the moment it runs, never when it loads: $, state,
 // storageKey, prefsStorage, selectionState, currentSearchMatch,
 // writeSearch, onSearchWrite, renderSearchPanel, toast and hideContextMenu; selection.js's
-// partsOf, isolateRecord, isolateKeptFrom and isolateAfterWrite; key-guard.js's keyGuardOff;
-// and the search module's isolate functions (searchIsolateBox, searchIsolateRestore). The i key
-// reads the shared key guard: off while a field has focus and while a menu, a dialog, the
-// notifications panel or the preferences sheet is up; the search panel is no surface, so i works
-// with it open.
+// partsOf, isolateRecord, isolateKeptFrom, isolateAfterWrite and writeIsIsolateSwitch; key-guard.js's
+// keyGuardOff; typing-isolates.js's mergeTypingIsolates and typingIsolatesWith; and the search
+// module's searchIsolateBox, searchIsolateRestore and searchBoxHoldsTyped. It gives the page, in turn,
+// isolateNow, the flag's reader; typingIsolatesIn and setTypingIsolates, the Typing isolates choice
+// (writeSearch, setView and the address ask them); and the starts and ends of an isolate the box's own
+// query makes (isolateFromTyping, isolateFromLink, isolateStartFollowing, isolateEndIfEmptied,
+// isolateEndFollowing). The i key reads the shared key guard: off while a field has focus and while a
+// menu, a dialog, the notifications panel or the preferences sheet is up; the search panel is no
+// surface, so i works with it open.
 
 // The text the box held when isolate went on, as { previous } (and `following` when the box's own
 // query turned it on); null while it is off.
