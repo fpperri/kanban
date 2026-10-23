@@ -61,8 +61,8 @@
 //                 everything transitively upstream + downstream through card
 //                 74, over the same edges. Narrower than tree: (excludes
 //                 sibling branches with no directed relation to 74).
-//   hpath:74 / htree:74 / dpath:74 / dtree:74   (`#` optional) the four sets Explore adds for
-//                 card #74, each by one relation alone, where tree: and path: walk both.
+//   hpath:74 / htree:74 / dpath:74 / dtree:74   (`#` optional) the four sets Explore writes into
+//                 the search box for card #74, each by one relation alone, where tree: and path: walk both.
 //                 hpath: is the hierarchy path: its parents up to the root and every card
 //                 nested under it. htree: is the whole parent tree from its root down.
 //                 Both follow `parent` only. dpath: is everything it waits for and

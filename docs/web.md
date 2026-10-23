@@ -429,7 +429,8 @@ right-click on a card in a lit path searches that card's set alone. The terms ar
 a plain pick replaces what the box held but for its `slice:` run, so the Graph lights the set and
 the other views show only it; Shift (a Shift-click, or Shift+Enter on the focused item) adds the
 term to what the box holds as one more alternative, `htree:40 | dpath:185`, and each item's tooltip
-ends "Shift: add to the search". Isolate stays as it was; press it to keep the set. `tree:` and
+ends "Shift: add to the search". Isolate stays as it was: off stays off, so press it to keep the set, and with isolate already on the term
+becomes the isolate text, as typing into the box would make it. `tree:` and
 `path:`, which follow both relations, are as they were.
 
 **Add child…** in that menu (one live card only, in every view and in the card details' own

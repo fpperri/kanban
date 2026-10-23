@@ -481,7 +481,7 @@ const CARD_MENU_CHECKS = [
   'a pick replaces the typed search but keeps the slice: run',
   'Path and Tree are in the menu when its subject is several cards, beside the bulk entries',
   'and with several cards as the subject the four write the term of the right-clicked card alone',
-  'and the hand-picked cards stay selected',
+  'and the hand-picked cards stay in the selection, though the box hides the first',
   'a right-click on a card inside a lit path still offers Path and Tree',
   'and Hierarchy path writes the term of the card right-clicked alone, in place of the lit path',
   'the details own menu offers Path and Tree too', 'and Dependency tree there writes the term of the open card',

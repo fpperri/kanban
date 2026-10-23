@@ -176,7 +176,7 @@ module.exports = {
     check('Path and Tree are in the menu when its subject is several cards, beside the bulk entries', (await exploreOffered()) && (await entryShown('ctx-assign')));
     await press('ctx-dpath');
     check('and with several cards as the subject the four write the term of the right-clicked card alone', await boxIs('dpath:3'));
-    check('and the hand-picked cards stay selected', same(await anchorAndAdditions(), { anchor: 'card:1', additions: ['card:3'] }) || same(await picked(), [1, 3]), await anchorAndAdditions());
+    check('and the hand-picked cards stay in the selection, though the box hides the first', same(await anchorAndAdditions(), { anchor: 'card:1', additions: ['card:3'] }), await anchorAndAdditions());
 
     // A right-click on a card inside a lit path has the path's cards as the subject, and the menu still offers both.
     await openBoard();

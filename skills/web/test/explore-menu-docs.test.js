@@ -31,8 +31,25 @@ test('docs/web.md says the four write their term for the right-clicked card, nev
   assert.match(webDoc, /`hpath:<id>`, `htree:<id>`, `dpath:<id>` and `dtree:<id>` \(the `#` is optional\), written as if you had typed them/);
   assert.match(webDoc, /a plain pick replaces what the box held but for its `slice:` run, so the Graph lights the set and the other views show only it/);
   assert.match(webDoc, /Shift \(a Shift-click, or Shift\+Enter on the focused item\) adds the term to what the box holds as one more alternative, `htree:40 \| dpath:185`, and each item's tooltip ends "Shift: add to the search"/);
-  assert.match(webDoc, /Isolate stays as it was; press it to keep the set/);
+  assert.match(webDoc, /Isolate stays as it was: off stays off, so press it to keep the set, and with isolate already on the term becomes the isolate text, as typing into the box would make it/);
+  assert.doesNotMatch(webDoc, /Isolate stays as it was; press it/);
   assert.match(webDoc, /`tree:` and `path:`, which follow both relations, are as they were/);
+});
+
+test('no doc still says the four add a selection part, add to the selection or leave the search box alone', () => {
+  const stale = [
+    /add(s)? one part of the matching kind[^.]*to the selection/,
+    /They do not write the search box/,
+    /Each adds one part to the selection/,
+    /add(s)? (the path or the tree|a dependency tree\/path|a card's tree or path) [^.]*to the selection/,
+    /add the tree or path of each card in the menu's subject/,
+    /Explore (adds|add)\b/,
+    /Path and Tree add\b/,
+    /Dependency tree\/path buttons/,
+  ];
+  for (const [name, text] of [['docs/web.md', webDoc], ['docs/snapshot.md', snapshotDoc], ['skills/web/SKILL.md', webSkill], ['skills/snapshot/SKILL.md', snapshotSkill], ['GLOSSARY.md', glossary]]) {
+    for (const re of stale) assert.doesNotMatch(text, re, `${name}: ${re}`);
+  }
 });
 
 test('the web skill lists the four terms in its grammar and keeps them out of the autocomplete', () => {
