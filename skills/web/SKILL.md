@@ -2391,7 +2391,12 @@ to `127.0.0.1` only.
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
   the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them; **table** draws the Unnested
   block outside the rim. The Unnested option is Tiers' own: the Flow draws every card. A counted line or
-  bracket lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
+  bracket lights whenever its parent does. **Hovering a line**, in the Hierarchy or the Flow, lights that line and the
+  cards at its ends and dims the rest, as a card's hover does: a parent line its parent and its child, a dependency line
+  its two cards, a bracket its parent and every child it holds, and no other line with them. Each line has an invisible
+  stroke of about 8 pixels (`.graph-link-hit`, the same width at any zoom) that takes the pointer; a card under the
+  pointer wins over a line, leaving the line brings back what was lit before it, the lit line is drawn above the other
+  lines while it is lit, and a line has no click action and no keyboard focus. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
   another ring, a sector or out of the Graph. The choices are kept per board in `localStorage` under

@@ -10,7 +10,8 @@
 // Ctrl/Cmd adds one card or takes it out (the layout has no reading order to
 // range over), all painted in place, and a double click opens; a card is never dragged, so a
 // bare click is a selection gesture. What is selected is
-// lit and the rest dims (graphLightCards); a search typed in the box hides
+// lit and the rest dims (graphLightCards); the pointer on a line lights it with the cards at its
+// ends (graphSetLineFocus), a card under the pointer winning over a line; a search typed in the box hides
 // nothing, it is the anchor of the selection and its matches light. A caption of
 // the tier fan shows its name alone; the pointer or focus on it shows its tip, one
 // tooltip the stage shares (graphShowTip), with the count of its cards. The Hierarchy also has an
@@ -643,6 +644,30 @@ function graphClearFocus() {
   if (!graphCur) return;
   graphCur.svg.classList.remove('graph-dim');
   for (const el of graphCur.svg.querySelectorAll('.graph-near')) el.classList.remove('graph-near');
+  graphLowerLine();
+}
+
+// A line the pointer is on is drawn above the others while it is lit, so a line that crosses it
+// does not hide it: its path, and the count after a bracket's path, move to just before the
+// hit strokes (the last place a line can be drawn, under the dots), and go back where they
+// were when the lighting is cleared.
+function graphRaiseLine(i) {
+  const el = graphCur.linkEls[i];
+  const hits = graphCur.hitEls;
+  if (!el || !hits.length) return;
+  const text = graphCur.countEls[i];
+  const back = (text || el).nextSibling;
+  graphCur.world.insertBefore(el, hits[0]);
+  if (text) graphCur.world.insertBefore(text, hits[0]);
+  graphCur.raised = { el, text, back };
+}
+
+function graphLowerLine() {
+  const up = graphCur.raised;
+  if (!up) return;
+  graphCur.raised = null;
+  graphCur.world.insertBefore(up.el, up.back);
+  if (up.text) graphCur.world.insertBefore(up.text, up.back);
 }
 
 // The one dimming: everything but the lighting (graphLit, graph-model.js) dims, and
@@ -666,6 +691,18 @@ function graphSetFocus(id) {
   const lit = graphLit(graphCur.model, hoverSetOf(id), graphCur.lines);
   if (lit) graphLightCards(lit);
   else graphRestFocus();
+}
+
+// The pointer on a line (its hit stroke, graphDrawPlan): the line lights with the cards at its
+// ends, the rest dimmed as a card's hover dims it. A parent line lights its parent and its child,
+// a dependency its two cards, a bracket its parent and every child it holds; no other line lights
+// with it, whatever it joins.
+function graphSetLineFocus(i) {
+  const line = graphCur && graphCur.plan.links[i];
+  if (!line) { graphClearFocus(); return; }
+  const ids = (line.kids ? [line.from, ...line.kids] : [line.from, line.to]).filter((id) => graphCur.model.byId.has(id));
+  graphLightCards({ nodes: new Set(ids), links: new Set([i]) });
+  graphRaiseLine(i);
 }
 
 // The Flow draws the dependencies alone, so a lone card picked there lights with the cards those join to it.
@@ -852,16 +889,27 @@ function graphDrawPlan(plan) {
     world.appendChild(graphCaptionEl(plan.block.title, 'block'));
     plan.block.columns.forEach((col, i) => world.appendChild(graphCaptionEl(col.caption, `column-${i}`)));
   }
+  const countEls = [];
   const linkEls = plan.links.map((l) => {
     const p = fixed(graphEl('path', { d: l.d }, l.cls));
     if (l.arrow) p.setAttribute('marker-end', 'url(#graph-arrow-head)');
     world.appendChild(p);
+    let count = null;
     if (l.label) {
-      const count = graphEl('text', { x: l.label.x, y: l.label.y, dy: '0.35em', 'text-anchor': 'middle' }, 'graph-link-count');
+      count = graphEl('text', { x: l.label.x, y: l.label.y, dy: '0.35em', 'text-anchor': 'middle' }, 'graph-link-count');
       count.textContent = l.label.text;
       world.appendChild(count);
     }
+    countEls.push(count);
     return p;
+  });
+  // A line is thin, so each has a wider stroke of its own, invisible and the same width at any zoom,
+  // that takes the pointer (graphSetLineFocus). They come after every line and before the dots, so a
+  // dot a line passes under is still the one the pointer finds. A line has no click and no focus.
+  const hitEls = plan.links.map((l, i) => {
+    const hit = fixed(graphEl('path', { d: l.d, 'data-link': i }, 'graph-link-hit'));
+    world.appendChild(hit);
+    return hit;
   });
   // A lane's header is its card's node: it wears the dot's classes (graph-node, card-el) and its data-id,
   // so every handler that finds a `.graph-node` (click, double click, Enter, Space, hover, focus) and the
@@ -924,7 +972,7 @@ function graphDrawPlan(plan) {
   stage.appendChild(svg);
   const tip = graphBuildTip();
   stage.appendChild(tip);
-  return { stage, svg, world, arrow, linkEls, nodeEls, headEls, nameEls, tip };
+  return { stage, svg, world, arrow, linkEls, countEls, hitEls, nodeEls, headEls, nameEls, tip };
 }
 
 function renderGraphView() {
@@ -992,7 +1040,7 @@ function renderGraphView() {
   view.sig = sig;
   graphCur = {
     kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
-    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
+    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, countEls: drawn.countEls, hitEls: drawn.hitEls, raised: null, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
   if (refit) Object.assign(view, graphFrameFit(graphCur), { touched: false });
   graphPaintNames();
@@ -1181,7 +1229,10 @@ function wireGraphView(host) {
     if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) openCard(node.dataset.id); }
   });
 
+  const hitOf = (el) => (el && el.closest ? el.closest('.graph-link-hit') : null);
   const enter = (e) => {
+    const hit = e.type === 'mouseover' ? hitOf(e.target) : null;
+    if (hit && graphCur) { graphSetLineFocus(Number(hit.dataset.link)); return; }
     const el = e.target.closest('.graph-node');
     if (!el) return;
     if (e.type === 'focusin' && searchEnterFocusedId === el.dataset.id) return; // the focus Enter in the search box gave: the search's lights stay
@@ -1190,6 +1241,11 @@ function wireGraphView(host) {
   };
   const leave = (e) => {
     if (e.type === 'focusout' && e.relatedTarget) searchEnterFocusedId = null; // focus moved on to something else
+    if (e.type === 'mouseout' && hitOf(e.target)) {
+      const to = e.relatedTarget;
+      if (!hitOf(to) && !(to && to.closest && to.closest('.graph-node'))) graphSettleFocus();
+      return;
+    }
     const from = e.target.closest('.graph-node');
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');

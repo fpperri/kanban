@@ -44,6 +44,12 @@ test('the Graph section says where a bracket\'s stem meets its arc: in a gap bet
   assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /The stem is one straight line that meets the arc in the middle of a gap between two neighbouring children, never at a child's angle/);
 });
 
+test('the Graph section says what hovering a line lights, the hit stroke, and that a line has no click or focus', () => {
+  assert.match(graph(), /\*\*Hovering a line\*\*, in the Hierarchy or the Flow, lights that line and the cards at its ends and dims the rest, as a card's hover does: a parent line its parent and its child, a dependency line its two cards, a bracket its parent and every child it holds, and no other line with them/);
+  assert.match(graph(), /Each line has an invisible stroke of about 8 pixels \(`\.graph-link-hit`, the same width at any zoom\) that takes the pointer; a card under the pointer wins over a line, leaving the line brings back what was lit before it, the lit line is drawn above the other lines while it is lit, and a line has no click action and no keyboard focus/);
+  assert.match(docGraph(), /Hovering a line lights it and the cards at its ends the same way \(a bracket, its parent and all its children\), a dot under the pointer winning over a line/);
+});
+
 test('the Graph section says how a bracket looks: heavier than the ring guides, hooked at both ends, alternating insets along a ring', () => {
   const text = graph();
   assert.match(text, /A bracket is drawn heavier and brighter than the ring guides, its arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so neighbours never meet/);

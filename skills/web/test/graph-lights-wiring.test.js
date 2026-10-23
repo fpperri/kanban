@@ -485,6 +485,99 @@ test('hovering a dot while a lone card is selected shows that dot\'s relations, 
   assert.deepStrictEqual(s.lit().nodes, [5]);
 });
 
+// --- the hover on a line ----------------------------------------------------------------
+// The pointer on a line's hit stroke lights the line and the cards at its ends, a card under the
+// pointer wins, and leaving the line brings back what was lit before it (graph-line-hover.test.js
+// has the strokes and the drawing; the browser runner hovers the real lines).
+
+const lineEvent = (i, type, related = null) => {
+  const hit = { dataset: { link: String(i) } };
+  const target = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.graph-link-hit' ? hit : null) : harmless(String(key))) });
+  return { type, target, relatedTarget: related, stopPropagation() {}, preventDefault() {} };
+};
+const relatedLine = (i) => lineEvent(i, 'mouseover').target;
+const relatedNode = (id) => nodeEvent(id).target;
+
+// Card 1 holds 3, 9 and 10, which stand on one ring: a bracket. Card 2 waits for card 1.
+const withBracket = () => {
+  const board = makeBoard();
+  board.active.push(card(9, { parent: 1 }), card(10, { parent: 1 }));
+  return board;
+};
+const lineAt = (s, test) => s.page.run('graphCur.plan.links').findIndex(test);
+
+test('hovering a dependency line lights it and its two cards, and moving off brings back the lit query', async () => {
+  const s = await open({ board: withBracket() });
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.lit().nodes, [2, 5]);
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover', relatedNode(5)));
+  assert.deepStrictEqual(s.lit(), { nodes: [1, 2], links: 1 });
+  s.graphHost.fire('mouseout', lineEvent(wait, 'mouseout', null));
+  assert.deepStrictEqual(s.lit().nodes, [2, 5], 'the query lights again');
+});
+
+test('hovering a bracket lights its parent and every child it holds, and a parent line its parent and child', async () => {
+  const s = await open({ board: withBracket() });
+  const bracket = lineAt(s, (l) => l.count !== undefined);
+  assert.ok(bracket >= 0);
+  s.graphHost.fire('mouseover', lineEvent(bracket, 'mouseover'));
+  assert.deepStrictEqual(s.lit(), { nodes: [1, 3, 9, 10], links: 1 });
+});
+
+test('a line on its own parent and child: a plain parent line lights those two cards', async () => {
+  const s = await open();
+  const parent = lineAt(s, (l) => l.kind === 'parent');
+  assert.ok(parent >= 0);
+  s.graphHost.fire('mouseover', lineEvent(parent, 'mouseover'));
+  assert.deepStrictEqual(s.lit(), { nodes: [1, 3], links: 1 });
+});
+
+test('moving from a line onto a card leaves the card\'s hover to light, and from a card onto a line lights the line', async () => {
+  const s = await open();
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  const calls = s.calls.length;
+  s.graphHost.fire('mouseout', lineEvent(wait, 'mouseout', relatedNode(1)));
+  assert.strictEqual(s.calls.length, calls, 'leaving a line for a card lights nothing by itself');
+  s.graphHost.fire('mouseover', Object.assign(nodeEvent(1), { type: 'mouseover' }));
+  assert.deepStrictEqual(s.lit().nodes, [1, 2, 3], 'the card\'s own hover');
+  s.graphHost.fire('mouseout', Object.assign(nodeEvent(1), { relatedTarget: null }));
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  assert.deepStrictEqual(s.lit().nodes, [1, 2], 'the line');
+});
+
+test('moving from one line onto another lights the second, and a click on a line does nothing', async () => {
+  const s = await open({ board: withBracket() });
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  const bracket = lineAt(s, (l) => l.count !== undefined);
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  s.graphHost.fire('mouseout', lineEvent(wait, 'mouseout', relatedLine(bracket)));
+  s.graphHost.fire('mouseover', lineEvent(bracket, 'mouseover', relatedLine(wait)));
+  assert.deepStrictEqual(s.lit().nodes, [1, 3, 9, 10]);
+  const e = lineEvent(bracket, 'click');
+  s.graphHost.fire('click', e);
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'nothing is selected');
+});
+
+test('leaving a line while a lone card is selected brings back the card\'s lighting', async () => {
+  const s = await open();
+  s.click(4);
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  s.graphHost.fire('mouseover', lineEvent(wait, 'mouseover'));
+  assert.deepStrictEqual(s.lit().nodes, [1, 2]);
+  s.graphHost.fire('mouseout', lineEvent(wait, 'mouseout', null));
+  assert.deepStrictEqual(s.lit().nodes, [4]);
+});
+
+test('a keyboard focus on a line is not a thing: the focus events never light one', async () => {
+  const s = await open();
+  const wait = lineAt(s, (l) => l.kind === 'wait');
+  const before = s.calls.length;
+  s.graphHost.fire('focusin', lineEvent(wait, 'focusin'));
+  assert.strictEqual(s.calls.length, before);
+});
+
 // --- leaving the Graph ----------------------------------------------------------
 
 const BOARD_LIGHTS = { 'kanban.kanban.typing.isolates': JSON.stringify({ board: false }) };

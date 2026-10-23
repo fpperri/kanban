@@ -232,7 +232,8 @@ in that outline (circle, square, diamond, triangle, hexagon or star), still in t
 colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
 colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it
 means children; red is blocked, amber waiting, gold review. Hover or focus a dot to light
-what *On hover show* ticks for that card, its relations at first, and dim the rest. Click selects a dot and keeps its relations lit while it is the
+what *On hover show* ticks for that card, its relations at first, and dim the rest. Hovering a line lights it and the cards
+at its ends the same way (a bracket, its parent and all its children), a dot under the pointer winning over a line. Click selects a dot and keeps its relations lit while it is the
 only card picked; shift-click or ctrl-click adds one card or takes it out, and a
 selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.

@@ -1549,6 +1549,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-link-wait { stroke: var(--id-waiting); stroke-dasharray: 5 3; opacity: 0.8; }
 .graph-link-counted { stroke: var(--graph-bracket); stroke-width: 2px; opacity: 0.75; stroke-linecap: round; stroke-linejoin: round; }
 .graph-link-count { fill: var(--mut); font-size: calc(11px / var(--graph-k, 1)); stroke: var(--paper); stroke-width: calc(4px / var(--graph-k, 1)); stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
+.graph-link-hit { fill: none; stroke: transparent; stroke-width: 8px; pointer-events: stroke; }
 .graph-arrow { fill: var(--id-waiting); }
 
 /* The Flow: a shaded frame and a heading for each column, the strip of the cards with no dependency */
