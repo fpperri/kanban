@@ -60,9 +60,10 @@ async function open({ view = 'board' } = {}) {
   const rangeStart = () => { const v = page.run('selectionState.rangeStart'); return v === null ? null : Number(v); };
   const select = (rangeStartId, ...parts) => page.run(`setSelection(${parts.reduce((s, p) => `addPart(${s}, ${p})`, 'NO_SELECTION')}, ${rangeStartId})`);
   const menuOpen = () => !elements['#context-menu'].classList.contains('hidden');
-  const shown = (sel) => !(sel === '#ctx-path' ? page.menu.path : sel === '#ctx-tree' ? page.menu.tree : elements[sel]).classList.contains('hidden');
+  const menuControl = (sel) => page.menu[sel.slice('#ctx-'.length)] || elements[sel];
+  const shown = (sel) => !menuControl(sel).classList.contains('hidden');
   const rightClick = (id) => page.fireDocument('contextmenu', { target: cardTarget(id), clientX: 30, clientY: 40 });
-  const click = (sel) => (sel === '#ctx-path' ? page.menu.path : sel === '#ctx-tree' ? page.menu.tree : elements[sel]).fire('click');
+  const click = (sel) => menuControl(sel).fire('click');
   const cardRequests = () => asked.requests.filter(([method, url]) => method !== 'GET' && /\/api\/cards\/\d+$/.test(url)).map(([method, url]) => `${method} ${url}`);
   return { page, elements, asked, ids, selection, rangeStart, select, menuOpen, shown, rightClick, click, cardRequests, graphHost };
 }
@@ -246,78 +247,113 @@ test('deleting the card a menu outside the selection was opened on leaves the ha
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
 });
 
-// --- Path and Tree --------------------------------------------------------------------
+// --- Explore: Path and Tree, each by Hierarchy or Dependency ---------------------------------
 
-test('Path adds the card\'s dependency path to the selection as one part and leaves the search box as it was', async () => {
+const hp = (id) => ({ kind: 'hpath', id: String(id) });
+const dp = (id) => ({ kind: 'dpath', id: String(id) });
+const ht = (id) => ({ kind: 'htree', id: String(id) });
+const dt = (id) => ({ kind: 'dtree', id: String(id) });
+
+test('Hierarchy path adds the card\'s parents and children to the selection as one part and leaves the search box as it was', async () => {
   const s = await open();
   s.page.input.typed('a');
   const writes = s.page.input.writes.length;
   s.select(null, 'cardPart(5)');
-  s.rightClick(2);
-  assert.strictEqual(s.shown('#ctx-path'), true);
-  s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [{ kind: 'path', id: '2' }] });
-  assert.deepStrictEqual(s.ids(), [1, 2, 3, 5], 'the path is 1, 2 and 3; card 6 waits for 1 but is not on this path');
+  s.rightClick(3);
+  s.click('#ctx-hpath');
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [hp(3)] });
+  assert.deepStrictEqual(s.ids(), [1, 3, 5], 'card 3 is under card 1, and nothing is under card 3');
   assert.strictEqual(s.page.input.value, 'a');
   assert.strictEqual(s.page.input.writes.length, writes, 'nothing was written to the box');
   assert.strictEqual(s.menuOpen(), false);
 });
 
-test('Tree adds the card\'s dependency tree to the selection as one part and leaves the search box as it was', async () => {
+test('Dependency path adds what the card waits for and what waits on it, and follows waiting_for only', async () => {
   const s = await open();
-  const writes = s.page.input.writes.length;
-  s.rightClick(2);
-  s.click('#ctx-tree');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'tree', id: '2' }, additions: [] }, 'with nothing selected the tree is the anchor');
-  assert.deepStrictEqual(s.ids(), [1, 2, 3, 6], 'the tree reaches card 6 too; the Board with its Archive column closed does not show archived card 7');
-  assert.strictEqual(s.page.input.value, '');
-  assert.strictEqual(s.page.input.writes.length, writes);
+  s.select(null, 'cardPart(5)');
+  s.rightClick(1);
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [dp(1)] });
+  assert.deepStrictEqual(s.ids(), [1, 2, 5, 6], 'cards 2 and 6 wait for card 1; card 3 is its child and is not on the path');
 });
 
-test('a part added by Path stays a path part: the selection holds the path part, not its cards', async () => {
+test('Hierarchy tree is the card\'s whole parent tree and Dependency tree its connected set over waiting_for', async () => {
   const s = await open();
-  s.rightClick(2);
-  s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] });
-  s.rightClick(2);
-  s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [{ kind: 'path', id: '1' }, { kind: 'path', id: '3' }] }, 'a right-click inside the lit path has its three cards as the subject: one path part each, and the path the selection already holds is not added twice');
-});
-
-test('Path and Tree are in the menu whatever its subject is: a card outside the selection, a selection of one, a selection of several', async () => {
-  const s = await open();
-  s.select(null, 'cardPart(1)', 'cardPart(2)');
   s.rightClick(3);
-  assert.strictEqual(s.shown('#ctx-path'), true, 'a card outside the selection is a subject of one');
-  assert.strictEqual(s.shown('#ctx-tree'), true);
+  s.click('#ctx-htree');
+  assert.deepStrictEqual(s.selection(), { anchor: ht(3), additions: [] }, 'with nothing selected the part is the anchor');
+  assert.deepStrictEqual(s.ids(), [1, 3]);
   s.rightClick(2);
-  assert.strictEqual(s.shown('#ctx-path'), true, 'the two selected cards are the subject');
-  assert.strictEqual(s.shown('#ctx-tree'), true);
-  s.select(null, 'cardPart(4)');
-  s.rightClick(4);
-  assert.strictEqual(s.shown('#ctx-path'), true, 'a selection of one is a subject of one');
+  s.click('#ctx-dtree');
+  assert.deepStrictEqual(s.selection(), { anchor: ht(3), additions: [dt(2)] });
+  assert.deepStrictEqual(s.ids(), [1, 2, 3, 6], 'the Board with its Archive column closed does not show archived card 7');
 });
 
-test('with several cards as the subject, Path adds each card path and Tree each card tree, one part per card in the order they were picked', async () => {
+test('each of the four adds one part of its own kind for the card, and the same part twice is one part', async () => {
+  const s = await open();
+  for (const sel of ['#ctx-hpath', '#ctx-htree', '#ctx-dpath', '#ctx-dtree']) {
+    s.rightClick(3);
+    s.click(sel);
+  }
+  assert.deepStrictEqual(s.selection(), { anchor: hp(3), additions: [ht(3), dp(3), dt(3)] });
+  s.rightClick(3);
+  s.click('#ctx-hpath');
+  assert.strictEqual(s.selection().additions.length, 3);
+});
+
+test('a right-click on a card inside a lit path has the whole selection as its subject, and the four add that one card\'s set alone', async () => {
+  const s = await open();
+  s.rightClick(2);
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(s.ids(), [1, 2]);
+  s.rightClick(1);
+  assert.strictEqual(s.page.run('menuSubject.ids.map(Number).sort().join()'), '1,2', 'the menu is for the selection');
+  s.click('#ctx-dtree');
+  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [dt(1)] }, 'one part, for card 1, not one for each card of the subject');
+  s.rightClick(2);
+  s.click('#ctx-hpath');
+  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [dt(1), hp(2)] });
+});
+
+test('with several cards selected the four act on the right-clicked card alone, never on the others', async () => {
   const s = await open();
   s.select(null, 'cardPart(4)', 'cardPart(5)');
   s.rightClick(5);
-  s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(5), { kind: 'path', id: '4' }, { kind: 'path', id: '5' }] });
-  assert.strictEqual(s.menuOpen(), false);
-  s.select(null, 'pathPart(2)', 'cardPart(4)');
+  s.click('#ctx-hpath');
+  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(5), hp(5)] });
   s.rightClick(4);
-  s.click('#ctx-tree');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [a(4), { kind: 'tree', id: '1' }, { kind: 'tree', id: '2' }, { kind: 'tree', id: '3' }, { kind: 'tree', id: '4' }] }, 'the subject is the whole resolved selection: path 2 reaches 1, 2 and 3, and card 4 follows');
+  s.click('#ctx-dtree');
+  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [a(5), hp(5), dt(4)] });
 });
 
-test('Path from a menu inside a selection of one adds to that selection, and the cards it reaches show as selected', async () => {
+test('the card details\' own menu acts on the open card, selection or not', async () => {
   const s = await open();
-  s.select(null, 'cardPart(2)');
+  s.select(null, 'cardPart(1)', 'cardPart(2)');
+  const openDetailMenu = (id) => {
+    s.page.run(`currentDetailId = '${id}'`);
+    s.page.run('onDetailContextMenu({ clientX: 5, clientY: 6, defaultPrevented: false, preventDefault() {}, target: { closest: () => null } })');
+  };
+  openDetailMenu(2);
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), dp(2)] });
+  openDetailMenu(4);
+  s.click('#ctx-htree');
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), dp(2), ht(4)] });
+});
+
+test('the empty canvas menu has no card, so the four add nothing', async () => {
+  const s = await open();
+  s.page.run('menuSubject = canvasMenuFor()');
+  for (const sel of ['#ctx-hpath', '#ctx-htree', '#ctx-dpath', '#ctx-dtree']) s.click(sel);
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+});
+
+test('a part added by one of the four stays a part: the selection holds it, not its cards', async () => {
+  const s = await open();
   s.rightClick(2);
-  s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [{ kind: 'path', id: '2' }] });
-  assert.deepStrictEqual(s.ids(), [1, 2, 3]);
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [] });
+  assert.deepStrictEqual(s.ids(), [1, 2]);
 });
 
 test('a card the view hides does not join through a path (the selection covers only cards the view shows)', async () => {
@@ -325,11 +361,11 @@ test('a card the view hides does not join through a path (the selection covers o
   s.page.run("toggleView('map')");
   s.page.run("toggleMapStatusFilter('doing')");
   s.rightClick(2);
-  s.click('#ctx-path');
-  assert.deepStrictEqual(s.selection(), { anchor: { kind: 'path', id: '2' }, additions: [] });
-  assert.deepStrictEqual(s.ids(), [2, 3], 'card 1 is Doing and its pill is off in the Map');
+  s.click('#ctx-dpath');
+  assert.deepStrictEqual(s.selection(), { anchor: dp(2), additions: [] });
+  assert.deepStrictEqual(s.ids(), [2], 'card 1 is Doing and its pill is off in the Map');
   s.page.run("toggleMapStatusFilter('doing')");
-  assert.deepStrictEqual(s.ids(), [1, 2, 3], 'with the pill on again the other card of the path is back');
+  assert.deepStrictEqual(s.ids(), [1, 2], 'with the pill on again the other card of the path is back');
 });
 
 // --- Add child… -----------------------------------------------------------------------------

@@ -50,7 +50,7 @@ test('right-clicking the card detail opens the card menu for the card shown, wit
   s.onDetailContextMenu(e);
   assert.strictEqual(e.prevented, true, 'the browser menu is replaced');
   assert.deepStrictEqual(s.calls.menu, [[40, 90]]);
-  assert.deepStrictEqual(s.subject(), { ids: ['7'], inSelection: false, peek: false, add: true, dependency: true, isolate: false });
+  assert.deepStrictEqual(s.subject(), { ids: ['7'], inSelection: false, peek: false, add: true, isolate: false, clicked: '7' });
   assert.deepStrictEqual(s.selected(), [], 'the right-click picked no card');
   assert.strictEqual(s.rangeStart(), null);
   assert.strictEqual(s.calls.renderBoard, 0);

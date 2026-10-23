@@ -166,7 +166,7 @@ test('the card details\' own menu offers no Isolate, even for a card inside the 
 });
 
 test('the menu for the empty canvas is Isolate alone: no card, no bulk entry, no Peek, no Add, no Path or Tree', () => {
-  assert.deepStrictEqual(canvasMenuFor(), { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: true, canvas: true });
+  assert.deepStrictEqual(canvasMenuFor(), { ids: [], inSelection: false, peek: false, add: false, isolate: true, clicked: null, canvas: true });
 });
 
 test('the canvas menu is a fresh object each time', () => {

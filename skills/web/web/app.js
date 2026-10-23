@@ -6214,19 +6214,17 @@ function showContextMenu(x, y) {
   $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
   $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
-  // card details' menu leaves Peek out. Dependency tree and path show on every card's menu,
-  // whatever the subject; only the empty canvas's menu hides them. The caller has
+  // card details' menu leaves Peek out. Path and Tree show on every card's menu, whatever
+  // the subject; the empty canvas's menu hides them with the rest of its group. The caller has
   // already decided menuSubject.
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
-  $('#ctx-tree').classList.toggle('hidden', !menuSubject.dependency);
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-child').classList.toggle('hidden', !!menuSubject.canvas || menuSubject.ids.length !== 1 || !state.active.some((c) => String(c.id) === String(menuSubject.ids[0])));
   $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-todos').classList.toggle('hidden', !todosOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
   $('#ctx-group-add').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-group-make').classList.toggle('hidden', !groupsOn() || !!menuSubject.canvas || menuSubject.ids.length < 2);
-  $('#ctx-path').classList.toggle('hidden', !menuSubject.dependency);
   menuNestSync(!!menuSubject.canvas); // the groups follow their entries, the separators follow the groups
   menu.classList.remove('hidden');
   menuNestFocus();
@@ -6251,14 +6249,16 @@ function addCardToSelection() {
   renderBoard();
 }
 
-// Dependency tree / path: each subject card's tree or path joins the selection as one part, in
-// the order the cards were picked, resolved with the others on every render
-// (selection.js); the search box is left alone. The empty subject adds nothing.
-function addDependencyToSelection(kind) {
+// Explore's Path and Tree, each by Hierarchy or Dependency: the set of the card that was
+// right-clicked (the open card, in the card details' menu) joins the selection as one part,
+// never the sets of the whole subject, even when that card is inside it. The part is resolved
+// with the others on every render (selection.js); the search box is left alone.
+const EXPLORE_PARTS = { hpath: hpathPart, htree: htreePart, dpath: dpathPart, dtree: dtreePart };
+
+function addExploreToSelection(kind) {
   hideContextMenu();
-  if (!menuSubject.ids.length) return;
-  const part = kind === 'tree' ? treePart : pathPart;
-  setSelection(menuSubject.ids.reduce((selection, id) => addPart(selection, part(id)), selectionState.selection));
+  if (menuSubject.clicked === null || menuSubject.clicked === undefined) return;
+  setSelection(addPart(selectionState.selection, EXPLORE_PARTS[kind](menuSubject.clicked)));
   renderBoard();
 }
 
@@ -6388,7 +6388,7 @@ let bulkPopupInSelection = false; // whether the menu that opened that popup was
 // the right-clicked card alone outside the selection, the resolved selection inside
 // it. Fixed when the menu opens, so the menu's entries and the popups they open act
 // on those cards whatever the selection and the poll do meanwhile.
-let menuSubject = { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: false, canvas: false };
+let menuSubject = { ids: [], inSelection: false, peek: false, add: false, isolate: false, clicked: null, canvas: false };
 
 // The one reader of the cards a bulk action acts on, live or archived, in the
 // order they were selected; an id with no card (deleted mid-selection) is
@@ -6650,11 +6650,10 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#ctx-tags').addEventListener('click', openBulkTags);
   // Schedule… popup
   $('#ctx-schedule').addEventListener('click', openBulkSchedule);
-  // Peek and Add to selection, then Dependency tree / path, which add to the selection
+  // Peek and Add to selection, then Explore's four sets, which add to the selection
   $('#ctx-peek').addEventListener('click', peekCard);
   $('#ctx-add').addEventListener('click', addCardToSelection);
-  $('#ctx-tree').addEventListener('click', () => addDependencyToSelection('tree'));
-  $('#ctx-path').addEventListener('click', () => addDependencyToSelection('path'));
+  for (const kind of Object.keys(EXPLORE_PARTS)) $(`#ctx-${kind}`).addEventListener('click', () => addExploreToSelection(kind));
   $('#bulk-schedule-apply').addEventListener('click', applyBulkSchedule);
   $('#bulk-schedule-close').addEventListener('click', () => $('#bulk-schedule').classList.add('hidden'));
   $('#bulk-schedule-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('bulkSchedule'));

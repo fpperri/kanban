@@ -126,17 +126,17 @@ test('Ctrl+F on an empty box prefills # as a write with the reason prefill; on a
   assert.strictEqual(page.input.value, 'zephyr');
 });
 
-test('Path and Tree from a card\'s menu are not writes: they add to the selection, tell nobody and leave the box as it was', async () => {
+test('The four Explore items from a card\'s menu are not writes: they add to the selection, tell nobody and leave the box as it was', async () => {
   const { page, told } = await pageWithListener();
   page.input.typed('zephyr');
   told.length = 0;
   page.rightClickCard(1);
-  page.menu.path.fire('click');
+  page.menu.dpath.fire('click');
   page.rightClickCard(1);
-  page.menu.tree.fire('click');
+  page.menu.dtree.fire('click');
   assert.deepStrictEqual(told, []);
   assert.strictEqual(page.input.value, 'zephyr');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(page.run('selectionState.selection'))), { anchor: { kind: 'path', id: '1' }, additions: [{ kind: 'tree', id: '1' }] });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(page.run('selectionState.selection'))), { anchor: { kind: 'dpath', id: '1' }, additions: [{ kind: 'dtree', id: '1' }] });
 });
 
 test('a ?q= link is a write with the reason link, told once the link\'s view is showing', async () => {

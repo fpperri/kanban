@@ -103,7 +103,7 @@ test('the Calendar month counts the leading and trailing days of its grid as dra
   assert.strictEqual(ganttAnchor(gantt), '2026-07-28', 'the Gantt\'s August window is the month\'s own days');
 });
 
-test('typing, a cue click and a ?q= link each make the check, and Path from the card menu, which writes no query, moves nothing', async () => {
+test('typing, a cue click and a ?q= link each make the check, and Dependency path from the card menu, which writes no query, moves nothing', async () => {
   const typing = await pageIn('calendar');
   typing.input.typed('centennial');
   assert.strictEqual(calendarAnchor(typing), '2031-06-02', 'typing');
@@ -120,7 +120,7 @@ test('typing, a cue click and a ?q= link each make the check, and Path from the 
 
   const menu = await pageIn('calendar');
   menu.rightClickCard(2);
-  menu.menu.path.fire('click');
+  menu.menu.dpath.fire('click');
   assert.strictEqual(menu.input.value, '', 'Path adds to the selection and leaves the box alone');
   assert.strictEqual(calendarAnchor(menu), '2026-07-15', 'so the Calendar stays where it was');
 
