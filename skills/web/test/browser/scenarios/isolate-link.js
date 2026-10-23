@@ -232,7 +232,7 @@ module.exports = {
     const pickedText = `#${one} | #${two}`;
     await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
     check('the Board is up for the reload part', await goto('/?view=board', boardReady));
-    const liveBoard = await nowShown(SELECTORS.board);
+    const liveBoard = JSON.parse(await nowShown(SELECTORS.board));
     await pickOnBoard(CASES.zephyr.picked);
     await focusBoxAtEnd();
     await send('Input.insertText', { text: CASES.zephyr.query });
@@ -249,7 +249,7 @@ module.exports = {
     check('and the chip says isolated, and the Board shows only the two', await chipSaysIsolated() && await shows(SELECTORS.board, sorted(one, two)), await chip());
     await press('isolate-switch');
     check('after the reload, turning isolate off gives back the search from before isolating', await switchIs(false) && await boxIs(CASES.zephyr.query), await boxText());
-    check('and takes the isolate parameter out of the address', await addressHas({ view: 'board', q: CASES.zephyr.query }), await addressParams());
+    check('and writes isolate=0 beside q, since the search is lit', await addressHas({ view: 'board', q: CASES.zephyr.query, isolate: '0' }), await addressParams());
     check('and the Board shows every card again, the search lighting its cards', await shows(SELECTORS.board, liveBoard), await nowShown(SELECTORS.board));
 
     // --- a card's history step keeps the parameter ------------------------------------------------------------------------------------

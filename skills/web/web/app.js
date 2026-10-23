@@ -1176,6 +1176,7 @@ function setView(mode) {
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   if (kept !== selectionState.selection) setSelection(kept);
   renderBoard();
+  followSearchInAddress($('#search-input').value); // the address says isolate=0 outside the Graph and nothing in it
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
 
@@ -2618,7 +2619,7 @@ function consumeDeepLink() {
     // isolate=1 beside the query opens it isolated: isolate is on before the write, so the repaint
     // and the listeners told of it (the address, the chip) see it on.
     if (link.isolate) isolateFromLink(link.q);
-    writeSearch(link.q, 'link');
+    writeSearch(link.q, link.isolateOff ? 'link-lit' : 'link'); // isolate=0 opens it lit; no parameter is an old link, isolated where the view isolates
   } else if (link.view) renderBoard();
   if (!link.hasCard) return;
   if (link.id == null) { toast('Deep link card id is invalid — loaded normally.'); return; }
@@ -3535,7 +3536,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
 // on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'prefill', 'selection' and 'hover' (Space
+// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'link-lit', 'prefill', 'selection' and 'hover' (Space
 // on a hovered card writes its sets as typing writes, but never turns isolate on: it is not among
 // ISOLATING_REASONS, selection.js). A write that carries a
 // query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
@@ -3587,7 +3588,7 @@ function clearSearch() {
 // isolate is on (isolateNow, isolate.js). The popstate listener calls this too,
 // after Back or Forward lands.
 function followSearchInAddress(text) {
-  const search = nextSearchAddress(location.search, text, isolateNow() !== null);
+  const search = nextSearchAddress(location.search, text, isolateNow() !== null, loadViewMode() !== 'graph');
   if (search == null) return;
   try {
     history.replaceState(null, '', location.pathname + search);

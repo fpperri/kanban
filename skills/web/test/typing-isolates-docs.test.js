@@ -100,6 +100,18 @@ test('a deep link\'s query is isolated where the view isolates what is typed, an
   assert.match(flat(skill), /`2 on: review, isolated` where the pill turned isolate on/);
 });
 
+test('both say the address carries isolate=0 outside the Graph while the box lights its query, and what each kind of link opens', () => {
+  const skillAddress = flat(skill.slice(skill.indexOf('**The address follows the box.**'), skill.indexOf('The address replaces')));
+  assert.match(skillAddress, /Outside the Graph, with the box holding a query and isolate off, `isolate=0` stands there instead, so a reload reopens the same picture/);
+  assert.match(skillAddress, /a link with `q` and `isolate=0` opens with isolate off \(`parseDeepLink` reports `isolateOff`, and the page writes the box with the reason `link-lit`\)/);
+  assert.match(skillAddress, /a link with `q` and no isolate parameter, an old or hand-made one, turns isolate on where the view isolates what is typed; `isolate=1` opens isolated/);
+  assert.match(skillAddress, /In the Graph no parameter means off, and none is written/);
+  const webAddress = flat(docs.slice(docs.indexOf('The link carries it.'), docs.indexOf('**Typing isolates** —')));
+  assert.match(webAddress, /Outside the Graph, while the box holds a search and Isolate is off, the address says `isolate=0` instead, so a reload reopens the same picture, lit/);
+  assert.match(webAddress, /a link with a search and no `isolate` parameter, an old or hand-made one, opens isolated in a view whose Typing isolates is on/);
+  assert.match(webAddress, /In the Graph no parameter means off, and none is written/);
+});
+
 test('the glossary names the term', () => {
   const entry = flat(glossary.slice(glossary.indexOf('**Typing isolates**:'), glossary.indexOf('**Peek**:')));
   assert.match(entry, /A per-view choice, kept per board, whether a query the person makes/);
