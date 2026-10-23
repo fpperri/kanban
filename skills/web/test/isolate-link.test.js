@@ -126,6 +126,23 @@ test('isolating a selection whose text equals the box still puts the parameter i
   assert.deepStrictEqual(s.params(), { q: '#2' }, 'back to the text it held, lit: the Board needs no parameter to open lit');
 });
 
+test('a reload tells the switch\'s isolate from the box\'s own query by what was kept, not by the two texts being alike', async () => {
+  const typed = await openAt('', { typing: true });
+  typed.type('tags:ui');
+  assert.deepStrictEqual(typed.isolate(), { previous: 'tags:ui', following: true });
+  const typedAgain = await openAt(typed.session.search, { stored: typed.stored, typing: true });
+  assert.deepStrictEqual(typedAgain.isolate(), { previous: 'tags:ui', following: true }, 'the query started it');
+  const picked = await openAt('?q=%232');
+  picked.ctrlClick(2);
+  picked.flip();
+  assert.strictEqual(picked.box(), '#2');
+  assert.deepStrictEqual(picked.isolate(), { previous: '#2' }, 'the switch started it, though the text it kept is the isolate text itself');
+  const pickedAgain = await openAt(picked.session.search, { stored: picked.stored });
+  assert.deepStrictEqual(pickedAgain.isolate(), { previous: '#2' }, 'and a reload keeps it the switch\'s: a view whose typing lights does not end it');
+  pickedAgain.page.run("setView('graph')");
+  assert.notStrictEqual(pickedAgain.isolate(), null);
+});
+
 // --- a reload, and a link opened in another browser ----------------------------------------------
 
 test('a reload with isolate on keeps the switch on, the box text, the address and the isolated chip, and the Board shows only the isolated cards', async () => {
@@ -136,7 +153,7 @@ test('a reload with isolate on keeps the switch on, the box text, the address an
   const address = first.session.search;
   assert.strictEqual(first.params().isolate, '1');
   const second = await openAt(address, { stored: first.stored });
-  assert.deepStrictEqual(second.isolate(), { previous: '#2 | #5', following: true }, 'isolate is on again, and the text kept is the isolate text itself, the box having shown the selection before');
+  assert.deepStrictEqual(second.isolate(), { previous: '#2 | #5' }, 'isolate is on again, still the switch\'s: the text kept is the isolate text itself, the box having shown the selection before, but the box\'s own query did not start it');
   assert.strictEqual(second.elements['#isolate-switch'].getAttribute('aria-checked'), 'true', 'the switch says on');
   assert.strictEqual(second.box(), '#2 | #5');
   assert.strictEqual(second.session.search, address, 'the address is as the link had it');

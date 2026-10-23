@@ -54,7 +54,7 @@
 // This script reads app.js's globals at the moment it runs, never when it loads: $, state,
 // storageKey, prefsStorage, selectionState, currentSearchMatch,
 // writeSearch, onSearchWrite, renderSearchPanel, toast and hideContextMenu; selection.js's
-// partsOf, isolateRecord, isolatePreviousFrom and isolateAfterWrite; key-guard.js's keyGuardOff;
+// partsOf, isolateRecord, isolateKeptFrom and isolateAfterWrite; key-guard.js's keyGuardOff;
 // and the search module's isolate functions (searchIsolateBox, searchIsolateRestore). The i key
 // reads the shared key guard: off while a field has focus and while a menu, a dialog, the
 // notifications panel or the preferences sheet is up; the search panel is no surface, so i works
@@ -108,10 +108,10 @@ function setTypingIsolates(view, on) {
 // without it, and the text is then unknown, which gives back an empty box.
 const ISOLATE_KEPT_FEATURE = 'isolate.kept';
 
-function saveIsolateRecord(previous, text) {
+function saveIsolateRecord(previous, text, following = false) {
   const store = prefsStorage();
   if (!store) return;
-  try { store.setItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE), isolateRecord(previous, text)); }
+  try { store.setItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE), isolateRecord(previous, text, following)); }
   catch (e) { /* storage unavailable or full: the text will be unknown after a reload */ }
 }
 
@@ -122,22 +122,22 @@ function forgetIsolateRecord() {
   catch (e) { /* nothing to forget */ }
 }
 
-function readKeptPrevious(q) {
+function readKept(q) {
   const store = prefsStorage();
   let raw = null;
   if (store) {
     try { raw = store.getItem(storageKey(state.projectName, ISOLATE_KEPT_FEATURE)); }
     catch (e) { raw = null; }
   }
-  return isolatePreviousFrom(raw, q);
+  return isolateKeptFrom(raw, q);
 }
 
 // A link that opens isolated (consumeDeepLink): isolate is on before the link's query reaches the
-// box, so the repaint, the address and every listener of the write see it on. What it gives back
-// is the text kept for this very query, or nothing.
+// box, so the repaint, the address and every listener of the write see it on. What it gives back,
+// and whether the box's own query started it, is what was kept for this very query, or nothing.
 function isolateFromLink(q) {
-  const previous = readKeptPrevious(q);
-  isolateFlag = previous !== '' && previous === String(q).trim() ? { previous, following: true } : { previous }; // the text kept is the isolate text itself: the box's own query started it
+  const { previous, following } = readKept(q);
+  isolateFlag = following ? { previous, following: true } : { previous };
 }
 
 // Isolate turned on by a query the person wrote: the box keeps being the isolate text, and
@@ -146,12 +146,18 @@ function isolateFromTyping(text) {
   isolateFlag = { previous: String(text), following: true };
 }
 
+// Ends isolate when `ends` says so of its flag, forgetting the text kept for a reload. Both ways it
+// ends before a repaint share this body.
+function isolateEndWhen(ends) {
+  if (!isolateFlag || !ends(isolateFlag)) return;
+  isolateFlag = null;
+  forgetIsolateRecord();
+}
+
 // A write that leaves the box holding no query ends isolate before the repaint it makes (writeSearch),
 // so that repaint draws the views and the panel as they are without it, and reads the box once.
 function isolateEndIfEmptied(text, reason) {
-  if (!isolateFlag || isolateAfterWrite(isolateFlag, text, reason) !== null) return;
-  isolateFlag = null;
-  forgetIsolateRecord();
+  isolateEndWhen((flag) => isolateAfterWrite(flag, text, reason) === null);
 }
 
 // Entering a view whose Typing isolates is on with a query of the person's in the box and isolate off
@@ -162,15 +168,13 @@ function isolateStartFollowing(setting) {
   const box = $('#search-input').value;
   if (!searchBoxHoldsTyped(box, partsOf(selectionState.selection))) return;
   isolateFromTyping(box);
-  saveIsolateRecord(box, box);
+  saveIsolateRecord(box, box, true);
 }
 
 // Moving to a view whose Typing isolates is off ends an isolate the box's own query started:
 // the query stays in the box and lights there, as it does when typed into that view.
-function isolateEndFollowing(view, setting) {
-  if (!isolateFlag || !isolateFlag.following || setting === true) return;
-  isolateFlag = null;
-  forgetIsolateRecord();
+function isolateEndFollowing(setting) {
+  isolateEndWhen((flag) => flag.following === true && setting !== true);
 }
 
 // The switch says whether isolate is on (aria-checked) and what a click does. Every repaint of
@@ -195,7 +199,7 @@ function isolateTurnOn() {
   const text = searchIsolateBox(box, parts);
   if (!text && currentSearchMatch().lit) { // a query lit outside the Graph is no selection, and isolating it makes the box hide again
     isolateFromTyping(box);
-    saveIsolateRecord(box, box);
+    saveIsolateRecord(box, box, true);
     writeSearch(box, 'isolate');
     return true;
   }
@@ -246,12 +250,14 @@ function onIsolateKey(e) {
 // A write to the box that leaves it holding no query ends isolate: its text is gone, and so is
 // the text it would give back.
 function isolateOnWrite(text, reason) {
-  const next = isolateAfterWrite(isolateFlag, text, reason);
-  if (next && next.following && !writeIsIsolateSwitch(reason)) next.previous = text; // the box's query is what isolate off gives back
-  if (next && !writeIsIsolateSwitch(reason)) saveIsolateRecord(next.previous, text); // the kept text goes with the isolate text the box holds now
-  if (next === isolateFlag) return;
+  const kept = isolateAfterWrite(isolateFlag, text, reason);
+  const own = writeIsIsolateSwitch(reason);
+  const next = kept && kept.following && !own ? { ...kept, previous: text } : kept; // the box's query is what isolate off gives back
+  if (next && !own) saveIsolateRecord(next.previous, text, next.following === true); // the kept text goes with the isolate text the box holds now
+  const ended = isolateFlag !== null && next === null;
   isolateFlag = next;
-  if (!next) forgetIsolateRecord();
+  if (!ended) return;
+  forgetIsolateRecord();
   renderSearchPanel();
 }
 

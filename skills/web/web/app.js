@@ -1160,7 +1160,7 @@ function setView(mode) {
   if (to === from) return;
   viewMode = to;
   saveViewMode();
-  isolateEndFollowing(to, typingIsolatesIn(to)); // an isolate the box's own query started ends where the view lights what is typed
+  isolateEndFollowing(typingIsolatesIn(to)); // an isolate the box's own query started ends where the view lights what is typed
   const boxText = isolateNow() ? '' : $('#search-input').value; // while isolated the box holds the isolate text, never the anchor
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a Graph search is no anchor elsewhere
   const before = selectionState.selection;

@@ -582,22 +582,25 @@ function typingTurnsIsolateOn({ reason, text, isolated, setting }) {
 }
 
 // What the browser keeps, per board, while isolate is on: the text the box held before isolating
-// (what turning isolate off gives back) and the isolate text the box held when it was last
-// written, as one JSON string. The text says which isolate the previous text belongs to.
-function isolateRecord(previous, text) {
-  return JSON.stringify({ previous: String(previous == null ? '' : previous), text: String(text == null ? '' : text).trim() });
+// (what turning isolate off gives back), the isolate text the box held when it was last written, and
+// whether the box's own query started the isolate (`following`: typing, a pill, a cue or a link, as against
+// the switch or the i key), as one JSON string. The text says which isolate the rest belongs to.
+function isolateRecord(previous, text, following = false) {
+  return JSON.stringify({ previous: String(previous == null ? '' : previous), text: String(text == null ? '' : text).trim(), following: following === true });
 }
 
-// The text to give back when isolate comes from a link whose query is `q`: the record's previous
-// text when the record is for that very query, and the empty string when it is unknown (no
-// record, an unreadable one, storage that refused, or a record kept for another isolate), so
-// turning isolate off leaves the box empty rather than restoring an unrelated text.
-function isolatePreviousFrom(raw, q) {
-  if (typeof raw !== 'string') return '';
+// What to give back, and whose isolate it was, when isolate comes from a link whose query is `q`:
+// the record's previous text and its `following` fact when the record is for that very query, and
+// nothing ({ previous: '', following: false }) when it is unknown (no record, an unreadable one,
+// storage that refused, or a record kept for another isolate), so turning isolate off leaves the box
+// empty rather than restoring an unrelated text.
+function isolateKeptFrom(raw, q) {
+  const unknown = { previous: '', following: false };
+  if (typeof raw !== 'string') return unknown;
   let record;
-  try { record = JSON.parse(raw); } catch (e) { return ''; }
-  if (!record || typeof record.previous !== 'string' || record.text !== String(q == null ? '' : q).trim()) return '';
-  return record.previous;
+  try { record = JSON.parse(raw); } catch (e) { return unknown; }
+  if (!record || typeof record.previous !== 'string' || record.text !== String(q == null ? '' : q).trim()) return unknown;
+  return { previous: record.previous, following: record.following === true };
 }
 
 // The card a click picked on its own, or null: a selection that is one card part,
@@ -609,7 +612,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -648,7 +651,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.writeSkipsJump = writeSkipsJump;
   window.linkWriteReason = linkWriteReason;
   window.isolateRecord = isolateRecord;
-  window.isolatePreviousFrom = isolatePreviousFrom;
+  window.isolateKeptFrom = isolateKeptFrom;
   window.cardMenuFor = cardMenuFor;
   window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;

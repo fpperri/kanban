@@ -142,3 +142,7 @@ test('the words the change made false are gone from all three', () => {
     assert.doesNotMatch(text, /The text the box held is kept/, where);
   }
 });
+
+test('the skill says the browser keeps whether a query typed in the box started the isolate, so a reload does not guess it', () => {
+  assert.match(flat(skill), /with the isolate text it goes with and whether the box's own query started the isolate \(\x60following\x60, so a reload keeps the switch's isolate the switch's and a typed one a typed one\)/);
+});

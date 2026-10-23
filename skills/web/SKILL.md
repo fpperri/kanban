@@ -1126,7 +1126,8 @@ to `127.0.0.1` only.
   browser, where the Graph, with no dot dimmed, and every other view show only the isolated set.
   The text the box held before isolating is kept in the browser per board (`localStorage`, the
   board's `isolate.kept` entry, beside its other remembered choices), with the isolate text it
-  goes with, and given back when isolate is turned off after the reload; where it is unknown (no
+  goes with and whether the box's own query started the isolate (`following`, so a reload keeps the
+  switch's isolate the switch's and a typed one a typed one), and given back when isolate is turned off after the reload; where it is unknown (no
   record, storage that is blocked, or a record kept for another isolate) the box ends up empty.
   The page works without browser storage. Opening a card while isolated keeps the parameter,
   and Back and Forward bring the entry they land on in line with the box, isolate included.
