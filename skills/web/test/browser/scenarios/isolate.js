@@ -250,6 +250,8 @@ module.exports = {
     // A view switch with a card picked says it in the box, and the Calendar entered with a query whose matches are off screen
     // pages to the nearest one, so it opens on the card's month and not on the current one.
     check('the Calendar entered with the card picked writes it into the box and opens on its month', await boxIs(`#${CASES.dated.card}`) && await titleIs('calendar', CASES.dated.month), { box: await boxText(), title: await titleOf('calendar') });
+    await press('cal-prev-btn');
+    check('paged a month back, the Calendar is off the month of the card, with the card still in the box', await titleIs('calendar', monthName(2031, 4)) && (await titleOf('calendar')) !== CASES.dated.month && await boxIs(`#${CASES.dated.card}`), await titleOf('calendar'));
     await blur();
     await key('i');
     check('isolating the card dated in 2031, in the Calendar\'s month view, jumps to its month', await titleIs('calendar', CASES.dated.month), await titleOf('calendar'));
