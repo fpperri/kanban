@@ -2229,14 +2229,16 @@ to `127.0.0.1` only.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
   **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
-  folded. It holds five options, the first value of each the
-  default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
-  dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
-  **counted line** that prints their count; **brackets** gives each parent, for each ring its children sit on,
-  one **bracket**, a counted line whose arc runs from its first child to its last in the order the Order option draws
-  them, with a tick to each child and one stem up to the parent, and a child alone on its ring keeps a plain line;
-  **chain** gives a line to every chain end and none to the
-  other children; **all** gives a line to every child; **off** draws no parent line. **Dependencies** are
+  folded. It holds six options, the first value of each the
+  default. **Lines** says which children get a parent line: **chain** (the default) gives a line to every
+  chain end and none to the other children, as the Map draws its chain ends; **all** gives a line to every child;
+  **off** draws no parent line. **Group** says how those lines are drawn: **brackets** (the default) gives each
+  parent, for each ring its children with a line sit on, one **bracket**, a **counted line** whose arc runs from the
+  first of those children to the last in the order the Order option draws them, never through the parent's angle, with
+  a tick to each child, one stem up to the parent and the number of children it holds printed on it, and a child alone
+  on its ring keeps a plain line; **lines** gives each child its own line. With Lines off there is nothing to group:
+  the Group buttons stay shown and change nothing. A choice kept by an older version still reads as it drew: the retired
+  value folded as chain with brackets, and a stored chain or all as that value with Group lines. **Dependencies** are
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
   orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order.

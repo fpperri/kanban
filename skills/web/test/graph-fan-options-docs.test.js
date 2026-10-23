@@ -29,25 +29,26 @@ test('the Graph section says Tiers has an option row, folded behind an Options t
   assert.doesNotMatch(text, /Force|Status have no/);
 });
 
-test('the Graph section says what Lines draws in each of its four values, folded the default', () => {
+test('the Graph section says what Lines gives a line to and what Group does with those lines, chain and brackets the defaults', () => {
   const text = graph();
-  assert.match(text, /\*\*Lines\*\* draws the parent lines: \*\*folded\*\* \(the default\)/);
-  assert.match(text, /folded[^.]*a line to the end of each dependency chain, as the Map draws its chain ends/);
-  assert.match(text, /a parent's other children on one ring share one \*\*counted line\*\* that prints their count/);
-  assert.match(text, /\*\*chain\*\* gives a line to every chain end and none to the other children/);
+  assert.match(text, /\*\*Lines\*\* says which children get a parent line: \*\*chain\*\* \(the default\) gives a line to every chain end and none to the other children, as the Map draws its chain ends/);
   assert.match(text, /\*\*all\*\* gives a line to every child/);
   assert.match(text, /\*\*off\*\* draws no parent line/);
+  assert.match(text, /\*\*Group\*\* says how those lines are drawn: \*\*brackets\*\* \(the default\) gives each parent, for each ring its children with a line sit on, one \*\*bracket\*\*, a \*\*counted line\*\* whose arc runs from the first of those children to the last in the order the Order option draws them, never through the parent's angle, with a tick to each child, one stem up to the parent and the number of children it holds printed on it, and a child alone on its ring keeps a plain line; \*\*lines\*\* gives each child its own line/);
+  assert.match(text, /With Lines off there is nothing to group: the Group buttons stay shown and change nothing/);
+  assert.match(text, /A choice kept by an older version still reads as it drew: the retired value folded as chain with brackets, and a stored chain or all as that value with Group lines/);
 });
 
-test('the Graph section says what brackets draws: a bracket for each parent and ring, first child to last, one stem, a plain line for a child alone', () => {
+test('the Graph section no longer has a folded value, and the brackets sentence does not read the chain ends', () => {
   const text = graph();
-  assert.match(text, /\*\*brackets\*\* gives each parent, for each ring its children sit on, one \*\*bracket\*\*, a counted line whose arc runs from its first child to its last in the order the Order option draws them, with a tick to each child and one stem up to the parent, and a child alone on its ring keeps a plain line/);
-  const sentence = /\*\*brackets\*\*[^;]*;/.exec(text)[0];
-  assert.doesNotMatch(sentence, /chain end/, 'brackets do not read the chain ends');
-  assert.match(text, /A counted line or bracket lights whenever its parent does/);
+  assert.doesNotMatch(text, /\*\*folded\*\* \(the default\)/);
+  assert.doesNotMatch(text, /Lines \(folded/);
+  const brackets = /\*\*brackets\*\* \(the default\)[^;]*;/.exec(text)[0];
+  assert.doesNotMatch(brackets, /chain end/);
   const doc = docGraph();
-  assert.match(doc, /Brackets draws, for each parent and each ring its children sit on, one bracket from its first child to its last with a tick to each child and one line up to the parent, and prints the number of children on it; a child alone on its ring keeps a plain line/);
-  assert.doesNotMatch(/Brackets draws[^.]*\./.exec(doc)[0], /chain end/);
+  assert.doesNotMatch(doc, /Lines \(folded|Folded, the default/);
+  assert.match(doc, /Group says how those lines are drawn: brackets, the default, draws for each parent and each ring its children sit on one bracket from the first of them to the last, in the order the Order option shows, with a tick to each child and one line up to the parent, and prints the number of children on it; a child alone on its ring keeps a plain line\. Lines gives each child its own line\. With Lines off there is nothing to group/);
+  assert.doesNotMatch(/Group says[^.]*\.[^.]*\./.exec(doc)[0], /chain end/);
 });
 
 test('the Graph section says Dependencies and Order, and what each value does', () => {
@@ -86,6 +87,6 @@ test('the Graph section no longer says every relation is drawn in Tiers', () => 
 test('the web doc says the same in short', () => {
   const text = docGraph();
   assert.match(text, /an option row in the option panel beside the fan/);
-  assert.match(text, /Lines \(folded, brackets, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(chain, all, off\), Group \(brackets, lines\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /kept per board/);
 });
