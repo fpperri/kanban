@@ -98,8 +98,11 @@ function notesLayout() {
   return u.layout;
 }
 
-const notesCtx = () => ({ today: localTodayStr(), now: noteClock(new Date()), lastNoted: notesLastNoted() });
-const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked, day: notesUi.date.value });
+const notesNow = () => noteClock(kanbanDays.now());
+const notesCtx = () => ({ today: localTodayStr(), now: notesNow(), lastNoted: notesLastNoted() });
+// What the person typed into the date and time fields; an untouched field is empty here, so Enter
+// reads the clock (or the request's own day and time) at that moment, not what the field showed.
+const notesField = () => ({ value: notesUi.timeTyped ? notesUi.time.value : '', untimed: notesUi.untimed.checked, day: notesUi.dateTyped ? notesUi.date.value : '' });
 const NOTES_LAYOUTS = [['grouped', 'Grouped', 'The notes grouped by day and card'], ['timeline', 'Timeline', 'One list of the notes by day and time, each naming its card']];
 const NOTES_RANGES = [['all', 'All', 'Every day'], ['month', 'Month', 'A month at a time'], ['week', 'Week', 'A week at a time, from Monday'], ['3day', '3 days', 'Three days at a time'], ['day', 'Day', 'A day at a time']];
 const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
@@ -459,7 +462,7 @@ function openNotes(req) {
     u.dateTyped = false;
     notesGrow();
     notesResetTime();
-  }
+  } else notesRefreshTime();
   u.range = noteRangeFor(sub, req, ctx.today);
   u.rangeTouched = false;
   u.hi = -1;
@@ -515,25 +518,52 @@ function notesClose() {
   return true;
 }
 
-// After a write the field goes back to what it starts as (the slot's time, else now), unless the
-// person typed a time into it, or ticked untimed, which stay as they were.
+// The clock moved on: a subject and a range that took their day from it move to the new today (what
+// the request gave, and what the person stepped to, stays). -> whether either moved.
+function notesFollowDay() {
+  const u = notesUi;
+  const today = localTodayStr();
+  const sub = noteSubjectOnDay(u.sub, today);
+  const range = noteRangeOnDay(u.range, today);
+  const moved = sub !== u.sub || range !== u.range;
+  u.sub = sub;
+  u.range = range;
+  return moved;
+}
+
+// The fields go back to what they start as (the slot's time, else now; the subject's day), unless the
+// person typed a time or a day into them, or ticked untimed, which stay as they were.
 function notesRefreshTime() {
   const u = notesUi;
   if (!u.sub) return;
+  notesFollowDay();
   if (!u.dateTyped) u.date.value = u.sub.day;
   if (u.timeTyped || u.untimed.checked) return;
-  u.time.value = u.sub.at || noteClock(new Date());
+  u.time.value = u.sub.at || notesNow();
+}
+
+// The page's clock ticked, or the page became visible again: an open palette shows the day and time
+// it would write now, and when the day turned, repaints its list, chip and range around the new today.
+function notesFollowClock() {
+  const u = notesUi;
+  if (!u.sub) return;
+  const day = u.sub.day;
+  const anchor = u.range.anchor;
+  notesRefreshTime();
+  notesPaintPreview();
+  if (u.sub.day !== day || u.range.anchor !== anchor) notesOnBoard();
 }
 
 function notesResetTime() {
   const u = notesUi;
   const sub = u.sub || {};
   u.timeTyped = false;
+  if (u.sub) notesFollowDay();
   const untimed = sub.kind === 'untimed' || !!sub.untimed;
   u.untimed.checked = untimed;
   u.time.disabled = untimed;
-  u.time.value = untimed ? '' : sub.at || noteClock(new Date());
-  if (!u.dateTyped) u.date.value = sub.day || localTodayStr();
+  u.time.value = untimed ? '' : sub.at || notesNow();
+  if (!u.dateTyped) u.date.value = (u.sub || sub).day || localTodayStr();
 }
 
 // The palette has a new subject: back to its Notes tab with nothing written yet, nothing highlighted

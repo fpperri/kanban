@@ -2300,6 +2300,11 @@ async function loadBoard() {
 // itself lives in refresh-policy.js (pure, no DOM) so it's unit-testable from Node;
 // this just gathers the current DOM/drag/visibility state and asks it.
 const AUTO_REFRESH_MS = 5000;
+// Every render reads the clock, so "today" follows it on the poll; the clock tick below draws the
+// views again when the day turned and the poll could not (the server is away, or a popup holds it).
+// clockDay is the day the last tick saw.
+let clockDay = '';
+const CLOCK_TICK_MS = 15000;
 let isDragging = false;
 // Count of in-flight onDrop() calls: optimistic update applied, PATCH not yet
 // settled. dragend already fires before the PATCH resolves, so isDragging alone
@@ -2366,6 +2371,19 @@ async function autoRefreshTick() {
   } catch (e) {
     setStale(true); // quiet: no toast storm on repeated failures, just a subtle indicator; recovers silently above
   }
+}
+
+// The clock moved on: the views draw again when the day turned (unless a popup or a drag holds the
+// board, as for the poll; the next tick tries again), and an open notes palette shows the day and
+// time it would write now. Also run when the page becomes visible again.
+function clockTick() {
+  if (document.visibilityState !== 'visible') return;
+  const today = localTodayStr();
+  if (today !== clockDay && !shouldSkipAutoRefresh(autoRefreshSkipState())) {
+    clockDay = today;
+    renderBoard();
+  }
+  notesFollowClock();
 }
 
 // Archive column parity: every tile drags and every column —
@@ -2653,8 +2671,10 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#refresh-btn').addEventListener('click', () =>
     loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message)));
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
+  clockDay = localTodayStr();
+  setInterval(clockTick, CLOCK_TICK_MS);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') autoRefreshTick();
+    if (document.visibilityState === 'visible') { clockTick(); autoRefreshTick(); }
   });
   // Sticky column headers park below the sticky page
   // header via --board-header-h — sync it now (static markup, already
@@ -4274,15 +4294,15 @@ function wireMapPanZoom() {
 //
 // The displayed window is ONE in-memory anchor day for all four sub-views
 // (the month view derives
-// y/m from it, so the window carries across sub-view switches): it resets to
-// today on page load and survives the 5s poll's re-render by construction
+// y/m from it, so the window carries across sub-view switches): it is none, which
+// reads as today, until a control moves it, so an untouched window follows the clock
+// across midnight; it survives the 5s poll's re-render by construction
 // (renderCalendarView reads it, nothing in the render path resets it — only
 // the prev/next/Today controls write it).
 let calendarAnchor = null;
 
 function currentCalendarAnchor() {
-  if (!calendarAnchor) calendarAnchor = localTodayStr();
-  return calendarAnchor;
+  return calendarAnchor || localTodayStr(); // none until a control moves it, so the window follows the clock across midnight
 }
 
 // The Calendar opens on a day: the picked iteration's first one (iterations-ui.js).
@@ -5277,15 +5297,14 @@ function setGanttSubview(subview) {
   renderGanttView();
 }
 
-// The anchor day a SIZED sub-view pages around — same lazy-init-to-today,
+// The anchor day a SIZED sub-view pages around — same none-reads-as-today,
 // survives-the-poll discipline as calendarAnchor (nothing in the render path
 // resets it; only the prev/next/Today controls below write it). Unused
 // while the sub-view is 'all'.
 let ganttAnchor = null;
 
 function currentGanttAnchor() {
-  if (!ganttAnchor) ganttAnchor = localTodayStr();
-  return ganttAnchor;
+  return ganttAnchor || localTodayStr(); // none until a control moves it, so the window follows the clock across midnight
 }
 
 // prev/next step by the ACTIVE sub-view's span. shiftAnchorDay is the

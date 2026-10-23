@@ -27,3 +27,17 @@ test('what is not a real day reads as none', () => {
 test('validDay says yes to the days parseDay reads', () => {
   assert.strictEqual(days.validDay('2026-10-16'), true);
 });
+
+test('the clock is one seam: now and localToday read it, and setClock() puts the real one back', () => {
+  try {
+    days.setClock(() => new Date(2026, 9, 6, 23, 59));
+    assert.strictEqual(days.localToday(), '2026-10-06');
+    assert.strictEqual(days.now().getHours(), 23);
+    days.setClock(() => new Date(2026, 9, 7, 0, 1));
+    assert.strictEqual(days.localToday(), '2026-10-07');
+    assert.strictEqual(days.localToday(new Date(2026, 0, 1)), '2026-01-01', 'a moment passed in is not the clock');
+  } finally {
+    days.setClock();
+  }
+  assert.ok(Math.abs(days.now().getTime() - Date.now()) < 5000);
+});
