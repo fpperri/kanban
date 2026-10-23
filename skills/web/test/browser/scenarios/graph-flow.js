@@ -126,6 +126,8 @@ const VIEW_K = `graphCur.view.k`;
 const addCard = (card) => `fetch('/api/cards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(card)})}).then((r)=>r.json()).then((c)=>c.id)`;
 const setWaits = (id, waits) => `fetch('/api/cards/${id}',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({waiting_for:${JSON.stringify(waits)}})}).then((r)=>r.status)`;
 
+const { openPanel, forgetPanelChoice } = require('../panel');
+
 module.exports = {
   name: 'graph-flow',
   board: 'plan',
@@ -160,7 +162,7 @@ module.exports = {
     const settled = (heads) => waitFor(`JSON.stringify(${HEADS})===${JSON.stringify(JSON.stringify(heads))}`, 8000);
 
     // --- the choice: Hierarchy first, and unchanged --------------------------------------------------------
-    check('plan: the Graph opens in the Hierarchy, the tier fan', await load('/?view=graph', 'plan') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    check('plan: the Graph opens in the Hierarchy, the tier fan', await load('/?view=graph', 'plan') && await openPanel(page) && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
     const kinds = await ev(`[...document.querySelectorAll('#graph-view .graph-controls .graph-kind-btn')].map((b)=>[b.dataset.graphKind,b.textContent,b.getAttribute('aria-pressed')])`);
     check('plan: the toolbar has the Hierarchy | Flow choice, Hierarchy pressed, and the panel does not', sameList(kinds, [['hierarchy', 'Hierarchy', 'true'], ['flow', 'Flow', 'false']])
       && await ev(`document.querySelectorAll('${PANEL} .graph-kinds').length===0&&document.querySelector('${PANEL}').children[1].classList.contains('graph-zoom')`), kinds);
@@ -408,6 +410,7 @@ module.exports = {
     await shot('graph-flow-loop');
 
     // --- the other board keeps its own ------------------------------------------------------------------------------
+    await forgetPanelChoice(page);
     check('fixture: another board opens in the Hierarchy: the choice is kept for the board', await load('/?view=graph', 'fixture') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
 
     // --- the phone's bottom sheet ---------------------------------------------------------------------------------------

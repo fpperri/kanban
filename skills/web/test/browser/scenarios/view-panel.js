@@ -8,9 +8,8 @@
 // has a label. Open, a control in the panel works as it did in the row it came from (Fit, a
 // graph choice, the zoom); closed, the panel is gone and the view has its width back, the Graph framed
 // again in it. The choice is kept per view in the browser: a reload keeps it, and one view's
-// choice does not change the other's. With no choice made the screen decides, open at 760 px
-// and wider and closed under it, and the view follows a window that crosses the line. Under
-// 760 px the panel opens over the view as a sheet, taking no width from it and adding no sideways
+// choice does not change the other's. With no choice made the panel starts closed at every width. Under
+// 760 px an opened panel lies over the view as a sheet, taking no width from it and adding no sideways
 // scroll to it, with a close button of its own that hands focus back to the icon button.
 //
 // A press is a real click at the centre of the element, as a person makes it, and every wait is
@@ -64,7 +63,9 @@ module.exports = {
     // --- the Graph, on a wide screen -----------------------------------------------------------
     await load('/?view=graph');
     check('the Graph draws the plan board', await graphDrawn());
-    check('the panel is open on a wide screen with nothing chosen', await waitFor(panelPresent('graph')) && (await stored()) === null, await stored());
+    check('the panel starts closed on a wide screen with nothing chosen', await waitFor(panelAbsent('graph')) && (await stored()) === null && (await buttonState('graph')).expanded === 'false', await stored());
+    await clickOn(toggleOf('graph'));
+    check('the button opens it, and the choice is kept for the Graph alone', await waitFor(panelPresent('graph')) && (await stored()) === '{"map":null,"graph":true}', await stored());
     const button = await buttonState('graph');
     check('the icon button is a panel glyph with a label and says the panel is open', !!button && button.expanded === 'true' && button.label === 'Options panel' && button.icon && button.title.length > 10, button);
     check('the button is not inside the panel, and it and the panel keep the selection', !!button && !button.inPanel && button.keeps && button.panelKeeps, button);
@@ -121,7 +122,9 @@ module.exports = {
     // --- the Map ----------------------------------------------------------------------------------
     await load('/?view=map');
     check('the Map draws the plan board', await mapDrawn());
-    check('the Map\'s panel is open: the Graph\'s choice is not its own', await waitFor(panelPresent('map')));
+    check('the Map\'s panel starts closed: the Graph\'s choice is not its own', await waitFor(panelAbsent('map')));
+    await clickOn(toggleOf('map'));
+    check('the Map\'s button opens it', await waitFor(panelPresent('map')));
     const mapButton = await buttonState('map');
     check('the Map\'s button is the same glyph with the same label', !!mapButton && mapButton.expanded === 'true' && mapButton.label === 'Options panel' && mapButton.icon && !mapButton.inPanel, mapButton);
     const mapZoomIn = await inPanel('#map-view .map-zoom-btn');
@@ -157,15 +160,15 @@ module.exports = {
     await clickOn(toggleOf('map'));
     check('the Map\'s panel opens again with the zoom the Map had', await waitFor(panelPresent('map')) && (await pct()) === pctZoomed, { pctZoomed, now: await pct() });
 
-    // --- the screen decides until a choice is made ------------------------------------------------------
+    // --- nothing chosen: closed at every width ------------------------------------------------------------
     await ev(`localStorage.removeItem('kanban.plan.viewpanel')`);
     await load('/?view=graph');
     await graphDrawn();
-    check('with no choice the panel is open again', await waitFor(panelPresent('graph')));
+    check('with no choice the panel is closed on a wide screen', await waitFor(panelAbsent('graph')));
     await metrics(NARROW);
-    check('a window narrower than 760 px closes it, with no reload', await waitFor(panelAbsent('graph')), await ev('innerWidth'));
+    check('a window narrower than 760 px leaves it closed, with no reload, and keeps no choice', await waitFor(panelAbsent('graph')) && (await stored()) === null, await ev('innerWidth'));
     await metrics(WIDE);
-    check('and a wide one opens it again', await waitFor(panelPresent('graph')));
+    check('and a wide one leaves it closed too', await waitFor(panelAbsent('graph')));
     await metrics(NARROW);
     await waitFor(panelAbsent('graph'));
 

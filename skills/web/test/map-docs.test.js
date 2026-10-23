@@ -78,3 +78,10 @@ test('the web skill and the guide say the options row is always shown in the opt
   const map = guide.slice(guide.indexOf('## Dependency map'), guide.indexOf('## Gantt'));
   assert.match(map, /The options are always shown in it; the panel is what hides them, and\s+a fold remembered from before the panel is ignored/);
 });
+
+test('the guide and the web skill say the option panel starts closed at every width, and a kept choice wins', () => {
+  assert.match(guide, /panel starts closed, at every width, until you open it with the panel icon; from 760 px wide it opens beside the view, below it over the view as a sheet with a close button of its own that adds no sideways scroll\. The choice is remembered per board/);
+  assert.match(skill, /else the panel starts closed at every width \(`viewPanelDefault` is false\): a kept `true` opens it, from 760 px wide beside the view, and a window that crosses the line draws the view again/);
+  assert.doesNotMatch(guide, /panel is open from 760 px wide and closed below it/);
+  assert.doesNotMatch(skill, /else the screen decides: open from 760 px wide, closed below/);
+});

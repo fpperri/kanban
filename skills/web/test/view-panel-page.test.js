@@ -31,6 +31,8 @@ const makeBoard = () => ({
 const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
 const KEY = 'kanban.kanban.viewpanel';
+const GRAPH_OPEN = { [KEY]: '{"map":null,"graph":true}' };
+const MAP_OPEN = { [KEY]: '{"map":true,"graph":null}' };
 
 async function open(view, { stored = {}, width = null } = {}) {
   const host = recordingElement('div');
@@ -69,8 +71,8 @@ const inside = (root, cls) => byClass(root, cls);
 
 // --- the Graph -------------------------------------------------------------------------------------
 
-test('Graph, wide with nothing chosen: the zoom and the Options section are in the panel, the graph choice stands in the toolbar, the rest stays in the view', async () => {
-  const s = await open('graph');
+test('Graph, opened: the zoom and the Options section are in the panel, the graph choice stands in the toolbar, the rest stays in the view', async () => {
+  const s = await open('graph', { stored: GRAPH_OPEN });
   const panel = s.panel();
   assert.ok(panel, 'the panel is built');
   assert.strictEqual(panel.tag, 'aside');
@@ -94,7 +96,7 @@ test('Graph: the graph choice, the (i) and then the option button make the float
 });
 
 test('Graph: the Hierarchy | Flow buttons and the zoom buttons keep their labels, titles and data', async () => {
-  const s = await open('graph');
+  const s = await open('graph', { stored: GRAPH_OPEN });
   const kinds = inside(byClass(s.main(), 'graph-controls')[0], 'graph-kind-btn');
   assert.deepStrictEqual(kinds.map((b) => [b.textContent, b.dataset.graphKind, b.getAttribute('aria-pressed')]), [['Hierarchy', 'hierarchy', 'true'], ['Flow', 'flow', 'false']]);
   assert.ok(kinds.every((b) => b.title.length > 10 && b.dataset.keepsSelection !== undefined && b.dataset.holdsPoll !== undefined));
@@ -103,7 +105,7 @@ test('Graph: the Hierarchy | Flow buttons and the zoom buttons keep their labels
 });
 
 test('the icon button is a panel glyph: a rectangle with a bar on its right, labelled, saying whether the panel is open', async () => {
-  const open1 = await open('graph');
+  const open1 = await open('graph', { stored: GRAPH_OPEN });
   const toggle = open1.toggle();
   assert.strictEqual(toggle.tag, 'button');
   assert.strictEqual(toggle.getAttribute('aria-label'), 'Options panel');
@@ -123,19 +125,34 @@ test('Graph, closed by a kept choice: no panel is built, and the view still draw
   assert.strictEqual(inside(s.host, 'graph-stage').length, 1);
 });
 
-test('the screen decides until a choice is kept: narrow closes the panel, a kept choice beats the width', async () => {
-  const narrow = await open('graph', { width: 400 });
-  assert.strictEqual(narrow.panel(), null, 'closed under 760 px with nothing chosen');
-  const kept = await open('graph', { stored: { [KEY]: '{"map":null,"graph":true}' }, width: 400 });
+test('with nothing chosen the panel starts closed at every width, and a kept choice opens it or keeps it shut', async () => {
+  for (const width of [400, 760, 1900]) {
+    const fresh = await open('graph', { width });
+    assert.strictEqual(fresh.panel(), null, `closed at ${width} px with nothing chosen`);
+    assert.strictEqual(fresh.toggle().getAttribute('aria-expanded'), 'false');
+  }
+  const map = await open('map');
+  assert.strictEqual(map.panel(), null, 'the Map starts closed too');
+  const kept = await open('graph', { stored: GRAPH_OPEN, width: 400 });
   assert.ok(kept.panel(), 'open under 760 px by a kept choice, as a sheet');
-  const edge = await open('graph', { width: 760 });
-  assert.ok(edge.panel(), 'open at exactly 760 px');
+  const wide = await open('graph', { stored: GRAPH_OPEN, width: 1900 });
+  assert.ok(wide.panel(), 'open on a wide screen by a kept choice');
   const wideShut = await open('graph', { stored: { [KEY]: '{"map":null,"graph":false}' }, width: 1900 });
   assert.strictEqual(wideShut.panel(), null, 'a kept closed choice stays closed on a wide screen');
 });
 
-test('a press on the icon button closes the panel, keeps the choice for this board and the Graph alone, and presses again to open', async () => {
+test('a closed panel opens on a press of the icon button, and the Hierarchy | Flow choice is in the toolbar before and after', async () => {
   const s = await open('graph');
+  assert.strictEqual(inside(s.host, 'graph-kind-btn').length, 2, 'the choice shows with the panel shut');
+  s.press(s.toggle());
+  assert.ok(s.panel());
+  assert.strictEqual(s.stored[KEY], '{"map":null,"graph":true}');
+  assert.strictEqual(inside(s.panel(), 'graph-kind-btn').length, 0);
+  assert.strictEqual(inside(s.host, 'graph-kind-btn').length, 2);
+});
+
+test('a press on the icon button closes the panel, keeps the choice for this board and the Graph alone, and presses again to open', async () => {
+  const s = await open('graph', { stored: GRAPH_OPEN });
   s.press(s.toggle());
   assert.strictEqual(s.panel(), null);
   assert.strictEqual(s.stored[KEY], '{"map":null,"graph":false}');
@@ -145,7 +162,7 @@ test('a press on the icon button closes the panel, keeps the choice for this boa
 });
 
 test('a sheet carries a close button, which a press on closes the panel as the icon button does', async () => {
-  const s = await open('graph');
+  const s = await open('graph', { stored: GRAPH_OPEN });
   const close = byClass(s.panel(), 'view-panel-close')[0];
   assert.ok(close, 'the close button is in the panel');
   assert.strictEqual(close.getAttribute('aria-label'), 'Close the options panel');
@@ -170,8 +187,8 @@ test('opening or closing the panel frames the cards again in the width it leaves
 
 // --- the Map --------------------------------------------------------------------------------------------
 
-test('Map, wide with nothing chosen: the zoom and the Options section are in the panel, the status pills are not', async () => {
-  const s = await open('map');
+test('Map, opened: the zoom and the Options section are in the panel, the status pills are not', async () => {
+  const s = await open('map', { stored: MAP_OPEN });
   const panel = s.panel();
   assert.ok(panel, 'the panel is built');
   assert.strictEqual(inside(panel, 'map-zoom-btn').length, 3);
@@ -186,12 +203,12 @@ test('Map, wide with nothing chosen: the zoom and the Options section are in the
 });
 
 test('Map: the top row holds only the option button, on the right; a press on it flips the Map\'s choice alone', async () => {
-  const s = await open('map', { stored: { [KEY]: '{"map":null,"graph":false}' } });
+  const s = await open('map', { stored: GRAPH_OPEN });
   const bar = byClass(s.main(), 'view-bar')[0];
   assert.deepStrictEqual(bar.children.map((c) => c.classes[0]), ['view-panel-toggle']);
-  assert.ok(s.panel(), 'the Graph\'s closed choice is not the Map\'s');
+  assert.strictEqual(s.panel(), null, 'the Graph\'s open choice is not the Map\'s');
   s.press(s.toggle());
-  assert.strictEqual(s.stored[KEY], '{"map":false,"graph":false}');
+  assert.strictEqual(s.stored[KEY], '{"map":true,"graph":true}');
 });
 
 test('Map, closed by a kept choice or a narrow screen: no panel is built, and a kept choice beats the width', async () => {

@@ -49,7 +49,7 @@ async function open({ stored = {}, name = 'kanban', layout = null, view = 'graph
   const host = recordingElement('div');
   const elements = { '#graph-view': host, ...surfaces };
   for (const sel of HIDDEN_SURFACES) if (!(sel in elements)) elements[sel] = hiddenSurface();
-  const all = { [`kanban.${name}.view.mode`]: view, ...stored };
+  const all = { [`kanban.${name}.view.mode`]: view, [`kanban.${name}.viewpanel`]: '{"map":true,"graph":true}', ...stored };
   if (layout) all[`kanban.${name}.graph.layout`] = layout;
   const page = await loadPage({ board, stored: all, elements, documentExtras: recordingDocument() }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');

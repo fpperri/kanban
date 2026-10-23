@@ -1987,8 +1987,8 @@ to `127.0.0.1` only.
   control of it can take focus; the Graph then frames an untouched view again in the new width
   (`graphRefitNext`), and a view the person moved stays where it is. view-panel.js keeps whether it is open:
   per board in `localStorage` under `viewpanel` as `{ map, graph }` (a boolean for a view the person has
-  chosen for, null for one they have not, validated on every read like prefs.js), else the screen decides:
-  open from 760 px wide, closed below, and a window that crosses the line draws the view again. Under
+  chosen for, null for one they have not, validated on every read like prefs.js), else the panel starts closed at every width (`viewPanelDefault` is false):
+  a kept `true` opens it, from 760 px wide beside the view, and a window that crosses the line draws the view again. Under
   760 px the panel is a sheet over the view (`position: absolute` against `.map-view` / `.graph-view`, so it adds
   no width and no sideways scroll), with a `.view-panel-close` button that hands focus back to the icon button.
   The panel and both buttons wear `data-keeps-selection`; the icon and close buttons are in `REFOCUS_SELECTOR`,

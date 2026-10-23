@@ -226,6 +226,8 @@ function outsideStage(r, slack = 1) {
   return out;
 }
 
+const { openPanel } = require('../panel');
+
 module.exports = {
   name: 'tier-fan',
   board: 'plan',
@@ -280,7 +282,9 @@ module.exports = {
     const load = async (url, key) => {
       await ev('window.__stale=true');
       await open(url, key);
-      return waitFor('!window.__stale', 10000);
+      const fresh = await waitFor('!window.__stale', 10000);
+      if (fresh && url.includes('view=graph')) await openPanel(page);
+      return fresh;
     };
     const dots = () => ev(DOTS);
     const marks = () => ev(FAN_MARKS);

@@ -113,8 +113,8 @@ right of the view, which the panel icon at the top right, level with the top of 
 opens and closes. The options are always shown in it; the panel is what hides them, and
 a fold remembered from before the panel is ignored. The Graph keeps its zoom and its Options section in a
 panel the same way; its Hierarchy | Flow choice stands in the toolbar beside the (i) and the panel icon, not in the panel. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
-panel is open from 760 px wide and closed below it, where it opens over the view as a
-sheet with a close button of its own and adds no sideways scroll. The choice is
+panel starts closed, at every width, until you open it with the panel icon; from 760 px wide it opens beside the view, below it over the view as a
+sheet with a close button of its own that adds no sideways scroll. The choice is
 remembered per board in your browser, for the Map and for the Graph apart. Closed, the
 view has the panel's width back, and the Graph frames its cards again in it unless you
 have moved the view.

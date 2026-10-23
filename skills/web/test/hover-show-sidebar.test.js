@@ -62,7 +62,7 @@ async function open({ layout = null, stored = {} } = {}) {
     ...base,
     querySelectorAll: (sel) => (sel.includes('data-key="hover"') ? buttons() : []),
   };
-  const all = { 'kanban.kanban.view.mode': 'graph', ...stored };
+  const all = { 'kanban.kanban.view.mode': 'graph', 'kanban.kanban.viewpanel': '{"map":true,"graph":true}', ...stored };
   if (layout) all['kanban.kanban.graph.layout'] = layout;
   const page = await loadPage({ board: makeBoard(), stored: all, elements, documentExtras }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');

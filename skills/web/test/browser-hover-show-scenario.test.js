@@ -163,6 +163,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'the Board draws after the Graph last showed the Flow',
     'and still reads the Hierarchy\'s choice, not the Flow\'s',
     'the Hierarchy draws the plan board',
+    'the side panel starts closed and the toggle opens it',
     'its side panel has the six sets under On hover, and shows the choice kept for the Hierarchy',
     'the side panel toggles stand in the same grid: two columns by three rows, the h sets left and the d sets right',
     'with the dot hovered the choice lights what it did',

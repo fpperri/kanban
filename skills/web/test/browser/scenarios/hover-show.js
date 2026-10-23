@@ -49,6 +49,8 @@ const CASES = {
   sidebar: { card: 7, before: { kinds: ['hlinks'], lit: [2, 7, 22] }, press: ['hlinks', 'hpath', 'dtree'], after: { kinds: ['dtree', 'hpath'], lit: [1, 2, 7, 8, 22, 23, 24, 25] }, text: 'dtree:7 | hpath:7' },
 };
 
+const { openPanel: openSidePanel } = require('../panel');
+
 module.exports = {
   name: 'hover-show',
   board: 'plan',
@@ -179,6 +181,7 @@ module.exports = {
     // --- the Graph's side panel edits the same choice ---------------------------------------------------------------------
     const side = CASES.sidebar;
     check('the Hierarchy draws the plan board', await inGraph('&graph=hierarchy'));
+    check('the side panel starts closed and the toggle opens it', await openSidePanel(page));
     check('its side panel has the six sets under On hover, and shows the choice kept for the Hierarchy',
       await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(side.before.kinds));
     check('the side panel toggles stand in the same grid: two columns by three rows, the h sets left and the d sets right',
@@ -199,7 +202,7 @@ module.exports = {
     await out(DOT(side.card));
     await waitFor(`hoveredId===null`);
 
-    check('the Flow draws the plan board once more', await inFlow());
+    check('the Flow draws the plan board once more', await inFlow() && await openSidePanel(page));
     check('its side panel shows the Flow\'s own choice', await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(CASES.flow.noHlinks.kinds));
   },
 };

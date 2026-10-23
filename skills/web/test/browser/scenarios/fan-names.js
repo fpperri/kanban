@@ -99,6 +99,8 @@ const showsTitle = (shown, title) => typeof shown === 'string' && (shown === tit
 const sorted = (ids) => ids.slice().sort((a, b) => a - b);
 const union = (...lists) => sorted([...new Set(lists.flat())]);
 
+const { openPanel } = require('../panel');
+
 module.exports = {
   name: 'fan-names',
   board: 'plan',
@@ -139,7 +141,9 @@ module.exports = {
       await ev('window.__stale=true');
       await open(url, boardKey);
       await waitFor('!window.__stale', 10000);
-      return url.includes('view=graph') ? waitFor(`${DRAWN}&&${TIERS_PRESSED}`, 10000) : waitFor(BOARD_READY, 10000);
+      if (!url.includes('view=graph')) return waitFor(BOARD_READY, 10000);
+      await openPanel(page);
+      return waitFor(`${DRAWN}&&${TIERS_PRESSED}`, 10000);
     };
     const pressOn = async (sel) => {
       const p = await centre(sel);
