@@ -32,6 +32,8 @@ module.exports = {
     const opened = await ev(`(()=>{const b=document.querySelector('.search-bar').getBoundingClientRect();const h=document.querySelector('header').getBoundingClientRect();const v=document.getElementById('view-bar');return {focus:document.activeElement===document.getElementById('search-input'),spans:b.width>innerWidth-40&&b.left>=0&&b.right<=innerWidth&&b.top>=h.top&&b.bottom<=h.bottom+1,expanded:${BUTTON}.getAttribute('aria-expanded'),bar:getComputedStyle(v).display}})()`);
     check('a tap on the button opens a search field that spans the header', opened.spans, opened);
     check('the input has focus and the button says it is expanded', opened.focus && opened.expanded === 'true', opened);
+    const switchFit = await ev(`(()=>{const s=document.getElementById('isolate-switch').getBoundingClientRect();const b=document.querySelector('.search-box').getBoundingClientRect();const r=document.querySelector('.search-bar').getBoundingClientRect();return {shown:s.width>0&&s.height>0,rightOfBox:s.left>=b.right-1,insideBar:s.right<=r.right+1&&s.left>=r.left,inWindow:s.right<=innerWidth,noSideScroll:document.documentElement.scrollWidth<=innerWidth+1,boxWidth:b.width}})()`);
+    check('at phone width the Isolate switch stands in the open field, just right of the box, inside the bar and the window, and the box keeps room to type', switchFit.shown && switchFit.rightOfBox && switchFit.insideBar && switchFit.inWindow && switchFit.noSideScroll && switchFit.boxWidth > 120, switchFit);
     check('with the field focused the view bar is not displayed', opened.bar === 'none', opened);
 
     await ev(TYPE('zzzz-no-such-card'));

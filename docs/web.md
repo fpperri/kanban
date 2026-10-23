@@ -111,10 +111,10 @@ roll-up bar). Each choice is remembered per board in your browser.
 The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel on the
 right of the view, which the panel icon at the top right, level with the top of the view,
 opens and closes. The options are always shown in it; the panel is what hides them, and
-a fold remembered from before the panel is ignored. The Graph keeps its layouts, its zoom and its Options section in a
-panel the same way. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
-panel is open from 760 px wide and closed below it, where it opens over the view as a
-sheet with a close button of its own and adds no sideways scroll. The choice is
+a fold remembered from before the panel is ignored. The Graph keeps its zoom and its Options section in a
+panel the same way; its Hierarchy | Flow choice stands in the toolbar beside the (i) and the panel icon, not in the panel. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
+panel starts closed, at every width, until you open it with the panel icon; from 760 px wide it opens beside the view, below it over the view as a
+sheet with a close button of its own that adds no sideways scroll. The choice is
 remembered per board in your browser, for the Map and for the Graph apart. Closed, the
 view has the panel's width back, and the Graph frames its cards again in it unless you
 have moved the view.
@@ -149,7 +149,8 @@ back. A wider strip shows more of each note's words. The width is kept per board
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as
-a dot, in one of two graphs, **Hierarchy** or **Flow**, chosen at the top of its option panel
+a dot, in one of two graphs, **Hierarchy** or **Flow**, chosen with two buttons in the toolbar at the top right of the drawing,
+left of the (i) and the option panel's button, so the choice shows whether the panel is open or shut
 (Hierarchy opens first; see **Flow** below). Hierarchy joins the cards by their relations: a solid
 line from a parent to its child, a dashed arrow from a card to the card that waits for it. The Hierarchy is drawn
 as the fan called **Tiers**.
@@ -197,7 +198,7 @@ the rim. The row's choices are kept per board.
 
 **Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
 from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the
-choice, **frontier** by default or **all**, decides the columns. Frontier counts the steps until a card is
+choice, **all** by default or **frontier**, decides the columns. Frontier counts the steps until a card is
 ready, and only the dependencies that are not done: the first column is `done`, faded, then `ready now`
 (the first column with work in it is what you can pick up now), `1 step`, `2 steps`, and a card in or
 behind a dependency loop stands in a last `loop` column. All counts the longest chain of dependencies behind
@@ -205,7 +206,7 @@ a card, done ones included: `waits for nothing`, `chain 1`, `chain 2`, a loop sh
 heading carries its card count. Cards with no dependency either way sit in a strip below the columns, titled
 `no dependency either way` with its count. Within a column the cards are ordered to cut the arrows that cross,
 ties by id, and a tall column wraps into side-by-side stacks. A **Lanes** switch beside the Dependencies
-switch, **off** by default, groups the cards into lanes: each card with a dependency sits in the lane of its
+switch, **on** by default, groups the cards into lanes: each card with a dependency sits in the lane of its
 nearest parent with a tier, else its root, under a header that leads with that card's type mark in its type
 colour, its tier name (none for a card with no tier), `#id title`, the lane's card count and its ready
 count. A card is ready when it is open, in no loop and waits for nothing that is not done. The columns line
@@ -220,7 +221,7 @@ the header and the dot of its card light and select together. A dot keeps its st
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
 a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a
-card lights what the Flow's *On hover show* ticks, `dlinks` alone at first, so the cards its dependencies join to it. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
+card lights what the Flow's *On hover show* ticks, `dlinks` and `hlinks` at first, so the cards its dependencies join to it and its parent and children. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
 in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
 replaces the page's address without adding a step to Back. A load writes the address the same way, from the link and
 what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the choice and the switches
@@ -320,22 +321,23 @@ panel and does not flip the switch.
 A reload, or a link, carries the box's text and not the selection, so a cut and isolate come back
 but a pill shows off, with its query in the box as typed text.
 The pill section folds, and *Pill section starts folded* in the preferences sheet says how
-it starts. Tab reaches the arrow, the fold control and every pill, and Enter and Space act
-as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
+it starts. Tab goes along the bar and down the panel in the order they stand: the box, the arrow, the Isolate switch, then the fold controls and pills
+section by section, ending with the fold controls of the Typing isolates and On hover show sections (a folded section's checkboxes are skipped);
+Enter and Space act as a click. Esc closes the suggestion list first, then the panel (focus goes back to the
 arrow, and stays in the box when Esc was pressed there), and then empties the box and the selection, when
 focus is in it, or steps the selection back, which also takes the added pills back out of
 the box, and with nothing selected empties it; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 
-**On hover show** — under the foot of the search panel, six checkboxes (`dtree`, `htree`, `dpath`, `hpath`,
-`dlinks` and `hlinks`, the sets of the same names) choose which sets a hover lights. Hovering a card, or
+**On hover show** — in a section of its own in the search panel, six checkboxes (`dtree`, `htree`, `dpath`, `hpath`,
+`dlinks` and `hlinks`, the sets of the same names) choose which sets a hover lights. The section folds like the Slice, Pill and Status sections and starts folded; *On hover show section starts folded* in the preferences sheet says how it starts. Hovering a card, or
 moving keyboard focus onto it, lights the union of the sets ticked for it, in every view: the Board, the Map, the
 Calendar and the Gantt give each card of the union the hover look, and the Graph lights the union, with the lines
 between its cards, and dims the rest, while the hover ring stays on the hovered card alone. Leaving the card clears
 it. With nothing ticked only the hovered card takes the hover look and the Graph dims nothing. The choice is
 remembered per board in your browser, for each kind of Graph: the Hierarchy starts with `dlinks` and `hlinks`
-ticked, which is what its hover lit before the choice existed, and the Flow with `dlinks` alone. Every view
+ticked, which is what its hover lit before the choice existed, and the Flow the same. Every view
 that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calendar and the Gantt included, even
 when the Graph last showed the Flow. The panel shows the choice of the view that is on and says whose it is. The
 snapshot has no hover, so it has no such section.
@@ -346,6 +348,10 @@ boxes are one choice: change it in either and the other shows it at once, and a 
 again with no reload. The toggles show the choice of the kind of Graph the panel is for, so the Hierarchy and the Flow
 keep their own. The other views have no option panel, so the search panel is where they set it; `Space` writes the
 terms of whatever is ticked, wherever it was ticked.
+
+Both places lay the six out as a grid of two columns and three rows, read across: `hlinks` and `dlinks`, `hpath` and
+`dpath`, `htree` and `dtree`, the h sets on the left and the d sets on the right. That is only how they are shown: the
+choice is kept as before, and `Space` writes the terms in the order it always did.
 
 **Space takes the hover.** With a card hovered, else focused, `Space` writes the sets *On hover show* ticks for it
 into the search box as alternatives (`dlinks:12 | hlinks:12`), the box's run of slices kept and isolate as it was.
@@ -396,7 +402,7 @@ and a value with a space stays one term. The first eight values of a field show,
 across the poll. Next up is not built in: it is a pill a board defines, such as
 `- next: 'tags:"next-up"'`, and the plugin gives it no meaning.
 
-**Isolate** — the foot of the search panel holds the **Isolate** switch, and the `i` key flips
+**Isolate** — the top bar holds the **Isolate** switch, just right of the search box, so it shows with the panel shut in every view (on a phone, while the search field is open); the `i` key flips
 it, except while you type in a field or a menu, a dialog, the notifications panel or the
 preferences sheet is up. Turning it on shows only the selection, in every view: it writes the
 selection into the search box as `part | part | ...`, each part by what it names, such as
@@ -430,12 +436,12 @@ The text the box held before isolating is kept in your browser, per board, so tu
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
 the parameter and no query opens with isolate off, and the address drops the parameter.
 
-**Typing isolates** — the foot of the search panel holds a **Typing isolates** checkbox for each view:
+**Typing isolates** — the search panel's Typing isolates section holds a **Typing isolates** checkbox for each view:
 Board, Calendar, Gantt, Map and Graph. Where it is on, typing in the box, a pill, a tag or assignee cue
 on a card and a `?q=` link turn Isolate on by themselves, so the view hides what the box does not match.
 It is on in every view but the Graph, which lights what is typed and hides nothing. Where it is off, the
 box lights its matches with the look of a selected card, hides nothing, and selects nothing; the switch or
-`i` still isolates the query as it stands. The choice is kept in your browser, per board. Isolate turned on
+`i` still isolates the query as it stands. The choice is kept in your browser, per board. The section folds like the Slice, Pill and Status sections and starts folded; *Typing isolates section starts folded* in the preferences sheet says how it starts. Isolate turned on
 this way gives back the box's text as it stands when you turn it off, so the query stays in the box, lit,
 and the next Esc clears it; going to a view where the checkbox is off does the same, and coming back to a view where it
 is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch
@@ -551,6 +557,10 @@ back button.
   section starts; its fold control still folds it for the visit.
 - *Status section starts folded* is off by default. It says how the search panel's Statuses
   section starts; its fold control still folds it for the visit.
+- *Typing isolates section starts folded* is on by default. It says how the search panel's
+  Typing isolates section starts; its fold control still unfolds it for the visit.
+- *On hover show section starts folded* is on by default. It says how the search panel's
+  On hover show section starts; its fold control still unfolds it for the visit.
 - *Panel opens when the search box is focused* is on by default. It is the switch at the
   end of the search box, the same choice the arrow and the `p` key flip, so each shows
   what the others did. Turning it off closes the panel; turning it on here leaves the

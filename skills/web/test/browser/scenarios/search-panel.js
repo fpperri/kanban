@@ -397,8 +397,8 @@ module.exports = {
     await key(' ');
     check('Space on the toggle switches it on and opens the panel', await waitFor(panelOpen) && await waitFor(SWITCH_ON));
     const reached = [];
-    for (let i = 0; i < 5; i++) { await key('Tab'); reached.push(await focusId()); }
-    check('Tab goes on to the fold control of the slice section, the fold control of the pill section and the three built-in pills, in order', sameIds(reached, ['search-slices-fold', 'search-pills-fold', 'blocked', 'review', 'waiting']), reached);
+    for (let i = 0; i < 6; i++) { await key('Tab'); reached.push(await focusId()); }
+    check('Tab goes on from the arrow to the Isolate switch, the fold control of the slice section, the fold control of the pill section and the three built-in pills, in order', sameIds(reached, ['isolate-switch', 'search-slices-fold', 'search-pills-fold', 'blocked', 'review', 'waiting']), reached);
     await key('Enter');
     check('Enter on a pill acts as a click', await boxIs('waiting:') && await pickedIs(CASES.waiting), await boxText());
     check('the pill keeps focus after Enter', (await focusId()) === 'waiting', await focusId());
@@ -525,6 +525,15 @@ module.exports = {
     check('the pill section starts folded after the reload', await waitFor(`document.getElementById('search-pills').classList.contains('hidden')&&document.getElementById('search-pills-fold').getAttribute('aria-expanded')==='false'`));
     await clickOn('#search-pills-fold');
     check('its fold control still unfolds it for the visit', await waitFor(`!document.getElementById('search-pills').classList.contains('hidden')`));
+
+    // --- the Typing isolates and On hover show sections fold like the Slices, Pills and Statuses ones, and start folded -----------------------------
+    const FOLDED = (name) => `document.getElementById('search-${name}-fold').getAttribute('aria-expanded')==='false'&&document.getElementById('search-${name}').classList.contains('hidden')`;
+    const UNFOLDED = (name) => `document.getElementById('search-${name}-fold').getAttribute('aria-expanded')==='true'&&!document.getElementById('search-${name}').classList.contains('hidden')`;
+    check('the Typing isolates and On hover show sections start folded: their fold controls say so and their groups are hidden', await waitFor(`${FOLDED('typing')}&&${FOLDED('hover')}`));
+    await clickOn('#search-typing-fold');
+    check('the Typing isolates fold control unfolds its section for the visit, and the other stays folded', await waitFor(`${UNFOLDED('typing')}&&${FOLDED('hover')}`));
+    await clickOn('#search-hover-fold');
+    check('the On hover show fold control unfolds its section too', await waitFor(`${UNFOLDED('typing')}&&${UNFOLDED('hover')}`));
 
     // --- the preference: the panel opens when the search box is focused, the same switch as the arrow ---------------------------------------
     await closePanel();

@@ -5,15 +5,19 @@
 // is not the Flow. Pure, no DOM, the dual-environment pattern of explore-sets.js, which this reads the
 // sets from: loaded as a plain <script> in the browser and required directly by node --test.
 //
-// The defaults are what each view lit before the choice existed: the Hierarchy lit a card with the cards
-// one line away over parent and waiting_for (hlinks and dlinks), the Flow draws no parent line and lit
-// the waits alone (dlinks). The card is in every set of it, so a union with any set ticked holds it;
+// The defaults are dlinks and hlinks for both kinds: what the Hierarchy lit before the choice existed, a card with
+// the cards one line away over parent and waiting_for. The Flow lit the waits alone (dlinks) then and now lights
+// the parent and children too, though it draws no parent line. The card is in every set of it, so a union with any set ticked holds it;
 // nothing ticked holds nothing, which dims nothing in the Graph.
 const HS_SETS = (typeof module !== 'undefined' && module.exports) ? require('./explore-sets') : window;
 
 const HOVER_SHOW_KINDS = ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks'];
+// How the six are laid out wherever they are shown, two columns by three rows read across: the h sets on the
+// left, the d sets on the right, links, then path, then tree. Only the display: the stored list and the terms
+// Space writes keep HOVER_SHOW_KINDS' order.
+const HOVER_SHOW_GRID = ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'];
 const HOVER_SHOW_GRAPHS = ['hierarchy', 'flow'];
-const HOVER_SHOW_DEFAULTS = { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks'] };
+const HOVER_SHOW_DEFAULTS = { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] };
 
 function hoverShowDefaults() {
   return { hierarchy: HOVER_SHOW_DEFAULTS.hierarchy.slice(), flow: HOVER_SHOW_DEFAULTS.flow.slice() };
@@ -79,9 +83,10 @@ function hoverShowTerms(kinds, key) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { HOVER_SHOW_KINDS, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms };
+  module.exports = { HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms };
 } else {
   window.HOVER_SHOW_KINDS = HOVER_SHOW_KINDS;
+  window.HOVER_SHOW_GRID = HOVER_SHOW_GRID;
   window.HOVER_SHOW_GRAPHS = HOVER_SHOW_GRAPHS;
   window.hoverShowDefaults = hoverShowDefaults;
   window.mergeHoverShow = mergeHoverShow;

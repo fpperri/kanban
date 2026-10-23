@@ -290,7 +290,7 @@ test('the Flow\'s switches go into the parameters of an address and come out of 
   assert.deepStrictEqual(set('graph=flow&deps=all&lanes=1', 'all', false), [true, 'graph=flow&deps=all&lanes=0']);
   assert.deepStrictEqual(set('graph=flow&deps=all&lanes=1', 'all', true), [false, 'graph=flow&deps=all&lanes=1']);
   assert.deepStrictEqual(set('graph=flow&deps=all', 'all'), [true, 'graph=flow&deps=all&lanes=0'], 'no lanes given is off');
-  assert.deepStrictEqual(set('deps=all&lanes=1', 'sideways', true), [true, 'deps=frontier&lanes=1']);
+  assert.deepStrictEqual(set('deps=frontier&lanes=1', 'sideways', true), [true, 'deps=all&lanes=1'], 'a value that is not one of the two is the default, all');
   const drop = (search) => {
     const params = new URLSearchParams(search);
     return [graphFlowDropParams(params), params.toString()];

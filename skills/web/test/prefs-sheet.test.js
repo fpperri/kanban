@@ -160,7 +160,7 @@ function fakeEl(id, classes = []) {
 function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const colState = require('../web/column-state');
   const writes = {};
-  const log = { colour: [], renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], switches: [], focused: null, shown: [], went: [] };
+  const log = { colour: [], renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], typingFolds: [], hoverFolds: [], switches: [], focused: null, shown: [], went: [] };
   const sheet = fakeEl('prefs-sheet', ['modal-backdrop', 'hidden']);
   const gear = fakeEl('prefs-btn');
   gear.setAttribute('aria-expanded', 'false');
@@ -169,6 +169,8 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const pillsFolded = fakeEl('prefs-pills-folded');
   const statusesFolded = fakeEl('prefs-statuses-folded');
   const slicesFolded = fakeEl('prefs-slices-folded');
+  const typingFolded = fakeEl('prefs-typing-folded');
+  const hoverFolded = fakeEl('prefs-hover-folded');
   const panelOnFocus = fakeEl('prefs-panel-on-focus');
   const mdColour = fakeEl('prefs-md-colour');
   const opts = [];
@@ -186,8 +188,8 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   sheet.querySelectorAll = (sel) => { assert.strictEqual(sel, '.prefs-opt'); return opts; };
   const more = fakeEl('more-btn');
   const owner = log;
-  for (const e of [sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, mdColour, ...opts]) e.owner = owner;
-  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#more-btn': more, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-panel-on-focus': panelOnFocus, '#prefs-md-colour': mdColour };
+  for (const e of [sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, typingFolded, hoverFolded, panelOnFocus, mdColour, ...opts]) e.owner = owner;
+  const byId = { '#prefs-sheet': sheet, '#prefs-btn': gear, '#more-btn': more, '#prefs-close': close, '#prefs-archived-done': archived, '#prefs-pills-folded': pillsFolded, '#prefs-statuses-folded': statusesFolded, '#prefs-slices-folded': slicesFolded, '#prefs-typing-folded': typingFolded, '#prefs-hover-folded': hoverFolded, '#prefs-panel-on-focus': panelOnFocus, '#prefs-md-colour': mdColour };
   const sandbox = {
     state: { projectName: 'shop' },
     ...colState,
@@ -202,19 +204,21 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
     foldSearchPills: (folded) => { log.folds.push(folded); },
     foldSearchSlices: (folded) => { log.sliceFolds.push(folded); },
     foldSearchStatuses: (folded) => { log.statusFolds.push(folded); },
+    foldSearchTyping: (folded) => { log.typingFolds.push(folded); },
+    foldSearchHover: (folded) => { log.hoverFolds.push(folded); },
     applySearchPanelSwitch: (on, openNow) => { log.switches.push([on, openNow]); },
     mdEditSetOn: (on) => { log.colour.push(on); },
     settingsShow: (page) => { log.shown.push(page); },
     settingsGo: (page) => { log.went.push(page); },
     currentDetailId: detailOpen ? 4 : null,
-    sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, panelOnFocus, mdColour, opts, writes, log,
+    sheet, gear, more, close, archived, pillsFolded, statusesFolded, slicesFolded, typingFolded, hoverFolded, panelOnFocus, mdColour, opts, writes, log,
   };
   vm.createContext(sandbox);
   const memo = (re, what) => { const m = appSrc.match(re); assert.ok(m, what); return m[0]; };
   vm.runInContext([
     memo(/^let rollupBarMode = null;$/m, 'bar memo'), memo(/^let prefsMemo = null;$/m, 'prefs memo'),
     fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('prefsStorage'), fn('loadPrefsState'), fn('savePrefsState'), fn('countArchivedLeaves'),
-    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setPanelOnFocus'), fn('setMdColour'),
+    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setTypingFolded'), fn('setHoverFolded'), fn('setPanelOnFocus'), fn('setMdColour'),
     fn('prefOptionOn'), fn('syncPrefsSheet'), fn('openPrefsSheet'), fn('closePrefsSheet'), fn('onPrefsSheetClick'),
   ].join('\n'), sandbox);
   return sandbox;
@@ -461,6 +465,35 @@ test('a click on the backdrop itself closes the sheet; a click inside it does no
   assert.strictEqual(p.sheet.classList.contains('hidden'), false);
 });
 
+test('the sheet shows the Typing isolates and On hover show sections as starting folded, and as unfolded when the browser kept that for this board', () => {
+  const none = sheetPage();
+  none.openPrefsSheet();
+  assert.strictEqual(none.typingFolded.checked, true, 'folded by default');
+  assert.strictEqual(none.hoverFolded.checked, true, 'folded by default');
+  const kept = sheetPage({ stored: { 'kanban.shop.prefs': JSON.stringify({ typingFolded: false, hoverFolded: false }) } });
+  kept.openPrefsSheet();
+  assert.strictEqual(kept.typingFolded.checked, false);
+  assert.strictEqual(kept.hoverFolded.checked, false);
+});
+
+test('choosing that the Typing isolates or the On hover show section starts unfolded saves it in the prefs entry and takes the section now, each alone', () => {
+  const p = sheetPage();
+  p.setTypingFolded(false);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).typingFolded, false);
+  assert.deepStrictEqual(p.log.typingFolds, [false]);
+  assert.deepStrictEqual(p.log.hoverFolds, [], 'the other section is left alone');
+  p.setHoverFolded(false);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).hoverFolded, false);
+  assert.deepStrictEqual(p.log.hoverFolds, [false]);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).typingFolded, false, 'the first choice stays');
+  p.setTypingFolded(true);
+  p.setHoverFolded(true);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).typingFolded, true);
+  assert.strictEqual(JSON.parse(p.writes['kanban.shop.prefs']).hoverFolded, true);
+  assert.strictEqual(p.log.renders, 0);
+  assert.deepStrictEqual(p.log.folds, []);
+});
+
 test('the checkbox, the close button and the gear are wired in the DOMContentLoaded block', () => {
   assert.match(appSrc, /\$\('#prefs-btn'\)\.addEventListener\('click', \(\) => openPrefsSheet\(\)\);/);
   assert.match(appSrc, /\$\('#prefs-close'\)\.addEventListener\('click', closePrefsSheet\);/);
@@ -469,6 +502,8 @@ test('the checkbox, the close button and the gear are wired in the DOMContentLoa
   assert.match(appSrc, /\$\('#prefs-pills-folded'\)\.addEventListener\('change', \(e\) => setPillsFolded\(e\.target\.checked\)\);/);
   assert.match(appSrc, /\$\('#prefs-statuses-folded'\)\.addEventListener\('change', \(e\) => setStatusesFolded\(e\.target\.checked\)\);/);
   assert.match(appSrc, /\$\('#prefs-slices-folded'\)\.addEventListener\('change', \(e\) => setSlicesFolded\(e\.target\.checked\)\);/);
+  assert.match(appSrc, /\$\('#prefs-typing-folded'\)\.addEventListener\('change', \(e\) => setTypingFolded\(e\.target\.checked\)\);/);
+  assert.match(appSrc, /\$\('#prefs-hover-folded'\)\.addEventListener\('change', \(e\) => setHoverFolded\(e\.target\.checked\)\);/);
   assert.match(appSrc, /\$\('#prefs-panel-on-focus'\)\.addEventListener\('change', \(e\) => setPanelOnFocus\(e\.target\.checked\)\);/);
 });
 
@@ -656,4 +691,18 @@ test('choosing to colour or not saves one browser-wide key and tells the boxes, 
   assert.strictEqual(p.writes['kanban.md-colour'], 'true');
   assert.deepStrictEqual(p.log.colour, [false, true]);
   assert.strictEqual(p.log.renders, 0, 'nothing on the board is repainted');
+});
+
+test('the Typing isolates and On hover show choices are checkboxes after the Status one, in the Search panel group, and say what they are', () => {
+  const group = sheetHtml.slice(sheetHtml.indexOf('id="prefs-panel-title"'));
+  const at = (id) => group.indexOf(`id="${id}"`);
+  for (const [id, text] of [['prefs-typing-folded', 'Typing isolates section starts folded'], ['prefs-hover-folded', 'On hover show section starts folded']]) {
+    const [box] = tagsOf(sheetHtml, new RegExp(`<input[^>]*id="${id}"[^>]*>`));
+    assert.ok(box, id);
+    assert.strictEqual(attr(box, 'type'), 'checkbox');
+    assert.notStrictEqual(attr(box, 'data-keeps-selection'), null);
+    assert.notStrictEqual(attr(box, 'data-holds-poll'), null);
+    assert.match(sheetHtml, new RegExp(`<input[^>]*id="${id}"[^>]*> *${text}`));
+  }
+  assert.ok(at('prefs-statuses-folded') < at('prefs-typing-folded') && at('prefs-typing-folded') < at('prefs-hover-folded') && at('prefs-hover-folded') < at('prefs-panel-on-focus'), 'in the panel\'s order, before the switch');
 });

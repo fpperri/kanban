@@ -283,7 +283,7 @@ test('it presses the keys the criteria name, in the panel open and shut, in both
   const count = (k) => page.log.keys.filter((x) => x === k).length;
   assert.strictEqual(count(']'), 10, 'one ] in each of the four sweeps, the one typed in the box, one under each of the four popups, and the last with everything shut');
   assert.strictEqual(count('Shift+{'), 4 + 1, 'one { in each sweep, and one under the card menu');
-  assert.ok(count('Tab') === section.CASES.plan.keys.length + 2);
+  assert.ok(count('Tab') === section.CASES.plan.keys.length + 3);
   assert.strictEqual(count('ContextMenu'), 1);
   assert.strictEqual(count('Shift+F10'), 1);
   assert.strictEqual(count('Enter'), 1);

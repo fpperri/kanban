@@ -15,14 +15,14 @@
 //
 // The Graph. Space on a hovered dot writes the same text, which the Graph takes as the typed search: with the pointer
 // gone the dot and its one-hop relations are lit, isolate still off. Ctrl+Space on a focused dot selects its card
-// only, and Space on it again is the write once more. The Flow reads its own choice, `dlinks` alone.
+// only, and Space on it again is the write once more. The Flow reads its own choice: given dtree and dlinks while the Hierarchy keeps dlinks and hlinks, it writes `dtree:3 | dlinks:3`, and the Hierarchy still writes its own.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. Each step waits on the page, never on a fixed sleep. Keys go
 // through the runner's helper, a real key press; the pointer is the mouseover or mouseout the page listens to and
 // the focus a focus() on the element.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// graphCur, hoveredId, isolateNow, selectedIds.
+// graphCur, hoveredId, isolateNow, selectedIds, state, storageKey.
 
 const CASES = {
   board: {
@@ -40,8 +40,11 @@ const CASES = {
     tickedText: 'hpath:7 | dlinks:7 | hlinks:7',
   },
   graph: { dot: 2, text: 'dlinks:2 | hlinks:2', lit: [1, 2, 6, 7, 8], focused: 7, focusedText: 'dlinks:7 | hlinks:7' },
-  flow: { dot: 3, text: 'dlinks:3' },
+  // The Flow is given a choice unlike the Hierarchy's (dlinks and hlinks), kept for the board before the Flow loads.
+  flow: { dot: 3, kinds: ['dtree', 'dlinks'], text: 'dtree:3 | dlinks:3' },
 };
+
+const { unfoldSearchSection } = require('../panel');
 
 module.exports = {
   name: 'hover-space',
@@ -142,6 +145,7 @@ module.exports = {
     await hoveredIs(null);
     await ev(`document.getElementById('search-input').focus()`);
     await waitFor(`!document.getElementById('search-panel').classList.contains('hidden')&&document.getElementById('search-panel').getBoundingClientRect().height>0`);
+    await unfoldSearchSection(page, 'hover');
     await ev(`document.querySelector('#search-hover [data-hover-kind="${c.ticked}"]').click()`);
     await waitFor(`document.querySelector('#search-hover [data-hover-kind="${c.ticked}"]').checked`);
     await blur();
@@ -176,10 +180,20 @@ module.exports = {
     check('and Space on it is the write again, with the focused card standing for the hover', await boxIs(g.focusedText), await boxText());
 
     // --- the Flow reads its own choice -----------------------------------------------------------------------------------
+    await clearBox();
+    await ev(`localStorage.setItem(storageKey(state.projectName,'hover.show'),JSON.stringify({hierarchy:['dlinks','hlinks'],flow:${JSON.stringify(CASES.flow.kinds)}}))`);
     check('the Flow draws the plan board', await goto('/?view=graph&graph=flow', flowReady));
     await over(DOT(CASES.flow.dot));
     await hoveredIs(CASES.flow.dot);
     await key(' ');
-    check('in the Flow Space writes its own choice, dlinks alone', await boxIs(CASES.flow.text), await boxText());
+    check('in the Flow Space writes its own choice, dtree and dlinks, not the Hierarchy\'s', await boxIs(CASES.flow.text), await boxText());
+    await out(DOT(CASES.flow.dot));
+    await hoveredIs(null);
+    await clearBox();
+    check('the Hierarchy draws the plan board again', await goto('/?view=graph&graph=hierarchy', graphReady));
+    await over(DOT(g.dot));
+    await hoveredIs(g.dot);
+    await key(' ');
+    check('and the Hierarchy still writes its own choice, unchanged by the Flow\'s', await boxIs(g.text), await boxText());
   },
 };

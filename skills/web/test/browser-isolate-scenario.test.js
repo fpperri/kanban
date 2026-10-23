@@ -217,7 +217,7 @@ test('it covers every behaviour listed here, each by a check of its own', async 
     'turning the switch off gives the box back its earlier text',
     'isolating the card dated in 2031, in the Calendar\'s month view, jumps to its month',
     'a keystroke typed at the end of the box keeps the text\'s leading #',
-    'Tab from the last pill reaches the switch',
+    'Tab from the arrow reaches the switch, just right of the box',
     'Enter on the switch turns isolate on',
     'Space on the switch turns it off',
     'never clears the selection',

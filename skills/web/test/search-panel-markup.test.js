@@ -98,13 +98,13 @@ test('the panel is hidden to start, a named group, and keeps a selection', () =>
   assert.notStrictEqual(attr(panel, 'data-keeps-selection'), null, 'a click on its empty space never clears a card selection');
 });
 
-test('the panel has the Statuses section, then a slice region, then the pill section, then a divider, then a foot, each its own element', () => {
-  const order = [at('search-statuses-fold'), at('search-statuses'), at('search-slices'), at('search-pills-fold'), at('search-pills'), bar.indexOf('class="search-divider"'), at('search-foot')];
+test('the panel has the Statuses section, then a slice region, then the pill section, then a divider, then the Typing isolates and On hover show sections, each its own element', () => {
+  const order = [at('search-statuses-fold'), at('search-statuses'), at('search-slices'), at('search-pills-fold'), at('search-pills'), bar.indexOf('class="search-divider"'), at('search-typing-fold'), at('search-typing'), at('search-hover-fold'), at('search-hover')];
   assert.ok(order.every((i) => i > -1), 'every region is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
   assert.match(bar, /<div id="search-slices"[^>]*><\/div>/, 'the slice region starts empty');
-  const foot = bar.slice(bar.indexOf('<div id="search-foot"'));
-  assert.match(foot, /^<div id="search-foot"[^>]*>\s*<button[^>]*id="isolate-switch"/, 'the foot holds the Isolate switch, and nothing before it');
+  assert.ok(bar.indexOf('id="isolate-switch"') > -1 && bar.indexOf('id="isolate-switch"') < bar.indexOf('id="search-panel"'), 'the Isolate switch is in the bar, before the panel');
+  assert.ok(!bar.slice(bar.indexOf('id="search-panel"')).includes('id="isolate-switch"'), 'and not in the panel');
 });
 
 test('the pill section has a fold control that says whether it is open and names what it folds, and a pill host it labels', () => {

@@ -133,6 +133,8 @@ const CANVAS_SPACE = `(()=>{const svg=document.querySelector('#graph-view .graph
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+const { openPanel } = require('../panel');
+
 module.exports = {
   name: 'tier-fan-options',
   board: 'plan',
@@ -171,6 +173,7 @@ module.exports = {
       await ev('window.__stale=true');
       await open('/?view=graph', key);
       await waitFor('!window.__stale', 10000);
+      await openPanel(page);
       return waitFor(`${DRAWN}&&${TIERS_PRESSED}`, 10000);
     };
     const pressOn = async (sel) => {

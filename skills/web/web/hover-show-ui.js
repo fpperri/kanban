@@ -52,10 +52,16 @@ function hoverSetOf(id) {
   return hoverShowIds(hoverShowKindsNow(), state.active.concat(state.archived), id, searchCtx());
 }
 
+const hoverFold = searchFoldSection('hoverFolded', '#search-hover', '#search-hover-fold');
+const applyHoverFold = hoverFold.apply;
+const toggleSearchHoverFold = hoverFold.toggle;
+const foldSearchHover = hoverFold.set;
+
 // Every repaint of the board comes here (renderSearchPanel), and so does a pick: the search panel's boxes
 // and the Graph's side panel's toggles (graph-view.js, key hover) show the choice that applies, and the note
 // says whose it is.
 function syncHoverShowPanel() {
+  applyHoverFold();
   const kinds = hoverShowKindsNow();
   document.querySelectorAll('#graph-view .graph-option-btn[data-key="hover"]').forEach((btn) => {
     const on = kinds.includes(btn.dataset.val);
@@ -117,6 +123,7 @@ function onHoverSpaceKey(e) {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onHoverSpaceKey);
+  $('#search-hover-fold').addEventListener('click', toggleSearchHoverFold);
   $('#search-hover').addEventListener('change', (e) => {
     const box = e.target.closest('[data-hover-kind]');
     if (box) hoverShowPick(box.dataset.hoverKind, box.checked);

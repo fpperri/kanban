@@ -1,7 +1,7 @@
 'use strict';
-// The Graph's Flow, on the plan board. The option panel opens with a Hierarchy | Flow choice, Hierarchy
+// The Graph's Flow, on the plan board. The toolbar at the top right has a Hierarchy | Flow choice, Hierarchy
 // (the tier fan, with its layouts and options) pressed. Flow lays the board out by its dependencies in
-// columns, with the Dependencies switch beside it, frontier or all, and the Lanes switch, off at first:
+// columns, with the Dependencies switch beside it, frontier or all (all at first), and the Lanes switch, on at first:
 //   frontier  done (faded, first), ready now, 1 step, 2 steps ..., loop; only dependencies not done count.
 //   all       waits for nothing, chain 1, chain 2 ...; done dependencies count.
 // Cards with no dependency either way sit in a strip below the columns, with a count. The arrows run from
@@ -126,6 +126,8 @@ const VIEW_K = `graphCur.view.k`;
 const addCard = (card) => `fetch('/api/cards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(${JSON.stringify(card)})}).then((r)=>r.json()).then((c)=>c.id)`;
 const setWaits = (id, waits) => `fetch('/api/cards/${id}',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({waiting_for:${JSON.stringify(waits)}})}).then((r)=>r.status)`;
 
+const { openPanel, forgetPanelChoice } = require('../panel');
+
 module.exports = {
   name: 'graph-flow',
   board: 'plan',
@@ -160,10 +162,10 @@ module.exports = {
     const settled = (heads) => waitFor(`JSON.stringify(${HEADS})===${JSON.stringify(JSON.stringify(heads))}`, 8000);
 
     // --- the choice: Hierarchy first, and unchanged --------------------------------------------------------
-    check('plan: the Graph opens in the Hierarchy, the tier fan', await load('/?view=graph', 'plan') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
-    const kinds = await ev(`[...document.querySelectorAll('#graph-view .view-panel .graph-kind-btn')].map((b)=>[b.dataset.graphKind,b.textContent,b.getAttribute('aria-pressed')])`);
-    check('plan: the option panel opens with the Hierarchy | Flow choice, Hierarchy pressed', sameList(kinds, [['hierarchy', 'Hierarchy', 'true'], ['flow', 'Flow', 'false']])
-      && await ev(`document.querySelector('${PANEL}').children[1].classList.contains('graph-kinds')`), kinds);
+    check('plan: the Graph opens in the Hierarchy, the tier fan', await load('/?view=graph', 'plan') && await openPanel(page) && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    const kinds = await ev(`[...document.querySelectorAll('#graph-view .graph-controls .graph-kind-btn')].map((b)=>[b.dataset.graphKind,b.textContent,b.getAttribute('aria-pressed')])`);
+    check('plan: the toolbar has the Hierarchy | Flow choice, Hierarchy pressed, and the panel does not', sameList(kinds, [['hierarchy', 'Hierarchy', 'true'], ['flow', 'Flow', 'false']])
+      && await ev(`document.querySelectorAll('${PANEL} .graph-kinds').length===0&&document.querySelector('${PANEL}').children[1].classList.contains('graph-zoom')`), kinds);
     check('plan: the Hierarchy offers no layout to pick, keeps its option row, and has no Dependencies switch', await ev(`document.querySelectorAll('${PANEL} .graph-layout-btn').length===0&&document.querySelectorAll('${PANEL} .graph-options').length===1&&document.querySelectorAll('${PANEL} .graph-flow-options').length===0`));
     check('plan: the Hierarchy draws parent lines and no Flow column', await ev(`document.querySelectorAll('#graph-view .graph-link-parent').length>0&&document.querySelectorAll('#graph-view .graph-flow-col').length===0`));
     const hierarchyDots = await dots();
@@ -171,9 +173,17 @@ module.exports = {
     check('plan: the Hierarchy draws every live card', hierarchyDots.length === plan.dots, hierarchyDots.length);
     await shot('graph-flow-hierarchy');
 
-    // --- Flow, frontier by default -------------------------------------------------------------------------
+    // --- Flow, all with the lanes on by default ------------------------------------------------------------
     await pressOn(KIND('flow'));
-    check('plan: a press on Flow draws the Flow, frontier pressed, without a reload', await flowDrawn('frontier'));
+    check('plan: a press on Flow draws the Flow, all pressed and the lanes on, without a reload',
+      await flowDrawn('all') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}`, 10000));
+    check('plan: the address says deps=all and lanes=1 before anything is pressed, and nothing is kept for the switches yet',
+      await waitFor(`/[?&]deps=all(&|$)/.test(${SEARCH})&&/[?&]lanes=1(&|$)/.test(${SEARCH})`) && await ev(STORED('deps')) === null && await ev(STORED('lanes')) === null, await ev(SEARCH));
+    // The steps below read the Flow on frontier with the lanes off, so the two switches are pressed there first.
+    await pressOn(LANES('off'));
+    await pressOn(DEPS('frontier'));
+    check('plan: frontier pressed and the lanes off, where the steps below start',
+      await flowDrawn('frontier') && await waitFor(`${pressed(LANES('off'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===0`, 10000));
     check('plan: the panel offers the Dependencies switch, frontier then all, and not the fan option row', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn[data-key=deps]')].map((b)=>b.textContent))`) === '["frontier","all"]'
       && await ev(`document.querySelectorAll('${PANEL} .graph-options:not(.graph-flow-options)').length===0&&document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-label')[0].textContent==='Dependencies'`));
     check('plan: the Dependencies buttons keep the selection and do not hold the poll', await ev(`[...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn')].every((b)=>b.hasAttribute('data-keeps-selection')&&!b.hasAttribute('data-holds-poll'))`));
@@ -408,6 +418,7 @@ module.exports = {
     await shot('graph-flow-loop');
 
     // --- the other board keeps its own ------------------------------------------------------------------------------
+    await forgetPanelChoice(page);
     check('fixture: another board opens in the Hierarchy: the choice is kept for the board', await load('/?view=graph', 'fixture') && await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
 
     // --- the phone's bottom sheet ---------------------------------------------------------------------------------------
@@ -415,8 +426,8 @@ module.exports = {
     check('plan: at phone width a board with a link opens the Flow, the panel closed', await load('/?view=graph&graph=flow&deps=frontier', 'plan')
       && await waitFor(`${kindIs('flow')}&&!document.querySelector('${PANEL}')`, 10000));
     await pressOn('#graph-view .view-panel-toggle');
-    check('plan: the toggle opens the panel as a sheet over the Graph, with the choice and the switch in it',
-      await waitFor(`!!document.querySelector('${PANEL}')`) && await ev(`(()=>{const p=document.querySelector('${PANEL}');const r=p.getBoundingClientRect();return getComputedStyle(p).position==='absolute'&&r.width>=window.innerWidth*0.8&&r.bottom>=window.innerHeight-200&&!!p.querySelector('.graph-kind-btn[data-graph-kind=flow]')&&!!p.querySelector('.graph-option-btn[data-key=deps][data-val=all]')})()`));
+    check('plan: the toggle opens the panel as a sheet over the Graph, with the switch in it and the choice in the toolbar',
+      await waitFor(`!!document.querySelector('${PANEL}')`) && await ev(`(()=>{const p=document.querySelector('${PANEL}');const r=p.getBoundingClientRect();return getComputedStyle(p).position==='absolute'&&r.width>=window.innerWidth*0.8&&r.bottom>=window.innerHeight-200&&!!document.querySelector('#graph-view .graph-controls .graph-kind-btn[data-graph-kind=flow]')&&!p.querySelector('.graph-kinds')&&!!p.querySelector('.graph-option-btn[data-key=deps][data-val=all]')})()`));
     check('plan: the sheet offers the Lanes switch too', await ev(`!!document.querySelector('${PANEL} .graph-option-btn[data-key=lanes][data-val=on]')`));
     await pressOn(`${PANEL} .graph-option-btn[data-key=deps][data-val=all]`);
     // The loop cards added above are still on the board: two more cards wait for nothing and one is chain 1.
@@ -424,8 +435,8 @@ module.exports = {
     await pressOn(`${PANEL} .graph-option-btn[data-key=lanes][data-val=on]`);
     check('plan: a press on on in the sheet draws the lanes', await waitFor(`${kindIs('flow')}&&${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length + 3}`, 10000), await ev(LANE_HEADS));
     await shot('graph-flow-sheet');
-    await pressOn(`${PANEL} .graph-kind-btn[data-graph-kind=hierarchy]`);
-    check('plan: a press on Hierarchy in the sheet goes back to the tier fan', await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
+    await pressOn('#graph-view .graph-controls .graph-kind-btn[data-graph-kind=hierarchy]');
+    check('plan: a press on Hierarchy in the toolbar goes back to the tier fan', await waitFor(`${kindIs('hierarchy')}&&${pressed(KIND('hierarchy'))}`, 10000));
     check('plan: the sheet adds no sideways scroll to the view', await ev(`(()=>{const v=document.querySelector('#graph-view');return v.scrollWidth-v.clientWidth<=1})()`));
     await send('Emulation.setDeviceMetricsOverride', { width: 1800, height: 1000, deviceScaleFactor: 1, mobile: false });
     await ev(frames);

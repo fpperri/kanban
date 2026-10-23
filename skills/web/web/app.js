@@ -1046,6 +1046,8 @@ function setFoldPref(prefKey, on, fold) {
 function setPillsFolded(on) { setFoldPref('pillsFolded', on, foldSearchPills); }
 function setStatusesFolded(on) { setFoldPref('statusesFolded', on, foldSearchStatuses); }
 function setSlicesFolded(on) { setFoldPref('slicesFolded', on, foldSearchSlices); }
+function setTypingFolded(on) { setFoldPref('typingFolded', on, foldSearchTyping); }
+function setHoverFolded(on) { setFoldPref('hoverFolded', on, foldSearchHover); }
 
 // Whether the search panel opens when the search box is focused: the switch at the end
 // of the box, flipped by a click on the arrow and by the p key (which open the panel at
@@ -1081,6 +1083,8 @@ function syncPrefsSheet() {
   $('#prefs-slices-folded').checked = loadPrefsState().slicesFolded;
   $('#prefs-pills-folded').checked = loadPrefsState().pillsFolded;
   $('#prefs-statuses-folded').checked = loadPrefsState().statusesFolded;
+  $('#prefs-typing-folded').checked = loadPrefsState().typingFolded;
+  $('#prefs-hover-folded').checked = loadPrefsState().hoverFolded;
   $('#prefs-panel-on-focus').checked = loadPrefsState().panelOnFocus;
   $('#prefs-md-colour').checked = loadMdColour(prefsStorage());
 }
@@ -6735,6 +6739,8 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#prefs-slices-folded').addEventListener('change', (e) => setSlicesFolded(e.target.checked));
   $('#prefs-pills-folded').addEventListener('change', (e) => setPillsFolded(e.target.checked));
   $('#prefs-statuses-folded').addEventListener('change', (e) => setStatusesFolded(e.target.checked));
+  $('#prefs-typing-folded').addEventListener('change', (e) => setTypingFolded(e.target.checked));
+  $('#prefs-hover-folded').addEventListener('change', (e) => setHoverFolded(e.target.checked));
   $('#prefs-panel-on-focus').addEventListener('change', (e) => setPanelOnFocus(e.target.checked));
   $('#prefs-md-colour').addEventListener('change', (e) => setMdColour(e.target.checked));
   // Hover/focus highlight: mouseover/mouseout (not mouseenter/mouseleave —

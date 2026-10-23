@@ -16,7 +16,7 @@
 // The Graph. Typing lights the matches and dims the rest, with isolate off and every dot drawn. Ticking the
 // Graph's checkbox makes the same typing isolate: only the matches are drawn.
 //
-// The checkboxes. The panel's foot holds one for each view, the Graph's unticked. Unticking the Board's is kept
+// The checkboxes. The panel's Typing isolates section holds one for each view, the Graph's unticked. Unticking the Board's is kept
 // per board in the browser, survives a reload, and makes typing on the Board light its matches, with isolate off.
 //
 // The zephyr cards are 1, 2, 7 and 11 of the fixture board's 18 live cards. Each step waits on the page, never
@@ -29,9 +29,11 @@ const CASES = {
   query: 'zephyr',
   cards: [1, 2, 7, 11],
   boards: ['fixture'],
-  // The checkboxes, in the order the panel's foot lists the views, with the choice each starts at.
+  // The checkboxes, in the order the panel's Typing isolates section lists the views, with the choice each starts at.
   checkboxes: [['board', true], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]],
 };
+
+const { unfoldSearchSection } = require('../panel');
 
 module.exports = {
   name: 'isolate-typing',
@@ -148,12 +150,14 @@ module.exports = {
     check('the Graph draws the fixture board', await goto('/?view=graph', graphReady));
     await typeQuery(CASES.query);
     check('typing in the Graph lights the matches and draws every dot, with isolate off', await shows(DOTS_LIT, CASES.cards) && (await nowShown(DOTS)).length === dots.length && await isolateIs(false), { lit: await nowShown(DOTS_LIT) });
+    await unfoldSearchSection(page, 'typing');
     await clickOn('#search-typing [data-typing-view="graph"]');
     check('ticking the Graph\'s checkbox is kept for the view', await checkboxesAre([['board', true], ['calendar', true], ['gantt', true], ['map', true], ['graph', true]]), await ev(CHECKS));
     await clearBox();
     await typeQuery(CASES.query);
     check('typing in the Graph now isolates: the switch says on and only the zephyr cards are drawn', await switchIs(true) && await shows(DOTS, CASES.cards), await nowShown(DOTS));
     await clearBox();
+    await unfoldSearchSection(page, 'typing');
     await clickOn('#search-typing [data-typing-view="graph"]');
     await checkboxesAre(CASES.checkboxes);
 
@@ -161,6 +165,7 @@ module.exports = {
     check('the Board draws the fixture board again', await goto('/?view=board', boardReady));
     await ev(`document.getElementById('search-input').focus()`);
     await waitFor(panelOpen);
+    await unfoldSearchSection(page, 'typing');
     await clickOn('#search-typing [data-typing-view="board"]');
     check('unticking the Board\'s checkbox shows it unticked', await checkboxesAre([['board', false], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]]), await ev(CHECKS));
     check('and the choice is kept in the browser, under a key of its own for the board', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.typing.isolates')).board===false`));
