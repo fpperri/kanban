@@ -39,6 +39,17 @@ test('the Graph section says what Lines draws in each of its four values, folded
   assert.match(text, /\*\*off\*\* draws no parent line/);
 });
 
+test('the Graph section says what brackets draws: a bracket for each parent and ring, first child to last, one stem, a plain line for a child alone', () => {
+  const text = graph();
+  assert.match(text, /\*\*brackets\*\* gives each parent, for each ring its children sit on, one \*\*bracket\*\*, a counted line whose arc runs from its first child to its last in the order the Order option draws them, with a tick to each child and one stem up to the parent, and a child alone on its ring keeps a plain line/);
+  const sentence = /\*\*brackets\*\*[^;]*;/.exec(text)[0];
+  assert.doesNotMatch(sentence, /chain end/, 'brackets do not read the chain ends');
+  assert.match(text, /A counted line or bracket lights whenever its parent does/);
+  const doc = docGraph();
+  assert.match(doc, /Brackets draws, for each parent and each ring its children sit on, one bracket from its first child to its last with a tick to each child and one line up to the parent, and prints the number of children on it; a child alone on its ring keeps a plain line/);
+  assert.doesNotMatch(/Brackets draws[^.]*\./.exec(doc)[0], /chain end/);
+});
+
 test('the Graph section says Dependencies and Order, and what each value does', () => {
   const text = graph();
   assert.match(text, /\*\*Dependencies\*\* are on \(the default\) or off, the dashed arrows for `waiting_for`/);
@@ -47,7 +58,7 @@ test('the Graph section says Dependencies and Order, and what each value does', 
 
 test('the Graph section says the counted line lights with its parent, the chain ends are read on the whole board, and the options only redraw', () => {
   const text = graph();
-  assert.match(text, /A counted line lights whenever its parent does/);
+  assert.match(text, /A counted line or bracket lights whenever its parent does/);
   assert.match(text, /chain ends are read on the whole board, so hiding a card with a status pill or a search never moves a line/);
   assert.match(text, /The lines and dependencies only redraw; the order moves siblings along their own stretch of the sector, and no card changes its band, its ring or its sector/);
 });
@@ -75,6 +86,6 @@ test('the Graph section no longer says every relation is drawn in Tiers', () => 
 test('the web doc says the same in short', () => {
   const text = docGraph();
   assert.match(text, /an option row in the option panel beside the fan/);
-  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(folded, brackets, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /kept per board/);
 });

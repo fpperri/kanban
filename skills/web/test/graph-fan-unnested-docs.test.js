@@ -70,7 +70,7 @@ test('the Graph section does not call the ring the outermost ring of the old lay
 
 test('the web doc names the fourth option and the four modes in short', () => {
   const text = docGraph();
-  assert.match(text, /Lines \(folded, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
+  assert.match(text, /Lines \(folded, brackets, chain, all, off\), Dependencies \(on, off\), Order \(status, rank\), Names \(relevant, all, none\) and Unnested \(outermost, off, depth 0, table\)/);
   assert.match(text, /Unnested says where the cards with no parent, no children and no tier are drawn: on one ring outside the fan by default/);
   assert.doesNotMatch(text, /on the outer ring/);
 });

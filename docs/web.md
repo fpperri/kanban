@@ -171,11 +171,13 @@ its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
 with its count, its split by status and the `slice:` term that cuts to it. Fit
 and the first draw frame all of it.
 
-Tiers has an option row in the option panel beside the fan: Lines (folded, chain,
-all, off), Dependencies (on, off), Order (status, rank), Names (relevant, all, none)
+Tiers has an option row in the option panel beside the fan: Lines (folded, brackets,
+chain, all, off), Dependencies (on, off), Order (status, rank), Names (relevant, all, none)
 and Unnested (outermost, off, depth 0, table). Folded, the default, draws a line to the
 end of each dependency chain and one counted line for a parent's other children on one
-ring. Names puts a card's title on the fan: relevant, the default, names the
+ring. Brackets draws, for each parent and each ring its children sit on, one bracket from
+its first child to its last with a tick to each child and one line up to the parent, and
+prints the number of children on it; a child alone on its ring keeps a plain line. Names puts a card's title on the fan: relevant, the default, names the
 selection, what it lights and the highest parents, all names every card and none names
 no card; the l key steps through them. A parent's name sits beside its ring; every other
 name sits in a row outside the rim, joined to its dot by a leader, and the Unnested

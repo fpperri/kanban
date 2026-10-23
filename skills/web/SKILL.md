@@ -2232,7 +2232,10 @@ to `127.0.0.1` only.
   folded. It holds five options, the first value of each the
   default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
   dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
-  **counted line** that prints their count; **chain** gives a line to every chain end and none to the
+  **counted line** that prints their count; **brackets** gives each parent, for each ring its children sit on,
+  one **bracket**, a counted line whose arc runs from its first child to its last in the order the Order option draws
+  them, with a tick to each child and one stem up to the parent, and a child alone on its ring keeps a plain line;
+  **chain** gives a line to every chain end and none to the
   other children; **all** gives a line to every child; **off** draws no parent line. **Dependencies** are
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
@@ -2276,8 +2279,8 @@ to `127.0.0.1` only.
   switch into or out of Tiers while Unnested is off works the selection and the pill counts out again);
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
   the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them; **table** draws the Unnested
-  block outside the rim. The Unnested option is Tiers' own: the Flow draws every card. A counted line
-  lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
+  block outside the rim. The Unnested option is Tiers' own: the Flow draws every card. A counted line or
+  bracket lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
   another ring, a sector or out of the Graph. The choices are kept per board in `localStorage` under
