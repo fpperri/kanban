@@ -1256,14 +1256,14 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // Search: kanban-web's own search.js, embedded above with the waiting rules it
 // reads (waiting-blocked.js), so a query finds here what it finds at the desk.
 // This page only adapts its short-keyed cards to the module's card shape, hands in
-// its own dependency functions for tree: and path: (the resolver's graph) and the
+// its own dependency functions for tree:, path: and the four Explore sets (the resolver's graph) and the
 // board's hierarchy for slice: (the slices and nesting modules, embedded above,
 // cut over every card of the board, archived ones included), and resolves the
 // terms once per query change. The box's suggestions are the module's too
 // (searchSuggestionItems), asked with the same board and context, so after slice:
 // and after .. the box offers the slices the cut would read.
 let qTerms=[];
-const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id)};
+const searchGraph={treeIds:(cards,id)=>treeIds(id),pathIds:(cards,id)=>pathIds(id),hpathIds:(cards,id)=>hpathIds(id),htreeIds:(cards,id)=>htreeIds(id),dpathIds:(cards,id)=>dpathIds(id),dtreeIds:(cards,id)=>dtreeIds(id)};
 const searchCtx={board:BOARD,hierarchy:HIERARCHY,graph:searchGraph};
 // A card queued with + New card has no id yet (n1, n2, ...), which the search reads as it is: a
 // real id is never lowercase, so no card of the board has that id.
@@ -1491,14 +1491,16 @@ if(alt)d.appendChild(rollupBlock(nid));
 if(c.tags&&c.tags.length){const tg=el("div","tags");c.tags.forEach(t=>tg.appendChild(el("span","tag",t)));d.appendChild(tg)}
 const det=[];if(c.start)det.push("start "+c.start);if(c.upd)det.push("updated "+c.upd);
 if(det.length)d.appendChild(el("div","meta",det.join(" \\u00b7 ")));
-// "Dependency tree"/"Dependency path" write tree:/path: into
-// the search box and close the sheet (sugar only, no view switch) — read-only
+// Hierarchy path/tree and Dependency path/tree write hpath:/htree:/dpath:/dtree:
+// into the search box and close the sheet (sugar only, no view switch) — read-only
 // queries, so unlike the edit actions below they run on ro (archived) sheets
 // too; only a not-yet-created provisional card has no real id to focus on.
 if(!isProv(c.id)){
 const gr=el("div","acts");gr.style.borderTop="none";gr.style.paddingTop="4px";
-gr.appendChild(btn("Dependency tree","graphfocus",{gk:"tree"}));
-gr.appendChild(btn("Dependency path","graphfocus",{gk:"path"}));
+gr.appendChild(btn("Hierarchy path","graphfocus",{gk:"hpath"}));
+gr.appendChild(btn("Hierarchy tree","graphfocus",{gk:"htree"}));
+gr.appendChild(btn("Dependency path","graphfocus",{gk:"dpath"}));
+gr.appendChild(btn("Dependency tree","graphfocus",{gk:"dtree"}));
 d.appendChild(gr)}
 if(!ro&&!isProv(c.id)){
 // Every frontmatter field is editable, raw and tolerant. The
@@ -2119,6 +2121,39 @@ const visited=new Set([id]);
 walkFrom(id,forward,visited);
 walkFrom(id,backward,visited);
 return visited}
+// The four sets Explore adds for one card, each by one relation alone, mirroring
+// kanban-web's hpathIds, htreeIds, dpathIds and dtreeIds (dependency-graph.js) over
+// the snapshot's own DATA. The hierarchy follows each card's local parent (`pt`)
+// only; the dependency follows waiting_for only. A card the board does not have is
+// no link, a self-link is none, an unknown id is an empty Set, archived cards are
+// walked, and a loop ends the walk.
+function exploreLinks(hier){
+const have=new Set(DATA.map(c=>c.id)),up=new Map(),down=new Map();
+const link=(from,to)=>{
+if(from===to||!have.has(from)||!have.has(to))return;
+if(!up.has(to))up.set(to,[]);up.get(to).push(from);
+if(!down.has(from))down.set(from,[]);down.get(from).push(to)};
+DATA.forEach(c=>{if(hier){if(c.pt!=null)link(c.pt,c.id)}else(c.w||[]).forEach(w=>link(w,c.id))});
+return {up:up,down:down}}
+function reachSet(start,steps){
+const seen=new Set([start]),todo=[start];
+while(todo.length){const at=todo.pop();
+steps.forEach(step=>(step.get(at)||[]).forEach(next=>{if(!seen.has(next)){seen.add(next);todo.push(next)}}))}
+return seen}
+function climbToRoot(id,up){
+const seen=new Set([id]);let root=id;
+while((up.get(root)||[]).length&&!seen.has(up.get(root)[0])){root=up.get(root)[0];seen.add(root)}
+return root}
+function exploreIds(hier,path,rawId){
+const id=kanbanIds.idKey(rawId);
+if(id===null||!DATA.some(c=>c.id===id))return new Set();
+const {up,down}=exploreLinks(hier);
+if(path)return new Set([...reachSet(id,[up]),...reachSet(id,[down])]);
+return hier?reachSet(climbToRoot(id,up),[down]):reachSet(id,[up,down])}
+const hpathIds=rawId=>exploreIds(true,true,rawId);
+const htreeIds=rawId=>exploreIds(true,false,rawId);
+const dpathIds=rawId=>exploreIds(false,true,rawId);
+const dtreeIds=rawId=>exploreIds(false,false,rawId);
 // Kahn's algorithm, top-down layer per node; force-breaks a cycle by taking the
 // lowest remaining id so this always terminates (same approach as kanban-web's
 // layerNodes in dependency-graph.js).
