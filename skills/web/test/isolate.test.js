@@ -50,10 +50,10 @@ const spied = (el = control()) => {
   return el;
 };
 
-// `typing` is whether the Board's Typing isolates is on, and `prefs` adds to the browser's preferences for the board. Most of what follows is about the switch
+// `typing` is whether the Board's Typing isolates is on, `views` sets the others, and `prefs` is the browser's preferences for the board. Most of what follows is about the switch
 // and a box that does not isolate by itself, so it is off here; the tests of typing turning isolate
 // on say `typing: true`.
-async function open({ view = 'board', stored = {}, board = makeBoard(), typing = false, prefs = {}, search = '' } = {}) {
+async function open({ view = 'board', stored = {}, board = makeBoard(), typing = false, views = {}, prefs = {}, search = '' } = {}) {
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -63,7 +63,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), typing =
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
   elements['#toast'] = spied(hidden());
-  const kept = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing }, ...prefs }), ...stored };
+  const kept = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify(prefs), 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing, ...views }), ...stored };
   const page = await loadPage({ board, search, stored: kept, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const sortedIds = (set) => [...set].map(Number).sort((a, b) => a - b);
@@ -985,7 +985,7 @@ test('in the Graph typing lights and leaves isolate off; with the Graph\'s Typin
   s.type('tags:ui');
   assert.strictEqual(s.isolate(), null);
   assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
-  const t = await open({ view: 'graph', prefs: { typingIsolates: { graph: true } } });
+  const t = await open({ view: 'graph', views: { graph: true } });
   t.type('tags:ui');
   assert.deepStrictEqual(t.isolate(), { previous: 'tags:ui', following: true });
   assert.deepStrictEqual(t.drawn(), [2, 5]);
@@ -1032,7 +1032,7 @@ test('a query typed in the Graph filters the Board it is carried to, and ends wh
 });
 
 test('a view whose Typing isolates is off keeps lighting the typed query when it is entered', async () => {
-  const s = await open({ typing: true, prefs: { typingIsolates: { board: true, map: false } } });
+  const s = await open({ typing: true, views: { board: true, map: false } });
   s.type('tags:ui');
   s.page.run("setView('map')");
   assert.strictEqual(s.isolate(), null);
@@ -1094,8 +1094,9 @@ test('the Typing isolates choice of a view is set by its checkbox, kept per boar
   change('graph', true);
   assert.strictEqual(s.page.run("typingIsolatesIn('board')"), false);
   assert.strictEqual(s.page.run("typingIsolatesIn('graph')"), true);
-  const kept = JSON.parse(s.kept['kanban.kanban.prefs']);
-  assert.deepStrictEqual(kept.typingIsolates, { board: false, map: true, gantt: true, calendar: true, graph: true });
+  const kept = JSON.parse(s.kept['kanban.kanban.typing.isolates']);
+  assert.deepStrictEqual(kept, { board: false, map: true, calendar: true, gantt: true, graph: true });
+  assert.strictEqual('typingIsolates' in JSON.parse(s.kept['kanban.kanban.prefs']), false, 'the choice has a key of its own and is not in the preferences entry');
   s.type('tags:ui');
   assert.strictEqual(s.isolate(), null, 'the Board now lights what is typed');
 });

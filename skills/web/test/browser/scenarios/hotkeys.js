@@ -155,7 +155,7 @@ module.exports = {
     check('Escape closes the notifications panel', await waitFor(NOTIFICATIONS_SHUT, 2500));
 
     // --- the state is the page's: the keys change it, the next ? shows it ----------------------------------------
-    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
+    await ev(`localStorage.setItem('kanban.plan.typing.isolates', JSON.stringify({board:false}))`);
     check('the plan board is drawn for the Graph', await goto('/', BOARD_READY));
     await ev(`document.getElementById('graph-toggle-btn').click()`);
     check('the Graph is drawn', await waitFor(`!document.getElementById('graph-view').classList.contains('hidden')&&document.querySelectorAll('#graph-view .graph-node').length>0`, 10000));

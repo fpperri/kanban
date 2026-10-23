@@ -140,7 +140,7 @@ module.exports = {
 
     // --- a pill's query is an anchor: the double click takes it out of the box and turns the chip off ---
     // The Board is set to light what a pill matches: a Board that isolates keeps its selection through a double click on empty space.
-    await ev(`localStorage.setItem('kanban.fixture.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
+    await ev(`localStorage.setItem('kanban.fixture.typing.isolates', JSON.stringify({board:false}))`);
     await open('/?view=board');
     await waitFor(ready.board, 10000);
     const shownBefore = (await cardIds('#board')).length;

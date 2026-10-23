@@ -487,7 +487,7 @@ test('hovering a dot while a lone card is selected shows that dot\'s relations, 
 
 // --- leaving the Graph ----------------------------------------------------------
 
-const BOARD_LIGHTS = { 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: false } }) };
+const BOARD_LIGHTS = { 'kanban.kanban.typing.isolates': JSON.stringify({ board: false }) };
 
 test('a query typed in the Graph stops being the anchor on the Board: where typing lights, the Board lights its matches and hides nothing, nothing is selected and there are no bulk targets', async () => {
   const s = await open({ stored: BOARD_LIGHTS });

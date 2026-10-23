@@ -238,7 +238,7 @@ module.exports = {
     // --- the reload, and the text from before isolating ----------------------------------------------------------------------------
     const [one, two] = CASES.zephyr.picked;
     const pickedText = `#${one} | #${two}`;
-    await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({typingIsolates:{board:false}}))`);
+    await ev(`localStorage.setItem('kanban.plan.typing.isolates', JSON.stringify({board:false}))`);
     check('the Board is up for the reload part', await goto('/?view=board', boardReady));
     const liveBoard = JSON.parse(await nowShown(SELECTORS.board));
     await pickOnBoard(CASES.zephyr.picked);

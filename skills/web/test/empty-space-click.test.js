@@ -64,7 +64,7 @@ async function open({ view = 'board', board = makeBoard(), typing = false } = {}
   elements['#calendar-view'] = control();
   elements['#search-chip'] = chipEl();
   elements['#search-pills'] = control();
-  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing } }) }, elements }).start();
+  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }) }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   let renders = 0;
   const real = page.ctx.renderBoard;

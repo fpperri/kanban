@@ -80,7 +80,7 @@ async function open({ view = 'board', stored = UNFOLDED, board = makeBoard(), se
   elements['#search-chip'] = chipEl();
   elements['#graph-view'] = control();
   const storage = { 'kanban.kanban.view.mode': view, ...stored };
-  storage['kanban.kanban.prefs'] = JSON.stringify({ ...JSON.parse(storage['kanban.kanban.prefs'] || '{}'), typingIsolates: { board: typing } });
+  storage['kanban.kanban.typing.isolates'] = JSON.stringify({ board: typing });
   const page = await loadPage({ board, search, stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const slices = elements['#search-slices'];

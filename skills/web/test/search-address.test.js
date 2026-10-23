@@ -31,7 +31,7 @@ const BOARD = {
 // otherwise: with one on, a query put in the box by the person turns isolate on in that view and
 // `isolate=1` stands beside q; and where typing does not isolate the address says nothing about isolate.
 async function openAt(search = '', { typing = false, graph = false } = {}) {
-  const stored = { 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing, map: typing, graph } }) };
+  const stored = { 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing, map: typing, graph }) };
   const page = loadPage({ board: BOARD, search, stored });
   const session = attachSessionHistory(page);
   await page.start();

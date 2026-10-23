@@ -51,7 +51,7 @@ const spied = (el = control()) => {
 // off unless a test says so, since most of what follows is isolate turned on by the switch.
 async function openAt(search = '', { stored = {}, board = makeBoard(), view = 'board', typing = false } = {}) {
   if (!('kanban.kanban.view.mode' in stored)) stored['kanban.kanban.view.mode'] = view;
-  if (!('kanban.kanban.prefs' in stored)) stored['kanban.kanban.prefs'] = JSON.stringify({ typingIsolates: { board: typing } });
+  if (!('kanban.kanban.typing.isolates' in stored)) stored['kanban.kanban.typing.isolates'] = JSON.stringify({ board: typing });
   const elements = {};
   for (const sel of HIDDEN) elements[sel] = hidden();
   elements['#search-pills'] = control();
@@ -75,7 +75,7 @@ async function openAt(search = '', { stored = {}, board = makeBoard(), view = 'b
     flip: () => elements['#isolate-switch'].fire('click', { preventDefault() {} }),
     ctrlClick: (id) => page.fireDocument('click', { target: cardTarget(id), detail: 1, shiftKey: false, ctrlKey: true, metaKey: false }),
     params: () => Object.fromEntries(new URLSearchParams(session.search)),
-    kept: () => Object.keys(stored).filter((k) => /isolate/.test(k)),
+    kept: () => Object.keys(stored).filter((k) => /isolate\.kept/.test(k)),
   };
 }
 

@@ -58,7 +58,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), typing =
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
   elements['#search-chip'] = chipEl();
-  const page = loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing } }), ...stored }, elements });
+  const page = loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }), ...stored }, elements });
   const session = attachSessionHistory(page);
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
@@ -251,7 +251,7 @@ test('a poll while the card is closed again keeps the pill, which the selection 
 // --- a click that only selects ----------------------------------------------------------------
 
 test('a click that selects a card without opening it still takes the pill out of the box, in a view the preferences sheet sets to selects', async () => {
-  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' }, typingIsolates: { board: false } }) } });
+  const s = await open({ stored: { 'kanban.kanban.prefs': JSON.stringify({ click: { board: 'selects' } }), 'kanban.kanban.typing.isolates': JSON.stringify({ board: false }) } });
   s.pillClick('review');
   assert.strictEqual(s.box(), 'review:');
   await s.click(5);

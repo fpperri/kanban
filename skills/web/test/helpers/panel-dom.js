@@ -79,7 +79,7 @@ async function openPanelPage({ board, view = 'board', open = true, typing = fals
   let chipText = '';
   Object.defineProperty(chip, 'textContent', { configurable: true, get: () => chipText, set: (v) => { chipText = String(v); } });
   elements['#search-chip'] = chip;
-  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing } }) }, elements }).start();
+  const page = await loadPage({ board, stored: { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }) }, elements }).start();
   if (page.failures.length) throw new Error(`the page starts without an error: ${page.failures.map((e) => e.message)}`);
   if (open) page.run('setSearchPanelOpen(true)');
   const sorted = (set) => [...set].sort((a, b) => a - b);

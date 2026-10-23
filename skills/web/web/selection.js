@@ -566,7 +566,7 @@ function writeSkipsJump(reason) { return reason === 'mirror'; }
 function linkWriteReason(isolateOff) { return isolateOff ? 'link-lit' : 'link'; }
 
 // Whether a write to the box turns isolate on: it carries a query, isolate is off, and the view
-// being shown has Typing isolates on (prefs.js typingIsolates; on by default in every view but
+// being shown has Typing isolates on (typing-isolates.js; on by default in every view but
 // the Graph, so typing filters the Board and lights in the Graph). `setting` is that view's
 // choice, and `text` is what was written without its run of slices (searchSplitSlice, search.js):
 // a cut alone is no query to isolate.

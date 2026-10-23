@@ -68,7 +68,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), search =
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
   elements['#search-chip'] = chipEl();
-  const storage = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing } }), ...stored };
+  const storage = { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing }), ...stored };
   const menus = [];
   const loaded = loadPage({ board, search, stored: storage, elements, ...(list ? { documentExtras: { createElement: () => control() } } : {}) });
   if (list) loaded.input.parentElement = { style: {}, appendChild: (menu) => menus.push(menu), addEventListener() {}, querySelector: () => null };

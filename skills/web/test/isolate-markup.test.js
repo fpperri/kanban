@@ -181,8 +181,6 @@ test('the script wires the group once, reads and writes the choice through the p
   assert.match(isolateSrc, /\$\('#search-typing'\)\.addEventListener\('change', onTypingIsolatesChange\)/);
   assert.match(code(isolateSrc), /setTypingIsolates\(box\.dataset\.typingView, box\.checked\)/);
   assert.match(code(isolateSrc), /typingIsolatesIn\(box\.dataset\.typingView\)/);
-  assert.match(appSrc, /function typingIsolatesIn\(view\) \{\s*return loadPrefsState\(\)\.typingIsolates\[view\] === true;/);
-  assert.match(appSrc, /prefsWith\(loadPrefsState\(\), \{ typingIsolates: \{ \[view\]: on \} \}\)/);
   assert.match(css, /\.search-typing \{/);
   assert.match(read('search-panel.js'), /syncTypingIsolates\(\);/, 'every repaint of the board keeps the boxes right');
 });

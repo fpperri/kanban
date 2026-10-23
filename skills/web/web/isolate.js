@@ -14,7 +14,7 @@
 // so the box holds nothing the selection's cards, paths and trees would bring back.
 //
 // A query the person makes turns isolate on by itself where the view's Typing isolates setting
-// is on (prefs.js, the panel's checkboxes; on in every view but the Graph): typing, a pill, a
+// is on (typing-isolates.js, the panel's checkboxes; on in every view but the Graph): typing, a pill, a
 // cue on a card and a ?q= link (typingTurnsIsolateOn, selection.js, asked by writeSearch). The
 // box then is the isolate text and holds the query as it is, so the flag is `{ previous, following }`
 // with the previous text following the box: turning isolate off leaves the query in the box,
@@ -69,6 +69,37 @@ const ISOLATE_SWITCH_OFF = 'Isolate: show only the selection, in every view, by 
 
 function isolateNow() {
   return isolateFlag;
+}
+
+// Whether a query the person makes turns isolate on in a view: the panel's Typing isolates checkboxes,
+// one flag per view kept per board under the feature key 'typing.isolates' (typing-isolates.js merges it
+// with the defaults, on in every view but the Graph, so a value this version does not offer, or storage
+// that refuses, reads as the default). Dropped with the other per-board memos when the board changes
+// (applyProjectName).
+let typingIsolatesMemo = null;
+
+function typingIsolatesLoad() {
+  if (typingIsolatesMemo) return typingIsolatesMemo;
+  const store = prefsStorage();
+  let saved = null;
+  if (store) {
+    try { saved = store.getItem(storageKey(state.projectName, 'typing.isolates')); }
+    catch (e) { saved = null; }
+  }
+  typingIsolatesMemo = mergeTypingIsolates(saved);
+  return typingIsolatesMemo;
+}
+
+function typingIsolatesIn(view) {
+  return typingIsolatesLoad()[view] === true;
+}
+
+function setTypingIsolates(view, on) {
+  typingIsolatesMemo = typingIsolatesWith(typingIsolatesLoad(), view, on);
+  const store = prefsStorage();
+  if (!store) return;
+  try { store.setItem(storageKey(state.projectName, 'typing.isolates'), JSON.stringify(typingIsolatesMemo)); }
+  catch (e) { /* storage unavailable or full: the choice just won't persist this session */ }
 }
 
 // The text the box held before isolating is kept in the browser, per board, beside the isolate
@@ -224,7 +255,7 @@ function isolateOnWrite(text, reason) {
   renderSearchPanel();
 }
 
-// The Typing isolates checkboxes in the panel's foot, one per view (prefs.js typingIsolates): each
+// The Typing isolates checkboxes in the panel's foot, one per view (typingIsolatesIn): each
 // shows the view's setting and sets it. Every repaint of the board comes here (renderSearchPanel).
 function syncTypingIsolates() {
   document.querySelectorAll('#search-typing [data-typing-view]').forEach((box) => {

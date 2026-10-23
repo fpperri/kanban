@@ -65,7 +65,7 @@ async function open({ view = 'board', typing = false } = {}) {
   for (const sel of HIDDEN) { const el = control(); el.classList.add('hidden'); elements[sel] = el; }
   elements['#search-pills'] = control();
   elements['#graph-view'] = control();
-  const stored = { 'kanban.kanban.view.mode': view, 'kanban.kanban.prefs': JSON.stringify({ typingIsolates: { board: typing, graph: typing } }) };
+  const stored = { 'kanban.kanban.view.mode': view, 'kanban.kanban.typing.isolates': JSON.stringify({ board: typing, graph: typing }) };
   const page = await loadPage({ board: board(), stored, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const node = (id) => {

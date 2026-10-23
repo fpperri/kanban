@@ -1024,17 +1024,6 @@ function countArchivedLeaves() {
   return loadPrefsState().archivedDone;
 }
 
-// Whether a query typed into the box turns isolate on in a view: the panel's Typing isolates
-// checkboxes (prefs.js typingIsolates), on in every view but the Graph.
-function typingIsolatesIn(view) {
-  return loadPrefsState().typingIsolates[view] === true;
-}
-
-function setTypingIsolates(view, on) {
-  prefsMemo = prefsWith(loadPrefsState(), { typingIsolates: { [view]: on } });
-  savePrefsState();
-}
-
 function setClickPref(view, value) {
   prefsMemo = prefsWith(loadPrefsState(), { click: { [view]: value } });
   savePrefsState();
@@ -2174,6 +2163,7 @@ function applyProjectName(name) {
     viewMode = null; // view.mode joins the same discipline
     rollupBarMode = null; // rollup.bar too
     prefsMemo = null; // the preferences entry too
+    typingIsolatesMemo = null; // typing.isolates too
     iterationUi.choice = undefined; // the iteration pick too
     mapStatusFilter = null; // map.statusFilter too
     calendarSubview = null; // calendar.subview too

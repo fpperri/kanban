@@ -1097,8 +1097,8 @@ to `127.0.0.1` only.
   `typingTurnsIsolateOn`). The clear button, the Ctrl+F prefill, a cut, a click's selection and a menu
   item turn nothing on, and a box that holds only a `slice:` cut has no query to isolate. The panel's
   foot holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
-  Calendar, Gantt, Map and Graph), kept per board in the browser's preferences (`typingIsolates`,
-  `prefs.js`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
+  Calendar, Gantt, Map and Graph), kept per board in the browser under a key of their own, `typing.isolates`,
+  as **On hover show** keeps `hover.show` (`typing-isolates.js`, the views listed by `VIEW_MODES`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
   as it always did. Unticked, the box lights what is typed: its matches wear the selected look, nothing
   hides and no card is selected, and the switch or `i` can still isolate the query as it stands. An
   isolate the box's own query started is `{ previous, following }`: what turning isolate off gives

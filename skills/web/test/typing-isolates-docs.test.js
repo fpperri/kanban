@@ -3,7 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { prefsDefaults, PREFS_TYPING_VIEWS } = require('../web/prefs');
+const { typingIsolatesDefaults } = require('../web/typing-isolates');
+const { VIEW_MODES } = require('../web/calendar-model');
 const { ISOLATING_REASONS } = require('../web/selection');
 
 // The web skill, the web docs and the glossary say that outside the Graph the search box hides what
@@ -47,11 +48,12 @@ test('the skill and the docs say which writes turn isolate on, and the views it 
 });
 
 test('both describe the checkboxes: one for each view in the panel\'s foot, kept per board, on in every view but the Graph', () => {
-  assert.deepStrictEqual(PREFS_TYPING_VIEWS, ['board', 'map', 'calendar', 'gantt', 'graph']);
-  const defaults = prefsDefaults().typingIsolates;
+  assert.deepStrictEqual(Object.keys(typingIsolatesDefaults()), VIEW_MODES, 'one flag for each view the page has');
+  const defaults = typingIsolatesDefaults();
   assert.deepStrictEqual(Object.keys(defaults).filter((view) => !defaults[view]), ['graph'], 'the Graph alone starts unticked');
   assert.match(skillTyping, /one checkbox for each view \(`#search-typing`, an input with `data-typing-view` for Board, Calendar, Gantt, Map and Graph\)/);
-  assert.match(skillTyping, /kept per board in the browser's preferences \(`typingIsolates`, `prefs\.js`\)/);
+  assert.match(skillTyping, /kept per board in the browser under a key of their own, `typing\.isolates`, as \*\*On hover show\*\* keeps `hover\.show` \(`typing-isolates\.js`, the views listed by `VIEW_MODES`\)/);
+  assert.doesNotMatch(skillTyping, /`typingIsolates`|`prefs\.js`/, 'the choice is no longer in the preferences entry');
   assert.match(skillTyping, /ticked in every view but the Graph, so typing narrows the Board and lights in the Graph as it always did/);
   assert.match(docsTyping, /a \*\*Typing isolates\*\* checkbox for each view: Board, Calendar, Gantt, Map and Graph/);
   assert.match(docsTyping, /on in every view but the Graph/);

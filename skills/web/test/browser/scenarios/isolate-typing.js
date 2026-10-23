@@ -163,13 +163,13 @@ module.exports = {
     await waitFor(panelOpen);
     await clickOn('#search-typing [data-typing-view="board"]');
     check('unticking the Board\'s checkbox shows it unticked', await checkboxesAre([['board', false], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]]), await ev(CHECKS));
-    check('and the choice is kept in the browser, under the board\'s own preferences', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.prefs')).typingIsolates.board===false`));
+    check('and the choice is kept in the browser, under a key of its own for the board', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.typing.isolates')).board===false`));
     await reload();
     await waitFor(boardReady, 10000);
     check('after a reload the Board\'s checkbox is still unticked', await checkboxesAre([['board', false], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]]), await ev(CHECKS));
     await typeQuery(CASES.query);
     check('typing on the Board then lights: isolate stays off, every card is shown and the zephyr cards wear the selected look', await isolateIs(false) && await switchIs(false) && await shows(BOARD, live) && await shows(BOARD_LIT, CASES.cards), { shown: await nowShown(BOARD), lit: await nowShown(BOARD_LIT) });
     await clearBox();
-    await ev(`localStorage.removeItem('kanban.fixture.prefs')`);
+    await ev(`localStorage.removeItem('kanban.fixture.typing.isolates')`);
   },
 };
