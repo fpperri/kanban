@@ -35,7 +35,7 @@ const docFlow = () => {
 
 test('the glossary\'s Graph view names its two graphs, and says the Hierarchy is the tier fan alone', () => {
   const text = entry('Graph view');
-  assert.match(text, /one of two graphs chosen at the top of its option panel: the \*\*Hierarchy\*\*/);
+  assert.match(text, /one of two graphs chosen with two buttons in the toolbar at the top right of the drawing: the \*\*Hierarchy\*\*/);
   assert.match(text, /and the \*\*Flow\*\*, the cards laid out by their dependencies/);
   assert.match(text, /The Hierarchy is the tier fan, its one layout \(tiers\): it goes all the way round its centre/);
   assert.doesNotMatch(text, /force|status layout|layouts: /i);
@@ -72,7 +72,7 @@ test('the glossary has Lane: the lane card, the count, ready, the fold with its 
 });
 
 test('the web doc says the Graph is one of two graphs, Hierarchy opening first', () => {
-  assert.match(webDoc, /in one of two graphs, \*\*Hierarchy\*\* or \*\*Flow\*\*, chosen at the top of its option panel \(Hierarchy opens first; see \*\*Flow\*\* below\)/);
+  assert.match(webDoc, /in one of two graphs, \*\*Hierarchy\*\* or \*\*Flow\*\*, chosen with two buttons in the toolbar at the top right of the drawing, left of the \(i\) and the option panel's button, so the choice shows whether the panel is open or shut \(Hierarchy opens first; see \*\*Flow\*\* below\)/);
 });
 
 test('the web doc says what each setting of the switch puts in its columns', () => {
@@ -121,12 +121,12 @@ test('the web doc says the choice and the switches are remembered, in the addres
 
 test('the web skill\'s Graph view says the Graph is one of two graphs, and points at Graph Flow', () => {
   const text = skillBullet('- **Graph view**');
-  assert.match(text, /The Graph draws one of two graphs, chosen at the top of the option panel: \*\*Hierarchy\*\*, which is all of the above, and \*\*Flow\*\* \(see \*\*Graph Flow\*\*\)/);
+  assert.match(text, /The Graph draws one of two graphs, chosen by the Hierarchy and Flow buttons in the toolbar at the top right of the drawing, whether the option panel is open or shut: \*\*Hierarchy\*\*, which is all of the above, and \*\*Flow\*\* \(see \*\*Graph Flow\*\*\)/);
 });
 
 test('the web skill\'s Graph Flow says the choice, the panel and what the switch is', () => {
   const text = skillBullet('- **Graph Flow**');
-  assert.match(text, /The option panel opens with a \*\*Hierarchy \| Flow\*\* choice \(`\.graph-kind-btn`, `aria-pressed` on the one drawn\), Hierarchy first/);
+  assert.match(text, /toolbar at the top right \(`\.graph-controls`, left of the \(i\) and the panel's button\) has a \*\*Hierarchy \| Flow\*\* choice \(`\.graph-kinds` of two `\.graph-kind-btn`, `aria-pressed` on the one drawn, built by `graphBuildKinds`\), Hierarchy first, with the panel open or shut/);
   assert.match(text, /under Flow the panel holds the zoom and the \*\*Dependencies\*\* and \*\*Lanes\*\* switches, and none of Hierarchy's option row/);
   assert.match(text, /the words are the glossary's \*\*Flow\*\* and \*\*Frontier\*\*/);
   assert.match(text, /The \*\*Dependencies\*\* switch is \*\*frontier\*\* \(the default\) or \*\*all\*\*/);
@@ -191,4 +191,8 @@ test('what the docs say of the keys and the options is what the page keeps', () 
   assert.deepStrictEqual(flow.GRAPH_FLOW_DEPS, ['frontier', 'all']);
   assert.deepStrictEqual(require('../web/graph-model').GRAPH_KINDS, ['hierarchy', 'flow']);
   assert.strictEqual(flow.GRAPH_FLOW_GEO.ROWS, 14, 'a column wraps past fourteen cards');
+});
+
+test('docs/web.md says the Graph keeps its zoom and Options in the panel and the Hierarchy | Flow choice in the toolbar', () => {
+  assert.match(webDoc, /The Graph keeps its zoom and its Options section in a panel the same way; its Hierarchy \| Flow choice stands in the toolbar beside the \(i\) and the panel icon, not in the panel/);
 });

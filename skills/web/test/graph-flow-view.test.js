@@ -99,11 +99,13 @@ const search = (s) => s.page.ctx.location.search;
 
 // --- the choice -----------------------------------------------------------------------
 
-test('the panel opens with the Hierarchy | Flow choice, Hierarchy pressed, and Hierarchy is the tier fan with its options and no layout buttons', async () => {
+test('the toolbar has the Hierarchy | Flow choice, Hierarchy pressed, and Hierarchy is the tier fan with its options and no layout buttons', async () => {
   const s = await open();
   const panel = s.panel();
   assert.deepStrictEqual(s.kindButtons().map((b) => [b.dataset.graphKind, b.textContent]), [['hierarchy', 'Hierarchy'], ['flow', 'Flow']]);
-  assert.strictEqual(panel.children.find((c) => c.classes.includes('graph-kinds')), panel.children.filter((c) => c.classes.includes('graph-kinds'))[0], 'the choice is the first row of the panel, after the close button');
+  assert.strictEqual(byClass(panel, 'graph-kinds').length, 0, 'the choice is not in the panel');
+  assert.strictEqual(byClass(byClass(s.host, 'graph-controls')[0], 'graph-kinds').length, 1, 'it stands in the toolbar, left of the (i) and the panel button');
+  assert.ok(panel.children.some((c) => c.classes.includes('graph-zoom')), 'the zoom row leads the panel');
   assert.deepStrictEqual(pressedKinds(s), ['hierarchy']);
   assert.strictEqual(s.run('graphCur.kind'), 'hierarchy');
   assert.strictEqual(byClass(s.host, 'graph-layout-btn').length, 0, 'Force and Status are gone: the Hierarchy offers no layout to pick');

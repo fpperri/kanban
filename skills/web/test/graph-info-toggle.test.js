@@ -63,7 +63,7 @@ test('the (i) button has an accessible name, aria-pressed (off by default) and k
 test('the top controls are the (i) and the option button; the count and the key stay in the DOM, hidden by a class while off', async () => {
   const s = await open();
   const row = byClass(s.host, 'graph-controls')[0];
-  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-info-toggle', 'view-panel-toggle']);
+  assert.deepStrictEqual(row.children.map((c) => c.classes[0]), ['graph-kinds', 'graph-info-toggle', 'view-panel-toggle']);
   const box = s.box();
   assert.ok(box.classes.includes('graph-info-off'));
   assert.deepStrictEqual(box.children.map((c) => c.classes[0]), ['graph-count', 'graph-key']);

@@ -111,8 +111,8 @@ roll-up bar). Each choice is remembered per board in your browser.
 The options and the zoom (`−`, the percentage, `+` and **Fit**) sit in a panel on the
 right of the view, which the panel icon at the top right, level with the top of the view,
 opens and closes. The options are always shown in it; the panel is what hides them, and
-a fold remembered from before the panel is ignored. The Graph keeps its layouts, its zoom and its Options section in a
-panel the same way. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
+a fold remembered from before the panel is ignored. The Graph keeps its zoom and its Options section in a
+panel the same way; its Hierarchy | Flow choice stands in the toolbar beside the (i) and the panel icon, not in the panel. At every width the Graph's drawing starts right under the header: its card count and key sit behind an (i) button, off by default and remembered per board, and the (i) and the option button float in the drawing's top-right corner, as the Map's option button does in the Map's, staying put while the Map scrolls. The status pills of the Map and the Graph are in the search panel's Statuses section. The
 panel is open from 760 px wide and closed below it, where it opens over the view as a
 sheet with a close button of its own and adds no sideways scroll. The choice is
 remembered per board in your browser, for the Map and for the Graph apart. Closed, the
@@ -149,7 +149,8 @@ back. A wider strip shows more of each note's words. The width is kept per board
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as
-a dot, in one of two graphs, **Hierarchy** or **Flow**, chosen at the top of its option panel
+a dot, in one of two graphs, **Hierarchy** or **Flow**, chosen with two buttons in the toolbar at the top right of the drawing,
+left of the (i) and the option panel's button, so the choice shows whether the panel is open or shut
 (Hierarchy opens first; see **Flow** below). Hierarchy joins the cards by their relations: a solid
 line from a parent to its child, a dashed arrow from a card to the card that waits for it. The Hierarchy is drawn
 as the fan called **Tiers**.

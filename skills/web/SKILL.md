@@ -1977,7 +1977,7 @@ to `127.0.0.1` only.
   collapse), sharing one header builder. State persists per board in `localStorage`
   (`map.sections.collapsed`, merged defensively) and survives the poll; collapsing
   skips the expensive layout/SVG work entirely rather than hiding it via CSS.
-  **Option panel** — the Map's zoom toolbar and options row, and the Graph's layout buttons, zoom
+  **Option panel** — the Map's zoom toolbar and options row, and the Graph's zoom
   buttons and option row (Tiers), stand in an `<aside class="view-panel">` on the right of the view, built
   by `buildViewPanel` in app.js, which `graphBuildPanel` and `buildMapPanel` fill. One icon button
   (`.view-panel-toggle`, a rectangle with a bar on its right, `aria-label="Options panel"`, `aria-expanded`)
@@ -2443,10 +2443,10 @@ to `127.0.0.1` only.
   `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
   The 5-second poll rebuilds the view and keeps the
   layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
-  Graph view. The Graph draws one of two graphs, chosen at the top of the option panel:
+  Graph view. The Graph draws one of two graphs, chosen by the Hierarchy and Flow buttons in the toolbar at the top right of the drawing, whether the option panel is open or shut:
   **Hierarchy**, which is all of the above, and **Flow** (see **Graph Flow**).
 - **Graph Flow** — the Graph's second graph, beside **Hierarchy** (the tier fan, above). The option
-  panel opens with a **Hierarchy | Flow** choice (`.graph-kind-btn`, `aria-pressed` on the one drawn), Hierarchy first;
+  toolbar at the top right (`.graph-controls`, left of the (i) and the panel's button) has a **Hierarchy | Flow** choice (`.graph-kinds` of two `.graph-kind-btn`, `aria-pressed` on the one drawn, built by `graphBuildKinds`), Hierarchy first, with the panel open or shut;
   under Flow the panel holds the zoom and the **Dependencies** and **Lanes** switches, and none of Hierarchy's option row.
   Flow lays the drawn cards out by their dependencies (`waiting_for`, read among the cards drawn) in **columns** from left to right, with no parent line
   and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **frontier**

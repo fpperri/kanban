@@ -464,11 +464,9 @@ function graphBuildHoverRow(kind) {
   return row;
 }
 
-// The option panel's contents (app.js builds the panel itself): the Hierarchy | Flow choice, the zoom,
-// then for Hierarchy the option row of the tier fan and for Flow the Flow's switches, then On hover for
-// both. These stood in the top row of the view before.
-function graphBuildPanel(kind, fan, deps, lanes) {
-  const panel = buildViewPanel('graph', 'Graph options');
+// The Hierarchy | Flow choice: two buttons, the one drawn pressed. They stand in the top-right toolbar of the
+// drawing, left of the (i) and the panel's button, so they show whether the option panel is open or shut.
+function graphBuildKinds(kind) {
   const kinds = document.createElement('div');
   kinds.className = 'graph-kinds';
   for (const k of GRAPH_KINDS) {
@@ -476,7 +474,14 @@ function graphBuildPanel(kind, fan, deps, lanes) {
     b.setAttribute('aria-pressed', String(k === kind));
     kinds.appendChild(b);
   }
-  panel.appendChild(kinds);
+  return kinds;
+}
+
+// The option panel's contents (app.js builds the panel itself): the zoom, then for Hierarchy the option row
+// of the tier fan and for Flow the Flow's switches, then On hover for both. The zoom and the options stood in
+// the top row of the view before; the Hierarchy | Flow choice moved out to the toolbar (graphBuildKinds).
+function graphBuildPanel(kind, fan, deps, lanes) {
+  const panel = buildViewPanel('graph', 'Graph options');
   const zoom = document.createElement('div');
   zoom.className = 'graph-zoom';
   zoom.appendChild(graphButton('graph-zoom-btn', '−', 'Zoom out', { graphAction: 'out' }));
@@ -489,13 +494,15 @@ function graphBuildPanel(kind, fan, deps, lanes) {
   return panel;
 }
 
-// The view's own top: the (i) button and the panel's button float in the drawing's top-right corner;
-// the card count and the key stay in the DOM, hidden by a class until the (i) is pressed.
-function graphBuildControls(cardCount, relationCount, fan, panelOpen) {
+// The view's own top: the Hierarchy | Flow choice, the (i) button and the panel's button float in the
+// drawing's top-right corner, in that order from the left; the card count and the key stay in the DOM,
+// hidden by a class until the (i) is pressed.
+function graphBuildControls(kind, cardCount, relationCount, fan, panelOpen) {
   const frag = document.createDocumentFragment();
   const infoOn = graphInfoOn();
   const row = document.createElement('div');
   row.className = 'graph-controls';
+  row.appendChild(graphBuildKinds(kind));
   const info = document.createElement('button');
   info.type = 'button';
   info.className = 'graph-info-toggle graph-control';
@@ -506,7 +513,7 @@ function graphBuildControls(cardCount, relationCount, fan, panelOpen) {
   info.setAttribute('aria-label', 'Card count and key');
   info.setAttribute('aria-pressed', String(infoOn));
   row.appendChild(info);
-  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the graph choice, the zoom and the options', panelOpen));
+  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the zoom and the options', panelOpen));
   frag.appendChild(row);
   const box = document.createElement('div');
   box.className = infoOn ? 'graph-info' : 'graph-info graph-info-off';
@@ -964,7 +971,7 @@ function renderGraphView() {
   main.className = 'graph-main';
   host.appendChild(main);
   if (panelOpen) host.appendChild(graphBuildPanel(kind, fan, deps, lanes));
-  main.appendChild(graphBuildControls(model.nodes.length, model.links.length, fan, panelOpen));
+  main.appendChild(graphBuildControls(kind, model.nodes.length, model.links.length, fan, panelOpen));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
     p.className = 'graph-empty';
