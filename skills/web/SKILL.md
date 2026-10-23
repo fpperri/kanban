@@ -1103,7 +1103,10 @@ to `127.0.0.1` only.
   hides and no card is selected, and the switch or `i` can still isolate the query as it stands. An
   isolate the box's own query started is `{ previous, following }`: what turning isolate off gives
   back is the box's text as it stands, so the typed query stays in the box, lit, and the next Esc
-  clears it; going to a view whose checkbox is unticked ends such an isolate the same way. The address
+  clears it; going to a view whose checkbox is unticked ends such an isolate the same way, and coming
+  back to a view whose checkbox is ticked starts it again while the box holds a query of the person's
+  (`isolateStartFollowing`; the picks a click mirrored into the box are no query, `searchBoxHoldsTyped`),
+  so a view's setting decides on every switch, while an isolate the switch or `i` turned on stays. The address
   then carries `isolate=1` beside `q`. A pill taken out, by a click or by Esc, turns nothing on (the
   reason `unpill`). Where the box hides is worked out once per repaint (`boxHidingTerms`,
   `boxLightsMatches`, `computeSearchMatch`): `ids` is what it hides by, `matched` what the whole query

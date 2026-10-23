@@ -1176,8 +1176,13 @@ function setView(mode) {
   const kept = selectionOnViewSwitch(selectionState.selection, { from, to: viewMode, boxText }); // a search typed in the Graph is not the anchor anywhere else
   const before = selectionState.selection;
   if (kept !== before) setSelection(kept);
-  if (kept !== before && partsOf(kept).length && boxMirrorsSelection()) mirrorSelectionInBox(before); // what is picked leaves the Graph with the box saying so; a typed search left alone goes on filtering
-  else renderBoard();
+  const picked = partsOf(kept).some((part) => part.kind !== 'query'); // cards, paths and trees: the box says them in every view
+  const stale = picked && !searchBoxMirrors($('#search-input').value, partsOf(kept));
+  if (boxMirrorsSelection() && partsOf(kept).length && (kept !== before || stale)) mirrorSelectionInBox(before); // what is picked goes with the person to the next view with the box saying so; a typed search left alone goes on filtering
+  else {
+    isolateStartFollowing(typingIsolatesIn(to)); // a query typed in the box isolates where this view's Typing isolates is on
+    renderBoard();
+  }
   followSearchInAddress($('#search-input').value); // the address says isolate=0 outside the Graph and nothing in it
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }

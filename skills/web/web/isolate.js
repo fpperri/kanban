@@ -19,7 +19,10 @@
 // box then is the isolate text and holds the query as it is, so the flag is `{ previous, following }`
 // with the previous text following the box: turning isolate off leaves the query in the box,
 // lit, and the next Esc clears it. Leaving for a view whose setting is off ends such an isolate
-// the same way (isolateEndFollowing), and the switch turns a lit query back into one that hides.
+// the same way (isolateEndFollowing), and entering a view whose setting is on starts it again while the
+// box holds a query of the person's (isolateStartFollowing, called by setView in app.js), so a view's
+// setting decides on every switch; an isolate the switch or the i key turned on is the person's and
+// stays. The switch turns a lit query back into one that hides.
 //
 // While it is on, a click on a card moves the anchor only: nothing the selection does writes the
 // box (with isolate off a click writes the selection into it, mirrorSelectionInBox in app.js), and a
@@ -118,6 +121,17 @@ function isolateEndIfEmptied(text, reason) {
   if (!isolateFlag || isolateAfterWrite(isolateFlag, text, reason) !== null) return;
   isolateFlag = null;
   forgetIsolateRecord();
+}
+
+// Entering a view whose Typing isolates is on with a query of the person's in the box and isolate off
+// starts the isolate typing there would have: the box keeps its text (the picks a click mirrored into
+// it are not a query, searchBoxHoldsTyped). An isolate the switch or the i key turned on is not touched.
+function isolateStartFollowing(setting) {
+  if (isolateFlag || setting !== true) return;
+  const box = $('#search-input').value;
+  if (!searchBoxHoldsTyped(box, partsOf(selectionState.selection))) return;
+  isolateFromTyping(box);
+  saveIsolateRecord(box, box);
 }
 
 // Moving to a view whose Typing isolates is off ends an isolate the box's own query started:

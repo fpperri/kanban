@@ -72,6 +72,11 @@ test('both say what turning such an isolate off gives back, and that a view with
   assert.match(docsTyping, /going to a view where the checkbox is off does the same/);
 });
 
+test('both say a view with the checkbox on starts the isolate again on a switch, and that one the switch or i turned on stays', () => {
+  assert.match(skillTyping, /coming back to a view whose checkbox is ticked starts it again while the box holds a query of the person's \(`isolateStartFollowing`; the picks a click mirrored into the box are no query, `searchBoxHoldsTyped`\), so a view's setting decides on every switch, while an isolate the switch or `i` turned on stays/);
+  assert.match(docsTyping, /coming back to a view where it is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch or `i` stays through the switches/);
+});
+
 test('the skill says a pill taken out turns nothing on, that the address carries the isolate parameter, and what the match holds', () => {
   assert.match(skillTyping, /The address then carries `isolate=1` beside `q`/);
   assert.match(skillTyping, /A pill taken out, by a click or by Esc, turns nothing on \(the reason `unpill`\)/);

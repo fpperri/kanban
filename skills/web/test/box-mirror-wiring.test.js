@@ -323,3 +323,29 @@ test('Esc in the box with isolate on still only turns isolate off, as before', a
   assert.strictEqual(s.isolate(), null);
   assert.deepStrictEqual(s.ids(), [2, 5], 'the selection stays for the next Esc');
 });
+
+test('a view switch says what is picked whenever the box is not already its text, though the switch changed no selection', async () => {
+  const s = await open();
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  s.type('zephyr');
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
+  s.told.length = 0;
+  s.view('map');
+  assert.strictEqual(s.box(), '#2 | #5');
+  assert.deepStrictEqual(s.told, [['#2 | #5', 'mirror']]);
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(5)] });
+  s.told.length = 0;
+  s.view('graph');
+  assert.deepStrictEqual(s.told, [], 'and a box that says it already is left alone');
+});
+
+test('a view switch with only a pill in the selection leaves the text typed beside it', async () => {
+  const s = await open();
+  s.pillClick('review');
+  s.type('review: | zephyr');
+  s.told.length = 0;
+  s.view('map');
+  assert.strictEqual(s.box(), 'review: | zephyr');
+  assert.deepStrictEqual(s.told, []);
+});

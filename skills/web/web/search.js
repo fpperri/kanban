@@ -683,6 +683,21 @@ function searchMirrorBox(current, parts, dropped) {
   return searchJoinSlice(lone ? String(shown[0].text).trim() : searchIsolateText(shown), slices);
 }
 
+// Whether the box already says `parts` as searchMirrorBox would write them: the mirror of the
+// selection needs no write.
+function searchBoxMirrors(current, parts) {
+  return current === searchMirrorBox(current, parts, []);
+}
+
+// Whether the box holds a query the person made, as against the picks a click mirrored into it:
+// text beyond its run of slices that is not the isolate text of the picked cards, paths and trees.
+// A query part of the selection (a pill's, or the one typed in the Graph) is the person's own, so
+// it does not count as a pick here.
+function searchBoxHoldsTyped(current, parts) {
+  if (!searchSplitSlice(current).rest.trim()) return false;
+  return !searchBoxMirrors(current, (Array.isArray(parts) ? parts : []).filter((part) => part && part.kind !== 'query'));
+}
+
 // What the box holds when isolate goes off: the text it held before, exactly as it was,
 // except that the run of slices is the one the box holds now, since the slice section may
 // have moved it while isolated and the cut is not part of what isolate takes away. A cut
@@ -956,7 +971,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchWithTerms, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
-    searchIsolateText, searchIsolateBox, searchMirrorBox, searchIsolateRestore,
+    searchIsolateText, searchIsolateBox, searchMirrorBox, searchBoxMirrors, searchBoxHoldsTyped, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -981,5 +996,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchIsolateText = searchIsolateText;
   window.searchIsolateBox = searchIsolateBox;
   window.searchMirrorBox = searchMirrorBox;
+  window.searchBoxMirrors = searchBoxMirrors;
+  window.searchBoxHoldsTyped = searchBoxHoldsTyped;
   window.searchIsolateRestore = searchIsolateRestore;
 }

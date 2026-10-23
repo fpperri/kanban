@@ -1005,6 +1005,86 @@ test('going to the Graph ends an isolate the box\'s own query started, and the q
   assert.notStrictEqual(t.isolate(), null);
 });
 
+test('a typed query follows the Typing isolates setting of the view on every switch: the Board filters, the Graph lights, and back on the Board it filters again', async () => {
+  const s = await open({ typing: true });
+  s.type('tags:ui');
+  assert.deepStrictEqual(s.shown(), [2, 5]);
+  s.page.run("setView('graph')");
+  assert.strictEqual(s.isolate(), null);
+  s.page.run("setView('board')");
+  assert.deepStrictEqual(s.isolate(), { previous: 'tags:ui', following: true });
+  assert.deepStrictEqual(s.shown(), [2, 5], 'the Board filters again');
+  assert.strictEqual(s.box(), 'tags:ui');
+  s.page.run("setView('calendar')");
+  assert.deepStrictEqual(s.isolate(), { previous: 'tags:ui', following: true }, 'a view whose setting is on keeps it on');
+});
+
+test('a query typed in the Graph filters the Board it is carried to, and ends where the Graph lights again', async () => {
+  const s = await open({ view: 'graph', typing: true });
+  s.type('tags:ui');
+  assert.strictEqual(s.isolate(), null);
+  s.page.run("setView('board')");
+  assert.deepStrictEqual(s.isolate(), { previous: 'tags:ui', following: true });
+  assert.deepStrictEqual(s.shown(), [2, 5]);
+  s.page.run("setView('graph')");
+  assert.strictEqual(s.isolate(), null);
+  assert.deepStrictEqual(s.drawn(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('a view whose Typing isolates is off keeps lighting the typed query when it is entered', async () => {
+  const s = await open({ typing: true, prefs: { typingIsolates: { board: true, map: false } } });
+  s.type('tags:ui');
+  s.page.run("setView('map')");
+  assert.strictEqual(s.isolate(), null);
+  s.page.run("setView('board')");
+  assert.notStrictEqual(s.isolate(), null);
+  s.page.run("setView('map')");
+  assert.strictEqual(s.isolate(), null);
+});
+
+test('the picks a click mirrored into the box are not a typed query, so a switch never isolates them', async () => {
+  const s = await open({ typing: true });
+  s.ctrlClick(2);
+  s.ctrlClick(5);
+  assert.strictEqual(s.box(), '#2 | #5');
+  s.page.run("setView('calendar')");
+  s.page.run("setView('graph')");
+  s.page.run("setView('board')");
+  assert.strictEqual(s.isolate(), null);
+  assert.strictEqual(s.box(), '#2 | #5');
+  assert.deepStrictEqual(s.shown(), [1, 2, 3, 4, 5, 6]);
+});
+
+test('an isolate the switch or the i key turned on stays through every switch, and an empty box or a cut alone isolates nothing', async () => {
+  const s = await open({ typing: true });
+  s.ctrlClick(2);
+  s.flip();
+  const on = s.isolate();
+  assert.notStrictEqual(on, null);
+  s.page.run("setView('graph')");
+  s.page.run("setView('board')");
+  assert.deepStrictEqual(s.isolate(), on);
+  const t = await open({ typing: true });
+  t.page.run("setView('graph')");
+  t.page.run("setView('board')");
+  assert.strictEqual(t.isolate(), null);
+  t.type('slice:0..2');
+  assert.strictEqual(t.isolate(), null, 'a cut is no query to isolate');
+  t.page.run("setView('graph')");
+  t.page.run("setView('board')");
+  assert.strictEqual(t.isolate(), null);
+});
+
+test('a pill typing started on the Board filters it again after a trip to the Graph', async () => {
+  const s = await open({ typing: true });
+  s.pillClick('review');
+  assert.notStrictEqual(s.isolate(), null);
+  s.page.run("setView('graph')");
+  assert.strictEqual(s.isolate(), null);
+  s.page.run("setView('board')");
+  assert.deepStrictEqual(s.isolate(), { previous: 'review:', following: true });
+});
+
 test('the Typing isolates choice of a view is set by its checkbox, kept per board, and read back', async () => {
   const s = await open({ typing: true });
   const change = (view, checked) => s.page.run(`onTypingIsolatesChange({ target: { closest: () => ({ dataset: { typingView: '${view}' }, checked: ${checked} }) } })`);

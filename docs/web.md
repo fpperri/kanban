@@ -416,7 +416,9 @@ It is on in every view but the Graph, which lights what is typed and hides nothi
 box lights its matches with the look of a selected card, hides nothing, and selects nothing; the switch or
 `i` still isolates the query as it stands. The choice is kept in your browser, per board. Isolate turned on
 this way gives back the box's text as it stands when you turn it off, so the query stays in the box, lit,
-and the next Esc clears it; going to a view where the checkbox is off does the same. A `slice:` cut hides
+and the next Esc clears it; going to a view where the checkbox is off does the same, and coming back to a view where it
+is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch
+or `i` stays through the switches. A `slice:` cut hides
 in every view whatever Isolate is.
 
 **Notifications inbox** — the header bell surfaces messages agents leave in
