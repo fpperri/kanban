@@ -70,7 +70,7 @@ test('the old wording, that a hover always lights one card\'s relations, is gone
 
 test('the snapshot skill says it has no hover set, and the glossary names On hover show', () => {
   assert.match(snapshotSkill, /\*\*No hover set\.\*\* kanban-web's panel has an \*On hover show\* section, six checkboxes that choose which sets a hover or a keyboard focus lights on a card, per board and per kind of Graph\. This page has none: a tap hovers nothing/);
-  assert.match(glossary, /\*\*On hover show\*\*: The search panel's choice of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads\./);
+  assert.match(glossary, /\*\*On hover show\*\*: The choice, made in the search panel and in the Graph's option panel \(one choice, shown in both\), of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads\./);
 });
 
 test('the search panel\'s markup has the section, the six boxes in the panel\'s order, and the note that names whose choice it is', () => {
@@ -87,4 +87,25 @@ test('the search panel\'s markup has the section, the six boxes in the panel\'s 
   assert.ok(scripts.indexOf('explore-sets.js') < scripts.indexOf('hover-show.js'), 'the sets load before the module that reads them');
   assert.ok(scripts.indexOf('hover-show.js') < scripts.indexOf('hover-show-ui.js'));
   assert.ok(scripts.indexOf('hover-show-ui.js') < scripts.indexOf('app.js'));
+});
+
+test('docs/web.md says the Graph\'s option panel has the same six under On hover, as one choice with the search panel\'s boxes', () => {
+  assert.match(webDoc, /The Graph's option panel, on the right of the drawing, has the same six under \*\*On hover\*\*, as toggles in the style of its other switches, in the Hierarchy and in the Flow, below Dependencies and Lanes/);
+  assert.match(webDoc, /The toggles and the search panel's boxes are one choice: change it in either and the other shows it at once, and a card hovered at that moment lights again with no reload/);
+  assert.match(webDoc, /The toggles show the choice of the kind of Graph the panel is for, so the Hierarchy and the Flow keep their own/);
+  assert.match(webDoc, /The other views have no option panel, so the search panel is where they set it; `Space` writes the terms of whatever is ticked, wherever it was ticked/);
+});
+
+test('the web skill\'s On hover show bullet names the Graph panel\'s section, its builder, its keys and how the two places stay in step', () => {
+  const start = webSkill.indexOf('- **On hover show**');
+  const bullet = webSkill.slice(start, webSkill.indexOf('- **Speedbumps**', start));
+  assert.match(bullet, /The Graph's option panel has the same six as an \*\*On hover\*\* section \(`graphBuildHoverRow` in `graph-view\.js`, a `div\.graph-hover-options` after the Hierarchy's option row or the Flow's switches, drawn by `graphBuildSwitch` with `\.graph-option-btn\[data-key=hover\]\[data-val=<set>\]` and `aria-pressed` on each set the choice of that kind of Graph ticks\)/);
+  assert.match(bullet, /Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls `syncHoverShowPanel` before `refreshHover`, and `syncHoverShowPanel` sets the boxes and the toggles from the choice that applies, so each shows a change made in the other at once and a card hovered at that moment lights again/);
+});
+
+test('the Graph\'s option panel builds the section from the pure module\'s six sets, last in the panel', () => {
+  const src = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
+  assert.match(src, /function graphBuildHoverRow\(kind\)/);
+  assert.match(src, /graphBuildSwitch\(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_KINDS, /);
+  assert.match(src, /panel\.appendChild\(graphBuildHoverRow\(kind\)\)/);
 });
