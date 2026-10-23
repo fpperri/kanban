@@ -102,6 +102,8 @@ const heightsHold = (a, b) => {
   };
 };
 
+const { openPanel } = require('../panel');
+
 module.exports = {
   name: 'fan-name-rows',
   board: 'plan',
@@ -145,6 +147,7 @@ module.exports = {
       await ev('window.__stale=true');
       await open('/?view=graph', boardKey);
       await waitFor('!window.__stale', 10000);
+      await openPanel(page);
       return waitFor(`${DRAWN}&&${TIERS_PRESSED}`, 10000);
     };
     const frame = () => ev(frames);
