@@ -1642,7 +1642,10 @@ to `127.0.0.1` only.
   Graph's option panel has the same six as an **On hover** section (`graphBuildHoverRow` in `graph-view.js`, a
   `div.graph-hover-options` after the Hierarchy's option row or the Flow's switches, drawn by `graphBuildSwitch` with
   `.graph-option-btn[data-key=hover][data-val=<set>]` and `aria-pressed` on each set the choice of that kind of Graph
-  ticks). Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls
+  ticks). Both places stand in `HOVER_SHOW_GRID` (`hover-show.js`), two columns by three rows read across, the h sets
+  left and the d sets right, links then path then tree (`.hover-kinds` in `app.html` and the grid on `.graph-option-seg`
+  in `app.css`); only the display, since the stored list and the terms Space writes keep `HOVER_SHOW_KINDS`' order.
+  Its click handler calls `hoverShowPick` and does not redraw the Graph; `hoverShowPick` calls
   `syncHoverShowPanel` before `refreshHover`, and `syncHoverShowPanel` sets the boxes and the toggles from the choice
   that applies, so each shows a change made in the other at once and a card hovered at that moment lights again.
   The snapshot has no hover and no such section. **Space takes the hover**: `onHoverSpaceKey` (`hover-show-ui.js`), one

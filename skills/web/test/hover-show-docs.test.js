@@ -79,7 +79,8 @@ test('the search panel\'s markup has the section, the six boxes in the panel\'s 
   assert.ok(section.length > 0, 'the fieldset is there');
   assert.match(section, /<legend>On hover show <span id="search-hover-for"[^>]*><\/span><\/legend>/);
   const kinds = [...section.matchAll(/<input type="checkbox" data-hover-kind="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepStrictEqual(kinds, ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks']);
+  assert.deepStrictEqual(kinds, ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'], 'two columns by three rows read across: h left, d right; links, path, tree');
+  assert.match(section, /<div class="hover-kinds">/);
   assert.ok(html.indexOf('id="search-foot"') < html.indexOf('<fieldset id="search-hover"'), 'it sits under the foot');
   assert.ok(html.indexOf('<fieldset id="search-hover"') < html.indexOf('<div class="actions">'), 'and inside the panel');
   assert.match(html.slice(html.indexOf('<fieldset id="search-hover"'), html.indexOf('<fieldset id="search-hover"') + 80), /data-keeps-selection/, 'a click on it never clears a selection');
@@ -106,6 +107,13 @@ test('the web skill\'s On hover show bullet names the Graph panel\'s section, it
 test('the Graph\'s option panel builds the section from the pure module\'s six sets, last in the panel', () => {
   const src = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
   assert.match(src, /function graphBuildHoverRow\(kind\)/);
-  assert.match(src, /graphBuildSwitch\(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_KINDS, /);
+  assert.match(src, /graphBuildSwitch\(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_GRID, /);
   assert.match(src, /panel\.appendChild\(graphBuildHoverRow\(kind\)\)/);
+});
+
+test('docs/web.md and the web skill say both places lay the six out as two columns by three rows, and that it is only the display', () => {
+  assert.match(webDoc, /Both places lay the six out as a grid of two columns and three rows, read across: `hlinks` and `dlinks`, `hpath` and `dpath`, `htree` and `dtree`, the h sets on the left and the d sets on the right\. That is only how they are shown: the choice is kept as before, and `Space` writes the terms in the order it always did/);
+  const start = webSkill.indexOf('- **On hover show**');
+  const bullet = webSkill.slice(start, webSkill.indexOf('- **Speedbumps**', start));
+  assert.match(bullet, /Both places stand in `HOVER_SHOW_GRID` \(`hover-show\.js`\), two columns by three rows read across, the h sets left and the d sets right, links then path then tree \(`\.hover-kinds` in `app\.html` and the grid on `\.graph-option-seg` in `app\.css`\); only the display, since the stored list and the terms Space writes keep `HOVER_SHOW_KINDS`' order/);
 });

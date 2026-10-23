@@ -408,6 +408,7 @@ button:hover { background: var(--btn-hover); }
 .search-hover { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; padding: 0 6px; border: 0; min-width: 0; font-size: 0.85em; color: var(--ink); }
 .search-hover legend { float: left; margin-right: 12px; padding: 0; color: var(--mut); font-size: 0.92em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .search-hover-for { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.hover-kinds { display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 18px; }
 .hover-kind { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
 .hover-kind input { width: auto; margin: 0; }
 .hover-kind input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -1514,6 +1515,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .view-panel .map-option-seg, .view-panel .graph-option-seg { flex-wrap: wrap; gap: 4px; border: none; overflow: visible; }
 .view-panel .map-option-btn, .view-panel .graph-option-btn { border: 1px solid var(--line); border-radius: .15rem; }
 .view-panel .graph-hover-options { margin-top: 10px; }
+.view-panel .graph-hover-options .graph-option-seg { display: grid; grid-template-columns: repeat(2, max-content); }
 @media (max-width: 759.98px) {
   .view-panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; width: 100%; max-height: 50%; padding-top: 44px; border-left: none; border-top: 1px solid var(--line); box-shadow: var(--shadow-pop); }
   .view-panel-close { display: block; }

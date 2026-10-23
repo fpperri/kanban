@@ -337,6 +337,10 @@ again with no reload. The toggles show the choice of the kind of Graph the panel
 keep their own. The other views have no option panel, so the search panel is where they set it; `Space` writes the
 terms of whatever is ticked, wherever it was ticked.
 
+Both places lay the six out as a grid of two columns and three rows, read across: `hlinks` and `dlinks`, `hpath` and
+`dpath`, `htree` and `dtree`, the h sets on the left and the d sets on the right. That is only how they are shown: the
+choice is kept as before, and `Space` writes the terms in the order it always did.
+
 **Space takes the hover.** With a card hovered, else focused, `Space` writes the sets *On hover show* ticks for it
 into the search box as alternatives (`dlinks:12 | hlinks:12`), the box's run of slices kept and isolate as it was.
 Unlike typing, that write never turns isolate on: outside the Graph the box lights the cards it names, or hides the

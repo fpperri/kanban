@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
-const { hoverShowIds, hoverShowTiles, hoverShowDefaults, hoverShowTerms, HOVER_SHOW_KINDS } = require('../web/hover-show');
+const { hoverShowIds, hoverShowTiles, hoverShowDefaults, hoverShowTerms, HOVER_SHOW_KINDS, HOVER_SHOW_GRID } = require('../web/hover-show');
 const { graphBuild, graphNeighbours } = require('../web/graph-model');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
@@ -39,6 +39,7 @@ test('the scenario is in the runner, on the plan board, and its sets are the six
   assert.strictEqual(hover.board, 'plan');
   assert.ok(hover.timeoutMs >= 60000, 'it opens the page a dozen times, each waiting on the page');
   assert.deepStrictEqual(hover.CASES.kinds, HOVER_SHOW_KINDS);
+  assert.deepStrictEqual(hover.CASES.grid, HOVER_SHOW_GRID, 'the grid the scenario expects in both places');
   assert.deepStrictEqual(hover.CASES.hierarchy, hoverShowDefaults().hierarchy);
   assert.deepStrictEqual(hover.CASES.flow.kinds, hoverShowDefaults().flow);
 });
@@ -138,6 +139,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'the Board draws the plan board',
     'the panel opens with the box focused',
     'the panel has the six sets, dlinks and hlinks ticked, and says the choice is the Hierarchy\'s and the other views\'',
+    'the six boxes stand in two columns by three rows, the h sets left and the d sets right, links then path then tree',
     'on the Board, with nothing chosen, hovering a card gives it and its one-hop relations the hover look',
     'leaving the card clears the hover look',
     'ticking another set while a card is hovered lights the union of the three at once',
@@ -162,6 +164,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'and still reads the Hierarchy\'s choice, not the Flow\'s',
     'the Hierarchy draws the plan board',
     'its side panel has the six sets under On hover, and shows the choice kept for the Hierarchy',
+    'the side panel toggles stand in the same grid: two columns by three rows, the h sets left and the d sets right',
     'with the dot hovered the choice lights what it did',
     'three presses in the side panel make the choice dtree and hpath, and light their union with the dot still hovered, no reload and no new hover',
     'the search panel shows the same two sets ticked',

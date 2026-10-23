@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  HOVER_SHOW_KINDS, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms,
+  HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms,
 } = require('../web/hover-show');
 
 const set = (ids) => new Set(ids);
@@ -20,6 +20,16 @@ const BOARD = [
   { id: '9', status: 'todo', waiting_for: ['5'] },
   { id: '10', status: 'todo' },
 ];
+
+test('the grid the six are shown in is two columns by three rows read across, the h sets left and the d sets right, links, path, tree: a permutation of the six that is not the stored order', () => {
+  assert.deepStrictEqual(HOVER_SHOW_GRID, ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree']);
+  assert.deepStrictEqual([...HOVER_SHOW_GRID].sort(), [...HOVER_SHOW_KINDS].sort());
+  assert.deepStrictEqual(HOVER_SHOW_GRID.filter((_, i) => i % 2 === 0).map((k) => k[0]), ['h', 'h', 'h']);
+  assert.deepStrictEqual(HOVER_SHOW_GRID.filter((_, i) => i % 2 === 1).map((k) => k[0]), ['d', 'd', 'd']);
+  assert.notDeepStrictEqual(HOVER_SHOW_GRID, HOVER_SHOW_KINDS);
+  assert.strictEqual(hoverShowTerms(HOVER_SHOW_GRID, '7'), 'dtree:7 | htree:7 | dpath:7 | hpath:7 | dlinks:7 | hlinks:7', 'the terms Space writes keep the stored order, whatever order the sets are listed in');
+  assert.deepStrictEqual(mergeHoverShow({ hierarchy: HOVER_SHOW_GRID, flow: [] }).hierarchy, HOVER_SHOW_KINDS, 'and so does the stored list');
+});
 
 test('the six sets, in the panel\'s order, and the two graph kinds that keep their own choice', () => {
   assert.deepStrictEqual(HOVER_SHOW_KINDS, ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks']);

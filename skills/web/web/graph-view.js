@@ -452,14 +452,15 @@ function graphBuildFlowRow(deps, lanes) {
   return row;
 }
 
-// The On hover section: the six sets as toggles, any mix, the choice of this kind of Graph (hover-show.js).
+// The On hover section: the six sets as toggles in two columns, any mix, the choice of this kind of Graph
+// (hover-show.js; HOVER_SHOW_GRID is the order they stand in).
 // A press edits the one choice the search panel's boxes edit (hoverShowPick, hover-show-ui.js), which
 // hands the buttons their new state without a redraw.
 function graphBuildHoverRow(kind) {
   const row = document.createElement('div');
   row.className = 'graph-hover-options';
   row.dataset.keepsSelection = '';
-  row.appendChild(graphBuildSwitch(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_KINDS, hoverShowLoad()[hoverShowGraph('graph', kind)]));
+  row.appendChild(graphBuildSwitch(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_GRID, hoverShowLoad()[hoverShowGraph('graph', kind)]));
   return row;
 }
 

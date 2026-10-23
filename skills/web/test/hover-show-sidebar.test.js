@@ -33,6 +33,7 @@ const makeBoard = () => ({
 
 const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
 const KINDS = ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks'];
+const GRID = ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'];
 const KEY = 'kanban.kanban.hover.show';
 const ids = (set) => [...set].map(Number).sort((a, b) => a - b);
 
@@ -71,7 +72,7 @@ async function open({ layout = null, stored = {} } = {}) {
     page, boxes, calls, stored: all,
     group: () => byClass(host, 'graph-option').find((g) => byClass(g, 'graph-option-label')[0].textContent === 'On hover') || null,
     buttons,
-    ticked: () => buttons().filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.val),
+    ticked: () => KINDS.filter((k) => buttons().some((b) => b.dataset.val === k && b.getAttribute('aria-pressed') === 'true')),
     boxesTicked: () => boxes.filter((b) => b.checked).map((b) => b.dataset.hoverKind),
     press(kind) {
       const el = matcher(buttons().find((b) => b.dataset.val === kind));
@@ -90,12 +91,12 @@ async function open({ layout = null, stored = {} } = {}) {
   return s;
 }
 
-test('the Graph\'s side panel has an On hover section of six toggles, in the search panel\'s order', async () => {
+test('the Graph\'s side panel has an On hover section of six toggles, laid out as a grid of two columns and three rows', async () => {
   const s = await open();
   const group = s.group();
   assert.ok(group, 'the section is there');
-  assert.deepStrictEqual(byClass(group, 'graph-option-btn').map((b) => b.textContent), KINDS);
-  assert.deepStrictEqual(byClass(group, 'graph-option-btn').map((b) => `${b.dataset.key}=${b.dataset.val}`), KINDS.map((k) => `hover=${k}`));
+  assert.deepStrictEqual(byClass(group, 'graph-option-btn').map((b) => b.textContent), GRID, 'h sets left, d sets right, links, path, tree');
+  assert.deepStrictEqual(byClass(group, 'graph-option-btn').map((b) => `${b.dataset.key}=${b.dataset.val}`), GRID.map((k) => `hover=${k}`));
   assert.ok(group.title.length > 20, 'it explains itself in a tooltip');
   for (const b of s.buttons()) {
     assert.strictEqual(b.dataset.keepsSelection, '', `${b.dataset.val} keeps the selection`);
@@ -112,7 +113,7 @@ test('the toggles show the Hierarchy\'s choice there: dlinks and hlinks at first
 test('in the Flow the section is there too, and shows the Flow\'s own choice: dlinks alone at first', async () => {
   const s = await open({ layout: 'flow' });
   assert.ok(s.group());
-  assert.deepStrictEqual(s.buttons().map((b) => b.dataset.val), KINDS);
+  assert.deepStrictEqual(s.buttons().map((b) => b.dataset.val), GRID);
   assert.deepStrictEqual(s.ticked(), ['dlinks']);
 });
 
