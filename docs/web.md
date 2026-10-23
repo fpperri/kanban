@@ -165,7 +165,7 @@ the first ring drawn; each tree gets its
 own sector, loose cards with a tier share
 one, and the other loose cards sit in an Unnested block outside the fan, a
 column for each status, when the Unnested option is table (by default they are on a ring
-outside the fan: see the option row below). Each band has a faint arc and a caption with its name
+outside the fan: see the option row below). A parent's children on one ring sit side by side, in the order the Order option shows: the children a parent has on a ring form one unbroken run among its children on that ring or nearer the centre, standing where the first of them falls, so no card of another parent sits on that ring between them, and a run on a ring further out may sit inside a nearer ring's run, between two of its cards; a parent whose children are all on one ring is laid out in that order alone. Each band has a faint arc and a caption with its name
 up the seam at the top, there is a divider between sectors, and the Unnested
 block is titled and each column is captioned with its status. Each tier band that
 holds a card is washed in its type's colour, a neutral wash when the type has none,

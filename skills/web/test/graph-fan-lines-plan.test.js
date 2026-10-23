@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphLayout, graphPlan, graphLit, graphRestLit, graphFanLines, graphFanBus, graphFanMarks, graphRadius,
+  graphLayout, graphLayoutHierarchy, graphPlan, graphLit, graphRestLit, graphFanLines, graphFanBus, graphFanMarks, graphRadius,
   GRAPH_FAN_REACH, GRAPH_FAN_BUS_BESIDE, GRAPH_FAN_STEM_MARGIN,
 } = require('../web/graph-model');
 const { card, buildOf } = require('./helpers/fan-boards');
@@ -251,17 +251,40 @@ test('the stem of a parent among its children meets the arc in the gap nearest i
 
 // Card 1 stands at the angle of its strategy 4, itself at the middle of its three children 5 to 7,
 // and the goal's four untyped children 2, 3, 8 and 9 are on the ring those three share: a goal's
-// stem along its own ray would run through card 4's mark and end beside card 6.
+// stem along its own ray would run through card 4's mark and end beside card 6. The fan no
+// longer seats cards so, for it keeps the goal's four children side by side (graph-fan-ring-runs),
+// so the seats are written out here, the ring's seven angles dealt out in the order 2, 3, 5, 6, 7,
+// 8, 9 and card 4 put at the middle of its children; only the bracket's stem is under test.
 const crossed = () => buildOf([
   card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { type: 'strategy', parent: 1 }),
   card(5, { parent: 4 }), card(6, { parent: 4 }), card(7, { parent: 4 }), card(8, { parent: 1 }), card(9, { parent: 1 }),
 ]);
+const crossedLayout = (model) => {
+  const fan = graphLayoutHierarchy(model, { statuses: STATUSES, order: 'status' });
+  const seats = ['2', '3', '5', '6', '7', '8', '9'];
+  const angles = seats.map((id) => fan.polar.get(id).a).sort((x, y) => y - x);
+  const polar = new Map(fan.polar);
+  const pos = new Map(fan.pos);
+  const put = (id, a) => {
+    const { r } = fan.polar.get(id);
+    polar.set(id, { a, r });
+    pos.set(id, { x: Math.cos(a) * r, y: Math.sin(a) * r });
+  };
+  seats.forEach((id, i) => put(id, angles[i]));
+  put('4', angles[3]);
+  return { ...fan, polar, pos };
+};
+const withCrossed = (model) => {
+  const layout = crossedLayout(model);
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan: { ...DEFAULTS, order: 'status' } });
+  return { layout, plan };
+};
 const reachOf = (model, id) => graphRadius(model.byId.get(id)) * GRAPH_FAN_REACH;
 const countedOf = (model, layout, from) => graphFanLines(model, layout.places, { ...DEFAULTS, lines: 'all' }).find((l) => l.kids && l.from === from);
 
 test('no stem ends within a child\'s reach of a child, and every stem keeps its margin clear of every mark but its parent\'s', () => {
   const model = crossed();
-  const { layout, plan } = withLines(model, {});
+  const { layout, plan } = withCrossed(model);
   const brackets = plan.links.filter((l) => l.count !== undefined);
   assert.deepStrictEqual(brackets.map((l) => [l.from, l.count]).sort(), [['1', 4], ['4', 3]]);
   assert.ok(same(layout.polar.get('1').a, layout.polar.get('4').a) && same(layout.polar.get('4').a, layout.polar.get('6').a), 'cards 1, 4 and 6 stand on one ray');
@@ -282,7 +305,7 @@ test('no stem ends within a child\'s reach of a child, and every stem keeps its 
 
 test('a stem takes the nearest gap whose line is clear, and the next nearest when a mark is in the way', () => {
   const model = crossed();
-  const { layout } = withLines(model, {});
+  const { layout } = withCrossed(model);
   const line = countedOf(model, layout, '1');
   const parent = layout.polar.get('1').a;
   const free = stemOf(graphFanBus(layout, line, false, []));
@@ -294,7 +317,7 @@ test('a stem takes the nearest gap whose line is clear, and the next nearest whe
 
 test('a bracket with no clear gap takes the nearest gap', () => {
   const model = crossed();
-  const { layout } = withLines(model, {});
+  const { layout } = withCrossed(model);
   const wall = [{ id: 'wall', x: 0, y: 0, clear: 1e6 }];
   const s = stemOf(graphFanBus(layout, countedOf(model, layout, '1'), false, wall));
   assert.ok(same(angleOf(s.ex, s.ey), layout.polar.get('1').a));
