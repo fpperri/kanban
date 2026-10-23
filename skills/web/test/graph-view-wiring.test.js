@@ -180,12 +180,12 @@ test('a click on a node is caught in the capture phase whatever the modifier, wr
   assert.ok(!/renderBoard|renderGraphView/.test(click + paint), 'painted in place, no rebuild');
 });
 
-test('a double click opens the card, Enter opens and Space selects', () => {
+test('a double click opens the card, Enter opens and Ctrl+Space selects', () => {
   const body = fn('wireGraphView');
   assert.match(body, /host\.addEventListener\('dblclick'[\s\S]*?openCard\(node\.dataset\.id\)/);
   assert.match(body, /host\.addEventListener\('keydown'/);
   assert.match(body, /e\.key === 'Enter'\) \{ e\.preventDefault\(\); if \(!e\.repeat\) openCard\(/);
-  assert.match(body, /e\.key === ' '\) \{ e\.preventDefault\(\); graphClickNode\(node\.dataset\.id, \{\}\); \}/, 'Space acts as a plain click');
+  assert.match(body, /hotkeySpace\(e\) === 'select'\) \{ e\.preventDefault\(\); graphClickNode\(node\.dataset\.id, \{\}\); return; \}/, 'Ctrl+Space acts as a plain click');
 });
 
 test('a lone selected card keeps its relations lit and a selection lights its cards; hover is temporary and render re-applies the rest focus', () => {

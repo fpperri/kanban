@@ -87,7 +87,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), typing =
     nodeClick: (id, m = {}) => elements['#graph-view'].fire('click', nodeEvent(id, m)),
     nodeDoubleClick: async (id) => { elements['#graph-view'].fire('dblclick', nodeEvent(id)); await page.settle(); },
     nodeEnter: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: 'Enter' })); await page.settle(); },
-    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ' })); await page.settle(); },
+    nodeSpace: async (id) => { elements['#graph-view'].fire('keydown', nodeEvent(id, { key: ' ', ctrlKey: true })); await page.settle(); },
     close: async () => { session.close.fire('click'); await page.settle(); },
   };
   return s;
@@ -290,7 +290,7 @@ test('a plain click on a card in the Graph, which paints in place, takes the pil
   assert.deepStrictEqual(s.chip(), { hidden: true, text: '' }, 'the chip counts nothing, as the box and the selection say');
 });
 
-test('Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
+test('Ctrl+Space on a focused card in the Graph, which acts as a plain click, takes the pill off the chip too', async () => {
   const s = await open({ view: 'graph' });
   s.pillClick('review');
   assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' });

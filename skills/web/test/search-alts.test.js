@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt } = require('../web/search');
+const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt, searchWithTerms } = require('../web/search');
 
 // Growing and shrinking the box by one alternative: the search module's term
 // interface for a pill added to a selection with Shift. The box is a list of
@@ -132,4 +132,26 @@ test('unclosed quotes and brackets never throw, and are shut where text is writt
   assert.doesNotThrow(() => searchHasAlt('a)', 'blocked:'));
   const grown = searchAddAlt('title:"two wo', 'blocked:');
   assert.deepStrictEqual(parseSearchQuery(grown)[0].alts.map((alt) => alt.length), [1, 1], 'the half-typed quote does not swallow the alternative');
+});
+
+// --- a pick writes terms: Space on a hovered card and Explore's Path and Tree ---------------------------
+
+test('searchWithTerms replaces what the box held but for its run of slices, and keeps the slices where they were', () => {
+  assert.strictEqual(searchWithTerms('', 'dlinks:12 | hlinks:12', false), 'dlinks:12 | hlinks:12');
+  assert.strictEqual(searchWithTerms('tags:ui zephyr', 'dlinks:12 | hlinks:12', false), 'dlinks:12 | hlinks:12');
+  assert.strictEqual(searchWithTerms('tags:ui slice:goal', 'dlinks:12', false), 'dlinks:12 slice:goal');
+  assert.strictEqual(searchWithTerms('slice:goal', 'dlinks:12', false), 'dlinks:12 slice:goal', 'a box holding only a cut takes the terms beside it');
+});
+
+test('with add the terms join what the box holds as more alternatives, an empty box takes them as a plain write does', () => {
+  assert.strictEqual(searchWithTerms('dlinks:12 | hlinks:12', 'dlinks:7 | hlinks:7', true), 'dlinks:12 | hlinks:12 | dlinks:7 | hlinks:7');
+  assert.strictEqual(searchWithTerms('tags:ui', 'dlinks:12', true), 'tags:ui | dlinks:12');
+  assert.strictEqual(searchWithTerms('', 'dlinks:12 | hlinks:12', true), searchWithTerms('', 'dlinks:12 | hlinks:12', false));
+  assert.strictEqual(searchWithTerms('slice:goal', 'dlinks:12', true), searchWithTerms('slice:goal', 'dlinks:12', false), 'a cut alone is no query to add to');
+  assert.strictEqual(searchWithTerms('tags:ui slice:goal', 'dlinks:12', true), '(tags:ui | dlinks:12) slice:goal', 'the cut stays, beside the bracketed alternatives');
+});
+
+test('adding terms the box already holds changes nothing', () => {
+  assert.strictEqual(searchWithTerms('dlinks:12 | hlinks:12', 'dlinks:12 | hlinks:12', true), 'dlinks:12 | hlinks:12');
+  assert.strictEqual(searchWithTerms('hlinks:12 | dlinks:12', 'dlinks:12 | hlinks:12', true), 'hlinks:12 | dlinks:12');
 });

@@ -67,7 +67,7 @@ test('the sheet script asks the shared key guard and the list\'s own check for t
   assert.match(sheetSrc.match(/function onHotkeysKey\([\s\S]*?\n\}/)[0], /hotkeyIsHelp\(e\)/);
   assert.match(sheetSrc.match(/function onHotkeysKey\([\s\S]*?\n\}/)[0], /keyGuardOff\(document\)/);
   assert.doesNotMatch(sheetSrc, /\.style\b|style=|setAttribute\('style'|innerHTML|insertAdjacentHTML|\.onclick|\.onkeydown/);
-  assert.doesNotMatch(listSrc, /\bdocument\b|\bwindow\.(?!HOTKEYS|hotkeyRows|hotkeyIsHelp)/, 'the list is pure: it touches the page only to export itself');
+  assert.doesNotMatch(listSrc, /\bdocument\b|\bwindow\.(?!HOTKEYS|hotkeyRows|hotkeyIsHelp|hotkeySpace)/, 'the list is pure: it touches the page only to export itself');
 });
 
 test('? opens the sheet through the page\'s own open, not a second path, on its Hotkeys page', () => {

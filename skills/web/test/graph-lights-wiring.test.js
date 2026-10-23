@@ -356,10 +356,10 @@ test('the click that clears the box is a write to it like any other: the address
   assert.deepStrictEqual(told, [['', 'selection']]);
 });
 
-test('Space on a focused card acts as a plain click, and so clears the box too', async () => {
+test('Ctrl+Space on a focused card acts as a plain click, and so clears the box too', async () => {
   const s = await open();
   s.type('tags:ui');
-  s.graphHost.fire('keydown', nodeEvent(1, { key: ' ' }));
+  s.graphHost.fire('keydown', nodeEvent(1, { key: ' ', ctrlKey: true }));
   assert.strictEqual(s.box(), '');
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
 });
