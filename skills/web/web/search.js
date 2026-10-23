@@ -659,6 +659,22 @@ function searchIsolateBox(previous, parts) {
   return searchJoinSlice(text, searchSplitSlice(previous).slices);
 }
 
+// What the box holds when a click, or a step of Esc, has left the selection as `parts` and isolate is
+// off: the isolate text of the parts, the box's run of slices kept (the cut is no selection). The
+// box mirrors the selection, it does not become a query typed: a part that is one query is written
+// as it was typed, in no bracket, so a step down to it leaves the box as the person wrote it; the
+// slices a query part carries are the box's run already, so they are not written twice. `dropped`
+// are the queries of the pills the click took off: a cut such a pill held in its own query goes with
+// it, one copy only, as when the pill is turned off (searchWithoutCuts). Nothing selected leaves the
+// cut alone.
+function searchMirrorBox(current, parts, dropped) {
+  const held = searchSplitSlice(current).slices;
+  const slices = searchWithoutCuts(held, (dropped || []).flatMap((query) => searchSplitSlice(query).slices));
+  const shown = (Array.isArray(parts) ? parts : []).map((part) => (part && part.kind === 'query' ? { ...part, text: searchSplitSlice(part.text).rest } : part));
+  const lone = shown.length === 1 && shown[0].kind === 'query';
+  return searchJoinSlice(lone ? String(shown[0].text).trim() : searchIsolateText(shown), slices);
+}
+
 // What the box holds when isolate goes off: the text it held before, exactly as it was,
 // except that the run of slices is the one the box holds now, since the slice section may
 // have moved it while isolated and the cut is not part of what isolate takes away. A cut
@@ -932,7 +948,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
-    searchIsolateText, searchIsolateBox, searchIsolateRestore,
+    searchIsolateText, searchIsolateBox, searchMirrorBox, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
@@ -955,5 +971,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchCutOnly = searchCutOnly;
   window.searchIsolateText = searchIsolateText;
   window.searchIsolateBox = searchIsolateBox;
+  window.searchMirrorBox = searchMirrorBox;
   window.searchIsolateRestore = searchIsolateRestore;
 }

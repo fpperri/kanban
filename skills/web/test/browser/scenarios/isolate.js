@@ -4,7 +4,8 @@
 //
 // The Graph. Dependency path on card 4 from its menu writes `dpath:4` into the box as typed text,
 // which lights the path and is the anchor of the selection; a Shift+click on two loose cards and on
-// the grill pill add to it. The switch writes `dpath:4 | #a | #b | tags:"grill"` into the box, and
+// the grill pill add to it, the box showing each card as it is added (a click writes the selection into
+// the box while isolate is off). The switch writes `dpath:4 | #a | #b | tags:"grill"` into the box, and
 // only the cards of that selection are drawn (the path 3 and 4, the two cards and the grill card 8). The
 // switch reports on to assistive technology. The first Esc closes the panel; with the panel
 // closed the chip says isolated. A click on a shown card moves the anchor and leaves the box and
@@ -14,7 +15,8 @@
 // The views. Three Ctrl+clicks on the Board pick two loose cards and the card dated in June 2031
 // (28), and the i key writes `#17 | #14 | #28`. The Board, the Map and the Graph show those three
 // cards; the Gantt lists the dated one; the Calendar, entered with isolate on, jumps to the month of
-// the 2031 card and draws it. With only the 2031 card picked and the Calendar showing the page's own
+// the 2031 card and draws it. With only the 2031 card picked, the box emptied by its clear button (the
+// click's own text would make the Calendar jump on entering) and the Calendar showing the page's own
 // current month, the i key jumps it to June 2031. In every view the selection's parts, the box and
 // the switch are as they were; the cards the selection reaches are the picked ones the view draws,
 // so the Gantt and the Calendar, which draw only the dated cards, reach the 2031 card alone.
@@ -22,7 +24,8 @@
 //
 // The box's text and Esc. The Board is set to light what is typed (its Typing isolates off, since a
 // Board that isolates by itself has typing turn isolate on, which the isolate-typing scenario drives):
-// a search typed in the box (`zephyr`) lights its cards and hides none, and two of them are picked.
+// two cards are picked, which writes `#1 | #2` into the box, and a search typed over it (`zephyr`) lights
+// its cards and hides none.
 // The switch writes `#1 | #2`; the first Esc closes the panel and leaves isolate
 // on, the second turns it off and the box holds `zephyr` again, lit. The i key, then Esc with focus
 // outside the box, does the same; the next Esc drops the addition. The switch clicked off gives
@@ -105,6 +108,12 @@ module.exports = {
       return opened && await waitFor(panelOpen);
     };
     const focusBoxAtEnd = () => ev(`(()=>{const i=document.getElementById('search-input');i.blur();i.setSelectionRange(i.value.length,i.value.length);i.focus()})()`);
+    // Types over whatever the box holds, as a person does with the text selected.
+    const typeOver = async (text) => {
+      await focusBoxAtEnd();
+      await ev(`document.getElementById('search-input').select()`);
+      await send('Input.insertText', { text });
+    };
     const blur = () => ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
     const focusId = () => ev(`document.activeElement&&document.activeElement.id`);
     const clickOn = async (selector, extra = {}) => {
@@ -163,6 +172,7 @@ module.exports = {
     check('the box is the anchor of the selection, the way typed text is', same(await parts(), { anchor: `query:${CASES.pathKind}:${CASES.pathOf}`, additions: [] }), await parts());
     await clickDot(a, { modifiers: 8 });
     await clickDot(b, { modifiers: 8 });
+    check('each Shift+click writes its card into the box beside the typed path, and the path stays the typed anchor', await boxIs(`${CASES.pathKind}:${CASES.pathOf} | #${a} | #${b}`) && same(await parts(), { anchor: `query:${CASES.pathKind}:${CASES.pathOf}`, additions: [`card:${a}`, `card:${b}`] }), { box: await boxText(), parts: await parts() });
     await openPanel();
     await clickOn(pillSel(CASES.pill.label), { modifiers: 8 });
     check('a Shift+click on the grill pill adds its card, and the typed path stays in the box', await pickedIs(wanted) && (await boxText()).startsWith(`${CASES.pathKind}:${CASES.pathOf}`), { picked: await ev(`[...selectedIds]`), box: await boxText() });
@@ -197,7 +207,7 @@ module.exports = {
     await blur();
     await escape();
     check('Esc with focus outside the box turns isolate off, and every card is drawn again', await switchIs(false) && await waitFor(`new Set([...document.querySelectorAll('.graph-node')].map((n)=>n.dataset.id)).size===${total}`), { box: await boxText(), dots: await ev(`document.querySelectorAll('.graph-node').length`) });
-    check('and gives the box back its earlier text, the typed path with the pill added, leaving the anchor where the click put it', (await boxText()) === `${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}` && await pickedIs([moved]) && await chipHidden(), { box: await boxText(), chip: await chip() });
+    check('and gives the box back its earlier text, the path, the two cards and the pill the clicks wrote, leaving the anchor where the click put it', (await boxText()) === wantedText && await pickedIs([moved]) && await chipHidden(), { box: await boxText(), chip: await chip() });
 
     // --- the views, with the i key ------------------------------------------------------------------
     check('the Board draws the plan board', await goto('/?view=board', boardReady));
@@ -227,12 +237,15 @@ module.exports = {
     await press('graph-toggle-btn');
     check('the Board shows the same cards after the round', await waitFor(viewShown('#board')) && await shows(SELECTORS.board, sorted(...CASES.dated.picked)), await nowShown(SELECTORS.board));
     await key('i');
-    check('the i key turns isolate off, and the Board has every live card again', await boxIs('') && await switchIs(false) && await waitFor(`document.querySelectorAll('#board .card-el').length>20`));
+    check('the i key turns isolate off, the box shows the picked cards as the clicks wrote them, and the Board has every live card again', await boxIs(datedText) && await switchIs(false) && await waitFor(`document.querySelectorAll('#board .card-el').length>20`));
 
     // --- the Calendar jumps to the isolated card's month, from the Calendar ----------------------------------------
     check('the Board draws the plan board again', await goto('/?view=board', boardReady));
     await clickTile(CASES.dated.card, { modifiers: 2 });
     await pickedIs([CASES.dated.card]);
+    check('the click wrote the card into the box', await boxIs(`#${CASES.dated.card}`), await boxText());
+    await ev(`document.getElementById('search-clear-btn').click()`);
+    check('and the clear button empties the box and leaves the card picked', await boxIs('') && await pickedIs([CASES.dated.card]));
     await press('calendar-toggle-btn');
     const [year, monthIndex] = await ev(`(()=>{const d=new Date();return [d.getFullYear(),d.getMonth()]})()`);
     check('the Calendar opens on the page\'s own current month, whatever is selected', await titleIs('calendar', monthName(year, monthIndex)), await titleOf('calendar'));
@@ -258,9 +271,8 @@ module.exports = {
     check('the Board draws the plan board for the Esc steps', await goto('/?view=board', boardReady));
     const liveBoard = await nowShown(SELECTORS.board);
     for (const id of CASES.zephyr.picked) await clickTile(id, { modifiers: 2 });
-    check('two cards are picked on the Board', await pickedIs(sorted(...CASES.zephyr.picked)));
-    await focusBoxAtEnd();
-    await send('Input.insertText', { text: CASES.zephyr.query });
+    check('two cards are picked on the Board, and the box shows them', await pickedIs(sorted(...CASES.zephyr.picked)) && await boxIs(CASES.zephyr.picked.map((id) => `#${id}`).join(' | ')), await boxText());
+    await typeOver(CASES.zephyr.query);
     check('a search lights the zephyr cards and leaves every card on the Board', await boxIs(CASES.zephyr.query) && await shows(SELECTORS.board, liveBoard) && await shows('#board .card-el.selected', sorted(...CASES.zephyr.cards)), { shown: await nowShown(SELECTORS.board), lit: await nowShown('#board .card-el.selected') });
     check('the panel is open, and the picked cards are still picked', await waitFor(panelOpen) && await pickedIs(sorted(...CASES.zephyr.picked)));
     await blur();
@@ -283,6 +295,9 @@ module.exports = {
 
     await clickTile(CASES.zephyr.picked[1], { modifiers: 2 });
     await pickedIs(sorted(...CASES.zephyr.picked));
+    await boxIs(pickedText);
+    await typeOver(CASES.zephyr.query);
+    await boxIs(CASES.zephyr.query);
     await openPanel();
     await clickOn('#isolate-switch');
     check('the switch writes the cards again', await boxIs(pickedText) && await switchIs(true));

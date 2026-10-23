@@ -478,21 +478,8 @@ function pillQueriesDropped(before, after) {
 // (searchIsolateBox, search.js), so it is no selection state: it is a flag, { previous },
 // the text the box held before, kept while it is on (null while off). A click on a
 // card while it is on moves the anchor and writes nothing to the box, and it ends
-// when the box is left holding no query.
-
-// The text the box holds after a click on a card in the Graph, given the gesture
-// (`action`, from cardClickAction) and whether the selection's anchor was the typed
-// query before and after it. A plain click sets a new anchor and clears the box. Shift
-// or Ctrl keeps the query, unless it took out a card the typed query lit: the query is
-// then its other cards, and the box no longer names the anchor. What a clear leaves is
-// `cut`, the run of slices the box holds (searchCutOnly, search.js; none when the page
-// names none): the cut is no search, and the Graph keeps drawing what it hides. While
-// isolated the box holds the isolate text, which a click never touches: it moves the
-// anchor only.
-function boxAfterGraphClick(action, { boxText, cut = '', typedBefore, typedAfter, isolated }) {
-  if (isolated) return boxText;
-  return action === 'select' || (typedBefore && !typedAfter) ? cut : boxText;
-}
+// when the box is left holding no query. With isolate off a click writes the selection
+// into the box instead (searchMirrorBox, search.js).
 
 // The isolate state after the box was written with `reason`. Isolate is a query in the
 // box, so a write that leaves the box holding none (a hand edit, the clear button, a
@@ -569,7 +556,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, boxAfterGraphClick, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, isolateRecord, isolatePreviousFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -596,7 +583,6 @@ if (typeof module !== 'undefined' && module.exports) {
   window.selectionAfterEscape = selectionAfterEscape;
   window.escapeStage = escapeStage;
   window.pruneSelectionParts = pruneSelectionParts;
-  window.boxAfterGraphClick = boxAfterGraphClick;
   window.isolateAfterWrite = isolateAfterWrite;
   window.boxHidingTerms = boxHidingTerms;
   window.boxLightsMatches = boxLightsMatches;

@@ -865,7 +865,19 @@ to `127.0.0.1` only.
   clicks and an open: where a plain click selects (the Graph, or a view set to selects) its first
   click selects the card and takes the pills out, as any selecting click does, and the open that
   follows changes nothing. A Ctrl-click that takes out a card a pill lit turns the pill into its
-  other cards and leaves the box, so the view does not widen under the click. Bulk targets are
+  other cards, which the box then names, so the view does not widen under the click.
+  **The box shows the selection.** With isolate off a click that selects (the Graph's plain click;
+  Shift and Ctrl/Cmd clicks in every view; a Flow lane header as its card; the card menu's Add to
+  selection) writes the selection into the search box as the text Isolate would write for it, the
+  `slice:` run kept (`#34`, `#34 | #36`, `dpath:185 | #14`; a part that is one query is written as it was
+  typed). The write carries the reason `mirror` (`mirrorSelectionInBox`, with the text built by
+  `searchMirrorBox` in the search module): it turns isolate on for no one and never makes the box a typed
+  search, so the next click still sees the card parts. Ctrl-click on a picked card takes it out and the
+  box shows what is left; an empty selection leaves the box its `slice:` run. While isolate is on a click
+  keeps the rule above, and a click that opens a card writes nothing. Esc's step and a double click on empty
+  space take the box down with the selection only while it holds the selection's text; a switch of view
+  writes the selection when it changed it (leaving the Graph with cards picked beside a typed search) and
+  leaves a typed search with nothing picked in the box. Bulk targets are
   fixed when an
   action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
   delete and drag) takes its list of target cards once, when it starts, from the selection
@@ -1074,7 +1086,7 @@ to `127.0.0.1` only.
   isolate off; with focus in the box Esc turns isolate off rather than clearing the box, and the
   browser's own Esc, which clears a search field, is stopped for it. The text is built in the
   search module (`searchIsolateText`, `searchIsolateBox` and `searchIsolateRestore`), the stages
-  in the selection module (`selectionAfterEscape`, `boxAfterGraphClick`, `isolateAfterWrite`),
+  in the selection module (`selectionAfterEscape`, `isolateAfterWrite`),
   and the page carries it out in `isolate.js`, which writes the box only through `writeSearch`
   with the reason `isolate` and never writes the selection.
   **Typing isolates.** A query the person makes turns isolate on by itself where the view's
@@ -1727,7 +1739,7 @@ to `127.0.0.1` only.
     card-less links never fire one.
   - **The address follows the box.** Whatever the search box holds is in the address as
     `q`: every write to the box (typing, the clear button, a cue click, Ctrl+F, a `?q=`
-    link, and a click in the Graph that drops a typed search) replaces `q` with the box's
+    link, and a click that selects a card) replaces `q` with the box's
     text, and an empty
     or blank box drops `q`; `card` and `view` ride along untouched. While isolate is on,
     `isolate=1` stands beside `q` (and goes with it when the box is emptied), written by the
@@ -2364,11 +2376,12 @@ to `127.0.0.1` only.
   inside the cut, and a `slice:` term under `|` or in a bracket of alternatives is only a
   term to match, so it lights and hides nothing. Emptying the box, **Esc** and a double click on the empty Graph drop the anchor and
   the dimming (Esc and the double click leave the box its cut, the `slice:` terms that stand on their own: a cut is no search);
-  a plain click on a card sets a new card anchor and clears the box but for its cut, so the Graph
+  a plain click on a card sets a new card anchor and the box shows that card in place of the search, its cut kept, so the Graph
   keeps drawing what the box says;
-  shift+click or ctrl/cmd+click on an unlit card adds it and keeps the query, and on a card
-  the query lit takes it out and turns the query into its other cards, which clears the
-  box but for its cut, since it no longer names the anchor. The status pills still decide which cards are
+  shift+click or ctrl/cmd+click on an unlit card adds it and writes it beside the query (`move the | #5`), which stays the
+  typed anchor, and on a card
+  the query lit takes it out and turns the query into its other cards, which the box then names (`#2 | #8`),
+  since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
   search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
   Calendar light its matches with the selected look and hide nothing (isolate is off), nothing is selected by it there, and a bulk

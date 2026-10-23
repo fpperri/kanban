@@ -7,8 +7,9 @@
 // were. A pill turns isolate on in every view but the Graph, so the closed panel's chip reads
 // isolated there, with the pills in its name, and counts the pills alone in the Graph. A click
 // that only selects a card (the Board set to selects in the preferences) takes the pill out of
-// the box where the Board does not isolate, and moves the anchor only where the pill isolates;
-// a plain click on a dot in the Graph, which selects, takes the pill out of the box; in the
+// the box where the Board does not isolate, the box showing the card in its place, and moves the
+// anchor only where the pill isolates; a plain click on a dot in the Graph, which selects, does the
+// same as the first; in the
 // Graph, Enter on a focused dot opens the card and leaves the pill and the box. Each step waits
 // on the page, never on a fixed sleep; a "nothing happened" check waits two animation frames.
 //
@@ -170,7 +171,7 @@ module.exports = {
     check('the review card has a point to click in the Board set to selects', !!selectPoint, selectPoint);
     await click(selectPoint.x, selectPoint.y);
     check('a plain click in a Board set to selects selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
-    check('and it takes the pill\'s query out of the box', await boxIs(''), await boxText());
+    check('and it replaces the pill\'s query in the box with the card', await boxIs(`#${REVIEW_CARD}`), await boxText());
     check('and the pill is off in the Board', await noPillOn());
 
     await ev(`localStorage.setItem('kanban.plan.prefs', JSON.stringify({click:{board:'selects'}}))`);
@@ -205,7 +206,7 @@ module.exports = {
     check('the review card\'s dot has a point to click', !!dot, dot);
     await click(dot.x, dot.y);
     check('a plain click on the dot selects the card and opens nothing', await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='card'&&selectionState.selection.anchor.id===String(${REVIEW_CARD})`) && await ev(noCard), await anchor());
-    check('and takes the pill\'s query out of the box', await boxIs(''), await boxText());
+    check('and replaces the pill\'s query in the box with the card', await boxIs(`#${REVIEW_CARD}`), await boxText());
     check('and the pill is off in the Graph', await noPillOn());
   },
 };

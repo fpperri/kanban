@@ -258,8 +258,8 @@ test('a pill\'s write to the box carries its reason, and nothing else writes wit
   assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /moveSelectionTo\(next\)/, 'Esc takes it');
   assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /moveSelectionTo\(/, 'so does a double click on empty space');
   const cardClick = appSrc.match(/function applyCardClick\([\s\S]*?\n\}/)[0];
-  assert.match(cardClick, /action === 'select'[^\n]*moveSelectionTo\(selectionState, before\)/, 'and a click on a card that selects it');
-  assert.doesNotMatch(cardClick.replace(/\/\/[^\n]*/g, ''), /'open'[^\n]*moveSelectionTo/, 'but opening a card changes no filter: a click that opens it takes no pill out of the box');
+  assert.match(cardClick, /action !== 'open' && boxMirrorsSelection\(\)\) mirrorSelectionInBox\(before\)/, 'and a click on a card that selects it writes the selection into the box, the dropped pill out of it');
+  assert.doesNotMatch(cardClick.replace(/\/\/[^\n]*/g, ''), /moveSelectionTo/, 'but opening a card changes no filter: a click that opens it takes no pill out of the box');
 });
 
 // --- the stylesheet ------------------------------------------------------------------------

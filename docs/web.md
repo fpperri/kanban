@@ -231,7 +231,7 @@ card; right-click works as on the board.
 A search typed in the Graph hides nothing: its matches light, done cards included,
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
-click a card to start a new selection and clear the box but for its cut. Switch to another view and
+click a card to start a new selection, which the box shows in place of the search (`#34`), its cut kept. Switch to another view and
 the box lights its matches there and hides nothing, while nothing is selected by it. A dot is never dragged.
 Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
@@ -416,6 +416,16 @@ expands to the full field set — status, priority, parent, rank, tags, `waiting
 blocked reason, type, the date triad, and a Markdown description.
 
 ![New-card form](images/web-new-card.png)
+
+**The box shows the selection** — with isolate off, a click that selects a card writes the selection into the
+search box as the text Isolate would write for it: `#34`, then `#34 | #36` as more are added, `dpath:185 | #14`
+beside a path you searched, with the `slice:` run kept. Isolate stays off, so the box lights those cards and
+hides nothing, and the text is the selection's own, not a search you typed: the next click still works on the
+cards. Ctrl-click on a picked card takes it out and the box shows what is left; with nothing left it holds only
+its `slice:` run. The Graph's plain click, Shift- and Ctrl-clicks in every view, a Flow lane header and the card
+menu's Add to selection all write it, and so does a switch of view that changes the selection. A click that
+opens a card writes nothing, and while isolate is on a click moves the anchor and leaves the box and its
+isolate text. Esc takes the box down with the selection, step by step, while the box holds the selection's text.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,

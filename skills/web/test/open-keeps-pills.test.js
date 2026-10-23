@@ -168,7 +168,7 @@ test('the pill stays on when it is not the first part: the anchor was a hand-pic
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [q('review:')] });
   await s.click(1);
   assert.deepStrictEqual(s.selection(), { anchor: q('review:'), additions: [] }, 'the pill is the anchor now');
-  assert.strictEqual(s.box(), '', 'the box was empty and stays empty: an empty box hides nothing');
+  assert.strictEqual(s.box(), '#5 | review:', 'a click that opens a card leaves the box as it was: the card Ctrl-click showed in it stays');
   assert.deepStrictEqual(s.on(), ['review']);
 });
 
@@ -257,7 +257,7 @@ test('a click that selects a card without opening it still takes the pill out of
   await s.click(5);
   assert.strictEqual(s.detail(), null, 'nothing opened');
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
-  assert.strictEqual(s.box(), '', 'the pill is off and its query is gone from the box');
+  assert.strictEqual(s.box(), '#5', 'the pill is off and its query is gone from the box, which shows the card');
   assert.deepStrictEqual(s.on(), []);
 });
 
@@ -276,7 +276,7 @@ test('a plain click on a card in the Graph, which selects it, still takes the pi
   assert.strictEqual(s.box(), 'review:');
   s.nodeClick(5);
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#5', 'the box shows the card now');
   assert.deepStrictEqual(s.on(), []);
 });
 
@@ -285,7 +285,7 @@ test('a plain click on a card in the Graph, which paints in place, takes the pil
   s.pillClick('review');
   assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' }, 'the chip counts the pill');
   s.nodeClick(5);
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#5');
   assert.deepStrictEqual(s.on(), []);
   assert.deepStrictEqual(s.chip(), { hidden: true, text: '' }, 'the chip counts nothing, as the box and the selection say');
 });
@@ -296,7 +296,7 @@ test('Space on a focused card in the Graph, which acts as a plain click, takes t
   assert.deepStrictEqual(s.chip(), { hidden: false, text: '1' });
   await s.nodeSpace(5);
   assert.deepStrictEqual(s.selection(), { anchor: a(5), additions: [] });
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#5');
   assert.deepStrictEqual(s.chip(), { hidden: true, text: '' });
 });
 

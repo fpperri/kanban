@@ -272,21 +272,21 @@ test('a click on a lone card lights it with its one-hop relations, selects only 
   assert.deepStrictEqual(s.lit().nodes, [1, 2, 3], 'its relations light');
 });
 
-test('a click on a card after a typed query clears the box and lights only that card and its relations', async () => {
+test('a click on a card after a typed query shows the card in the box and lights only that card and its relations', async () => {
   const s = await open();
   s.type('tags:ui');
   s.click(1);
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#1');
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
   assert.deepStrictEqual(s.ids(), [1]);
   assert.deepStrictEqual(s.rest().nodes, [1, 2, 3]);
 });
 
-test('Shift+click on an unlit card adds it: the box keeps its text, and the matches and the card light', async () => {
+test('Shift+click on an unlit card adds it: the box shows the query and the card, the query stays the typed anchor, and the matches and the card light', async () => {
   const s = await open();
   s.type('tags:ui');
   s.click(4, { shiftKey: true });
-  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.box(), 'tags:ui | #4');
   assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [a(4)] });
   assert.deepStrictEqual(s.ids(), [2, 4, 5]);
   assert.deepStrictEqual(s.lit().nodes, [2, 4, 5]);
@@ -297,15 +297,15 @@ test('Ctrl+click works as Shift+click does', async () => {
   s.type('tags:ui');
   s.click(4, { ctrlKey: true });
   assert.deepStrictEqual(s.selection(), { anchor: typed('tags:ui'), additions: [a(4)] });
-  assert.strictEqual(s.box(), 'tags:ui');
+  assert.strictEqual(s.box(), 'tags:ui | #4');
 });
 
-test('Shift+click on a card the query lit takes it out and turns the query into its other cards; the box then clears', async () => {
+test('Shift+click on a card the query lit takes it out and turns the query into its other cards; the box then names them', async () => {
   const s = await open();
   s.type('tags:ui');
   s.click(5, { shiftKey: true });
   assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [a(8)] }, 'the query matched 2, 5 and the archived 8');
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#2 | #8');
   assert.deepStrictEqual(s.ids(), [2]);
   assert.deepStrictEqual(s.rest().nodes, [2]);
 });
@@ -329,7 +329,7 @@ test('a click with the box empty paints in place, without a rebuild of the Graph
   assert.strictEqual(rebuilt, 0);
 });
 
-test('a click that clears the typed query paints in place too, so the card under the pointer is not replaced and a double click still reaches it', async () => {
+test('a click that rewrites the box paints in place too, so the card under the pointer is not replaced and a double click still reaches it', async () => {
   const s = await open();
   let rebuilt = 0;
   const real = s.page.ctx.renderBoard;
@@ -337,30 +337,31 @@ test('a click that clears the typed query paints in place too, so the card under
   s.type('tags:ui');
   rebuilt = 0;
   s.click(1);
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#1');
   assert.strictEqual(rebuilt, 0, 'a plain click on a card');
   s.type('tags:ui');
   rebuilt = 0;
   s.click(5, { shiftKey: true });
-  assert.strictEqual(s.box(), '', 'the query was turned into its cards');
+  assert.strictEqual(s.box(), '#2 | #8', 'the query was turned into its cards');
   assert.strictEqual(rebuilt, 0, 'Shift+click on a card the query lit');
 });
 
-test('the click that clears the box is a write to it like any other: the address follows, and the writer is told why', async () => {
+test('the click that writes the box is a write to it like any other: the address follows, and the writer is told why', async () => {
   const s = await open();
   const told = [];
   s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
   s.type('tags:ui');
   told.length = 0;
   s.click(1);
-  assert.deepStrictEqual(told, [['', 'selection']]);
+  assert.deepStrictEqual(told, [['#1', 'mirror']]);
+  assert.strictEqual(s.page.run('isolateNow()'), null, 'and the write turns isolate on for no one');
 });
 
-test('Space on a focused card acts as a plain click, and so clears the box too', async () => {
+test('Space on a focused card acts as a plain click, and so shows the card in the box too', async () => {
   const s = await open();
   s.type('tags:ui');
   s.graphHost.fire('keydown', nodeEvent(1, { key: ' ' }));
-  assert.strictEqual(s.box(), '');
+  assert.strictEqual(s.box(), '#1');
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
 });
 
@@ -620,15 +621,15 @@ test('there is one dimming mechanism: the hover, the lone card and the selection
 
 // --- a cut is no search: a gesture that clears the box leaves it ----------------------
 // A run of slices in the box (typed, or written by the slice section and the [ ] { } keys)
-// is a cut of the view, not the anchor of a selection. A click that empties the box takes the
-// typed query out of it and leaves the cut, so the Graph keeps drawing what the box says.
+// is a cut of the view, not the anchor of a selection. A click that selects writes the selection over
+// the typed query and leaves the cut, so the Graph keeps drawing what the box says.
 
-test('a plain click on a card clears the typed query and leaves the cut: the box, the chip and the drawing agree', async () => {
+test('a plain click on a card replaces the typed query with the card and leaves the cut: the box, the chip and the drawing agree', async () => {
   const s = await open({ board: tiered() });
   s.type('slice:goal..strategy zephyr');
   assert.deepStrictEqual(s.drawn(), [1, 3]);
   s.click(3);
-  assert.strictEqual(s.box(), 'slice:goal..strategy');
+  assert.strictEqual(s.box(), '#3 slice:goal..strategy');
   assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] });
   assert.deepStrictEqual(s.drawn(), [1, 3], 'the cut still hides the cards outside it');
   s.page.run('renderBoard()');
@@ -637,14 +638,14 @@ test('a plain click on a card clears the typed query and leaves the cut: the box
   assert.deepStrictEqual(s.drawn(), [1, 3], 'and so does the poll');
 });
 
-test('a plain click with a cut alone in the box leaves it as it was', async () => {
+test('a plain click with a cut alone in the box writes the card beside it', async () => {
   const s = await open({ board: tiered() });
   s.type('slice:goal..strategy');
   const told = [];
   s.page.ctx.onSearchWrite((text, reason) => told.push([text, reason]));
   s.click(1);
-  assert.strictEqual(s.box(), 'slice:goal..strategy');
-  assert.deepStrictEqual(told, [], 'nothing was written: the box held only the cut');
+  assert.strictEqual(s.box(), '#1 slice:goal..strategy');
+  assert.deepStrictEqual(told, [['#1 slice:goal..strategy', 'mirror']]);
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [] });
   assert.deepStrictEqual(s.drawn(), [1, 3]);
 });
@@ -670,18 +671,18 @@ test('Shift+click that takes out the card the typed query lit clears the query a
   assert.deepStrictEqual(s.drawn(), [1, 3]);
 });
 
-test('Shift+click that only adds a card leaves the box, cut and query, as it was', async () => {
+test('Shift+click that only adds a card writes it beside the query, the cut kept after both', async () => {
   const s = await open({ board: tiered() });
   s.type('slice:goal..strategy zephyr');
   s.click(3, { shiftKey: true });
-  assert.strictEqual(s.box(), 'slice:goal..strategy zephyr');
+  assert.strictEqual(s.box(), '(zephyr | #3) slice:goal..strategy');
 });
 
 test('a cut inside a bracket with | is part of the query and goes with it', async () => {
   const s = await open({ board: tiered() });
   s.type('slice:goal..strategy | tags:ui');
   s.click(1);
-  assert.strictEqual(s.box(), '', 'no top-level cut: the term is one alternative of the query');
+  assert.strictEqual(s.box(), '#1', 'no top-level cut: the term is one alternative of the query, so none is kept');
 });
 
 test('Esc, a double click on the empty canvas and the typed anchor going away leave the cut in the box', async () => {

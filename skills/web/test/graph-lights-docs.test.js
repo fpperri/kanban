@@ -53,9 +53,9 @@ test('the Graph section says only a slice: term on its own hides, and the rest o
 test('the Graph section says what drops the typed anchor and what a click does to it', () => {
   const text = graph();
   assert.match(text, /Emptying the box, \*\*Esc\*\* and a double click on the empty Graph drop the anchor and the dimming/);
-  assert.match(text, /a plain click on a card sets a new card anchor and clears the box/);
-  assert.match(text, /shift\+click or ctrl\/cmd\+click on an unlit card adds it and keeps the query/);
-  assert.match(text, /turns the query into its other cards, which clears the box/);
+  assert.match(text, /a plain click on a card sets a new card anchor and the box shows that card in place of the search/);
+  assert.match(text, /shift\+click or ctrl\/cmd\+click on an unlit card adds it and writes it beside the query/);
+  assert.match(text, /turns the query into its other cards, which the box then names/);
 });
 
 test('the Graph section says a typed search stays in the Graph: the other views light its matches and hide nothing, nothing is selected there, and it lights again on the way back', () => {
