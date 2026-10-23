@@ -161,6 +161,10 @@ _Avoid_: edge, connection.
 Every card that a chain of relations joins, whichever way each points and whether or not a line is drawn for it. The Map draws one graph per tree; the `tree:` search term finds nearly the same set but can differ at the edges (siblings joined only through their parent or through a parent on another board). Wider than a parent's children, and not a thread.
 _Avoid_: component, cluster, web.
 
+**Explore set** (derived):
+One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree write one into the search box for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations.
+_Avoid_: branch, subtree, lineage.
+
 **Chain end** (derived):
 Of one parent's children, a child where a chain of its siblings meets the parent: with the parent below, a child no sibling waits for; with the parent above, a child that waits for no sibling. A child with no dependency to or from a sibling is a chain of one and an end both ways. The Map draws a line to the chain ends by default.
 _Avoid_: terminal, leaf (that is a card with no children).
@@ -324,5 +328,6 @@ The selection, Isolate and Peek are web-only too, since the snapshot has no sele
 isolate; the search grammar, the slices and the pills are shared, the snapshot running the
 web's own search module and drawing the same panel, where a pill filters.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
-the snapshot as `tree:`/`path:` search terms plus card-sheet "Dependency
-tree"/"Dependency path" tap actions.
+the snapshot as `tree:`/`path:` search terms, and the four Explore sets, `hpath:`, `htree:`, `dpath:`
+and `dtree:`, as search terms plus "Hierarchy path", "Dependency path", "Hierarchy tree"
+and "Dependency tree" tap actions on the card sheet and in the right-click card menu.

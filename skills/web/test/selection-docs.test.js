@@ -82,16 +82,27 @@ test('the multi-select section describes the right-click menu: Peek and Add to s
   assert.match(text, /menu for the card shown, without Peek/);
 });
 
-test('the multi-select section says Path and Tree add to the selection as one part and no longer write the search box', () => {
+test('the multi-select section says Path and Tree write the term of the right-clicked card into the search box, as typed', () => {
   const text = bullet('- **Multi-select**');
-  assert.match(text, /\*\*Dependency path\*\* add the card's tree or path to the selection as one part/);
-  assert.match(text, /They no longer write the search box/);
+  assert.match(text, /\*\*Path\*\* and \*\*Tree\*\* are groups of their own inside Explore, a third\s+level/);
+  assert.match(text, /for the card that was right-clicked, `menuSubject\.clicked`/);
+  assert.match(text, /and never for the whole subject, even when that card\s+is inside the selection/);
+  assert.match(text, /writes\s+the term into the search box as if it were typed/);
+  assert.match(text, /They add nothing to the selection by hand/);
   assert.doesNotMatch(text, /sugar over the/);
   assert.match(text, /Archive and Delete keep their confirmation, which names the resolved count/);
 });
 
-test('the Map section says the menu adds a tree or a path to the selection instead of writing a term', () => {
-  const text = bullet('**Dependency tree / Dependency path** — a second way');
-  assert.match(text, /adds a card's tree or path to the selection instead of writing a term/);
+test('the Map section says the menu offers the narrower hpath:, htree:, dpath: and dtree: sets instead of writing a term', () => {
+  const text = bullet('**Dependency focus** — a second way');
+  assert.match(text, /its Path and Tree write the\s+narrower `hpath:`, `htree:`, `dpath:` and `dtree:` terms into the box/);
   assert.doesNotMatch(text, /offers these as sugar/);
+});
+
+test('the docs say Path and Tree show on every card\'s menu, whatever the subject, and the canvas menu stays Isolate alone', () => {
+  assert.match(webSkill.replace(/\s+/g, ' '), /Path and Tree show on every card's menu, whatever the subject/);
+  assert.doesNotMatch(webSkill.replace(/\s+/g, ' '), /show only when the subject is one card/);
+  assert.match(webSkill.replace(/\s+/g, ' '), /The empty Graph or Map canvas's menu is still Isolate alone/);
+  const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(webDoc, /search the path or the tree of the card you right-clicked, by its hierarchy or by its dependencies \(on every card's menu, whatever the selection\)/);
 });

@@ -129,8 +129,10 @@ roll-up of a parent's leaves, the description, the card's children, an **All
 fields** grid for everything else (type, parent, dates, tags, `waiting_for`, and
 any custom frontmatter — never `rank`, which you change by dragging in the
 [web editor](web.md)), and
-**Dependency tree / path** buttons that narrow every view down to that card's
-tree (no view switch — whatever view you're on just filters to it).
+**Hierarchy path / tree** and **Dependency path / tree** buttons that narrow every view down to
+that card's set (no view switch — whatever view you're on just filters to it): the hierarchy ones
+follow the parent links, the dependency ones `waiting_for`, as Explore does in the
+[web editor](web.md).
 
 ## Creating a card
 

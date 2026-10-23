@@ -27,6 +27,7 @@ test('the skill\'s search section says the page runs the web\'s own search modul
 test('the cross-harness note says the generator needs the search module, the slices module and the waiting rules beside it too', () => {
   const note = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'cross-harness.md'), 'utf8').replace(/\s+/g, ' ');
   assert.match(note, /skills\/web\/web\/search\.js/);
+  assert.match(note, /skills\/web\/web\/explore-sets\.js/);
   assert.match(note, /skills\/web\/web\/slices\.js/);
   assert.match(note, /skills\/web\/web\/waiting-blocked\.js/);
 });

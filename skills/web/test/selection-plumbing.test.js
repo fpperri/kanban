@@ -111,7 +111,7 @@ test('the pieces that wrote the selection before now call the entry point', () =
     dropGoneCards: /setSelection\(pruneSelectionParts\(selectionState\.selection,/,
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
     addCardToSelection: /setSelection\(addPart\(selectionState\.selection, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
-    addDependencyToSelection: /setSelection\(addPart\(selectionState\.selection, part\(menuSubject\.ids\[0\]\)\)\)/,
+    exploreIntoBox: /writeSearch\(text, 'typing'\)/,
     selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,
@@ -725,5 +725,6 @@ test('the menu subject before any menu has opened carries every key a menu subje
   const initial = vm.runInContext(`${declaration('menuSubject')}; menuSubject`, sandbox);
   const keys = new Set([...Object.keys(cardMenuFor(new Set(), 1)), ...Object.keys(canvasMenuFor())]);
   assert.deepStrictEqual(Object.keys(initial).sort(), [...keys].sort());
-  for (const key of keys) if (key !== 'ids') assert.strictEqual(initial[key], false, key);
+  for (const key of keys) if (key !== 'ids' && key !== 'clicked') assert.strictEqual(initial[key], false, key);
+  assert.strictEqual(initial.clicked, null, 'no card yet');
 });

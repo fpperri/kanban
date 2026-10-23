@@ -11,7 +11,7 @@ const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../web/search');
 const { pillList, pillRows } = require('../web/pills');
-const { NO_SELECTION, cardPart, pathPart, queryPart, addPart, resolveSelection } = require('../web/selection');
+const { NO_SELECTION, cardPart, typedQueryPart, queryPart, addPart, resolveSelection } = require('../web/selection');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate');
 
@@ -47,7 +47,7 @@ test('the scenario is in the runner, on the plan board, with time for its four p
 
 test('the path of the card the scenario right-clicks is the cards it says', () => {
   const b = planBoard();
-  assert.deepStrictEqual(sorted(b.matchIds(`path:${CASES.pathOf}`)), CASES.pathCards);
+  assert.deepStrictEqual(sorted(b.matchIds(`${CASES.pathKind}:${CASES.pathOf}`)), CASES.pathCards);
 });
 
 test('the grill pill is a value pill among the first eight, with the label, query and cards the scenario says, and the key it clicks by', () => {
@@ -79,9 +79,9 @@ test('every pair of loose cards, with the path and the pill, writes the text the
   for (const x of CASES.loose) {
     for (const y of CASES.loose) {
       if (x === y) continue;
-      const selection = [cardPart(x), cardPart(y), pathPart(CASES.pathOf), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
+      const selection = [typedQueryPart(`${CASES.pathKind}:${CASES.pathOf}`), cardPart(x), cardPart(y), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
       const text = searchIsolateText([selection.anchor, ...selection.additions]);
-      assert.strictEqual(text, `#${x} | #${y} | path:${CASES.pathOf} | ${CASES.pill.query}`);
+      assert.strictEqual(text, `${CASES.pathKind}:${CASES.pathOf} | #${x} | #${y} | ${CASES.pill.query}`);
       const expected = sorted([x, y, ...CASES.pathCards, ...CASES.pill.cards]);
       assert.deepStrictEqual(sorted(b.matchIds(text)), expected, text);
       assert.deepStrictEqual(sorted(resolveSelection(selection, b.matchIds, null)), expected, 'and that is what the selection resolves to');
@@ -136,7 +136,7 @@ test('the scenario does not wait on a fixed sleep', () => {
 test('the ids and classes the scenario drives are in the page', () => {
   const web = path.join(__dirname, '..', 'web');
   const page = ['app.html', 'app.js', 'search-panel.js', 'isolate.js', 'graph-view.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
-  for (const name of ['isolate-switch', 'search-panel', 'search-chip', 'search-pills', 'query-pill', 'search-input', 'search-clear-btn', 'context-menu', 'ctx-path', 'graph-canvas', 'graph-node', 'graph-dot', 'cal-title']) {
+  for (const name of ['isolate-switch', 'search-panel', 'search-chip', 'search-pills', 'query-pill', 'search-input', 'search-clear-btn', 'context-menu', 'ctx-dpath', 'graph-canvas', 'graph-node', 'graph-dot', 'cal-title']) {
     assert.ok(page.includes(name), `${name} is in the page`);
     assert.ok(code.includes(name), `${name} is driven by the scenario`);
   }
@@ -239,11 +239,11 @@ test('it presses the real keys: i, Tab, Enter, Space and Esc, and i with Ctrl or
   assert.strictEqual(page.log.keys.filter(([k, m]) => k === 'i' && (m.ctrl || m.alt)).length, 2);
 });
 
-test('it builds the Graph selection with a plain click, a Shift+click, a menu path and a Shift+click on the pill, and makes a double click on the switch and on the empty Graph', async () => {
+test('it builds the Graph selection with a menu path, two Shift+clicks and a Shift+click on the pill, and makes a double click on the switch and on the empty Graph', async () => {
   const page = standIn();
   await scenario.run(page);
   assert.ok(page.log.rightClicks.includes(`#graph-view .card-el[data-id="${CASES.pathOf}"]`));
-  assert.strictEqual(page.log.clicks.filter((e) => e.modifiers === 8).length, 2, 'Shift+click on the second card and on the pill');
+  assert.strictEqual(page.log.clicks.filter((e) => e.modifiers === 8).length, 3, 'Shift+click on the two cards and on the pill');
   assert.ok(page.log.clicks.filter((e) => e.modifiers === 2).length >= 3, 'Ctrl+clicks on the Board');
   assert.strictEqual(page.log.clicks.filter((e) => e.clickCount === 2).length, 2, 'one double click on the empty Graph and one on the switch');
 });

@@ -51,7 +51,7 @@ const SEARCH_BOX_CHECKS = [
   'the clear button empties the box and brings every card back', 'an assignee cue click writes assignee:@human',
   'the same cue clicked again leaves the box as it was', 'a blocked pill click writes blocked: and keeps the blocked cards',
   'a second cue adds to the box', 'a review pill click writes review: and keeps the cards awaiting review',
-  'a right-click on a card opens its menu', 'Path from the menu adds that card\\\'s dependency path to the selection and leaves the box empty',
+  'a right-click on a card opens its menu', 'Dependency path from the menu writes dpath:4 into the box and the columns show only that path',
   'and the menu closes', 'a ?q= link writes the box and narrows the columns',
 ];
 
@@ -472,13 +472,20 @@ const CARD_MENU_CHECKS = [
   'with nothing selected, a right-click picks no card', 'Add to selection with nothing selected selects that one card as the anchor',
   'Board: after a right-click outside a two-card selection, Set priority changes only the right-clicked card', 'and the two cards are still selected',
   'Board: after a right-click inside a two-card selection, Set priority changes both cards',
-  'Dependency path and Dependency tree are in the menu for one card',
-  'Dependency path on a card adds its path, marked on the Board', 'and the path is one part of the selection',
-  'and the search box is unchanged after Dependency path', 'and the path is lit in the Graph',
-  'Dependency tree on a card adds its tree, marked on the Board', 'and the tree is one part of the selection',
-  'and the search box is unchanged after Dependency tree', 'and the tree is lit in the Graph',
-  'Dependency path and Dependency tree are absent from the menu when its subject is several cards',
-  'archiving a selection that holds a path part names the resolved count', 'deleting a selection that holds a path part names the resolved count in the delete popup',
+  'Path and Tree, each with Hierarchy and Dependency, are in the menu for one card',
+  'Dependency path on a card writes dpath:4 into the search box', 'and the Board shows only that path',
+  'and nothing is selected by it on the Board', 'and the Graph lights the path, the box being the anchor of the selection',
+  'Hierarchy tree writes htree:4 and the Board shows the whole parent tree',
+  'a second pick replaces the box: Hierarchy path writes hpath:3 and the Board shows the card and its parent',
+  'Dependency tree writes dtree:3, the cards joined to it by waiting_for alone',
+  'a pick replaces the typed search but keeps the slice: run',
+  'Path and Tree are in the menu when its subject is several cards, beside the bulk entries',
+  'and with several cards as the subject the four write the term of the right-clicked card alone',
+  'and the hand-picked cards stay in the selection, though the box hides the first',
+  'a right-click on a card inside a lit path still offers Path and Tree',
+  'and Hierarchy path writes the term of the card right-clicked alone, in place of the lit path',
+  'the details own menu offers Path and Tree too', 'and Dependency tree there writes the term of the open card',
+  'archiving a selection names the resolved count', 'deleting a selection names the resolved count in the delete popup',
 ];
 
 test('the card-menu scenario runs on the fixture board and makes every check the card menu owes', () => {
@@ -493,7 +500,7 @@ test('the card-menu scenario right-clicks a card in the Board, the Graph, the Ma
   const src = code(source('card-menu.js'));
   for (const view of ['graph', 'map', 'calendar', 'gantt']) assert.ok(src.includes(`['${view}', '#${view}-view']`), `${view} is right-clicked`);
   assert.ok(src.includes(`rightClick('#detail-modal .modal')`), 'the details own menu');
-  assert.ok(src.includes('ctx-peek') && src.includes('ctx-add') && src.includes('ctx-path') && src.includes('ctx-tree'), 'every new entry');
+  assert.ok(src.includes('ctx-peek') && src.includes('ctx-add') && ['ctx-hpath', 'ctx-htree', 'ctx-dpath', 'ctx-dtree'].every((id) => src.includes(id)), 'every new entry');
 });
 
 test('the card-menu scenario opens the card menu with the right-click helper, closes the details both ways, and waits on the page, never on a fixed sleep', () => {

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { cardMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
+const { cardMenuFor, canvasMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
 
 // --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
@@ -98,11 +98,14 @@ test('the card details\' own menu has no Peek, and still offers Add to selection
   assert.strictEqual(cardMenuFor(new Set([1, 2]), 2, { fromDetail: true }).add, false, 'a card already picked has nothing to add');
 });
 
-test('Path and Tree are offered when the subject is one card, outside the selection or alone inside it, and not when it is several', () => {
-  assert.strictEqual(cardMenuFor(new Set([1, 2]), 3).dependency, true, 'one card outside a selection');
-  assert.strictEqual(cardMenuFor(new Set([4]), 4).dependency, true, 'a selection of one');
-  assert.strictEqual(cardMenuFor(new Set([4, 5]), 5).dependency, false, 'a selection of two');
-  assert.strictEqual(cardMenuFor(new Set(), 3).dependency, true, 'nothing selected');
+test('the menu knows the card it was opened on, whether the subject is that card alone or a selection that holds it, and the canvas menu has none', () => {
+  assert.strictEqual(cardMenuFor(new Set([1, 2]), 3).clicked, 3, 'one card outside a selection');
+  assert.strictEqual(cardMenuFor(new Set([4]), 4).clicked, 4, 'a selection of one');
+  assert.deepStrictEqual(cardMenuFor(new Set([4, 5]), 5).ids, [4, 5]);
+  assert.strictEqual(cardMenuFor(new Set([4, 5]), 5).clicked, 5, 'a selection of two: the subject is both, the card is the one right-clicked');
+  assert.strictEqual(cardMenuFor(new Set(), 3).clicked, 3, 'nothing selected');
+  assert.strictEqual(cardMenuFor(new Set([1, 2]), 2, { fromDetail: true }).clicked, 2, 'the card details\' menu: the open card');
+  assert.strictEqual(canvasMenuFor().clicked, null, 'the empty canvas');
 });
 
 test('partitionByMovable: gate-refused cards (waiting or blocked) are skipped only for doing; same-status cards are no-ops', () => {

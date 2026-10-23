@@ -110,7 +110,13 @@ makes a card wait, and a queued move to done frees the cards that waited for it)
 are their own family: UNLIKE every scope above, a bare `review:`/`blocked:`
 (no value) is itself a complete term — "the sticker is present" (the shared
 predicate) — never dropped as mid-typing; `review:PR`/`blocked:vendor` is a
-case-insensitive substring match on the sticker's own text. `tree:<id>`/`path:<id>`
+case-insensitive substring match on the sticker's own text.
+`hpath:<id>`/`htree:<id>`/`dpath:<id>`/`dtree:<id>` (`#`-tolerant) are the four sets of kanban-web's
+Explore, each by one relation alone: the hierarchy path (the card's parents up to its root and every
+card nested under it) and tree (the whole parent tree from its root) follow `parent:` only, the
+dependency path (everything it waits for and everything waiting on it, transitively) and tree (its
+connected set) follow `waiting_for` only; the page answers them over its own cards as kanban-web does.
+`tree:<id>`/`path:<id>`
 (`#`-tolerant, e.g. `tree:#153`): tree is the card's whole dependency
 component (undirected flood-fill over `waiting_for` + `parent:`
 relations, the ones the Map's trees are made of); path is the narrower
@@ -237,8 +243,8 @@ entry. Both stickers are set/cleared the same way, through the "All fields"
 grid (live gold/red border feedback while the value passes the predicate) —
 there's no dedicated form field for either. **Deliberate gap:** no badge is
 tap-to-filter here — unlike kanban-web's tap-an-assignee-or-tag-to-filter,
-a tap on a badge never adds its term to the box, and its tree:/path: buttons
-overwrite the whole query box; the panel's pills and slice entries are the
+a tap on a badge never adds its term to the box, and the sheet's Hierarchy and Dependency
+path/tree buttons overwrite the whole query box; the panel's pills and slice entries are the
 controls that edit the box in place.
 
 **Deliberate gap, narrowed:** kanban-web's AI-prompt sparkle button (a
@@ -274,9 +280,11 @@ chips + due markers, tap month navigation, and month/week/3-day/day sub-views
 — the sub-month views are stacked tap-friendly day rows). Tapping a
 card in any view opens its detail pop-up in place with the full
 action set; edits always queue through the tray. The sheet
-also carries two read-only "Dependency tree"/"Dependency path" buttons (any
-card with a real id, including archived read-only sheets) — tapping one
-writes `tree:<id>`/`path:<id>` into the search box and closes the sheet, no
+also carries four read-only buttons, "Hierarchy path", "Dependency path", "Hierarchy tree" and
+"Dependency tree" (any card with a real id, including archived read-only sheets), the same four
+Explore writes into kanban-web's search box — tapping one
+writes `hpath:<id>`, `htree:<id>`, `dpath:<id>` or `dtree:<id>` into the search box, in place of what it held
+but for its `slice:` run (as kanban-web's Explore does), and closes the sheet, no
 view switch; the view underneath re-filters itself immediately (Map redraws
 the pruned graph with ghost stubs where a cone edge exits the focus, Board
 shows only the focused cards in their columns, same machinery every other
@@ -573,7 +581,9 @@ queued, and stays tappable, jumping to the tray at the bottom of the page.
   "Move to `<Status>`" row per status in `statuses` order except the card's
   own, then (below a separator) Archive, Delete (arms red with "Delete?" on
   the first click, fires on the second, same two-tap shape as the mobile
-  stack's own delete arm), Dependency tree, Dependency path — every action
+  stack's own delete arm), then the four Explore sets as flat items, Hierarchy path, Dependency
+  path, Hierarchy tree and Dependency tree (the menu does not nest), each writing its `hpath:`,
+  `dpath:`, `htree:` or `dtree:` term as the sheet's buttons do — every action
   routes through the same `queue()`/`graphFocus()` machinery the detail
   sheet's own buttons use, no parallel path. Move is the tap
   alternative to drag-and-drop (see "Drag and drop" below) for anyone

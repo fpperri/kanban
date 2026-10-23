@@ -314,9 +314,9 @@ module.exports = {
     await menuGone();
     await rightClick(HEAD(hc));
     await menuShown();
-    await ev(`document.getElementById('ctx-path').click()`);
-    check('plan: Explore > Dependency path from a header lights the path of its card, header and dot together',
-      await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='path'`, 3000) && await menuGone() && await bothHave(hc, 'selected'), { selected: await ev(SELECTED) });
+    await ev(`document.getElementById('ctx-dpath').click()`);
+    check('plan: Explore > Dependency path from a header lights the dependency path of its card, header and dot together',
+      await waitFor(`selectionState.selection.anchor&&selectionState.selection.anchor.kind==='query'&&/^dpath:/.test(selectionState.selection.anchor.text)`, 3000) && await menuGone() && await bothHave(hc, 'selected'), { selected: await ev(SELECTED) });
     await clearSelection();
     await park();
     await shot('graph-flow-lanes');

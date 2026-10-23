@@ -89,11 +89,11 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
   const files = scripts || [...html.matchAll(/<script src="\/([^"]+)"/g)].map((m) => m[1]);
   const input = searchBox();
   const clear = control();
-  const menu = { path: control(), tree: control() };
+  const menu = { hpath: control(), htree: control(), dpath: control(), dtree: control() };
   const documentListeners = {};
   const windowListeners = {};
   const failures = [];
-  const elements = { '#search-input': input, '#search-clear-btn': clear, '#ctx-path': menu.path, '#ctx-tree': menu.tree, ...more };
+  const elements = { '#search-input': input, '#search-clear-btn': clear, '#ctx-hpath': menu.hpath, '#ctx-htree': menu.htree, '#ctx-dpath': menu.dpath, '#ctx-dtree': menu.dtree, ...more };
   const doc = new Proxy({
     activeElement: null,
     visibilityState: 'visible',

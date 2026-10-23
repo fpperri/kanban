@@ -38,23 +38,23 @@ function isHoverHighlighted(hoveredId, cardId) {
 // inside it the menu is for the whole resolved selection, a path's, a tree's or
 // a pill's cards included, in the order they were picked. `resolved` is the id
 // set the selection stands for now and is never written to. The card details'
-// own menu (`fromDetail`) has no Peek, the card is already open. Path and Tree
-// are offered only when the subject is one card. Isolate is offered inside the
+// own menu (`fromDetail`) has no Peek, the card is already open. Isolate is offered inside the
 // selection only, since it shows the selection and a card outside it is not part of
-// it, and never in the card details' own menu. Returns
-// { ids, inSelection, peek, add, dependency, isolate }.
+// it, and never in the card details' own menu. `clicked` is the card the menu was opened on, the
+// open card in the details' menu: Explore's Path and Tree act on it alone, never on the subject.
+// Returns { ids, inSelection, peek, add, isolate, clicked }.
 function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
   const inSelection = resolved.has(id);
   const ids = inSelection ? [...resolved] : [id];
-  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, dependency: ids.length === 1, isolate: inSelection && !fromDetail };
+  return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, isolate: inSelection && !fromDetail, clicked: id };
 }
 
 // The menu a right-click on the empty Graph or Map canvas opens: Isolate alone. It has no
-// card, so no bulk entry, Peek, Add, Path or Tree; `canvas` tells the page to show nothing
+// card, so no bulk entry, Peek, Add, Path or Tree (`clicked` is none); `canvas` tells the page to show nothing
 // else. Isolate acts on the selection as it is, whatever it holds (nothing selected says
 // so, as the switch does).
 function canvasMenuFor() {
-  return { ids: [], inSelection: false, peek: false, add: false, dependency: false, isolate: true, canvas: true };
+  return { ids: [], inSelection: false, peek: false, add: false, isolate: true, clicked: null, canvas: true };
 }
 
 // Bulk-move rule: the doing entry gate stays PER CARD, and only

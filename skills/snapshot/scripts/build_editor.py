@@ -374,6 +374,7 @@ EMBEDDED = [
     ("__MAP_RELATIONS_JS__", "map-relations.js", "the map relations module"),
     ("__SLICES_JS__", "slices.js", "the slices module"),
     ("__WAITING_BLOCKED_JS__", "waiting-blocked.js", "the waiting rules"),
+    ("__EXPLORE_SETS_JS__", "explore-sets.js", "the Explore sets module"),
     ("__SEARCH_JS__", "search.js", "the search module"),
     ("__TYPE_ICONS_JS__", "type-icons.js", "the type icons module"),
     ("__PILLS_JS__", "pills.js", "the pill list"),
@@ -1018,6 +1019,8 @@ __SLICES_JS__</script>
 <script>
 __WAITING_BLOCKED_JS__</script>
 <script>
+__EXPLORE_SETS_JS__</script>
+<script>
 __SEARCH_JS__</script>
 <script>
 __TYPE_ICONS_JS__</script>
@@ -1091,12 +1094,15 @@ let view=JSON.parse(JSON.stringify(DATA)),ops=[],gone=[],sel=null,ren=false,desc
 // Wide screens open live sections by default (Archive stays collapsed) —
 // the collapsed compact overview is a phone affordance. Evaluated once at load.
 if(matchMedia("(min-width:900px)").matches)COLS.forEach(c=>colOpen[c]=true);
-// The tree:/path: query's root card keeps
+// The card of an Explore term (hpath:, dpath:, htree:, dtree:, tree:, path:) keeps
 // the existing selection glow even after the sheet closes. `sel` can't do
 // double duty here (render() reopens the sheet whenever sel!==null), so
 // focusRoot is a second, glow-only marker set by the graphfocus action and
 // cleared whenever the user makes an unrelated selection/query change.
 let focusRoot=null;
+// The four sets of kanban-web's Explore menu, as the sheet's buttons and the right-click menu's items
+// offer them, in one order: the term each writes (EXPLORE_KINDS, explore-sets.js) and its label.
+const EXPLORE_LABELS={hpath:"Hierarchy path",dpath:"Dependency path",htree:"Hierarchy tree",dtree:"Dependency tree"};
 const $=id=>document.getElementById(id);
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n};
 const btn=(label,act,data)=>{const b=el("button",null,label);b.dataset.act=act;if(data)Object.assign(b.dataset,data);return b};
@@ -1256,10 +1262,11 @@ const lstJS=v=>String(v||"").replace(/^\\[|\\]$/g,"").split(",").map(s=>s.trim()
 // Search: kanban-web's own search.js, embedded above with the waiting rules it
 // reads (waiting-blocked.js), so a query finds here what it finds at the desk.
 // This page only adapts its short-keyed cards to the module's card shape, hands in
-// its own dependency functions for tree: and path: (the resolver's graph) and the
-// board's hierarchy for slice: (the slices and nesting modules, embedded above,
-// cut over every card of the board, archived ones included), and resolves the
-// terms once per query change. The box's suggestions are the module's too
+// its own dependency functions for tree: and path: (the resolver's graph; hpath:,
+// htree:, dpath: and dtree: are the embedded explore-sets.js's) and the board's
+// hierarchy for slice: (the slices and nesting modules, embedded above, cut over
+// every card of the board, archived ones included), and resolves the terms once
+// per query change. The box's suggestions are the module's too
 // (searchSuggestionItems), asked with the same board and context, so after slice:
 // and after .. the box offers the slices the cut would read.
 let qTerms=[];
@@ -1418,8 +1425,8 @@ if(un.length){const wb=el("span","badge wbadge","waiting");wb.title="waiting on 
 if(br!==null){const bb=el("span","badge","blocked");bb.title="blocked"+(br?": "+br:"");d.appendChild(bb)}
 // ADR 0009: the gold review badge, blocked's sibling — no click-to-filter
 // (this snapshot has no additive query-append affordance for any badge yet;
-// "Dependency tree/path" replaces the whole query box instead — deliberate
-// gap, not mirrored here).
+// the Explore buttons and menu items replace the whole query box instead —
+// deliberate gap, not mirrored here).
 if(rr!==null){const rb=el("span","badge rbadge","review");rb.title="review"+(rr?": "+rr:"");d.appendChild(rb)}
 const tc=typeChip(c);if(tc)d.appendChild(tc);
 const alt=nid===null?0:nesting.roll.altitudeOf(nid);
@@ -1491,14 +1498,13 @@ if(alt)d.appendChild(rollupBlock(nid));
 if(c.tags&&c.tags.length){const tg=el("div","tags");c.tags.forEach(t=>tg.appendChild(el("span","tag",t)));d.appendChild(tg)}
 const det=[];if(c.start)det.push("start "+c.start);if(c.upd)det.push("updated "+c.upd);
 if(det.length)d.appendChild(el("div","meta",det.join(" \\u00b7 ")));
-// "Dependency tree"/"Dependency path" write tree:/path: into
-// the search box and close the sheet (sugar only, no view switch) — read-only
+// The four Explore buttons (EXPLORE_LABELS) write hpath:/dpath:/htree:/dtree:
+// into the search box and close the sheet (sugar only, no view switch) — read-only
 // queries, so unlike the edit actions below they run on ro (archived) sheets
 // too; only a not-yet-created provisional card has no real id to focus on.
 if(!isProv(c.id)){
 const gr=el("div","acts");gr.style.borderTop="none";gr.style.paddingTop="4px";
-gr.appendChild(btn("Dependency tree","graphfocus",{gk:"tree"}));
-gr.appendChild(btn("Dependency path","graphfocus",{gk:"path"}));
+Object.entries(EXPLORE_LABELS).forEach(([gk,label])=>gr.appendChild(btn(label,"graphfocus",{gk:gk})));
 d.appendChild(gr)}
 if(!ro&&!isProv(c.id)){
 // Every frontmatter field is editable, raw and tolerant. The
@@ -2537,12 +2543,13 @@ $("sdn").addEventListener("click",()=>step(1));
 $("stop").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:0,behavior:"smooth"})});
 $("sbot").addEventListener("click",()=>{const t=scTgt();t.scrollTo({top:t.scrollHeight,behavior:"smooth"})});
 function closeCard(){sel=null;creating=false;notifView=false;ren=false;descEd=false;delArm=null;pillEd=null;fmOpen=false;ncStatus=null;nfPromptOpen=false;render()}
-// Shared by the sheet's own "Dependency tree"/"Dependency path"
-// buttons (the act==="graphfocus" branch below) AND the right-click card
-// menu's matching items — one path, not two, per the tree:/path: contract:
-// overwrite the query box, focus the graph, close whatever sheet is open.
+// Shared by the sheet's own Explore buttons (the act==="graphfocus" branch
+// below) AND the right-click card menu's matching items (EXPLORE_LABELS) — one
+// path, not two: put the term in the query box in place of what it held but for
+// its slice: run (as kanban-web's Explore does), focus the graph, close whatever
+// sheet is open.
 function graphFocus(gk,id){
-const term=gk+":"+id;
+const term=searchJoinSlice(gk+":"+id,searchSplitSlice($("q").value).slices);
 $("q").value=term;
 setQuery(term);
 focusRoot=id;
@@ -2577,8 +2584,7 @@ const delBtn=item("Delete",()=>{
 if(!armed){armed=true;delBtn.textContent="Delete?";delBtn.classList.add("armed");return}
 closeCtxMenu();ctxDelete(id)});
 if(!isProv(id)){
-item("Dependency tree",()=>{closeCtxMenu();graphFocus("tree",id)});
-item("Dependency path",()=>{closeCtxMenu();graphFocus("path",id)})}
+Object.entries(EXPLORE_LABELS).forEach(([gk,label])=>item(label,()=>{closeCtxMenu();graphFocus(gk,id)}))}
 document.body.appendChild(m);
 ctxMenuEl=m;
 const r=m.getBoundingClientRect();

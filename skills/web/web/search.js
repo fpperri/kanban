@@ -61,6 +61,14 @@
 //                 everything transitively upstream + downstream through card
 //                 74, over the same edges. Narrower than tree: (excludes
 //                 sibling branches with no directed relation to 74).
+//   hpath:74 / htree:74 / dpath:74 / dtree:74   (`#` optional) the four sets Explore writes into
+//                 the search box for card #74, each by one relation alone, where tree: and path: walk both.
+//                 hpath: is the hierarchy path: its parents up to the root and every card
+//                 nested under it. htree: is the whole parent tree from its root down.
+//                 Both follow `parent` only. dpath: is everything it waits for and
+//                 everything waiting on it, transitively; dtree: is its connected set.
+//                 Both follow `waiting_for` only. Archived cards are walked as tree: walks
+//                 them, an unknown id matches nothing.
 //   slice:objective..2   the cards in a run of slices: the slices module's axis, the
 //                 tiers of the board's hierarchy top first, then the depths of the cards
 //                 with no tier. An end is a tier name (any letter case) or a depth
@@ -93,6 +101,8 @@
 // tree:/path: resolution needs the full card graph, which a single (term,
 // card) pair doesn't have — see resolveTerms below for where that happens.
 const DG = (typeof module !== 'undefined' && module.exports) ? require('./dependency-graph') : window;
+// The four Explore sets are explore-sets.js's, named by its list of kinds.
+const EXS = (typeof module !== 'undefined' && module.exports) ? require('./explore-sets') : window;
 // Named WBS (not WB) — dependency-graph.js already claims WB in this shared
 // page scope (every web/*.js top-level name must be unique).
 const WBS = (typeof module !== 'undefined' && module.exports) ? require('./waiting-blocked') : window;
@@ -111,9 +121,11 @@ function searchKey(id) {
 }
 
 const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'assignee', 'type'];
-// tree:/path: are deliberately NOT in KNOWN_FIELDS — that array drives the
-// lowercased-substring value semantics, which don't apply to a numeric id.
-const GRAPH_FIELDS = ['tree', 'path'];
+// tree:/path: and the four Explore sets are deliberately NOT in KNOWN_FIELDS — that array
+// drives the lowercased-substring value semantics, which don't apply to a card id. Each
+// names the graph function that resolves it (resolveTerms).
+const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS);
+const graphFunctionName = (field) => `${field}Ids`;
 // ADR 0009: review:/blocked: are their own field family — a
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
 // scope is dropped as mid-typing), so they're parsed separately below.
@@ -605,7 +617,7 @@ function searchRemoveGrownAlt(raw, term) {
 // (the isolate text), each part by its criterion rather than a frozen list of cards, so a
 // card that comes to match a query part joins on the next poll, and the address carries it.
 // A card is `#id`, a path `path:id`, a tree `tree:id`; a query is its own text, in brackets
-// when it holds a | or spaces (searchBracket, so the grammar's token-edge rules apply). A
+// when it holds a | or spaces (a search typed in the box, `dpath:185` included, is a query) (searchBracket, so the grammar's token-edge rules apply). A
 // query part that is not a term yet (`status:`) selects nothing, so it writes nothing: a
 // lone half-typed term would otherwise isolate every card. A query part with a card taken
 // out is already its other cards by then (selection.js selectionWithoutCard), so it is written as
@@ -613,10 +625,15 @@ function searchRemoveGrownAlt(raw, term) {
 // { kind: 'query', text }. What the text matches is what the selection resolves to over
 // the whole board.
 
+// A path or a tree: named whole by a card's id.
+function searchIsNamedPart(part) {
+  return !!part && (part.kind === 'path' || part.kind === 'tree');
+}
+
 function searchIsolatePartText(part) {
   if (!part) return '';
   if (part.kind === 'card') return `#${part.id}`;
-  if (part.kind === 'path' || part.kind === 'tree') return `${part.kind}:${part.id}`;
+  if (searchIsNamedPart(part)) return `${part.kind}:${part.id}`;
   if (part.kind !== 'query') return '';
   const text = String(part.text == null ? '' : part.text).trim();
   return parseSearchQuery(text).length ? searchBracket(text) : '';
@@ -639,7 +656,7 @@ function searchIsolateBox(previous, parts, { limits = false } = {}) {
   const text = searchIsolateText(parts);
   if (!text) return '';
   const { rest, slices } = searchSplitSlice(previous);
-  const named = (Array.isArray(parts) ? parts : []).some((part) => part && (part.kind === 'card' || part.kind === 'path' || part.kind === 'tree'));
+  const named = (Array.isArray(parts) ? parts : []).some((part) => part && (part.kind === 'card' || searchIsNamedPart(part)));
   const held = limits && named && parseSearchQuery(rest).length > 0;
   return searchJoinSlice(held ? `${searchBracket(text)} ${searchBracket(rest)}` : text, slices);
 }
@@ -659,6 +676,7 @@ function termMatchesCard(term, card) {
   const title = (card.title || '').toLowerCase();
   const body = (card.body || '').toLowerCase();
   const tags = card.tags || [];
+  if (GRAPH_FIELDS.includes(term.field)) return false;
   switch (term.field) {
     case 'id': return searchKey(card.id) === searchKey(term.value);
     case 'title': return searchFieldHit(title, term);
@@ -676,10 +694,10 @@ function termMatchesCard(term, card) {
     case 'review': return term.value ? searchFieldHit(WBS.reviewReason(card.review), term) : WBS.isReviewValue(card.review);
     case 'blocked': return term.value ? searchFieldHit(WBS.blockedReason(card.blocked), term) : WBS.isBlockedValue(card.blocked);
     // pre-resolved by filterCards (below) into an id Set — a raw,
-    // unresolved 'tree'/'path'/'waiting'/'slice' term has no graph to resolve against
-    // here (a single (term, card) pair isn't enough), so it matches nothing
-    // rather than throwing. Always goes through filterCards in practice.
-    case 'tree': case 'path': case 'waiting': case 'slice': case 'group': return false;
+    // unresolved graph term ('tree', 'path' and the four Explore sets), 'waiting' or 'slice' has no
+    // graph to resolve against here (a single (term, card) pair isn't enough), so it matches
+    // nothing rather than throwing. Always goes through filterCards in practice.
+    case 'waiting': case 'slice': case 'group': return false;
     case 'ids': return term.ids.has(searchKey(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break
@@ -697,7 +715,7 @@ function cardMatchesQuery(card, terms) {
 // tree:/path: terms need the FULL card graph to resolve (connected
 // component / directed cone), not just the one card being tested — so they're
 // resolved ONCE here, up front, against `cards` (the same array filterCards
-// was called with). Each 'tree'/'path' term becomes an 'ids' term (an
+// was called with). Each 'tree'/'path'/'hpath'/'htree'/'dpath'/'dtree' term becomes an 'ids' term (an
 // already-resolved Set) before the per-card cardMatchesQuery pass runs, so
 // termMatchesCard's 'ids' case stays a pure, cheap Set.has() with no graph
 // access of its own.
@@ -712,9 +730,10 @@ function cardMatchesQuery(card, terms) {
 // dependency-graph.js's treeIds/pathIds — which in turn build their adjacency
 // from buildDependencyGraph(cards, null).edges, the exact edge set
 // (waiting_for + parent edges) the map's graph is built from (parent edges
-// shape layout but draw no line). A context with `graph: { treeIds, pathIds }`
-// hands in its own functions instead, each called as (cards, id, ctx), so the
-// snapshot can resolve over the graph it already holds.
+// shape layout but draw no line). A context with `graph: { treeIds, pathIds, hpathIds,
+// htreeIds, dpathIds, dtreeIds }` hands in its own functions instead, each called as
+// (cards, id, ctx), so the snapshot can resolve over the graph it already holds; one it
+// leaves out is the dependency graph's.
 //
 // Contract note: `cards` here doubles as "the cards to filter down" AND (only
 // when a tree:/path: term is present) "the universe to build the graph from".
@@ -732,9 +751,10 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
   let changed = false;
   const resolved = terms.map((term) => {
     let next = term;
-    if (term.field === 'tree') next = { field: 'ids', value: term.value, ids: graph.treeIds(cards, term.value, ctx) };
-    else if (term.field === 'path') next = { field: 'ids', value: term.value, ids: graph.pathIds(cards, term.value, ctx) };
-    else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
+    if (GRAPH_FIELDS.includes(term.field)) {
+      const name = graphFunctionName(term.field);
+      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
+    } else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'group') next = { field: 'ids', value: term.value, ids: groupIds(cards, term, ctx) };
     else if (term.field === 'waiting') {
       if (!memo.waiting) {

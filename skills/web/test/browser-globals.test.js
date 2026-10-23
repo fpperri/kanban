@@ -22,6 +22,7 @@ const PAGE_GLOBALS = [
   'graphSetOption',
   'hoveredId',
   'isDragging',
+  'isolateNow',
   'localTodayStr',
   'openNotes',
   'noteClock',

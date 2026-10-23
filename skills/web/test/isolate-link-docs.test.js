@@ -71,7 +71,7 @@ test('both list the Isolate entries of the menus: inside the selection, the empt
 });
 
 test('the skill\'s menu list names Isolate, and says where it shows and where the canvas menu opens', () => {
-  assert.match(skillMulti, /\*\*Explore\*\* \(\*\*Isolate\*\*, \*\*Dependency tree\*\*/);
+  assert.match(skillMulti, /\*\*Explore\*\* \(\*\*Isolate\*\*, \*\*Path\*\* and \*\*Tree\*\*\)/);
   assert.match(skillMulti, /Isolate shows only inside the selection and never in the card details' own menu/);
   assert.match(skillMulti, /empty Graph or Map canvas/);
   assert.match(skillMulti, /`canvas-menu`/);
