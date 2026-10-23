@@ -146,6 +146,9 @@ strip's width for every day at once: drag it (from 44px nearly to the whole colu
 cards a sliver), or focus it and press Left and Right; a double click puts the default width
 back. A wider strip shows more of each note's words. The width is kept per board in this browser.
 
+The Calendar and the Gantt open on today, and until you move their window with the arrows or a jump
+they follow the clock across midnight.
+
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as
@@ -252,6 +255,13 @@ is drawn as a root, and Archive starts off here, unlike the Map.
 Open it directly with `?view=graph`.
 
 ## More on the board
+
+**The clock** — an open page reads the clock when it needs it, never a value it took earlier. Every
+"today" (the Calendar's and the Gantt's today, the overdue marks on the tiles, the running iteration and
+the notes list's "today" labels) moves to the new day across midnight and when the page is shown again,
+without a reload, and a Calendar or Gantt window you have not moved moves with it. Every date or time the
+page or the server stamps (a note's day and time, a card's `updated` line and its start and end dates)
+is read at the moment of the write. A field you filled in yourself keeps what you typed.
 
 **Search** — the box in the header says what to look for, and Isolate says whether the rest hides:
 with Isolate on the box hides what it does not match, and with it off the box lights its matches.
@@ -688,7 +698,10 @@ typed in it (`22` or `#22`) aims it too, on Enter or on leaving the field. Its m
 and is never clipped by the palette. A leading
 `10:30` sets that note's time, a leading `-` makes it untimed, and a leading `#22` aims it at another
 card and wins over the picker; the line under the box says exactly which day, time and card Enter
-will write.
+will write. A palette left open reads the clock when it writes, not when it opened: a date or time field
+you have not touched follows the clock (it moves with the minute and the day, and when the page is shown
+again), and Enter writes the day and time of that moment; a day or time the request gave (an hour or
+all-day box of the Calendar, a card's time) and one you typed stay as they are.
 
 The list below groups the notes by day and card, newest first, with a filter field of its own
 (`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a note

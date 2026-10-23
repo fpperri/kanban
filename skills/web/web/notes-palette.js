@@ -551,7 +551,10 @@ function notesFollowClock() {
   const anchor = u.range.anchor;
   notesRefreshTime();
   notesPaintPreview();
-  if (u.sub.day !== day || u.range.anchor !== anchor) notesOnBoard();
+  if (u.sub.day !== day || u.range.anchor !== anchor) {
+    u.groupSig = ''; // a group's tab says whether it is running today
+    notesOnBoard();
+  }
 }
 
 function notesResetTime() {
