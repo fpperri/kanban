@@ -285,6 +285,10 @@ _Avoid_: pill (alone), filter chip.
 Showing only the selection, in every view, kept as a query in the search box that names each part by its criterion, so the address carries it.
 _Avoid_: solo (a view's status pills), focus, filter.
 
+**On hover show**:
+The search panel's choice of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads.
+_Avoid_: hover mode, hover filter.
+
 **Peek**:
 Opening a card's details without changing the selection.
 _Avoid_: preview, open (a plain open may replace the selection).

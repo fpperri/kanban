@@ -210,8 +210,8 @@ double-click, Enter, Space, hovering and focus act on it as on the card's dot, t
 the header and the dot of its card light and select together. A dot keeps its status colour and its type mark,
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
-hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its
-parent. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
+a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a
+card lights what the Flow's *On hover show* ticks, `dlinks` alone at first, so the cards its dependencies join to it. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
 in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
 replaces the page's address without adding a step to Back. A load writes the address the same way, from the link and
 what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the choice and the switches
@@ -223,7 +223,7 @@ in that outline (circle, square, diamond, triangle, hexagon or star), still in t
 colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
 colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it
 means children; red is blocked, amber waiting, gold review. Hover or focus a dot to light
-that card and its relations and dim the rest. Click selects a dot and keeps its relations lit while it is the
+what *On hover show* ticks for that card, its relations at first, and dim the rest. Click selects a dot and keeps its relations lit while it is the
 only card picked; shift-click or ctrl-click adds one card or takes it out, and a
 selection of several lights exactly its cards. Double-click (or Enter) opens the
 card; right-click works as on the board.
@@ -313,6 +313,18 @@ focus is in it, or steps the selection back, which also takes the added pills ba
 the box, and with nothing selected empties it; a plain click that selects a card drops the pills the same way, but a click that opens a card changes no filter: the pills stay on, the box keeps its text, the view behind the card shows the same cards, and closing the card leaves them so. Esc leaves the switch on, so the box opens the panel again when it is next focused. The box keeps its text through the first two, because the browser's own Esc, which
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
+
+**On hover show** — under the foot of the search panel, six checkboxes (`dtree`, `htree`, `dpath`, `hpath`,
+`dlinks` and `hlinks`, the sets of the same names) choose which sets a hover lights. Hovering a card, or
+moving keyboard focus onto it, lights the union of the sets ticked for it, in every view: the Board, the Map, the
+Calendar and the Gantt give each card of the union the hover look, and the Graph lights the union, with the lines
+between its cards, and dims the rest, while the hover ring stays on the hovered card alone. Leaving the card clears
+it. With nothing ticked only the hovered card takes the hover look and the Graph dims nothing. The choice is
+remembered per board in your browser, for each kind of Graph: the Hierarchy starts with `dlinks` and `hlinks`
+ticked, which is what its hover lit before the choice existed, and the Flow with `dlinks` alone. Every view
+that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calendar and the Gantt included, even
+when the Graph last showed the Flow. The panel shows the choice of the view that is on and says whose it is. The
+snapshot has no hover, so it has no such section.
 
 **Slice section** — the first region of the search panel lists the board's slices, top to
 bottom: the tiers some card of the board is in, each with the icon its type has in the

@@ -52,6 +52,7 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
     statusColorClass: colors.statusColorClass,
     isHoverHighlighted: () => false,
     hoveredId: null,
+    hoverLit: null,
     selectedIds: new Set(),
     state: { priorities: CTX.priorities, types: [] },
     typeBadge: typeBadge.typeBadge,

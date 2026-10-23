@@ -670,7 +670,7 @@ function cardEl(card) {
   // status) — status is already implied
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
-  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
   el.draggable = !onPhoneLayout(); // a phone swipes between statuses; a touch never starts a native drag
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -759,7 +759,7 @@ function cardEl(card) {
 // order everywhere it appears: status, archived.
 function archiveCardEl(card) {
   const el = document.createElement('div');
-  el.className = 'card card-el archived-card' + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+  el.className = 'card card-el archived-card' + (selectedIds.has(card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
   el.draggable = !onPhoneLayout(); // drag out of Archive restores to the drop column; no native drag on a phone
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -1257,6 +1257,7 @@ function applyViewMode() {
 
 function renderBoard() {
   nestingIndex = buildNestingIndex();
+  syncHoverLit(); // the cards the views draw read it
   renderIterations(); // the dropdown, before the views read the cut it makes
   searchMatchMemo = computeSearchMatch();
   lastSearchMatch = searchMatchMemo;
@@ -2010,7 +2011,7 @@ function buildMapSvg(graph, layer, draw) {
     const cls = `map-node${n.ghost ? ' ghost' : ''}${missing ? ' missing' : ''}${n.archived ? ' archived' : ''}` +
       `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}` +
       `${selectable ? ' card-el' : ''}${selectable && selectedIds.has(id) ? ' selected' : ''}` +
-      `${selectable && isHoverHighlighted(hoveredId, id) ? ' hover-highlight' : ''}`;
+      `${selectable && isHoverHighlighted(hoverLit, id) ? ' hover-highlight' : ''}`;
     const idLabel = n.external ? n.external : `#${id}`;
     // Same empty-title-shows-the-prompt fallback every
     // other view uses (cardTitleDisplay, card-title.js) — n already carries
@@ -2145,6 +2146,7 @@ function applyProjectName(name) {
     mapSectionsCollapsed = null; // map.sections.collapsed too
     mapZoom = null; // map.zoom too
     mapOptions = null; // map.options too
+    hoverShowMemo = null; // hover.show too
     ganttStatusFilter = null; // gantt.statusFilter too — applyStatuses' own reset doesn't fire on a pure rename with an unchanged status list
     calendarStatusFilter = null; // calendar.statusFilter too, same reasoning
     resetGraphViewState(); // graph memos too
@@ -4353,7 +4355,7 @@ function calendarChipEl(card, pos, time, isDue) {
     (card.archived ? ' archived' : '') +
     (overdue ? ' overdue' : '') +
     (selectedIds.has(card.id) ? ' selected' : '') +
-    (isHoverHighlighted(hoveredId, card.id) ? ' hover-highlight' : '');
+    (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
   // An archived card is
   // read-only — native drag simply never starts (no fake-drag animation to
   // guard against, unlike the gantt's custom pointer-drag), so onCalendarDrop
@@ -5330,7 +5332,7 @@ function ganttBarEl(bar, win, dayPx) {
   el.className = `gantt-bar card-el status-${mapStatusClass(colorStatus)}` + // bars join the shared card-el grammar
     (pb.className ? ` ${pb.className}` : '') + (isWaiting(bar.card) ? ' waiting' : '') +
     (selectedIds.has(bar.card.id) ? ' selected' : '') +
-    (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '') +
+    (isHoverHighlighted(hoverLit, bar.card.id) ? ' hover-highlight' : '') +
     (bar.card.archived ? ' archived' : '') + // an archived bar is drag-read-only — CSS swaps the grab cursor for not-allowed
     (clipStart ? ' clip-start' : '') + (clipEnd ? ' clip-end' : '');
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
@@ -5553,7 +5555,7 @@ function renderGanttView() {
       // ctrl/shift-click select, right-click menus, exactly like the bar itself
       // (cheap parity, and the only way to reach
       // a bar that's entirely outside the clamped window).
-      label.className = 'gantt-row gantt-label card-el' + (selectedIds.has(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoveredId, bar.card.id) ? ' hover-highlight' : '');
+      label.className = 'gantt-row gantt-label card-el' + (selectedIds.has(bar.card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, bar.card.id) ? ' hover-highlight' : '');
       label.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
       label.dataset.id = bar.card.id;
       // Same fallback every other view uses — reused via
@@ -6023,16 +6025,43 @@ function setSelection(selection, rangeStart = selectionState.rangeStart) {
 // share that render.
 let hoveredId = null;
 
+// The cards that take the look are not that one card alone: the search panel's "On hover show"
+// (hover-show.js, hover-show-ui.js) ticks which sets of the hovered card light with it, so
+// `hoverLit` is the Set of ids the renderers read (null when nothing is hovered), kept in step with
+// hoveredId by syncHoverLit. The Graph lights those sets by dimming the rest (graphSetFocus), and
+// its hover ring stays on the hovered card, so there `hoverLit` holds that card alone.
+let hoverLit = null;
+
+function hoverLitNow() {
+  if (hoveredId == null) return null;
+  return loadViewMode() === 'graph' ? new Set([hoveredId]) : hoverShowTiles(hoverShowKindsNow(), state.active.concat(state.archived), hoveredId, searchCtx());
+}
+
+function syncHoverLit() {
+  hoverLit = hoverLitNow();
+}
+
+// One pass over the cards on the page, so a big set costs the same as a small one.
 function applyHoverHighlight() {
   document.querySelectorAll('.hover-highlight').forEach((el) => el.classList.remove('hover-highlight'));
-  if (hoveredId == null) return;
-  document.querySelectorAll(`.card-el[data-id="${hoveredId}"]`).forEach((el) => el.classList.add('hover-highlight'));
+  if (hoverLit == null) return;
+  document.querySelectorAll('.card-el').forEach((el) => {
+    if (hoverLit.has(el.dataset.id)) el.classList.add('hover-highlight');
+  });
 }
 
 function setHoveredId(id) {
   if (id === hoveredId) return;
   hoveredId = id;
+  syncHoverLit();
   applyHoverHighlight();
+}
+
+// A change to what the hover lights (a set ticked, the Hierarchy and the Flow swapped) paints again now.
+function refreshHover() {
+  syncHoverLit();
+  applyHoverHighlight();
+  if (loadViewMode() === 'graph') graphSettleFocus();
 }
 
 // The rendered order shift+click ranges over: every card-el in

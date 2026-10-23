@@ -638,13 +638,17 @@ function graphLightCards(lit) {
   for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
 
-// The pointer or keyboard focus on a card: that card and its one-hop relations.
+// The pointer or keyboard focus on a card: the sets the search panel's "On hover show" ticks for this
+// kind of Graph (hoverSetOf, hover-show-ui.js), lit with the rest dimmed. With none ticked the hover
+// lights nothing and the lighting of the selection stays.
 function graphSetFocus(id) {
   if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
-  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id, graphLinkKind()), graphCur.lines));
+  const lit = graphLit(graphCur.model, hoverSetOf(id), graphCur.lines);
+  if (lit) graphLightCards(lit);
+  else graphRestFocus();
 }
 
-// The Flow draws the dependencies alone, so it lights a card with the cards those join to it.
+// The Flow draws the dependencies alone, so a lone card picked there lights with the cards those join to it.
 function graphLinkKind() {
   return graphCur && graphCur.kind === 'flow' ? 'wait' : undefined;
 }
@@ -851,7 +855,7 @@ function graphDrawPlan(plan) {
   // and select them with the dots.
   const headEls = new Map();
   for (const h of plan.flow.heads) {
-    const cls = `graph-node card-el graph-flow-lane-head${selectedIds.has(h.id) ? ' selected' : ''}${isHoverHighlighted(hoveredId, h.id) ? ' hover-highlight' : ''}`;
+    const cls = `graph-node card-el graph-flow-lane-head${selectedIds.has(h.id) ? ' selected' : ''}${isHoverHighlighted(hoverLit, h.id) ? ' hover-highlight' : ''}`;
     const g = graphEl('g', { transform: `translate(${h.x} ${h.y})`, tabindex: 0 }, cls);
     g.setAttribute('data-id', String(h.id));
     const tip = graphEl('title');

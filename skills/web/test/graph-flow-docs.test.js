@@ -107,7 +107,7 @@ test('the web doc says where the strip, the order and the arrows go, and what a 
 test('the web doc says what works as in Hierarchy, what lights, and that a dot cannot be dragged', () => {
   const text = docFlow();
   assert.match(text, /Search lighting, the status pills, `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy/);
-  assert.match(text, /hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its parent/);
+  assert.match(text, /a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a card lights what the Flow's \*On hover show\* ticks, `dlinks` alone at first, so the cards its dependencies join to it/);
   assert.match(text, /A dot cannot be dragged/);
 });
 
@@ -167,7 +167,7 @@ test('the web skill\'s Graph Flow says what works as in Hierarchy, what lights, 
   const text = skillBullet('- **Graph Flow**');
   assert.match(text, /Search lighting, the status pills, `slice:` cuts, isolate, selection, the card menu, double-click, Enter, Space and the zoom work as in Hierarchy, on the same dots/);
   assert.match(text, /a card whose only dependency is hidden has no dependency drawn, so it is in the strip/);
-  assert.match(text, /Hover, focus and a lone selected card light the card with the cards its \*\*dependencies\*\* join to it, not its parent or children, and the lit lines are the arrows/);
+  assert.match(text, /A lone selected card lights the card with the cards its \*\*dependencies\*\* join to it, not its parent or children, and hover and focus light what the Flow's \*On hover show\* ticks \(`dlinks` alone by default, so the same cards\), and the lit lines are the arrows/);
   assert.match(text, /A dot cannot be dragged in Flow; the background pans/);
 });
 
