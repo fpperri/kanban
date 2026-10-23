@@ -189,7 +189,7 @@ the rim. The row's choices are kept per board.
 
 **Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
 from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the
-choice, **frontier** by default or **all**, decides the columns. Frontier counts the steps until a card is
+choice, **all** by default or **frontier**, decides the columns. Frontier counts the steps until a card is
 ready, and only the dependencies that are not done: the first column is `done`, faded, then `ready now`
 (the first column with work in it is what you can pick up now), `1 step`, `2 steps`, and a card in or
 behind a dependency loop stands in a last `loop` column. All counts the longest chain of dependencies behind
@@ -197,7 +197,7 @@ a card, done ones included: `waits for nothing`, `chain 1`, `chain 2`, a loop sh
 heading carries its card count. Cards with no dependency either way sit in a strip below the columns, titled
 `no dependency either way` with its count. Within a column the cards are ordered to cut the arrows that cross,
 ties by id, and a tall column wraps into side-by-side stacks. A **Lanes** switch beside the Dependencies
-switch, **off** by default, groups the cards into lanes: each card with a dependency sits in the lane of its
+switch, **on** by default, groups the cards into lanes: each card with a dependency sits in the lane of its
 nearest parent with a tier, else its root, under a header that leads with that card's type mark in its type
 colour, its tier name (none for a card with no tier), `#id title`, the lane's card count and its ready
 count. A card is ready when it is open, in no loop and waits for nothing that is not done. The columns line

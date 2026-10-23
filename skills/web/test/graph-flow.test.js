@@ -94,11 +94,13 @@ test('all and frontier agree on a board with nothing done and no loop, but for t
   assert.deepStrictEqual(ids(place(cards, 'all')), ids(place(cards, 'frontier')));
 });
 
-test('a switch that is not one of the two reads as frontier', () => {
-  assert.strictEqual(graphFlowMergeDeps(undefined), 'frontier');
-  assert.strictEqual(graphFlowMergeDeps('open'), 'frontier');
+test('a switch that is not one of the two reads as all, the default, and frontier is kept when asked for', () => {
+  assert.strictEqual(graphFlowMergeDeps(undefined), 'all');
+  assert.strictEqual(graphFlowMergeDeps('open'), 'all');
   assert.strictEqual(graphFlowMergeDeps('all'), 'all');
-  assert.strictEqual(place([card(1), waits(2, 1)], 'sideways').deps, 'frontier');
+  assert.strictEqual(graphFlowMergeDeps('frontier'), 'frontier');
+  assert.strictEqual(place([card(1), waits(2, 1)], 'sideways').deps, 'all');
+  assert.strictEqual(place([card(1), waits(2, 1)], 'frontier').deps, 'frontier');
 });
 
 // --- the strip -----------------------------------------------------------------------

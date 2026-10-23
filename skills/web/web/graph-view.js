@@ -148,7 +148,8 @@ function graphLoadLanes() {
   try { saved = localStorage.getItem(storageKey(state.projectName, 'graph.lanes')); }
   catch (e) { saved = null; }
   const link = graphFlowLink(location.search).lanes;
-  graphLanesSwitch = link === null ? graphFlowLanesFromText(saved) === true : link;
+  const kept = graphFlowLanesFromText(saved);
+  graphLanesSwitch = link !== null ? link : kept !== null ? kept : GRAPH_FLOW_DEFAULT_LANES;
   return graphLanesSwitch;
 }
 

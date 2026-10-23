@@ -1,7 +1,7 @@
 'use strict';
 // The Graph's Flow, on the plan board. The toolbar at the top right has a Hierarchy | Flow choice, Hierarchy
 // (the tier fan, with its layouts and options) pressed. Flow lays the board out by its dependencies in
-// columns, with the Dependencies switch beside it, frontier or all, and the Lanes switch, off at first:
+// columns, with the Dependencies switch beside it, frontier or all (all at first), and the Lanes switch, on at first:
 //   frontier  done (faded, first), ready now, 1 step, 2 steps ..., loop; only dependencies not done count.
 //   all       waits for nothing, chain 1, chain 2 ...; done dependencies count.
 // Cards with no dependency either way sit in a strip below the columns, with a count. The arrows run from
@@ -173,9 +173,17 @@ module.exports = {
     check('plan: the Hierarchy draws every live card', hierarchyDots.length === plan.dots, hierarchyDots.length);
     await shot('graph-flow-hierarchy');
 
-    // --- Flow, frontier by default -------------------------------------------------------------------------
+    // --- Flow, all with the lanes on by default ------------------------------------------------------------
     await pressOn(KIND('flow'));
-    check('plan: a press on Flow draws the Flow, frontier pressed, without a reload', await flowDrawn('frontier'));
+    check('plan: a press on Flow draws the Flow, all pressed and the lanes on, without a reload',
+      await flowDrawn('all') && await waitFor(`${pressed(LANES('on'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===${plan.lanes.headers.length}`, 10000));
+    check('plan: the address says deps=all and lanes=1 before anything is pressed, and nothing is kept for the switches yet',
+      await waitFor(`/[?&]deps=all(&|$)/.test(${SEARCH})&&/[?&]lanes=1(&|$)/.test(${SEARCH})`) && await ev(STORED('deps')) === null && await ev(STORED('lanes')) === null, await ev(SEARCH));
+    // The steps below read the Flow on frontier with the lanes off, so the two switches are pressed there first.
+    await pressOn(LANES('off'));
+    await pressOn(DEPS('frontier'));
+    check('plan: frontier pressed and the lanes off, where the steps below start',
+      await flowDrawn('frontier') && await waitFor(`${pressed(LANES('off'))}&&document.querySelectorAll('#graph-view .graph-flow-lane-head').length===0`, 10000));
     check('plan: the panel offers the Dependencies switch, frontier then all, and not the fan option row', await ev(`JSON.stringify([...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn[data-key=deps]')].map((b)=>b.textContent))`) === '["frontier","all"]'
       && await ev(`document.querySelectorAll('${PANEL} .graph-options:not(.graph-flow-options)').length===0&&document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-label')[0].textContent==='Dependencies'`));
     check('plan: the Dependencies buttons keep the selection and do not hold the poll', await ev(`[...document.querySelectorAll('${PANEL} .graph-flow-options .graph-option-btn')].every((b)=>b.hasAttribute('data-keeps-selection')&&!b.hasAttribute('data-holds-poll'))`));

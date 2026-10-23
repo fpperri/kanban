@@ -2449,8 +2449,8 @@ to `127.0.0.1` only.
   toolbar at the top right (`.graph-controls`, left of the (i) and the panel's button) has a **Hierarchy | Flow** choice (`.graph-kinds` of two `.graph-kind-btn`, `aria-pressed` on the one drawn, built by `graphBuildKinds`), Hierarchy first, with the panel open or shut;
   under Flow the panel holds the zoom and the **Dependencies** and **Lanes** switches, and none of Hierarchy's option row.
   Flow lays the drawn cards out by their dependencies (`waiting_for`, read among the cards drawn) in **columns** from left to right, with no parent line
-  and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **frontier**
-  (the default) or **all**. **Frontier** counts the steps until a card is ready and only the dependencies that are not done (a card that
+  and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **all**
+  (the default) or **frontier**. **Frontier** counts the steps until a card is ready and only the dependencies that are not done (a card that
   is `done` or archived is done): the first column is `done`, faded, then `ready now`, `1 step`, `2 steps` and on,
   and a card in or behind a dependency loop stands in a last `loop` column. Only the open cards are read, so a loop with a done card in it is no loop.
   **All** counts the longest chain of dependencies behind a card, done ones included: `waits for nothing`, `chain 1`,
@@ -2458,7 +2458,7 @@ to `127.0.0.1` only.
   (`ready now · 4`); the `done` column is faded. A card with **no dependency either way** among the drawn cards sits in a **strip** below the
   columns, in either mode, titled `no dependency either way` with its count (`· 18 cards`). Within a column the cards are ordered to cut the
   arrows that cross (the mean place of what each waits for and what waits for it, two sweeps each way), ties by id, and a column of more than
-  fourteen cards wraps into side-by-side stacks. The **Lanes** switch (`.graph-option-btn[data-key=lanes]`, `off` or `on`, off by default) groups the
+  fourteen cards wraps into side-by-side stacks. The **Lanes** switch (`.graph-option-btn[data-key=lanes]`, `off` or `on`, on by default) groups the
   cards that are in a column into **lanes**: each card with a dependency is in the lane of its nearest parent with a tier, else of its root (the slice's own rule,
   read among the cards drawn, so a card whose parent is hidden is a root), under a header (`.graph-flow-lane-head`, with the lane card's `data-id`) that leads with that
   card's type mark in its type colour (`data-type-color`, painted by `paintTypeColors`), its tier name (none for a card with no tier), `#id title`, the lane's
@@ -2477,7 +2477,7 @@ to `127.0.0.1` only.
   that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. A lone selected card lights the card with the cards its **dependencies** join to it, not its parent or children, and hover and focus
   light what the Flow's *On hover show* ticks (`dlinks` and `hlinks` by default, so those cards and the card's parent and children), and the lit lines are the arrows. A dot
   cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
-  and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, frontier and lanes off. The address carries them as
+  and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, all and lanes on, the defaults (`GRAPH_FLOW_DEFAULT_DEPS`, `GRAPH_FLOW_DEFAULT_LANES`). The address carries them as
   `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;
   every draw of the Graph writes the address too (`graphWriteAddress`, a no-op once it says the picture), so a Graph that opened from the board's memory says so and a link copied after a plain reload opens the same picture;
   a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is
