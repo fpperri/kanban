@@ -145,11 +145,11 @@ test('in the Hierarchy a hovered dot lights what it lit before the choice existe
   assert.deepStrictEqual(s.focusDot(4), [4]);
 });
 
-test('in the Flow a hovered dot lights itself and the cards its dependencies join to it, and not its parent', async () => {
+test('in the Flow a hovered dot lights itself, the cards its dependencies join to it, and its parent and children, as the Hierarchy default does', async () => {
   const s = await open({ view: 'graph', stored: { 'kanban.kanban.graph.layout': 'flow' } });
   s.fakeGraph();
-  assert.deepStrictEqual(s.focusDot(1), [1, 2]);
-  assert.deepStrictEqual(s.focusDot(3), [3], 'its parent is no dependency');
+  assert.deepStrictEqual(s.focusDot(1), [1, 2, 3]);
+  assert.deepStrictEqual(s.focusDot(3), [1, 3], 'its parent');
 });
 
 test('the Graph lights the union of the sets ticked for its kind: the Flow\'s choice and the Hierarchy\'s are two', async () => {
@@ -197,19 +197,19 @@ test('the boxes show the Hierarchy\'s defaults, and the note says it is the Hier
 test('in the Graph\'s Flow the boxes show the Flow\'s defaults and the note says Flow', async () => {
   const s = await open({ view: 'graph', stored: { 'kanban.kanban.graph.layout': 'flow' } });
   s.sync();
-  assert.deepStrictEqual(s.ticked(), ['dlinks']);
+  assert.deepStrictEqual(s.ticked(), ['dlinks', 'hlinks']);
   assert.strictEqual(s.note.textContent, 'Flow');
 });
 
 test('a tick is kept for the board under hover.show, for the kind of Graph that is on, and the other kind is left alone', async () => {
   const s = await open();
   s.tick('dtree', true);
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['dlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
   s.tick('dlinks', false);
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'hlinks'], flow: ['dlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'hlinks'], flow: ['dlinks', 'hlinks'] });
   const flow = await open({ view: 'graph', stored: { 'kanban.kanban.graph.layout': 'flow' } });
-  flow.tick('hlinks', true);
-  assert.deepStrictEqual(JSON.parse(flow.stored[KEY]), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
+  flow.tick('hlinks', false);
+  assert.deepStrictEqual(JSON.parse(flow.stored[KEY]), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks'] });
 });
 
 test('a reload reads the kept choice, and a corrupt or unreadable one reads as the defaults', async () => {

@@ -36,8 +36,10 @@ test('the six sets, in the panel\'s order, and the two graph kinds that keep the
   assert.deepStrictEqual(HOVER_SHOW_GRAPHS, ['hierarchy', 'flow']);
 });
 
-test('the defaults: the Hierarchy lights dlinks and hlinks, the Flow dlinks alone, and each call gives a copy', () => {
-  assert.deepStrictEqual(hoverShowDefaults(), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks'] });
+test('the defaults: the Hierarchy lights dlinks and hlinks, the Flow the same, and each call gives a copy', () => {
+  assert.deepStrictEqual(hoverShowDefaults(), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
+  hoverShowDefaults().flow.push('dtree');
+  assert.deepStrictEqual(hoverShowDefaults().flow, ['dlinks', 'hlinks']);
   hoverShowDefaults().hierarchy.push('dtree');
   assert.deepStrictEqual(hoverShowDefaults().hierarchy, ['dlinks', 'hlinks']);
 });
@@ -71,12 +73,12 @@ test('mergeHoverShow: a kind the store holds that this version does not draw is 
 test('hoverShowWith ticks or unticks one set of one graph kind, keeps the panel\'s order, and leaves the rest and its argument alone', () => {
   const start = hoverShowDefaults();
   const ticked = hoverShowWith(start, 'hierarchy', 'dtree', true);
-  assert.deepStrictEqual(ticked, { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['dlinks'] });
+  assert.deepStrictEqual(ticked, { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
   assert.deepStrictEqual(start, hoverShowDefaults(), 'the argument is not touched');
   assert.deepStrictEqual(hoverShowWith(ticked, 'hierarchy', 'dlinks', false).hierarchy, ['dtree', 'hlinks']);
-  assert.deepStrictEqual(hoverShowWith(start, 'flow', 'hlinks', true).flow, ['dlinks', 'hlinks']);
+  assert.deepStrictEqual(hoverShowWith(start, 'flow', 'dtree', true).flow, ['dtree', 'dlinks', 'hlinks']);
   assert.deepStrictEqual(hoverShowWith(start, 'flow', 'dlinks', true), start, 'ticking a ticked set changes nothing');
-  assert.deepStrictEqual(hoverShowWith(start, 'flow', 'dlinks', false).flow, [], 'the last one can be unticked');
+  assert.deepStrictEqual(hoverShowWith(hoverShowWith(start, 'flow', 'dlinks', false), 'flow', 'hlinks', false).flow, [], 'the last one can be unticked');
 });
 
 test('hoverShowWith ignores a set or a graph kind it does not know', () => {
@@ -149,9 +151,10 @@ test('with the defaults the Graph\'s hover lights what it lit before: the card a
   }
 });
 
-test('with the Flow default the hover lights what the Flow lit before: the card and one hop over waiting_for alone', () => {
-  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 3), set(['2', '3']));
-  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 1), set(['1']), 'a parent is no line in the Flow');
+test('with the Flow default the hover lights the card, one hop over waiting_for, and its parent and children, as the Hierarchy default does', () => {
+  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 3), set(['1', '2', '3', '5']));
+  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 1), set(['1', '2', '3']), 'the children are lit though the Flow draws no parent line');
+  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 3), hoverShowIds(hoverShowDefaults().hierarchy, BOARD, 3));
 });
 
 // --- the text Space writes -------------------------------------------------------------------------

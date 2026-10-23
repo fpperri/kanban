@@ -15,7 +15,7 @@
 //
 // The Graph. Space on a hovered dot writes the same text, which the Graph takes as the typed search: with the pointer
 // gone the dot and its one-hop relations are lit, isolate still off. Ctrl+Space on a focused dot selects its card
-// only, and Space on it again is the write once more. The Flow reads its own choice, `dlinks` alone.
+// only, and Space on it again is the write once more. The Flow reads its own choice, `dlinks` and `hlinks` at first.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. Each step waits on the page, never on a fixed sleep. Keys go
 // through the runner's helper, a real key press; the pointer is the mouseover or mouseout the page listens to and
@@ -40,7 +40,7 @@ const CASES = {
     tickedText: 'hpath:7 | dlinks:7 | hlinks:7',
   },
   graph: { dot: 2, text: 'dlinks:2 | hlinks:2', lit: [1, 2, 6, 7, 8], focused: 7, focusedText: 'dlinks:7 | hlinks:7' },
-  flow: { dot: 3, text: 'dlinks:3' },
+  flow: { dot: 3, text: 'dlinks:3 | hlinks:3' },
 };
 
 module.exports = {
@@ -180,6 +180,6 @@ module.exports = {
     await over(DOT(CASES.flow.dot));
     await hoveredIs(CASES.flow.dot);
     await key(' ');
-    check('in the Flow Space writes its own choice, dlinks alone', await boxIs(CASES.flow.text), await boxText());
+    check('in the Flow Space writes its own choice, dlinks and hlinks', await boxIs(CASES.flow.text), await boxText());
   },
 };

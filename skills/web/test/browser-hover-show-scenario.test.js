@@ -78,14 +78,14 @@ test('in the Hierarchy with nothing chosen, the Graph lights card 2 with its one
   assert.deepStrictEqual(lights.LONE[card], defaults, 'and what the lights scenario expects of a lone card');
 });
 
-test('in the Flow, card 3 lights the dependencies alone; ticking hlinks adds the parent; the Hierarchy\'s own hlinks lights the parent and the card', () => {
+test('in the Flow, card 3 lights the dependencies and the parent; unticking hlinks leaves the dependencies; the Hierarchy\'s own hlinks lights the parent and the card', () => {
   const b = plan();
-  const { card, defaults, plusHlinks, hierarchy, kinds } = hover.CASES.flow;
+  const { card, defaults, noHlinks, hierarchy, kinds } = hover.CASES.flow;
   assert.deepStrictEqual(lit(b, kinds, card), defaults);
   const model = graphBuild(b.all, { ctx: b.ctx, visibleIds: b.liveIds });
-  assert.deepStrictEqual(sorted(graphNeighbours(model, String(card), 'wait')), defaults, 'what the Flow lit before the choice existed');
-  assert.deepStrictEqual(lit(b, plusHlinks.kinds, card), plusHlinks.lit);
-  assert.ok(plusHlinks.lit.includes(1), 'card 1 is the parent, which the dependencies do not reach');
+  assert.deepStrictEqual(sorted(graphNeighbours(model, String(card), 'wait')), noHlinks.lit, 'what the Flow lit before the choice existed');
+  assert.deepStrictEqual(lit(b, noHlinks.kinds, card), noHlinks.lit);
+  assert.ok(defaults.includes(1) && !noHlinks.lit.includes(1), 'card 1 is the parent, which the dependencies do not reach');
   assert.deepStrictEqual(lit(b, hover.CASES.board.hlinksAlone.kinds, card), hierarchy);
 });
 
@@ -152,9 +152,9 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'the choice is still there after a reload',
     'and it lights what it did',
     'the Flow draws the plan board',
-    'the Flow has its own choice, dlinks alone, whatever the Hierarchy ticks, and the panel says so',
-    'in the Flow, hovering a dot lights it and the cards its dependencies join to it, and not its parent',
-    'ticking hlinks in the Flow lights the parent as well, with the dot still hovered',
+    'the Flow has its own choice, dlinks and hlinks, whatever the Hierarchy ticks, and the panel says so',
+    'in the Flow, hovering a dot lights it, the cards its dependencies join to it and its parent',
+    'unticking hlinks in the Flow lights the dependencies alone, with the dot still hovered',
     'the Hierarchy draws again',
     'the Hierarchy still holds its own choice, and the panel says so',
     'and its hover lights the parent and the card, not the dependencies',
@@ -183,7 +183,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
 test('every acceptance line of the ticket has a check of its own in the scenario', () => {
   const src = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'hover-show.js'), 'utf8');
   for (const text of [
-    'the Flow has its own choice, dlinks alone',
+    'the Flow has its own choice, dlinks and hlinks',
     'hovering a card gives it and its one-hop relations the hover look',
     'hovering a dot lights it and its one-hop relations and dims the rest',
     'the hover ring stays on the hovered dot alone',

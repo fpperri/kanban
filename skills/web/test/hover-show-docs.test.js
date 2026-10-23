@@ -22,13 +22,13 @@ test('docs/web.md says what the six checkboxes are, what a hover lights in every
 });
 
 test('docs/web.md says the choice is kept per board and per kind of Graph, with the defaults, and who reads which', () => {
-  assert.match(webDoc, /remembered per board in your browser, for each kind of Graph: the Hierarchy starts with `dlinks` and `hlinks` ticked, which is what its hover lit before the choice existed, and the Flow with `dlinks` alone/);
+  assert.match(webDoc, /remembered per board in your browser, for each kind of Graph: the Hierarchy starts with `dlinks` and `hlinks` ticked, which is what its hover lit before the choice existed, and the Flow the same/);
   assert.match(webDoc, /Every view that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calendar and the Gantt included, even when the Graph last showed the Flow/);
   assert.match(webDoc, /The panel shows the choice of the view that is on and says whose it is\. The snapshot has no hover, so it has no such section/);
 });
 
 test('docs/web.md\'s Flow and Graph paragraphs say hover lights what the choice ticks, and a lone card still lights its dependencies', () => {
-  assert.match(webDoc, /a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a card lights what the Flow's \*On hover show\* ticks, `dlinks` alone at first, so the cards its dependencies join to it/);
+  assert.match(webDoc, /a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a card lights what the Flow's \*On hover show\* ticks, `dlinks` and `hlinks` at first, so the cards its dependencies join to it and its parent and children/);
   assert.match(webDoc, /Hover or focus a dot to light what \*On hover show\* ticks for that card, its relations at first, and dim the rest/);
 });
 
@@ -41,7 +41,7 @@ test('the web skill\'s On hover show bullet names the panel, the pure module, th
   assert.match(bullet, /`hover-show-ui\.js`/);
   assert.match(bullet, /`hover-show\.js`, pure, with no DOM, on the dual-environment pattern: `mergeHoverShow`, `hoverShowWith`, `hoverShowGraph`, `hoverShowIds`/);
   assert.match(bullet, /`\{ "hierarchy": \[\.\.\.\], "flow": \[\.\.\.\] \}`, kept per board in `localStorage` under `hover\.show`/);
-  assert.match(bullet, /The defaults are what each view lit before the choice existed: the Hierarchy `dlinks` and `hlinks`, the Flow `dlinks` alone/);
+  assert.match(bullet, /The defaults are what each view lit before the choice existed: the Hierarchy `dlinks` and `hlinks`, and the Flow the same/);
   assert.match(bullet, /the Flow's in the Graph's Flow, the Hierarchy's in the Hierarchy and in every view that is not the Graph \(the Board, the Map, the Calendar and the Gantt\), whatever layout the Graph last showed/);
 });
 
@@ -52,13 +52,13 @@ test('the web skill\'s On hover show bullet says how the lit set reaches the ren
   assert.match(bullet, /`applyHoverHighlight` gives each card of it the wash in one pass over the cards on the page, not one query per id/);
   assert.match(bullet, /In the Graph the hover ring stays on the hovered card alone \(`hoverLit` holds that card\), and `graphSetFocus` lights the union with `graphLit`, dimming the rest, in place of the one-hop relations it lit before/);
   assert.match(bullet, /with nothing ticked the union is empty and the Graph lights what it lights when the pointer is on no card/);
-  assert.match(bullet, /With the defaults the Graph lights what it lit before/);
+  assert.match(bullet, /With the defaults the Hierarchy lights what it lit before: a card and its parent, its children and the cards it waits for or that wait for it\. The Flow lights the same, where before the choice it lit the card and the cards its dependencies join to it alone/);
 });
 
 test('the web skill\'s Hover/focus bullet, the Graph\'s Lighting and the Flow say hover lights what the choice ticks', () => {
   assert.match(webSkill, /the cards that take the wash are the Set `hoverLit`, see \*\*On hover show\*\*/);
   assert.match(webSkill, /\*\*Hover or keyboard focus\*\* on a dot lights the sets \*On hover show\* ticks for that card \(by default the card and the cards it has a relation with\), with the lines between them, until the pointer leaves/);
-  assert.match(webSkill, /A lone selected card lights the card with the cards its \*\*dependencies\*\* join to it, not its parent or children, and hover and focus light what the Flow's \*On hover show\* ticks \(`dlinks` alone by default, so the same cards\)/);
+  assert.match(webSkill, /A lone selected card lights the card with the cards its \*\*dependencies\*\* join to it, not its parent or children, and hover and focus light what the Flow's \*On hover show\* ticks \(`dlinks` and `hlinks` by default, so those cards and the card's parent and children\)/);
 });
 
 test('the old wording, that a hover always lights one card\'s relations, is gone from the docs', () => {

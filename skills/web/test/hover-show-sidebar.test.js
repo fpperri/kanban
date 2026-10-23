@@ -110,11 +110,11 @@ test('the toggles show the Hierarchy\'s choice there: dlinks and hlinks at first
   for (const b of s.buttons()) assert.strictEqual(b.classes.includes('active'), b.getAttribute('aria-pressed') === 'true', 'the active class follows aria-pressed');
 });
 
-test('in the Flow the section is there too, and shows the Flow\'s own choice: dlinks alone at first', async () => {
+test('in the Flow the section is there too, and shows the Flow\'s own choice: dlinks and hlinks at first, as in the Hierarchy', async () => {
   const s = await open({ layout: 'flow' });
   assert.ok(s.group());
   assert.deepStrictEqual(s.buttons().map((b) => b.dataset.val), GRID);
-  assert.deepStrictEqual(s.ticked(), ['dlinks']);
+  assert.deepStrictEqual(s.ticked(), ['dlinks', 'hlinks']);
 });
 
 test('the section shows a kept choice, and reads a corrupt one as the defaults', async () => {
@@ -129,18 +129,18 @@ test('the section shows a kept choice, and reads a corrupt one as the defaults',
 test('pressing a toggle ticks it for the board and the kind of Graph that is on, keeps the choice, and leaves the other kind alone', async () => {
   const s = await open();
   s.press('hpath');
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['hpath', 'dlinks', 'hlinks'], flow: ['dlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['hpath', 'dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
   assert.deepStrictEqual(s.ticked(), ['hpath', 'dlinks', 'hlinks'], 'the toggle shows it at once');
   s.press('dlinks');
   s.press('hlinks');
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['hpath'], flow: ['dlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['hpath'], flow: ['dlinks', 'hlinks'] });
   assert.deepStrictEqual(s.ticked(), ['hpath']);
   s.press('hpath');
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: [], flow: ['dlinks'] }, 'any mix, none included');
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: [], flow: ['dlinks', 'hlinks'] }, 'any mix, none included');
   assert.deepStrictEqual(s.ticked(), []);
   const flow = await open({ layout: 'flow' });
   flow.press('hlinks');
-  assert.deepStrictEqual(JSON.parse(flow.stored[KEY]), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
+  assert.deepStrictEqual(JSON.parse(flow.stored[KEY]), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks'] });
 });
 
 test('a toggle pressed in the side panel shows in the search panel\'s boxes at once, and the hover lights the union', async () => {
@@ -176,12 +176,12 @@ test('the Hierarchy and the Flow keep their own choices in the side panel as the
   s.press('dtree');
   assert.deepStrictEqual(s.ticked(), ['dtree', 'dlinks', 'hlinks']);
   s.stage('flow');
-  assert.deepStrictEqual(s.ticked(), ['dlinks'], 'the Flow\'s own');
+  assert.deepStrictEqual(s.ticked(), ['dlinks', 'hlinks'], 'the Flow\'s own');
   s.press('hpath');
-  assert.deepStrictEqual(s.ticked(), ['hpath', 'dlinks']);
+  assert.deepStrictEqual(s.ticked(), ['hpath', 'dlinks', 'hlinks']);
   s.stage('hierarchy');
   assert.deepStrictEqual(s.ticked(), ['dtree', 'dlinks', 'hlinks'], 'the Hierarchy\'s is as it was left');
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['hpath', 'dlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['hpath', 'dlinks', 'hlinks'] });
 });
 
 test('a card hovered at the moment of the change lights again with the new union, and with none ticked lights nothing but the selection', async () => {

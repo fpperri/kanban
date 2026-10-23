@@ -76,11 +76,11 @@ test('in the Graph the dot\'s text lights its card and its one-hop relations, an
   assert.ok(!graph.lit.every((id) => id === graph.focused) && graph.lit.includes(graph.focused), 'the focused card is one of the lit, so Ctrl+Space narrows the selection to it alone');
 });
 
-test('in the Flow the dot is a card the plan board has, and its text is the Flow\'s own choice, not the Hierarchy\'s', () => {
+test('in the Flow the dot is a card the plan board has, and its text is the Flow\'s own default, the same two sets as the Hierarchy\'s', () => {
   const b = plan();
   const { flow, board } = space.CASES;
   assert.ok(b.liveIds.has(String(flow.dot)));
-  assert.notStrictEqual(flow.text, hoverShowTerms(kinds, flow.dot));
+  assert.strictEqual(flow.text, hoverShowTerms(hoverShowDefaults().hierarchy, flow.dot));
   assert.strictEqual(flow.dot, board.second);
 });
 
@@ -133,6 +133,6 @@ test('every line of the ticket has a check of its own in the scenario', () => {
     'and isolate stays on',
     'Ctrl+Space on a focused dot selects its card alone',
     'and Space on it is the write again, with the focused card standing for the hover',
-    'in the Flow Space writes its own choice, dlinks alone',
+    'in the Flow Space writes its own choice, dlinks and hlinks',
   ]) assert.ok(src.includes(text), text);
 });

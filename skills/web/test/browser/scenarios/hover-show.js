@@ -3,7 +3,7 @@
 // dlinks, hlinks), and hovering or focusing a card lights the union of the ticked sets for it in every view: the
 // Board gives each card of the union the hover look, the Graph lights them with the rest dimmed and keeps the hover
 // ring on the hovered card alone. The choice is kept per board and per graph kind: the Hierarchy ticks dlinks and
-// hlinks at first, the Flow dlinks alone, and every view that is not the Flow reads the Hierarchy's. Each step
+// hlinks at first, the Flow the same, and every view that is not the Flow reads the Hierarchy's. Each step
 // waits on the page, never on a fixed sleep, and the pointer is a mouseover or mouseout on the card or its dot
 // and the focus a focus() on it, which are the events the page's hover listens to; a checkbox is pressed with
 // click(), which toggles it and fires the change the page listens to.
@@ -41,9 +41,9 @@ const CASES = {
   },
   // In the Hierarchy, with nothing chosen yet: card 2 lights with what it lit before the choice existed.
   graph: { card: 2, defaults: [1, 2, 6, 7, 8] },
-  // In the Flow, card 3: the dependencies at first, then the parent as well when hlinks is ticked there; the
-  // Hierarchy's own choice (hlinks alone, from the Board's steps) lights the parent and the card.
-  flow: { card: 3, kinds: ['dlinks'], defaults: [3, 4, 6], plusHlinks: { kinds: ['dlinks', 'hlinks'], lit: [1, 3, 4, 6] }, hierarchy: [1, 3] },
+  // In the Flow, card 3: the dependencies and the parent at first, then the dependencies alone when hlinks is unticked
+  // there; the Hierarchy's own choice (hlinks alone, from the Board's steps) lights the parent and the card.
+  flow: { card: 3, kinds: ['dlinks', 'hlinks'], defaults: [1, 3, 4, 6], noHlinks: { kinds: ['dlinks'], lit: [3, 4, 6] }, hierarchy: [1, 3] },
   // In the Hierarchy's side panel, card 7: the choice kept so far (hlinks alone) lights its parent and child; pressing
   // hlinks off and hpath and dtree on lights the union of the two, and Space writes their terms.
   sidebar: { card: 7, before: { kinds: ['hlinks'], lit: [2, 7, 22] }, press: ['hlinks', 'hpath', 'dtree'], after: { kinds: ['dtree', 'hpath'], lit: [1, 2, 7, 8, 22, 23, 24, 25] }, text: 'dtree:7 | hpath:7' },
@@ -152,14 +152,14 @@ module.exports = {
     await out(CARD(card));
 
     check('the Flow draws the plan board', await inFlow());
-    check('the Flow has its own choice, dlinks alone, whatever the Hierarchy ticks, and the panel says so',
+    check('the Flow has its own choice, dlinks and hlinks, whatever the Hierarchy ticks, and the panel says so',
       await openPanel() && await tickedAre(CASES.flow.kinds) && await noteIs('Flow'));
     await over(DOT(CASES.flow.card));
-    check('in the Flow, hovering a dot lights it and the cards its dependencies join to it, and not its parent',
+    check('in the Flow, hovering a dot lights it, the cards its dependencies join to it and its parent',
       await nodesAre(CASES.flow.defaults) && await waitFor(DIMMED));
     await tick('hlinks');
-    check('ticking hlinks in the Flow lights the parent as well, with the dot still hovered',
-      await tickedAre(CASES.flow.plusHlinks.kinds) && await nodesAre(CASES.flow.plusHlinks.lit));
+    check('unticking hlinks in the Flow lights the dependencies alone, with the dot still hovered',
+      await tickedAre(CASES.flow.noHlinks.kinds) && await nodesAre(CASES.flow.noHlinks.lit));
     await out(DOT(CASES.flow.card));
     await waitFor(`hoveredId===null`);
 
@@ -171,7 +171,7 @@ module.exports = {
     await waitFor(`hoveredId===null`);
 
     check('the Flow draws once more after a reload', await inFlow());
-    check('the Flow keeps the choice made there', await openPanel() && await tickedAre(CASES.flow.plusHlinks.kinds));
+    check('the Flow keeps the choice made there', await openPanel() && await tickedAre(CASES.flow.noHlinks.kinds));
 
     check('the Board draws after the Graph last showed the Flow', await onBoard());
     check('and still reads the Hierarchy\'s choice, not the Flow\'s', await openPanel() && await tickedAre(CASES.board.hlinksAlone.kinds));
@@ -200,6 +200,6 @@ module.exports = {
     await waitFor(`hoveredId===null`);
 
     check('the Flow draws the plan board once more', await inFlow());
-    check('its side panel shows the Flow\'s own choice', await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(CASES.flow.plusHlinks.kinds));
+    check('its side panel shows the Flow\'s own choice', await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(CASES.flow.noHlinks.kinds));
   },
 };

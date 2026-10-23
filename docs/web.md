@@ -211,7 +211,7 @@ the header and the dot of its card light and select together. A dot keeps its st
 and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
 `slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
 a lone card picked by a click lights it with the cards its dependencies join to it, not its parent, and hovering a
-card lights what the Flow's *On hover show* ticks, `dlinks` alone at first, so the cards its dependencies join to it. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
+card lights what the Flow's *On hover show* ticks, `dlinks` and `hlinks` at first, so the cards its dependencies join to it and its parent and children. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
 in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
 replaces the page's address without adding a step to Back. A load writes the address the same way, from the link and
 what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the choice and the switches
@@ -325,7 +325,7 @@ Calendar and the Gantt give each card of the union the hover look, and the Graph
 between its cards, and dims the rest, while the hover ring stays on the hovered card alone. Leaving the card clears
 it. With nothing ticked only the hovered card takes the hover look and the Graph dims nothing. The choice is
 remembered per board in your browser, for each kind of Graph: the Hierarchy starts with `dlinks` and `hlinks`
-ticked, which is what its hover lit before the choice existed, and the Flow with `dlinks` alone. Every view
+ticked, which is what its hover lit before the choice existed, and the Flow the same. Every view
 that is not the Flow reads the Hierarchy's choice, the Board, the Map, the Calendar and the Gantt included, even
 when the Graph last showed the Flow. The panel shows the choice of the view that is on and says whose it is. The
 snapshot has no hover, so it has no such section.
