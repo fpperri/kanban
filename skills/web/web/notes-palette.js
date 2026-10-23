@@ -40,9 +40,9 @@
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
-  date: null, dateBtn: null, dateWrap: null, dateTyped: false, pick: null, pickWrap: null,
+  date: null, dateBtn: null, dateWrap: null, dateTyped: false, todayBtn: null, timeWrap: null, timeMenu: null, nowBtn: null, pick: null, pickWrap: null,
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
-  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null, timeTyped: false,
+  filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
   sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
@@ -98,7 +98,10 @@ function notesLayout() {
   return u.layout;
 }
 
-const notesCtx = () => ({ today: localTodayStr(), now: noteClock(new Date()), lastNoted: notesLastNoted() });
+const notesNow = () => noteClock(kanbanDays.now());
+const notesCtx = () => ({ today: localTodayStr(), now: notesNow(), lastNoted: notesLastNoted() });
+// The date and time fields as they read: Today and Now, which Enter works out from the clock at that
+// moment, or a picked or typed value, which it uses as it is (notes.js noteWritePlan).
 const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked, day: notesUi.date.value });
 const NOTES_LAYOUTS = [['grouped', 'Grouped', 'The notes grouped by day and card'], ['timeline', 'Timeline', 'One list of the notes by day and time, each naming its card']];
 const NOTES_RANGES = [['all', 'All', 'Every day'], ['month', 'Month', 'A month at a time'], ['week', 'Week', 'A week at a time, from Monday'], ['3day', '3 days', 'Three days at a time'], ['day', 'Day', 'A day at a time']];
@@ -254,11 +257,15 @@ function notesBuild() {
   u.dateBtn = notesButton('np-date-btn date-pick-btn', '📅', 'Pick the day', () => {});
   u.dateBtn.setAttribute('aria-label', 'Pick the day of the note');
   wireDatePickButton(u.dateBtn, u.date); // app.js: the one date picker serves this field as it does the card form's
+  u.todayBtn = notesButton('np-mode-btn np-today-btn', NOTE_TODAY, 'The day of the moment Enter is pressed', () => notesChoose(u.date, NOTE_TODAY));
   u.dateWrap = notesEl('span', 'np-date-wrap');
-  u.dateWrap.append(u.date, u.dateBtn);
+  u.dateWrap.append(u.date, u.dateBtn, u.todayBtn);
   u.time = notesEl('input', 'np-time');
   Object.assign(u.time, { type: 'text', maxLength: 5, placeholder: 'HH:MM', autocomplete: 'off', inputMode: 'numeric' });
   u.time.setAttribute('aria-label', 'Time of the note');
+  u.nowBtn = notesButton('np-mode-btn np-now-btn', NOTE_NOW, 'The time of the moment Enter is pressed', () => notesChoose(u.time, NOTE_NOW));
+  u.timeWrap = notesEl('span', 'np-time-wrap');
+  u.timeWrap.append(u.time, u.nowBtn);
   u.untimed = notesEl('input', 'np-untimed');
   u.untimed.type = 'checkbox';
   const untimedLabel = notesEl('label', 'np-untimed-label');
@@ -269,12 +276,16 @@ function notesBuild() {
   u.pick.setAttribute('aria-label', 'Card the note is about');
   u.pickWrap = notesEl('span', 'np-pick');
   u.pickWrap.append(u.pick);
-  when.append(u.dateWrap, notesEl('span', '', 'at'), u.time, untimedLabel, u.pickWrap);
+  when.append(u.dateWrap, notesEl('span', '', 'at'), u.timeWrap, untimedLabel, u.pickWrap);
   attachCombobox(u.pick, notesPickOptions, { onPick: notesPicked }); // app.js: the form's suggest-never-validate menu
-  // The menu hangs off the page, fixed under the field: the palette clips what overflows it.
+  attachCombobox(u.time, notesTimeOptions); // the same menu picks the time: Now, then every half hour
+  // The menus hang off the page, fixed under their fields: the palette clips what overflows it.
   u.pickMenu = u.pickWrap.querySelector('.combobox-menu');
   u.pickMenu.classList.add('np-pick-menu');
   document.body.append(u.pickMenu);
+  u.timeMenu = u.timeWrap.querySelector('.combobox-menu');
+  u.timeMenu.classList.add('np-pick-menu', 'np-time-menu');
+  document.body.append(u.timeMenu);
   u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
   subjectRow.append(u.chip, when);
@@ -352,15 +363,19 @@ function notesBuild() {
 
   u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
   u.filter.addEventListener('input', () => { u.hi = -1; notesPaintBody(); });
-  u.time.addEventListener('input', () => { u.timeTyped = true; notesPaintPreview(); });
-  u.date.addEventListener('input', () => { u.dateTyped = true; notesPaintPreview(); });
+  u.time.addEventListener('input', () => { notesPaintMode(); notesPaintPreview(); });
+  u.date.addEventListener('input', () => { u.dateTyped = true; notesPaintMode(); notesPaintPreview(); });
+  u.date.addEventListener('focus', () => u.date.select()); // typing over Today, or over a day, replaces it
   u.date.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
   u.pick.addEventListener('focus', notesPlacePickMenu);
   u.pick.addEventListener('input', notesPlacePickMenu);
+  const placeTime = () => notesPlaceMenu(u.time, u.timeMenu, 0);
+  u.time.addEventListener('focus', placeTime);
+  u.time.addEventListener('input', placeTime);
   u.pick.addEventListener('blur', notesCommitPick);
   u.pick.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); notesCommitPick(); } });
-  u.untimed.addEventListener('change', () => { u.time.disabled = u.untimed.checked; notesPaintPreview(); u.input.focus(); });
-  u.time.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
+  u.untimed.addEventListener('change', () => { notesPaintMode(); notesPaintPreview(); u.input.focus(); });
+  u.time.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === 'ArrowDown') && u.timeMenu.hidden) { e.preventDefault(); u.input.focus(); } }); // an open menu takes the arrows and Enter first
   u.filter.addEventListener('keydown', notesOnFilterKey);
   u.input.addEventListener('keydown', notesOnInputKey);
   u.body.addEventListener('keydown', notesOnBodyKey);
@@ -459,7 +474,7 @@ function openNotes(req) {
     u.dateTyped = false;
     notesGrow();
     notesResetTime();
-  }
+  } else notesFollowDay();
   u.range = noteRangeFor(sub, req, ctx.today);
   u.rangeTouched = false;
   u.hi = -1;
@@ -508,6 +523,7 @@ function notesClose() {
   u.by = 'all';
   u.dateTyped = false;
   u.pickMenu.hidden = true;
+  u.timeMenu.hidden = true;
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
@@ -515,25 +531,73 @@ function notesClose() {
   return true;
 }
 
-// After a write the field goes back to what it starts as (the slot's time, else now), unless the
-// person typed a time into it, or ticked untimed, which stay as they were.
-function notesRefreshTime() {
+// The clock moved on: a subject and a range that took their day from it move to the new today (what
+// the request gave, and what the person stepped to, stays). -> whether either moved.
+function notesFollowDay() {
   const u = notesUi;
-  if (!u.sub) return;
-  if (!u.dateTyped) u.date.value = u.sub.day;
-  if (u.timeTyped || u.untimed.checked) return;
-  u.time.value = u.sub.at || noteClock(new Date());
+  const today = localTodayStr();
+  const sub = noteSubjectOnDay(u.sub, today);
+  const range = noteRangeOnDay(u.range, today);
+  const moved = sub !== u.sub || range !== u.range;
+  u.sub = sub;
+  u.range = range;
+  return moved;
 }
 
+// The page's clock ticked, or the page became visible again: the fields say Today and Now, or a value
+// the person picked, so only the preview, which resolves them, is drawn again; when the day turned,
+// the list, chip and range are repainted around the new today.
+function notesFollowClock() {
+  const u = notesUi;
+  if (!u.sub) return;
+  const day = u.sub.day;
+  const anchor = u.range.anchor;
+  notesFollowDay();
+  notesPaintPreview();
+  if (u.sub.day !== day || u.range.anchor !== anchor) {
+    u.groupSig = ''; // a group's tab says whether it is running today
+    notesOnBoard();
+  }
+}
+
+// The fields go back to what they start as: Today and Now, or the day and time the request gave. A day
+// the person chose (typed, picked or Today pressed) is kept while the palette is aimed elsewhere.
 function notesResetTime() {
   const u = notesUi;
-  const sub = u.sub || {};
-  u.timeTyped = false;
-  const untimed = sub.kind === 'untimed' || !!sub.untimed;
-  u.untimed.checked = untimed;
-  u.time.disabled = untimed;
-  u.time.value = untimed ? '' : sub.at || noteClock(new Date());
-  if (!u.dateTyped) u.date.value = sub.day || localTodayStr();
+  if (u.sub) notesFollowDay();
+  const sub = u.sub || { clockDay: true };
+  u.untimed.checked = sub.kind === 'untimed' || !!sub.untimed;
+  u.time.value = noteTimeField(sub);
+  if (!u.dateTyped) u.date.value = noteDayField(sub);
+  notesPaintMode();
+}
+
+// The fields' state as the person sees it: the time is off under the untimed tick, and Today and Now
+// read as pressed while their field says so.
+function notesPaintMode() {
+  const u = notesUi;
+  u.time.disabled = u.untimed.checked;
+  u.nowBtn.disabled = u.untimed.checked;
+  u.todayBtn.setAttribute('aria-pressed', String(noteIsToday(u.date.value)));
+  u.nowBtn.setAttribute('aria-pressed', String(noteIsNow(u.time.value)));
+}
+
+// Today or Now pressed: the field says the word again, and Enter works it out when it is pressed.
+function notesChoose(field, word) {
+  const u = notesUi;
+  if (!u.sub) return;
+  field.value = word;
+  if (field === u.date) u.dateTyped = true;
+  notesPaintMode();
+  notesPaintPreview();
+  u.input.focus();
+}
+
+// The time menu: Now first, then every half hour.
+function notesTimeOptions() {
+  const options = [{ value: NOTE_NOW }];
+  for (let min = 0; min < 24 * 60; min += 30) options.push({ value: noteHhmm(min) });
+  return options;
 }
 
 // The palette has a new subject: back to its Notes tab with nothing written yet, nothing highlighted
@@ -903,7 +967,7 @@ async function notesWrite() {
   u.input.value = '';
   notesGrow();
   try { await loadBoard(); } catch (e) { toast(e.message); }
-  if (u.sub) { notesRefreshTime(); notesPaint(); u.input.focus(); }
+  if (u.sub) { notesFollowDay(); notesPaint(); u.input.focus(); }
 }
 
 // Enter on a line that is only a mention: the palette moves to that card or group.
@@ -915,7 +979,7 @@ function notesAim(id, keepText = false) {
   if (!keepText) u.input.value = '';
   notesGrow();
   if (!u.sub.when) notesResetTime();
-  else { u.untimed.checked = !!u.sub.untimed; u.time.disabled = u.untimed.checked; }
+  else { u.untimed.checked = !!u.sub.untimed; notesPaintMode(); }
   notesPaint();
   notesPaintPick(true);
   u.input.focus();
@@ -941,16 +1005,17 @@ function notesPaintPick(force = false) {
   u.pick.title = u.pick.value;
 }
 
-// The menu is fixed under the field, or above it when there is no room below.
-function notesPlacePickMenu() {
-  const u = notesUi;
-  const r = u.pick.getBoundingClientRect();
-  const height = u.pickMenu.getBoundingClientRect().height || 180;
+// A menu is fixed under its field, or above it when there is no room below.
+function notesPlaceMenu(input, menu, minWidth) {
+  const r = input.getBoundingClientRect();
+  const height = menu.getBoundingClientRect().height || 180;
   const below = r.bottom + 2;
-  u.pickMenu.style.left = `${Math.round(r.left)}px`;
-  u.pickMenu.style.top = `${Math.round(below + height > window.innerHeight && r.top - height - 2 > 0 ? r.top - height - 2 : below)}px`;
-  u.pickMenu.style.minWidth = `${Math.max(Math.round(r.width), 320)}px`;
+  menu.style.left = `${Math.round(r.left)}px`;
+  menu.style.top = `${Math.round(below + height > window.innerHeight && r.top - height - 2 > 0 ? r.top - height - 2 : below)}px`;
+  menu.style.minWidth = `${Math.max(Math.round(r.width), minWidth)}px`;
 }
+
+const notesPlacePickMenu = () => notesPlaceMenu(notesUi.pick, notesUi.pickMenu, 320);
 
 // Free text stays legal: a card id typed in the field (`22`, `#22`) that names a card aims the palette
 // when Enter or leaving the field commits it, as a choice from the menu does; anything else puts the

@@ -14,7 +14,12 @@
 // What Enter writes (noteWritePlan). The time is the line's, else none when the untimed
 // tick or a `-` says so, else the time field's, else now (or none in a day's untimed box).
 // The target is the line's mention, else the chip's card or group, else the card last
-// noted, else nothing. The day is the subject's.
+// noted, else nothing. The day is the date field's, else the subject's.
+//
+// The date and time fields say Today and Now, or a picked or typed value. Today and Now are
+// worked out when Enter is pressed, from the clock the caller passes, so a palette left open
+// writes the day and time of that moment; a value is used as it is, even when it equals today
+// or now. They start as Today and Now unless the request gave a day or a time.
 //
 // Pure: the caller passes what it knows of the board (which ids are cards or groups), the
 // clock and the storage, so Node tests drive it with plain values. Same dual-environment
@@ -32,6 +37,8 @@ const NOTE_LAYOUT_FEATURE = 'notes.layout';
 const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
 const NOTE_FIELD_TIME = /^(\d{1,2})[:.]?(\d{2})$/;
+const NOTE_TODAY = 'Today';
+const NOTE_NOW = 'Now';
 
 // A subject that is a card or a group (the palette writes on it and lists its notes), and one that is
 // about cards: those or several cards at once.
@@ -52,6 +59,10 @@ function noteFieldTime(text) {
   const min = Number(m[2]);
   return h < 24 && min < 60 ? `${notePad(h)}:${m[2]}` : null;
 }
+
+// Whether a field's text is the word Today or Now, in any case.
+const noteIsToday = (text) => String(text == null ? '' : text).trim().toLowerCase() === NOTE_TODAY.toLowerCase();
+const noteIsNow = (text) => String(text == null ? '' : text).trim().toLowerCase() === NOTE_NOW.toLowerCase();
 
 const noteBadTime = (text) => `${text} is not a time; a time reads HH:MM.`;
 const noteBadDay = (text) => `${text} is not a date; a date reads YYYY-MM-DD.`;
@@ -108,32 +119,38 @@ function noteParseLine(raw, known) {
 // -> { kind: 'none' | 'card' | 'group' | 'each' | 'slot' | 'untimed', id?, ids?, day, at?, ... }
 function noteSubjectFrom(req, o) {
   const day = req.day || o.today;
+  const clock = req.day ? {} : { clockDay: true };
   if (Array.isArray(req.targets)) {
     const many = [];
     for (const t of req.targets) {
       const id = NOTE_IDS.idKey(t);
       if (id !== null && !many.includes(id)) many.push(id);
     }
-    if (many.length > 1) return { kind: 'each', ids: NOTE_IDS.sortIds(many), day };
-    return noteSubjectFrom(many.length ? { target: many[0], day } : { day }, o);
+    if (many.length > 1) return { kind: 'each', ids: NOTE_IDS.sortIds(many), day, ...clock };
+    return noteSubjectFrom(many.length ? { target: many[0], ...(req.day ? { day } : {}) } : req.day ? { day } : {}, o);
   }
-  if (req.kind === 'card-notes') return { kind: 'card', id: NOTE_IDS.idKey(req.id), day };
-  if (req.kind === 'group') return { kind: 'group', id: NOTE_IDS.idKey(req.gid), day };
-  if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: noteHhmm(Math.max(0, req.fromMin)) };
-  if (req.kind === 'untimed') return { kind: 'untimed', day };
+  if (req.kind === 'card-notes') return { kind: 'card', id: NOTE_IDS.idKey(req.id), day, ...clock };
+  if (req.kind === 'group') return { kind: 'group', id: NOTE_IDS.idKey(req.gid), day, ...clock };
+  if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: noteHhmm(Math.max(0, req.fromMin)), ...clock };
+  if (req.kind === 'untimed') return { kind: 'untimed', day, ...clock };
   const id = req.target === undefined || req.target === null || req.target === '' ? null : NOTE_IDS.idKey(req.target);
   if (id !== null) {
-    const subject = { kind: o.isGroup(id) ? 'group' : 'card', id, day };
+    const subject = { kind: o.isGroup(id) ? 'group' : 'card', id, day, ...clock };
     if (req.at) subject.at = req.at;
     return subject;
   }
   if (req.at) {
     const m = /^(\d{1,2}):(\d{2})$/.exec(req.at);
     const from = m ? Number(m[1]) * 60 : 0;
-    return { kind: 'slot', day, fromMin: from, toMin: from + 60, at: req.at };
+    return { kind: 'slot', day, fromMin: from, toMin: from + 60, at: req.at, ...clock };
   }
-  return { kind: 'none', day };
+  return { kind: 'none', day, ...clock };
 }
+
+// What the date and time fields say when a subject opens: Today unless the request gave the day, Now
+// unless it gave a time (an hour of the Calendar, a card's `at`), and nothing in a day's untimed box.
+const noteDayField = (sub) => (sub.clockDay ? NOTE_TODAY : sub.day);
+const noteTimeField = (sub) => (sub.kind === 'untimed' || sub.untimed ? '' : sub.at || NOTE_NOW);
 
 // The tabs the palette shows for a subject, in order: Notes (when the board keeps a logbook), a
 // group's own Group tab, the Scratchpad of a card or group (when the board keeps scratchpads) and its
@@ -154,8 +171,8 @@ function noteTabs(sub, o) {
 // box it keeps that moment (`when`), so clearing the chip steps back to it.
 function noteSubjectAimed(was, id, kind = 'card') {
   const moment = was.kind === 'slot' || was.kind === 'untimed' ? was : was.when || null;
-  if (!moment) return { kind, id, day: was.day };
-  const aimed = { kind, id, day: was.day, when: moment };
+  if (!moment) return { kind, id, day: was.day, ...noteClockDay(was) };
+  const aimed = { kind, id, day: was.day, ...noteClockDay(was), when: moment };
   if (was.at) aimed.at = was.at;
   if (moment.kind === 'untimed') aimed.untimed = true;
   return aimed;
@@ -165,7 +182,7 @@ function noteSubjectAimed(was, id, kind = 'card') {
 // noted. From an hour or the untimed box (or a card aimed at from one) it keeps that moment.
 function noteSubjectNoCard(was) {
   const moment = was.kind === 'slot' || was.kind === 'untimed' ? was : was.when || null;
-  const base = moment || { kind: 'none', day: was.day };
+  const base = moment || { kind: 'none', day: was.day, ...noteClockDay(was) };
   const { when, ...rest } = base;
   return { ...rest, noCard: true };
 }
@@ -180,9 +197,21 @@ function noteSubjectTarget(sub, lastNoted) {
 }
 
 function noteSubjectCleared(subject, today) {
-  if (!subject.when) return { kind: 'none', day: today };
+  if (!subject.when) return { kind: 'none', day: today, clockDay: true };
   const { noCard, ...moment } = subject.when; // a no-card choice ends with the chip it was made beside
   return moment;
+}
+
+// A subject whose day came from the clock and not from the request carries clockDay: its day is
+// whatever day it is when the palette writes or repaints, never the day it was opened on.
+const noteClockDay = (sub) => (sub.clockDay ? { clockDay: true } : {});
+
+// The subject on a new today: a clock day moves to it (and so does the moment a card was aimed at
+// from), a day the request gave stays. The same subject back when nothing moves.
+function noteSubjectOnDay(sub, today) {
+  const when = sub.when && sub.when.clockDay && sub.when.day !== today ? { ...sub.when, day: today } : sub.when;
+  if (!(sub.clockDay && sub.day !== today) && when === sub.when) return sub;
+  return { ...sub, ...(sub.clockDay ? { day: today } : {}), ...(when ? { when } : {}) };
 }
 
 // The notes a subject lists. `members(id)` gives the ids of a group's cards (a group's
@@ -219,14 +248,16 @@ function noteWritePlan(parsed, subject, field, o) {
   const value = String(field.value == null ? '' : field.value).trim();
   if (parsed.at) at = parsed.at;
   else if (parsed.untimed || field.untimed) at = null;
+  else if (noteIsNow(value)) at = o.now;
   else if (value === '') at = subject.kind === 'untimed' || subject.untimed ? null : subject.at || o.now;
   else {
     at = noteFieldTime(value);
     if (at === null) bad = bad || noteBadTime(value);
   }
-  let day = subject.day || o.today;
+  let day = subject.clockDay ? o.today : subject.day || o.today;
   const dayText = String(field.day == null ? '' : field.day).trim();
-  if (dayText !== '') {
+  if (noteIsToday(dayText)) day = o.today;
+  else if (dayText !== '') {
     const picked = noteFieldDay(dayText);
     if (picked === null) bad = bad || noteBadDay(dayText);
     else day = picked;
@@ -303,11 +334,18 @@ function noteRangeLabel(mode, anchor) {
 // aimed at on what `req.range` asks for (the Calendar's own mode and range, or a day under the
 // pointer), else Day, today. `sub` is the subject (noteSubjectFrom), `req` what opened the palette.
 function noteRangeFor(sub, req, today) {
-  if (noteIsAboutCards(sub)) return { mode: 'all', anchor: sub.day || today };
-  if (sub.kind === 'slot' || sub.kind === 'untimed') return { mode: 'day', anchor: sub.day };
+  const clock = sub.clockDay ? { clock: true } : {};
+  if (noteIsAboutCards(sub)) return { mode: 'all', anchor: sub.day || today, ...clock };
+  if (sub.kind === 'slot' || sub.kind === 'untimed') return { mode: 'day', anchor: sub.day, ...clock };
   const asked = req && req.range;
   if (asked && NOTE_RANGE_MODES.includes(asked.mode) && NOTE_DAY.test(asked.anchor || '')) return { mode: asked.mode, anchor: asked.anchor };
-  return { mode: 'day', anchor: sub.day || today };
+  return { mode: 'day', anchor: sub.day || today, ...clock };
+}
+
+// A range that opened on the clock (`clock`) moves to the new today; one the request gave, or the
+// person stepped, stays.
+function noteRangeOnDay(range, today) {
+  return range.clock && range.anchor !== today ? { ...range, anchor: today } : range;
 }
 
 // The notes in a range (those of any day for no bounds).
@@ -473,8 +511,9 @@ function noteLayoutSave(storage, projectName, layout) {
 
 const NOTES_EXPORTS = {
   NOTE_NO_CARD, noteIsTarget, noteIsAboutCards,
-  noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectNotes,
-  NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteInRange, noteListNotes,
+  NOTE_TODAY, NOTE_NOW, noteHhmm, noteIsToday, noteIsNow, noteDayField, noteTimeField,
+  noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
+  NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
   noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 

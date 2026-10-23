@@ -12,7 +12,7 @@ const { parseRank } = require('../web/nesting');
 // Ids are the id module's whole strings (`7`, `G3`): the store keeps them as
 // strings, compares them with idKey and never turns one into a number.
 const ids = require('../web/ids');
-const { localToday } = require('../web/days');
+const { localToday, now } = require('../web/days');
 // The `prompt` field's single-line quoting — the same
 // quote/unquote yaml-list.js already gives notifications.md's `message`
 // field, reused here rather than forked (see the field's own writer note in
@@ -153,7 +153,7 @@ function typeValue(t) {
 // Machine-maintained "updated" stamp — local time, no timezone suffix,
 // same shape as notifications.md's "at" field (YYYY-MM-DDTHH:MM:SS).
 function nowLocalISO() {
-  const d = new Date();
+  const d = now();
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }

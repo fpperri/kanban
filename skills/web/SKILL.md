@@ -1292,7 +1292,7 @@ to `127.0.0.1` only.
   focus still turns it off. The palette then draws above the details; Esc clears the card chip first,
   the next closes the palette (`notesEscape`), the one after closes the details; the card menu's **Add note…** opens it on one card. Its rows, top down: the
   subject row (a chip that says what the palette is about, a **date** field with the date picker's
-  grid (`wireDatePickButton`, `data-date-only`), a time field, an *untimed* tick and a **card picker**,
+  grid (`wireDatePickButton`, `data-date-only`) and a **Today** button, a time field with a menu (`notesTimeOptions`: Now, then every half hour) and a **Now** button, an *untimed* tick and a **card picker**,
   the form's `attachCombobox` over *no card* and the live cards in id order), the note box, the preview line that says exactly what Enter will write (`Note at
   10:30 on #7 Port the zephyr schema`), the filter row (a filter field of its own, with an
   All, Human and AI switch beside it, and a **Grouped | Timeline** switch, kept per board in
@@ -1303,11 +1303,15 @@ to `127.0.0.1` only.
   time order and then the untimed ones, each row naming its card with the link a group heading
   has (`no card` for none); a day line shows where the grouped list shows one, and so whenever more
   than one day is listed. **Enter** writes the
-  note to the day in the date field (today, or the day of the hour or all-day box the palette was
-  opened from; a day that is not a date is said in the preview and written nowhere) at the time
-  field's time (now, to start with) and keeps the palette open for the next; the fields then go
-  back to those defaults (`notesRefreshTime`) unless a date or a time was typed or picked into
-  them, which stay. The untimed tick drops the time and keeps the day, a leading `10:30` sets the
+  note to the day in the date field (Today, to start with, or the day of the hour or all-day box the
+  palette was opened from; a day that is not a date is said in the preview and written nowhere) at the
+  time field's time (Now, to start with) and keeps the palette open for the next. Today and Now are
+  worked out from the clock when Enter is pressed (`noteWritePlan` reads `o.today` and `o.now`; the
+  page's one clock is `kanbanDays.now`, days.js), so a palette left open writes the day and time of that
+  moment; a field on Today or Now stays on it after a write, and a date or time picked or typed is used
+  as it is, even when it equals today or now, and stays. The page's clock tick (`clockTick`, app.js,
+  every 15 seconds and when the page becomes visible) draws the preview again (`notesFollowClock`) and
+  moves a subject and a range that took their day from the clock to the new today. The untimed tick drops the time and keeps the day, a leading `10:30` sets the
   time alone, and the preview names the day when it is not today (`noteWritePlan`, notes.js). The
   **card picker** shows the note's target (`noteSubjectTarget`: the card or group, `N cards` for
   several, `no card`, else the card Enter would write on) and a choice from its menu, which

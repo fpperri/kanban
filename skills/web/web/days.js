@@ -23,12 +23,21 @@ const daysModule = (() => {
 
   // The local date of a moment (now by default), as a day: the user's wall clock, which the server
   // takes for the creator's date and the page for "today".
-  function localToday(now = new Date()) {
+  function localToday(at = now()) {
     const p = (n) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+    return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}`;
   }
 
-  return { parseDay, validDay, localToday };
+  // The one clock: everything that stamps a day or a time, or shows today, reads it at the moment it
+  // needs it. A test sets another with setClock(fn) (fn returns a Date) and puts the real one back
+  // with setClock().
+  let clock = () => new Date();
+  const now = () => clock();
+  function setClock(fn) {
+    clock = typeof fn === 'function' ? fn : () => new Date();
+  }
+
+  return { parseDay, validDay, localToday, now, setClock };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

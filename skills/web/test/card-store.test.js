@@ -1587,3 +1587,21 @@ test('updateCard on an archived card, in a package folder too, returns it as arc
   assert.strictEqual(cs.updateCard(dir, 2, { priority: 'High' }).archived, true);
   assert.strictEqual(cs.updateCard(dir, 3, { priority: 'High' }).archived, false);
 });
+
+test('every stamp reads the clock at its write: the dates of a move and the updated line', () => {
+  const days = require('../web/days');
+  const dir = tmpBoard(); // card 1 is done, card 2 is todo, no dates
+  try {
+    days.setClock(() => new Date(2026, 9, 16, 23, 58, 5));
+    const first = cs.updateCard(dir, 1, { status: 'todo' });
+    assert.strictEqual(first.start_date, '2026-10-16');
+    assert.match(fs.readFileSync(path.join(dir, '1.card.md'), 'utf8'), /^updated: 2026-10-16T23:58:05$/m);
+    days.setClock(() => new Date(2026, 9, 17, 0, 3, 9));
+    const second = cs.updateCard(dir, 1, { status: 'done' });
+    assert.strictEqual(second.end_date, '2026-10-17');
+    assert.strictEqual(second.start_date, '2026-10-16', 'the earlier stamp stays');
+    assert.match(fs.readFileSync(path.join(dir, '1.card.md'), 'utf8'), /^updated: 2026-10-17T00:03:09$/m);
+  } finally {
+    days.setClock();
+  }
+});

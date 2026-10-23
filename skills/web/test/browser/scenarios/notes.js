@@ -85,7 +85,7 @@ module.exports = {
     check('notes: its notes are listed newest day first', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|7|2', '2026-10-14|7|1']), await ev(SECTIONS));
     await shot('palette-on-card');
     check('notes: each note shows its time and its author, the human\'s too', await ev(`${q('.np-ngroup .np-note')}.textContent.startsWith('09:30')&&[...document.querySelectorAll('#notes-palette .np-note-by')].map((b)=>b.textContent).join()==='@human,@afk,@human'&&document.querySelector('#notes-palette .np-note-time.untimed').textContent==='untimed'`));
-    check('notes: with no time given the time field starts at now', await ev(`/^\\d\\d:\\d\\d$/.test(${q('.np-time')}.value)`));
+    check('notes: with no time given the time field starts on Now', await ev(`${q('.np-time')}.value`) === 'Now');
 
     // --- the filter narrows the list and leaves the note box alone -------------------------------------------
     await setBox('half-typed note');
@@ -190,7 +190,7 @@ module.exports = {
     check('notes: Backspace on the empty box clears the chip', await waitFor(`${CHIP}===''`, 2500), await chip());
     check('notes: with no chip the notes written today are listed and the card last noted is the target', await ev(`${PREVIEW}.includes('on #7 Port the zephyr schema (last noted)')`) && (await ev(SECTIONS))[0].startsWith(await ev(TODAY)), await preview());
     await setBox('#22 from the line');
-    check('notes: a leading mention before the text aims that one note', await preview() === `Note at ${await ev(`${q('.np-time')}.value`)} on #22 Cut over the data layer`, await preview());
+    check('notes: a leading mention before the text aims that one note', /^Note at \d\d:\d\d on #22 Cut over the data layer$/.test(await preview()), await preview());
     await key('Enter');
     check('notes: it is written on card 22 with the mention cut from its text', await written('22', 'from the line'));
 
@@ -251,16 +251,17 @@ module.exports = {
     check('notes: the day\'s notes are listed when there is no chip', (await ev(SECTIONS)).length >= 1 && (await ev(SECTIONS)).every((s) => s.startsWith('20')));
     await closePalette();
 
-    // --- after a write the time field follows the clock, unless the person typed a time -------------------------
+    // --- Now is worked out when Enter is pressed, and a time the person typed stays -----------------------------
     await ev(`noteClock=()=>'10:11'`);
     check('notes: the pointer rests on card 7 again', await hoverCard('7'));
     await key('n');
-    check('notes: the time field opens at now', await palUp() && await ev(`${q('.np-time')}.value`) === '10:11');
+    check('notes: the time field opens on Now', await palUp() && await ev(`${q('.np-time')}.value`) === 'Now');
     await ev(`noteClock=()=>'10:12'`);
     await setBox('followed the clock');
+    check('notes: the preview says the time of now', await preview() === 'Note at 10:12 on #7 Port the zephyr schema', await preview());
     await key('Enter');
-    check('notes: the note is written at the time the field had', await written('7', 'followed the clock') && (await ev(notesOf('7'))).includes('today|10:11|@human|followed the clock'), await ev(notesOf('7')));
-    check('notes: and the field is at now again after the write', await waitFor(`${q('.np-time')}.value==='10:12'`, 3000), await ev(`${q('.np-time')}.value`));
+    check('notes: the note is written at the time of Enter, not the time the palette opened', await written('7', 'followed the clock') && (await ev(notesOf('7'))).includes('today|10:12|@human|followed the clock'), await ev(notesOf('7')));
+    check('notes: and the field is still on Now after the write', await ev(`${q('.np-time')}.value`) === 'Now', await ev(`${q('.np-time')}.value`));
     await setTime('08:05');
     await ev(`noteClock=()=>'10:13'`);
     await setBox('typed a time');
@@ -318,7 +319,7 @@ module.exports = {
     await key('n');
     check('notes: n opens the palette on card 7', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
     check('notes: a card opens on All, so its notes from several days are all listed', JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All*', 'Month', 'Week', '3 days', 'Day']) && (await ev(DAYS)).includes('2026-10-15') && (await ev(DAYS)).includes('2026-10-14'), JSON.stringify(await ev(DAYS)));
-    check('notes: the date starts at today, beside the time', await ev(`${DATE}.value===${TODAY}`));
+    check('notes: the date starts on Today, beside the time', await ev(`${DATE}.value`) === 'Today');
     check('notes: the picker names the card', await ev(`${PICK}.value`) === '#7 Port the zephyr schema');
     await setBox('kept text');
     check('notes: the picker\'s menu lists no card first and then the cards', await (async () => { await ev(`${PICK}.focus()`); return waitFor(`${PICK_MENU}[0]==='no card'&&${PICK_MENU}.includes('#22 Cut over the data layer')&&${PICK_MENU}.includes('#7 Port the zephyr schema')`, 2500); })(), JSON.stringify(await ev(PICK_MENU)));

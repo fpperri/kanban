@@ -30,7 +30,7 @@ test('it says Esc clears the card chip before it closes the palette', () => {
 });
 
 test('it describes the subject row: the date, the time, the untimed tick and the card picker', () => {
-  assert.match(notes, /a \*\*date\*\* \(with a picker; today, or the day of the hour or all-day box the palette was opened from\) beside the \*\*time\*\*/);
+  assert.match(notes, /a \*\*date\*\* \(with a picker; Today, or the day of the hour or all-day box the palette was opened from\) beside the \*\*time\*\* \(with a menu of Now and the half hours; Now, or the time of the hour or card it was opened from\)/);
   assert.match(notes, /the \*untimed\* tick, which drops the time and keeps the day/);
   assert.match(notes, /a \*\*card\*\* picker, a searchable list of \*no card\* and the live cards/);
   assert.match(notes, /a card id typed in it \(`22` or `#22`\) aims it too, on Enter or on leaving the field/);

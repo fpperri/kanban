@@ -49,15 +49,17 @@ const setBox = (p, text) => { p.ui().input.value = text; p.ui().input.fire('inpu
 test('the subject row holds a date, a time, the untimed tick and the card picker, in that order', async () => {
   const p = await open();
   p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
-  const names = p.find('.np-when').children.map((c) => c.classes.find((k) => /^np-(date-wrap|time|untimed-label|pick)$/.test(k)) || c.classes.join(' ') || c.tag);
-  assert.deepStrictEqual(names.filter((n) => n !== 'span'), ['np-date-wrap', 'np-time', 'np-untimed-label', 'np-pick']);
+  const names = p.find('.np-when').children.map((c) => c.classes.find((k) => /^np-(date-wrap|time-wrap|untimed-label|pick)$/.test(k)) || c.classes.join(' ') || c.tag);
+  assert.deepStrictEqual(names.filter((n) => n !== 'span'), ['np-date-wrap', 'np-time-wrap', 'np-untimed-label', 'np-pick']);
 });
 
-test('the date starts at today and the time at now, as the time did', async () => {
+test('the date starts on Today and the time on Now, which Enter works out when it is pressed', async () => {
   const p = await open();
   p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
-  assert.strictEqual(p.ui().date.value, TODAY(p));
-  assert.match(p.ui().time.value, /^\d\d:\d\d$/);
+  assert.strictEqual(p.ui().date.value, 'Today');
+  assert.strictEqual(p.ui().time.value, 'Now');
+  setBox(p, 'x');
+  assert.match(p.text(p.find('.np-prev-text')), /^Note at \d\d:\d\d on #7/);
 });
 
 test('opened on an hour or the untimed box of another day, the date starts at that day', async () => {
@@ -156,7 +158,7 @@ test('a date picked stays for the next note, and one never picked follows the su
   await p.settle();
   assert.strictEqual(p.ui().date.value, '2026-10-19', 'the next note is for the same day');
   p.page.run("openNotes({ kind: 'card-notes', id: '22' })");
-  assert.strictEqual(p.ui().date.value, TODAY(p), 'a palette opened again starts on its own day');
+  assert.strictEqual(p.ui().date.value, 'Today', 'a palette opened again starts on its own day');
 });
 
 test('the date field in the card is not narrowed by the list: a note written to another day stays listed', async () => {

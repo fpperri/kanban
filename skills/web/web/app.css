@@ -1972,6 +1972,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-date-wrap { display: inline-flex; align-items: center; gap: 2px; }
 .np-date { width: 6.8em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
 .np-date-btn { padding: 1px 4px; border: 0; background: transparent; cursor: pointer; font-size: 1em; line-height: 1; }
+.np-time-wrap { display: inline-flex; align-items: center; gap: 4px; position: relative; }
+.np-mode-btn { padding: 1px 6px; border: 1px solid var(--line); border-radius: .15rem; background: transparent; color: var(--mut); font: inherit; font-size: .92em; line-height: 1.3; cursor: pointer; }
+.np-mode-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--ink-strong); }
+.np-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.np-mode-btn:disabled { opacity: .45; cursor: default; }
 .np-pick { position: relative; display: inline-flex; min-width: 0; }
 .np-pick-input { width: 14em; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1em; text-overflow: ellipsis; }
 .combobox-menu.np-pick-menu { position: fixed; right: auto; z-index: 40; max-width: min(40em, 92vw); }
