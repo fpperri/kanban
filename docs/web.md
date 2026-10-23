@@ -440,6 +440,8 @@ its `slice:` run. The Graph's plain click, Shift- and Ctrl-clicks in every view,
 menu's Add to selection all write it, and so does a switch of view that changes the selection. A click that
 opens a card writes nothing, and while isolate is on a click moves the anchor and leaves the box and its
 isolate text. Esc takes the box down with the selection, step by step, while the box holds the selection's text.
+A click never pages the Calendar or the Gantt; entering one with the box showing a selection jumps to it, as it
+does for any query whose matches are off screen.
 
 **Bulk actions** — select cards (click, ctrl-click, shift-click) and
 right-click for a context menu: assign, set priority, edit tags, schedule,

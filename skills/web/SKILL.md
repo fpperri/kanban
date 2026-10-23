@@ -877,7 +877,9 @@ to `127.0.0.1` only.
   keeps the rule above, and a click that opens a card writes nothing. Esc's step and a double click on empty
   space take the box down with the selection only while it holds the selection's text; a switch of view
   writes the selection when it changed it (leaving the Graph with cards picked beside a typed search) and
-  leaves a typed search with nothing picked in the box. Bulk targets are
+  leaves a typed search with nothing picked in the box. A `mirror` write never makes the Calendar or the
+  Gantt jump to the nearest match, though entering one with the box showing a selection does, as for any
+  query whose matches are off screen. Bulk targets are
   fixed when an
   action starts: every bulk action (assign, priority, tags, schedule, archive, restore,
   delete and drag) takes its list of target cards once, when it starts, from the selection
