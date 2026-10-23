@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const { listActive, listArchived, toJSON } = require('../scripts/card-store');
 const { readConfig } = require('../scripts/config-store');
-const { hoverShowIds, hoverShowTiles, hoverShowDefaults, HOVER_SHOW_KINDS } = require('../web/hover-show');
+const { hoverShowIds, hoverShowTiles, hoverShowDefaults, hoverShowTerms, HOVER_SHOW_KINDS } = require('../web/hover-show');
 const { graphBuild, graphNeighbours } = require('../web/graph-model');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
@@ -88,6 +88,21 @@ test('in the Flow, card 3 lights the dependencies alone; ticking hlinks adds the
   assert.deepStrictEqual(lit(b, hover.CASES.board.hlinksAlone.kinds, card), hierarchy);
 });
 
+test('in the Graph\'s side panel, the choice kept before is the Board\'s last, three presses make the union the scenario lights, and Space writes its terms in the panel\'s order', () => {
+  const b = plan();
+  const { card, before, press, after, text } = hover.CASES.sidebar;
+  assert.deepStrictEqual(before.kinds, hover.CASES.board.hlinksAlone.kinds, 'what the steps before leave kept for the Hierarchy');
+  assert.deepStrictEqual(lit(b, before.kinds, card), before.lit);
+  assert.deepStrictEqual(lit(b, after.kinds, card), after.lit);
+  assert.deepStrictEqual(after.kinds, HOVER_SHOW_KINDS.filter((k) => after.kinds.includes(k)), 'the toggles list them in the panel\'s order');
+  assert.deepStrictEqual([...press].sort(), [...new Set([...before.kinds, ...after.kinds])].sort(), 'the presses untick the one and tick the two');
+  assert.notDeepStrictEqual(after.lit, lit(b, ['hpath'], card), 'dtree adds cards hpath alone does not light');
+  assert.notDeepStrictEqual(after.lit, before.lit);
+  assert.strictEqual(text, hoverShowTerms(after.kinds, card));
+  assert.strictEqual(text, 'dtree:7 | hpath:7');
+  for (const id of after.lit) assert.ok(b.liveIds.has(String(id)), `card ${id} is drawn`);
+});
+
 test('the scenario waits on the page and never on a fixed sleep, and presses nothing by position', () => {
   const src = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'hover-show.js'), 'utf8');
   const code = src.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
@@ -101,6 +116,7 @@ function standIn() {
     ev: async (expr) => { log.evs.push(expr); return true; },
     open: async (url) => { log.opened.push(url); },
     waitFor: async () => true,
+    key: async () => { log.keys = (log.keys || []).concat('key'); },
     check: (name, ok) => log.checks.push([name, ok]),
   };
   return { page, log };
@@ -111,6 +127,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
   await hover.run(page);
   assert.deepStrictEqual(log.opened, [
     '/?view=graph', '/?view=board', '/?view=board', '/?view=graph&graph=flow', '/?view=graph&graph=hierarchy', '/?view=graph&graph=flow', '/?view=board',
+    '/?view=graph&graph=hierarchy', '/?view=graph&graph=flow',
   ]);
   assert.ok(log.checks.every(([, ok]) => ok === true), 'every check is made on a boolean the page answers');
   assert.deepStrictEqual(log.checks.map(([name]) => name), [
@@ -143,9 +160,21 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'the Flow keeps the choice made there',
     'the Board draws after the Graph last showed the Flow',
     'and still reads the Hierarchy\'s choice, not the Flow\'s',
+    'the Hierarchy draws the plan board',
+    'its side panel has the six sets under On hover, and shows the choice kept for the Hierarchy',
+    'with the dot hovered the choice lights what it did',
+    'three presses in the side panel make the choice dtree and hpath, and light their union with the dot still hovered, no reload and no new hover',
+    'the search panel shows the same two sets ticked',
+    'a new hover lights the union',
+    'Space writes the ticked terms in the panel\'s order',
+    'the Flow draws the plan board once more',
+    'its side panel shows the Flow\'s own choice',
   ]);
   const ticks = log.evs.filter((e) => /data-hover-kind="[a-z]+"\]'\)\.click\(\)/.test(e)).map((e) => /data-hover-kind="([a-z]+)"/.exec(e)[1]);
   assert.deepStrictEqual(ticks, ['hpath', 'dlinks', 'hlinks', 'hpath', 'hlinks', 'hlinks']);
+  const sidePresses = log.evs.filter((e) => /data-key="hover"/.test(e) && /\.click\(\)/.test(e)).map((e) => /dataset\.val==='([a-z]+)'/.exec(e)[1]);
+  assert.deepStrictEqual(sidePresses, hover.CASES.sidebar.press, 'the side panel toggles are pressed with the element own click');
+  assert.strictEqual(log.keys.length, 1, 'one real key press: Space');
 });
 
 test('every acceptance line of the ticket has a check of its own in the scenario', () => {

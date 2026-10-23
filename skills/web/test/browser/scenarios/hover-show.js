@@ -17,6 +17,11 @@
 // and 8 (and of the archived 19) and card 6 waits for it; card 3 has a parent (1), and 4 and 6 wait for it, which the
 // Flow draws as dependencies and not as parent lines.
 //
+// The Graph's side panel has the same six as toggles under On hover (graph-view.js), in the Hierarchy and the Flow,
+// editing the one choice the search panel edits. The last steps press them on the plan board's card 7: the toggles
+// show the kept choice, three presses while the dot is hovered light the union of dtree and hpath at once, the search
+// panel's boxes show the same two, and Space writes them in the panel's order; the Flow's toggles show the Flow's own.
+//
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // hoveredId, graphCur.
 
@@ -37,6 +42,9 @@ const CASES = {
   // In the Flow, card 3: the dependencies at first, then the parent as well when hlinks is ticked there; the
   // Hierarchy's own choice (hlinks alone, from the Board's steps) lights the parent and the card.
   flow: { card: 3, kinds: ['dlinks'], defaults: [3, 4, 6], plusHlinks: { kinds: ['dlinks', 'hlinks'], lit: [1, 3, 4, 6] }, hierarchy: [1, 3] },
+  // In the Hierarchy's side panel, card 7: the choice kept so far (hlinks alone) lights its parent and child; pressing
+  // hlinks off and hpath and dtree on lights the union of the two, and Space writes their terms.
+  sidebar: { card: 7, before: { kinds: ['hlinks'], lit: [2, 7, 22] }, press: ['hlinks', 'hpath', 'dtree'], after: { kinds: ['dtree', 'hpath'], lit: [1, 2, 7, 8, 22, 23, 24, 25] }, text: 'dtree:7 | hpath:7' },
 };
 
 module.exports = {
@@ -45,7 +53,7 @@ module.exports = {
   timeoutMs: 120000,
   CASES,
   async run(page) {
-    const { ev, open, waitFor, check } = page;
+    const { ev, open, waitFor, key, check } = page;
     const idsOf = (expr) => `JSON.stringify(${expr})`;
     const listIs = (expr, ids) => waitFor(`${idsOf(expr)}===${JSON.stringify(JSON.stringify(ids))}`);
     const TILES = `[...new Set([...document.querySelectorAll('#board .card-el.hover-highlight')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b)`;
@@ -53,6 +61,8 @@ module.exports = {
     const RING = `[...new Set([...document.querySelectorAll('#graph-view .graph-node.hover-highlight')].map((n)=>Number(n.dataset.id)))].sort((a,b)=>a-b)`;
     const DIMMED = `document.querySelector('.graph-canvas').classList.contains('graph-dim')`;
     const TICKED = `[...document.querySelectorAll('#search-hover [data-hover-kind]')].filter((b)=>b.checked).map((b)=>b.dataset.hoverKind)`;
+    const SIDE = `[...document.querySelectorAll('#graph-view .graph-option-btn[data-key="hover"]')]`;
+    const SIDE_TICKED = `${SIDE}.filter((b)=>b.getAttribute('aria-pressed')==='true').map((b)=>b.dataset.val)`;
     const NOTE = `document.getElementById('search-hover-for').textContent`;
     const PANEL_OPEN = `!document.getElementById('search-panel').classList.contains('hidden')&&document.getElementById('search-panel').getBoundingClientRect().height>0`;
     const CARD = (id) => `#board .card-el[data-id="${id}"]`;
@@ -64,6 +74,8 @@ module.exports = {
     const nodesAre = (ids) => listIs(NODES, ids);
     const tickedAre = (kinds) => listIs(TICKED, kinds);
     const tick = (kind) => ev(`document.querySelector('#search-hover [data-hover-kind="${kind}"]').click()`);
+    const sideAre = (kinds) => listIs(SIDE_TICKED, kinds);
+    const sidePress = (kind) => ev(`${SIDE}.find((b)=>b.dataset.val==='${kind}').click()`);
     const noteIs = (text) => waitFor(`${NOTE}===${JSON.stringify(text)}`);
     const openPanel = async () => {
       await ev(`document.getElementById('search-input').focus()`);
@@ -155,5 +167,29 @@ module.exports = {
 
     check('the Board draws after the Graph last showed the Flow', await onBoard());
     check('and still reads the Hierarchy\'s choice, not the Flow\'s', await openPanel() && await tickedAre(CASES.board.hlinksAlone.kinds));
+
+    // --- the Graph's side panel edits the same choice ---------------------------------------------------------------------
+    const side = CASES.sidebar;
+    check('the Hierarchy draws the plan board', await inGraph('&graph=hierarchy'));
+    check('its side panel has the six sets under On hover, and shows the choice kept for the Hierarchy',
+      await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(side.before.kinds));
+    await over(DOT(side.card));
+    check('with the dot hovered the choice lights what it did', await nodesAre(side.before.lit));
+    for (const kind of side.press) await sidePress(kind);
+    check('three presses in the side panel make the choice dtree and hpath, and light their union with the dot still hovered, no reload and no new hover',
+      await sideAre(side.after.kinds) && await nodesAre(side.after.lit));
+    await out(DOT(side.card));
+    await waitFor(`hoveredId===null`);
+    check('the search panel shows the same two sets ticked', await openPanel() && await tickedAre(side.after.kinds));
+    await ev(`document.activeElement.blur()`);
+    await over(DOT(side.card));
+    check('a new hover lights the union', await waitFor(`hoveredId==='${side.card}'`) && await nodesAre(side.after.lit));
+    await key(' ');
+    check('Space writes the ticked terms in the panel\'s order', await waitFor(`document.getElementById('search-input').value===${JSON.stringify(side.text)}`));
+    await out(DOT(side.card));
+    await waitFor(`hoveredId===null`);
+
+    check('the Flow draws the plan board once more', await inFlow());
+    check('its side panel shows the Flow\'s own choice', await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(CASES.flow.plusHlinks.kinds));
   },
 };
