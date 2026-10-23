@@ -759,7 +759,7 @@ function graphQueueNames() {
 function graphPaintSelection() {
   if (!graphCur) return;
   for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', selectedIds.has(nid));
-  for (const [nid, els] of graphCur.headEls) for (const h of els) h.classList.toggle('selected', selectedIds.has(nid));
+  for (const [nid, els] of graphCur.headEls) for (const h of els) h.classList.toggle('selected', paintsSelected(nid));
   graphPaintNames();
   graphRestFocus();
 }
@@ -851,7 +851,7 @@ function graphDrawPlan(plan) {
   // and select them with the dots.
   const headEls = new Map();
   for (const h of plan.flow.heads) {
-    const cls = `graph-node card-el graph-flow-lane-head${selectedIds.has(h.id) ? ' selected' : ''}${isHoverHighlighted(hoverLit, h.id) ? ' hover-highlight' : ''}`;
+    const cls = `graph-node card-el graph-flow-lane-head${paintsSelected(h.id) ? ' selected' : ''}${isHoverHighlighted(hoverLit, h.id) ? ' hover-highlight' : ''}`;
     const g = graphEl('g', { transform: `translate(${h.x} ${h.y})`, tabindex: 0 }, cls);
     g.setAttribute('data-id', String(h.id));
     const tip = graphEl('title');

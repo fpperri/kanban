@@ -188,9 +188,12 @@ test('the script wires the group once, reads and writes the choice through the p
 // The writer turns isolate on before the repaint and a view switch ends and starts the isolate the box's own query
 // made: write-reasons.test.js and isolate.test.js.
 
-test('every view paints a lit card with the selected look through one predicate, and the Graph keeps its own', () => {
+// Every surface paints a lit card with the selected look through paintsSelected: box-lit-paint.test.js draws the
+// Board's tiles, a Calendar chip and a Gantt bar in the page, map-render-svg.test.js the Map's node and
+// graph-flow-view.test.js the Flow's lane headers. The Gantt's label and the Graph's dots have no seam to draw
+// them from, so this keeps the one source check: no surface paints the look from the selection alone.
+test('no surface paints the selected look from the selection alone', () => {
   assert.match(appSrc, /function paintsSelected\(id\) \{\s*return selectedIds\.has\(id\) \|\| \(boxLitIds !== null && boxLitIds\.has\(id\)\);/);
-  assert.strictEqual((appSrc.match(/paintsSelected\(/g) || []).length, 7, 'its definition, the Board tile, the archived tile, the Map node, the Calendar chip, and the Gantt bar and its label');
-  assert.doesNotMatch(appSrc.replace(/function paintsSelected[\s\S]*?\n\}/, ''), /selectedIds\.has\([a-z.]*\) \? ' selected'/, 'no view paints the selected look from the selection alone');
-  assert.doesNotMatch(graphViewSrc, /paintsSelected|boxLitIds/, 'the Graph lights through graphQueryEffect');
+  assert.doesNotMatch(appSrc.replace(/function paintsSelected[\s\S]*?\n\}/, ''), /selectedIds\.has\([a-z.]*\) \? ' selected'/);
+  assert.doesNotMatch(graphViewSrc, /selectedIds\.has\([a-z.]*\) \? ' selected'/);
 });

@@ -379,6 +379,17 @@ test('a header is selected with the dot of its card, painted in place and on a r
   assert.ok(dot.classes.includes('selected'), 'the dot of the card is selected with it');
 });
 
+test('a header wears the selected look through the one predicate of the page, so a card the box lights is painted like the other surfaces paint it', async () => {
+  const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.layout')]: 'flow', [key('kanban', 'graph.lanes')]: '1' } });
+  const selectedHeads = () => laneHeads(s).filter((h) => h.classes.includes('selected')).map((h) => h.attrs['data-id']);
+  s.run('boxLitIds = new Set(["20"]); renderGraphView();');
+  assert.deepStrictEqual(selectedHeads(), ['20'], 'drawn');
+  s.run('boxLitIds = new Set(["10"]); graphPaintSelection();');
+  assert.deepStrictEqual(selectedHeads(), ['10'], 'and painted in place');
+  s.run('boxLitIds = null; graphPaintSelection();');
+  assert.deepStrictEqual(selectedHeads(), []);
+});
+
 test('lanes are drawn in Flow alone: the Hierarchy has none whatever the board kept', async () => {
   const s = await open({ board: makeLaneBoard(), stored: { [key('kanban', 'graph.lanes')]: '1' } });
   assert.strictEqual(s.run('graphCur.kind'), 'hierarchy');
