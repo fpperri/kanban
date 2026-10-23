@@ -605,6 +605,12 @@ function graphFanLines(model, places, fan) {
 // children. What a card needs is the angle that spaces its mark from its
 // neighbours' on its ring; when the sectors would need more angle than the fan
 // has, every radius grows to give it, so no two dots on a ring ever touch.
+// A parent's children on one ring sit side by side: for each ring, the children it has
+// there form one unbroken run among its children on that ring or nearer the centre, in the
+// order the option asks for, standing where the first of them falls in that order, so no
+// mark of another parent's subtree sits on that ring between them. A run on a ring further
+// out may sit inside a nearer ring's run, between two of its cards. A parent whose children
+// are all on one ring seats them in that order alone.
 // Loose cards with no tier are drawn as the Unnested option says: on one ring outside every
 // band (outermost, the default: graphFanRing), on the depth 0 ring in a sector of their own
 // (depth 0: graphFanPlace), in the Unnested block outside the rim (table), or not at all (off,
@@ -943,6 +949,36 @@ function graphLayoutHierarchy(model, opts) {
   // card along its own stretch only, so no card changes its band, ring or sector.
   const how = mergeGraphFanOptions(opts).order === 'status' ? 'status' : 'layout';
   const sort = (ids) => GRAPH_MAPREL.mapOrderRow(ids, { nodes: ids.map((id) => model.byId.get(id)) }, how, statuses);
+  // A parent's children on one ring then sit side by side. Going ring by ring from the
+  // nearest, a child that a child on a nearer ring parts from the one before it on its ring
+  // is brought up beside that one, so the run stands where its first child falls and keeps
+  // the order inside it. Children on a ring further out are left where they are, so they
+  // may sit inside the run, between two of its cards; a later ring's pass moves only its
+  // own children, so it parts no run already made. One pass over the children for each
+  // ring they sit on.
+  const together = (ids) => {
+    const ring = new Map(ids.map((id) => [id, ringOf(id)]));
+    let out = ids;
+    for (const k of [...new Set(ring.values())].sort((a, b) => a - b)) {
+      const seated = [];
+      let held = [];
+      let crossed = false;
+      let begun = false;
+      for (const id of out) {
+        if (ring.get(id) !== k) {
+          held.push(id);
+          if (ring.get(id) < k) crossed = true;
+        } else if (!begun || !crossed) {
+          seated.push(...held, id);
+          held = [];
+          crossed = false;
+          begun = true;
+        } else seated.push(id);
+      }
+      out = seated.concat(held);
+    }
+    return out;
+  };
   const kidsOf = new Map();
   for (const n of nodes) {
     if (n.parentId === null || places.get(n.id).sector === null) continue;
@@ -964,7 +1000,7 @@ function graphLayoutHierarchy(model, opts) {
   });
   for (const n of nodes) {
     if (!kidsOf.has(n.id)) continue;
-    for (const id of sort(kidsOf.get(n.id))) {
+    for (const id of together(sort(kidsOf.get(n.id)))) {
       const w = (width.get(n.id) * span.get(id)) / span.get(n.id);
       const start = next.get(n.id);
       next.set(n.id, start + w);
