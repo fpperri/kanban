@@ -2371,7 +2371,7 @@ to `127.0.0.1` only.
   box but for its cut, since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
   search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
-  Calendar keep hiding what does not match, nothing is selected by it there, and a bulk
+  Calendar light its matches with the selected look and hide nothing (isolate is off), nothing is selected by it there, and a bulk
   action has no cards to act on. Back in the Graph with the box unchanged and nothing
   selected, its matches light again; a selection carried in from another view stays, and
   the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on

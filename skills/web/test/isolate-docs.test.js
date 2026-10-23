@@ -62,9 +62,9 @@ test('both say it writes the selection into the box as part | part, each part by
   assert.strictEqual(searchIsolateText([cardPart(12), pathPart(40), queryPart('tags:grill')]), '#12 | path:40 | tags:grill');
 });
 
-test('both say the box\'s text is kept and given back when it goes off, by the switch, i or Esc', () => {
+test('both say the box\'s text is given back when it goes off, by the switch, i or Esc, and only a cut stays', () => {
   for (const [where, text] of BOTH) {
-    assert.match(text, /text the box held is kept/, where);
+    assert.match(text, /text the box held is given back when (isolate goes off|you turn it off)/, where);
     assert.match(text, /gives the box back the text it held|box gets its text back/, where);
     assert.match(text, /switch, `i` or Esc/, where);
   }

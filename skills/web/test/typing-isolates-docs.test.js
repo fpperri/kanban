@@ -116,5 +116,8 @@ test('the words the change made false are gone from all three', () => {
     assert.doesNotMatch(text, /Isolate stays as it was: off stays off/, where);
     assert.doesNotMatch(text, /isolate is left as typing into the box leaves it/, where);
     assert.doesNotMatch(text, /the Board, the Map, the Gantt and the Calendar filter by the box as they always do/, where);
+    assert.doesNotMatch(text, /Calendar keep hiding what does not match/, where);
+    assert.doesNotMatch(text, /the box goes on filtering there/, where);
+    assert.doesNotMatch(text, /The text the box held is kept/, where);
   }
 });

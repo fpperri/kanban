@@ -232,7 +232,7 @@ A search typed in the Graph hides nothing: its matches light, done cards include
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
 click a card to start a new selection and clear the box but for its cut. Switch to another view and
-the box goes on filtering there, while nothing is selected by it. A dot is never dragged.
+the box lights its matches there and hides nothing, while nothing is selected by it. A dot is never dragged.
 Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill)
