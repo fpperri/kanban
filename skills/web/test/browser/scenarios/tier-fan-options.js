@@ -2,7 +2,7 @@
 // The tier fan's option row, on the plan board. In Tiers an option row stands in the option panel
 // beside the fan, shown with every option built and no toggle of its own (the panel is what hides it;
 // view-panel's), and absent in the Flow, whose row holds the Dependencies switch alone.
-// It holds Lines (folded, chain, all, off), Dependencies (on, off), Order
+// It holds Lines (folded, brackets, chain, all, off), Dependencies (on, off), Order
 // (status, rank), Names (relevant, all, none; fan-names's) and Unnested (outermost, off, depth 0,
 // table; tier-fan-unnested's), one button of each pressed. Each lines mode and the dependencies switch
 // redraw the fan with the number of lines the model predicts (graphFanLines, read from
@@ -31,7 +31,9 @@
 // 4, 6 (three times), 8 and 27. Cards 30 and 31, added under card 7 through the board's
 // API, are two children alone on one ring (depth 0, as are the cards 3 to 6, 8 and 23) beside
 // the epic 22, so folded draws one counted line for them and the seven others, and its label
-// reads 2.
+// reads 2. Brackets draw one bracket over each parent's children on a ring: over cards 3 to 6
+// (label 4) and, with cards 30 and 31 added, over those two (label 2), with a plain line to each
+// of the other children, eight parent lines and, with the two added, nine.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
 // graphCur, graphFanLines, graphLoadOptions, selectedIds, isDragging, boardControlFocused,
@@ -43,17 +45,17 @@ const {
 
 const CASES = {
   plan: {
-    parentLines: { folded: 7, chain: 7, all: 11, off: 0 },
+    parentLines: { folded: 7, brackets: 8, chain: 7, all: 11, off: 0 },
     waits: 6,
     defaults: { lines: 'folded', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' },
-    values: { lines: ['folded', 'chain', 'all', 'off'], dependencies: ['on', 'off'], order: ['status', 'rank'], names: ['relevant', 'all', 'none'], unnested: ['outermost', 'off', 'depth 0', 'table'] },
+    values: { lines: ['folded', 'brackets', 'chain', 'all', 'off'], dependencies: ['on', 'off'], order: ['status', 'rank'], names: ['relevant', 'all', 'none'], unnested: ['outermost', 'off', 'depth 0', 'table'] },
     labels: ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested'],
     // The children of card 1 and the order each option seats them in, first seat first.
     siblings: [2, 3, 4, 5, 6],
     seats: { status: [2, 3, 6, 4, 5], rank: [2, 3, 4, 5, 6] },
     // Two children of card 7, with the lines each mode draws once they are there.
     added: [{ title: 'Port the first table', parent: 7, status: 'todo' }, { title: 'Port the second table', parent: 7, status: 'todo' }],
-    withAdded: { folded: 8, chain: 9, all: 13, off: 0 },
+    withAdded: { folded: 8, brackets: 9, chain: 9, all: 13, off: 0 },
     addedIds: [30, 31],
     pollCard: { title: 'Check the poll after a press', status: 'todo' },
     pollId: 32,
@@ -79,6 +81,24 @@ const LINE_COUNTS = `(()=>{const q=(s)=>document.querySelectorAll('#graph-view '
   + `wait:q('.graph-link-wait'),labels:[...document.querySelectorAll('#graph-view .graph-link-count')].map((e)=>e.textContent)}})()`;
 const PREDICTED = `(()=>{const lines=graphFanLines(graphCur.model,graphCur.layout.places,graphLoadOptions());return {all:lines.length,parent:lines.filter((l)=>l.kind==='parent').length,`
   + `counted:lines.filter((l)=>!!l.kids).length,wait:lines.filter((l)=>l.kind==='wait').length,labels:lines.filter((l)=>!!l.kids).map((l)=>String(l.count))}})()`;
+// Each bracket on the stage as the brackets mode draws it: one arc from the smallest angle of its
+// children to the largest, a tick to each child and one stem, so 'M' pieces for the stem, the arc and
+// each child, and a single 'A'. The function runs in the page (its source is the expression) and in the
+// stand-in page's tests.
+function bracketsDrawn(cur, lines) {
+  const same = (a, b) => Math.abs(Math.sin((a - b) / 2)) < 0.005;
+  return cur.lines.filter((l) => l.count !== undefined).map((l) => {
+    const kids = lines.find((x) => x.kids && x.from === l.from && x.count === l.count).kids.map((id) => cur.layout.polar.get(id).a);
+    const m = /^M[-\d.e]+ [-\d.e]+L[-\d.e]+ [-\d.e]+M([-\d.e]+) ([-\d.e]+)A[-\d.e]+ [-\d.e]+ 0 \d 1 ([-\d.e]+) ([-\d.e]+)/.exec(l.d);
+    return {
+      from: l.from,
+      count: l.count,
+      ok: !!m && same(Math.atan2(Number(m[2]), Number(m[1])), Math.min(...kids)) && same(Math.atan2(Number(m[4]), Number(m[3])), Math.max(...kids))
+        && (l.d.match(/A/g) || []).length === 1 && (l.d.match(/M/g) || []).length === 2 + kids.length,
+    };
+  });
+}
+const BRACKETS_DRAWN = `(${bracketsDrawn.toString()})(graphCur,graphFanLines(graphCur.model,graphCur.layout.places,graphLoadOptions()))`;
 // The lines the page's lighting reaches are the lines it drew: one element for each.
 const DRAWN_LINES = `graphCur.lines.length===document.querySelectorAll('#graph-view .graph-link').length`;
 
@@ -118,6 +138,8 @@ module.exports = {
   ROW_STATE,
   LINE_COUNTS,
   PREDICTED,
+  BRACKETS_DRAWN,
+  bracketsDrawn,
   DRAWN_LINES,
   ROW_PRESENT,
   ROW_ABSENT,
@@ -200,7 +222,7 @@ module.exports = {
 
     // --- each lines mode redraws the fan with the lines the model predicts --------------------
     const before = await ev(DOTS);
-    for (const mode of ['all', 'chain', 'off', 'folded']) {
+    for (const mode of ['all', 'chain', 'off', 'brackets', 'folded']) {
       const pressedOk = await setOption('lines', mode);
       await settledOn(plan.parentLines[mode], plan.waits);
       const drawn = await counts();
@@ -239,7 +261,7 @@ module.exports = {
     check('plan: two children are added under card 7', created.every((s) => s === 201), created);
     await load('plan');
     await waitFor(plan.addedIds.map(hasDot).join('&&'), 10000);
-    for (const mode of ['folded', 'chain', 'all', 'off']) {
+    for (const mode of ['folded', 'brackets', 'chain', 'all', 'off']) {
       await setOption('lines', mode);
       await settledOn(plan.withAdded[mode], plan.waits);
       const drawn = await counts();
@@ -253,6 +275,15 @@ module.exports = {
     check('plan: folded draws the two children on one counted line, whose label reads 2, one line of one count',
       counted.counted === 1 && sameList(counted.labels, ['2']), counted);
     await shot('tier-fan-options-counted');
+    await setOption('lines', 'brackets');
+    await settledOn(plan.withAdded.brackets, plan.waits);
+    const bracketed = await counts();
+    check('plan: brackets draw the four children of card 1 on one bracket reading 4 and the two of card 7 on one reading 2, and nothing else counted',
+      bracketed.counted === 2 && sameList(bracketed.labels.slice().sort(), ['2', '4']), bracketed);
+    const arcs = await ev(BRACKETS_DRAWN);
+    check('plan: and each bracket is one arc from its first child to its last, a tick to each child and one stem',
+      Array.isArray(arcs) && arcs.length === 2 && arcs.every((a) => a.ok), arcs);
+    await shot('tier-fan-options-brackets');
 
     // --- the options are kept ---------------------------------------------------------
     await setOption('lines', 'chain');

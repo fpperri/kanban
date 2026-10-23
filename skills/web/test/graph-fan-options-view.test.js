@@ -116,9 +116,9 @@ test('the row holds Lines, Dependencies, Order, Names and Unnested, each with ev
   const row = s.row();
   const g = groups(row);
   assert.deepStrictEqual(g.map((x) => x.label), ['Lines', 'Dependencies', 'Order', 'Names', 'Unnested']);
-  assert.deepStrictEqual(g.map((x) => x.buttons.map((b) => b.text)), [['folded', 'chain', 'all', 'off'], ['on', 'off'], ['status', 'rank'], ['relevant', 'all', 'none'], ['outermost', 'off', 'depth 0', 'table']]);
+  assert.deepStrictEqual(g.map((x) => x.buttons.map((b) => b.text)), [['folded', 'brackets', 'chain', 'all', 'off'], ['on', 'off'], ['status', 'rank'], ['relevant', 'all', 'none'], ['outermost', 'off', 'depth 0', 'table']]);
   assert.deepStrictEqual(g.map((x) => x.buttons.map((b) => `${b.key}=${b.val}`)), [
-    ['lines=folded', 'lines=chain', 'lines=all', 'lines=off'], ['dependencies=on', 'dependencies=off'], ['order=status', 'order=rank'], ['names=relevant', 'names=all', 'names=none'],
+    ['lines=folded', 'lines=brackets', 'lines=chain', 'lines=all', 'lines=off'], ['dependencies=on', 'dependencies=off'], ['order=status', 'order=rank'], ['names=relevant', 'names=all', 'names=none'],
     ['unnested=outermost', 'unnested=off', 'unnested=depth 0', 'unnested=table'],
   ]);
   for (const x of g) assert.ok(x.title.length > 20, `${x.label} explains itself in a tooltip`);
@@ -144,7 +144,7 @@ test('every control of the row keeps the selection and holds no poll, and writes
   const s = await open();
   const row = s.row();
   const buttons = byClass(row, 'graph-option-btn');
-  assert.strictEqual(buttons.length, 15);
+  assert.strictEqual(buttons.length, 16);
   for (const b of buttons) {
     assert.strictEqual(b.dataset.keepsSelection, '', `${b.dataset.key}=${b.dataset.val} keeps the selection`);
     assert.strictEqual(b.dataset.holdsPoll, undefined, `${b.dataset.key}=${b.dataset.val} does not hold the poll`);
@@ -173,6 +173,8 @@ test('pressing an option stores the options whole for the board and redraws the 
   press('lines', 'all');
   assert.deepStrictEqual(JSON.parse(s.stored[key('kanban', 'graph.options')]), { lines: 'all', dependencies: 'on', order: 'status', names: 'relevant', unnested: 'outermost' });
   assert.deepStrictEqual([count('parent'), count('wait')], [5, 2]);
+  press('lines', 'brackets');
+  assert.deepStrictEqual([count('parent'), count('wait')], [1, 2], 'brackets: the five children of card 1 share one ring and one bracket');
   press('lines', 'chain');
   assert.deepStrictEqual([count('parent'), count('wait')], [4, 2], 'chain: 2, 4, 5 and 6; card 3 is not a chain end');
   press('lines', 'off');

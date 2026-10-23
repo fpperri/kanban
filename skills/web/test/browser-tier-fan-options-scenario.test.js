@@ -241,6 +241,7 @@ function standIn(over = {}) {
       if (expr === scenario.ROW_SHOWN) return kind === 'tiers';
       if (expr === scenario.LINE_COUNTS) return lineCounts();
       if (expr === scenario.PREDICTED) return counted(now().lines);
+      if (expr === scenario.BRACKETS_DRAWN) { const n = now(); return scenario.bracketsDrawn({ lines: n.plan.links, layout: n.layout }, n.lines); }
       if (expr === scenario.DRAWN_LINES) return true;
       if (expr === scenario.VIEW) return { ...view, panning, dragging: false };
       if (expr === scenario.SELECTED) return selected.slice().sort((a, b) => a - b);
@@ -290,6 +291,10 @@ test('each check listed here is in the scenario', async () => {
   has(/lines chain draws 7 parent lines/);
   has(/lines off draws 0 parent lines/);
   has(/lines folded draws 7 parent lines/);
+  has(/lines brackets draws 8 parent lines/);
+  has(/with the two children added, lines brackets draws 9 parent lines/);
+  has(/brackets draw the four children of card 1 on one bracket reading 4/);
+  has(/each bracket is one arc from its first child to its last/);
   has(/dependencies off draws no arrow/);
   has(/order status, the default, seats the children of card 1/);
   has(/order rank seats them in the outline's own order/);
@@ -323,6 +328,7 @@ test('a line count that is off by one fails the mode it is off in, and the model
   await failsWith({ counts: (c, o) => (o.lines === 'chain' ? { ...c, parent: c.parent + 1 } : c) }, /lines chain draws 7 parent lines/, 'chain draws one too many');
   await failsWith({ counts: (c, o) => (o.dependencies === 'off' ? { ...c, wait: 1 } : c) }, /dependencies off draws no arrow/, 'an arrow stays when dependencies are off');
   await failsWith({ counts: (c) => ({ ...c, labels: [] }) }, /folded draws the two children on one counted line, whose label reads 2/, 'no label');
+  await failsWith({ counts: (c, o) => (o.lines === 'brackets' ? { ...c, labels: ['2', '2'] } : c) }, /brackets draw the four children of card 1 on one bracket reading 4/, 'brackets count their children wrong');
 });
 
 test('an order that moves no sibling, or a row that changes the rings, fails', async () => {

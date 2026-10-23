@@ -43,7 +43,7 @@ const GRAPH_LABELS_ALL_MAX_NODES = 60;
 const GRAPH_FAN_OPTION_LABELS = {
   lines: {
     label: 'Lines',
-    hint: 'Which parent lines the fan draws. Folded: a line to the end of each dependency chain, and one counted line for the other children of a parent that sit on one ring. Chain: a line to every chain end, as the Map draws them. All: a line to every child. Off: none.',
+    hint: 'Which parent lines the fan draws. Folded: a line to the end of each dependency chain, and one counted line for the other children of a parent that sit on one ring. Brackets: for each parent and each ring its children sit on, one bracket from its first child to its last with a tick to each, and one line up to the parent, counting them; a child alone on its ring keeps a plain line. Chain: a line to every chain end, as the Map draws them. All: a line to every child. Off: none.',
   },
   dependencies: {
     label: 'Dependencies',
