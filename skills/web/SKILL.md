@@ -876,8 +876,10 @@ to `127.0.0.1` only.
   box shows what is left; an empty selection leaves the box its `slice:` run. While isolate is on a click
   keeps the rule above, and a click that opens a card writes nothing. Esc's step and a double click on empty
   space take the box down with the selection only while it holds the selection's text; a switch of view
-  writes the selection when it changed it (leaving the Graph with cards picked beside a typed search) and
-  leaves a typed search with nothing picked in the box. A `mirror` write never makes the Calendar or the
+  writes the picked cards, paths and trees whenever the box is not already their text, so a search typed
+  beside them goes as it does when a click picks (leaving the Graph with cards picked beside a typed search
+  is one case), and leaves a typed search with nothing picked in the box for the view's Typing isolates to
+  isolate or light. A `mirror` write never makes the Calendar or the
   Gantt jump to the nearest match, though entering one with the box showing a selection does, as for any
   query whose matches are off screen. Bulk targets are
   fixed when an
@@ -2410,10 +2412,12 @@ to `127.0.0.1` only.
   the query lit takes it out and turns the query into its other cards, which the box then names (`#2 | #8`),
   since it no longer names the anchor. The status pills still decide which cards are
   drawn, so with the Done pill off a done match is not drawn, whatever the query. A typed
-  search stops being the anchor when you leave the Graph: the Board, Map, Gantt and
-  Calendar light its matches with the selected look and hide nothing (isolate is off), nothing is selected by it there, and a bulk
-  action has no cards to act on. Back in the Graph with the box unchanged and nothing
-  selected, its matches light again; a selection carried in from another view stays, and
+  search stops being the anchor when you leave the Graph, and each view follows its own Typing
+  isolates: where it is ticked (the Board, Map, Gantt and Calendar to start) the typed search isolates
+  there on the switch and shows its matches alone, and where it is unticked the view lights its matches
+  with the selected look and hides nothing; nothing is selected by it, and a bulk action has no cards to
+  act on. Back in the Graph with the box unchanged and nothing selected, isolate ends and its matches
+  light again; a selection carried in from another view stays, and
   the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on
   a focused dot) opens the card, and **Ctrl+Space** on a focused dot selects it, as a click does. The Graph is a deliberate exception to
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and

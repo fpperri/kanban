@@ -232,7 +232,8 @@ A search typed in the Graph hides nothing: its matches light, done cards include
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
 click a card to start a new selection, which the box shows in place of the search (`#34`), its cut kept. Switch to another view and
-the box lights its matches there and hides nothing, while nothing is selected by it. A dot is never dragged.
+the box isolates it there where that view's Typing isolates is on, or lights its matches and hides nothing
+where it is off, while nothing is selected by it. A dot is never dragged.
 Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill)
@@ -439,7 +440,7 @@ beside a path you searched, with the `slice:` run kept. Isolate stays off, so th
 hides nothing, and the text is the selection's own, not a search you typed: the next click still works on the
 cards. Ctrl-click on a picked card takes it out and the box shows what is left; with nothing left it holds only
 its `slice:` run. The Graph's plain click, Shift- and Ctrl-clicks in every view, a Flow lane header and the card
-menu's Add to selection all write it, and so does a switch of view that changes the selection. A click that
+menu's Add to selection all write it, and so does a switch of view with cards picked, whenever the box is not already their text. A click that
 opens a card writes nothing, and while isolate is on a click moves the anchor and leaves the box and its
 isolate text. Esc takes the box down with the selection, step by step, while the box holds the selection's text.
 A click never pages the Calendar or the Gantt; entering one with the box showing a selection jumps to it, as it

@@ -26,14 +26,14 @@ test('the web skill says what a Ctrl-click out, an open, isolate on, Esc and a v
   assert.match(skillMirror, /While isolate is on a click keeps the rule above, and a click that opens a card writes nothing/);
   assert.match(skillMirror, /Esc's step and a double click on empty space take the box down with the selection only while it holds the selection's text/);
   assert.match(skillMirror, /A `mirror` write never makes the Calendar or the Gantt jump to the nearest match, though entering one with the box showing a selection does, as for any query whose matches are off screen/);
-  assert.match(skillMirror, /a switch of view writes the selection when it changed it \(leaving the Graph with cards picked beside a typed search\) and leaves a typed search with nothing picked in the box/);
+  assert.match(skillMirror, /a switch of view writes the picked cards, paths and trees whenever the box is not already their text, so a search typed beside them goes as it does when a click picks \(leaving the Graph with cards picked beside a typed search is one case\), and leaves a typed search with nothing picked in the box for the view's Typing isolates to isolate or light/);
 });
 
 test('the web docs say the box shows the selection, in the same cases', () => {
   assert.match(docsMirror, /with isolate off, a click that selects a card writes the selection into the search box as the text Isolate would write for it: `#34`, then `#34 \| #36` as more are added, `dpath:185 \| #14` beside a path you searched, with the `slice:` run kept/);
   assert.match(docsMirror, /Isolate stays off, so the box lights those cards and hides nothing, and the text is the selection's own, not a search you typed: the next click still works on the cards/);
   assert.match(docsMirror, /Ctrl-click on a picked card takes it out and the box shows what is left; with nothing left it holds only its `slice:` run/);
-  assert.match(docsMirror, /The Graph's plain click, Shift- and Ctrl-clicks in every view, a Flow lane header and the card menu's Add to selection all write it, and so does a switch of view that changes the selection/);
+  assert.match(docsMirror, /The Graph's plain click, Shift- and Ctrl-clicks in every view, a Flow lane header and the card menu's Add to selection all write it, and so does a switch of view with cards picked, whenever the box is not already their text/);
   assert.match(docsMirror, /A click never pages the Calendar or the Gantt; entering one with the box showing a selection jumps to it, as it does for any query whose matches are off screen/);
   assert.match(docsMirror, /A click that opens a card writes nothing, and while isolate is on a click moves the anchor and leaves the box and its isolate text/);
 });
@@ -53,7 +53,7 @@ test('the address entry and the pill entry say the box is what a click that sele
 test('the glossary names the mirror, and says it is the text of the selection itself and not a typed query', () => {
   const glossary = read('GLOSSARY.md');
   const entry = flat(glossary.slice(glossary.indexOf('**Mirror**:'), glossary.indexOf('**On hover show**:')));
-  assert.match(entry, /The selection written into the search box as the text Isolate would write for it, when a click that selects, an Add to selection, a step of Esc or a switch of view changes the selection while Isolate is off/);
+  assert.match(entry, /The selection written into the search box as the text Isolate would write for it, when a click that selects, an Add to selection, a step of Esc or a switch of view with cards picked changes the box while Isolate is off/);
   assert.match(entry, /the text is the selection's own, not a query typed, so the next click still works on the cards/);
 });
 

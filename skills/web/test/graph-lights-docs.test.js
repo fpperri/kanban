@@ -58,11 +58,11 @@ test('the Graph section says what drops the typed anchor and what a click does t
   assert.match(text, /turns the query into its other cards, which the box then names/);
 });
 
-test('the Graph section says a typed search stays in the Graph: the other views light its matches and hide nothing, nothing is selected there, and it lights again on the way back', () => {
+test('the Graph section says a typed search stays in the Graph: the other views isolate it or light its matches by their Typing isolates, nothing is selected there, and it lights again on the way back', () => {
   const text = graph();
   assert.match(text, /stops being the anchor when you leave the Graph/);
-  assert.match(text, /Board, Map, Gantt and Calendar light its matches with the selected look and hide nothing \(isolate is off\), nothing is selected by it there/);
-  assert.match(text, /Back in the Graph with the box unchanged and nothing selected, its matches light again/);
+  assert.match(text, /each view follows its own Typing isolates: where it is ticked \(the Board, Map, Gantt and Calendar to start\) the typed search isolates there on the switch and shows its matches alone, and where it is unticked the view lights its matches with the selected look and hides nothing; nothing is selected by it/);
+  assert.match(text, /Back in the Graph with the box unchanged and nothing selected, isolate ends and its matches light again/);
   assert.match(text, /a selection carried in from another view stays, and the box has no effect in the Graph until it is edited/);
 });
 
