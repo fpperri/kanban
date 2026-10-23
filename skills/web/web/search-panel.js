@@ -231,6 +231,7 @@ function syncSearchBoardNote() {
 function renderSearchPanel() {
   syncSearchBoardNote();
   applyPillsFold();
+  applyTypingFold();
   renderSearchStatuses();
   renderSearchSlices();
   syncSearchSwitch();
@@ -352,7 +353,7 @@ function onSearchPanelOutside(e) {
 
 // One fold for a section of the search panel: whether it is folded is the choice made at its fold
 // control for this visit, or the preference (prefKey, read per board) until there is one. The Pills,
-// Slices and Statuses sections each hold one, made from their preference key and element ids.
+// Slices, Statuses, Typing isolates and On hover show sections each hold one, made from their preference key and element ids.
 function searchFoldSection(prefKey, hostSel, foldSel) {
   let folded = null;
   let foldedFor = null;
@@ -377,6 +378,11 @@ function searchFoldSection(prefKey, hostSel, foldSel) {
     set(on) { folded = !!on; foldedFor = state.projectName; apply(); }, // the preference changed in the sheet: the section takes it now
   };
 }
+
+const typingFold = searchFoldSection('typingFolded', '#search-typing', '#search-typing-fold');
+const applyTypingFold = typingFold.apply;
+const toggleSearchTypingFold = typingFold.toggle;
+const foldSearchTyping = typingFold.set;
 
 const pillsFold = searchFoldSection('pillsFolded', '#search-pills', '#search-pills-fold');
 const currentPillsFolded = pillsFold.current;
@@ -466,5 +472,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onSearchPanelKey);
   document.addEventListener('keydown', onPillStepKey);
   $('#search-pills-fold').addEventListener('click', toggleSearchPillsFold);
+  $('#search-typing-fold').addEventListener('click', toggleSearchTypingFold);
   document.addEventListener('mousedown', onSearchPanelOutside);
 });

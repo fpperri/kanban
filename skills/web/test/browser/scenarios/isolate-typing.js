@@ -33,6 +33,8 @@ const CASES = {
   checkboxes: [['board', true], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]],
 };
 
+const { unfoldSearchSection } = require('../panel');
+
 module.exports = {
   name: 'isolate-typing',
   board: 'fixture',
@@ -148,12 +150,14 @@ module.exports = {
     check('the Graph draws the fixture board', await goto('/?view=graph', graphReady));
     await typeQuery(CASES.query);
     check('typing in the Graph lights the matches and draws every dot, with isolate off', await shows(DOTS_LIT, CASES.cards) && (await nowShown(DOTS)).length === dots.length && await isolateIs(false), { lit: await nowShown(DOTS_LIT) });
+    await unfoldSearchSection(page, 'typing');
     await clickOn('#search-typing [data-typing-view="graph"]');
     check('ticking the Graph\'s checkbox is kept for the view', await checkboxesAre([['board', true], ['calendar', true], ['gantt', true], ['map', true], ['graph', true]]), await ev(CHECKS));
     await clearBox();
     await typeQuery(CASES.query);
     check('typing in the Graph now isolates: the switch says on and only the zephyr cards are drawn', await switchIs(true) && await shows(DOTS, CASES.cards), await nowShown(DOTS));
     await clearBox();
+    await unfoldSearchSection(page, 'typing');
     await clickOn('#search-typing [data-typing-view="graph"]');
     await checkboxesAre(CASES.checkboxes);
 
@@ -161,6 +165,7 @@ module.exports = {
     check('the Board draws the fixture board again', await goto('/?view=board', boardReady));
     await ev(`document.getElementById('search-input').focus()`);
     await waitFor(panelOpen);
+    await unfoldSearchSection(page, 'typing');
     await clickOn('#search-typing [data-typing-view="board"]');
     check('unticking the Board\'s checkbox shows it unticked', await checkboxesAre([['board', false], ['calendar', true], ['gantt', true], ['map', true], ['graph', false]]), await ev(CHECKS));
     check('and the choice is kept in the browser, under a key of its own for the board', await ev(`JSON.parse(localStorage.getItem('kanban.fixture.typing.isolates')).board===false`));

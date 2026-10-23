@@ -15,7 +15,7 @@ const snapshotSkill = read('skills', 'snapshot', 'SKILL.md');
 const glossary = read('GLOSSARY.md');
 
 test('docs/web.md says what the six checkboxes are, what a hover lights in every view, and what leaving does', () => {
-  assert.match(webDoc, /\*\*On hover show\*\* — under the foot of the search panel, six checkboxes \(`dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, the sets of the same names\) choose which sets a hover lights/);
+  assert.match(webDoc, /\*\*On hover show\*\* — in a section of its own in the search panel, six checkboxes \(`dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, the sets of the same names\) choose which sets a hover lights/);
   assert.match(webDoc, /Hovering a card, or moving keyboard focus onto it, lights the union of the sets ticked for it, in every view/);
   assert.match(webDoc, /the Board, the Map, the Calendar and the Gantt give each card of the union the hover look, and the Graph lights the union, with the lines between its cards, and dims the rest, while the hover ring stays on the hovered card alone/);
   assert.match(webDoc, /Leaving the card clears it\. With nothing ticked only the hovered card takes the hover look and the Graph dims nothing/);
@@ -77,7 +77,8 @@ test('the search panel\'s markup has the section, the six boxes in the panel\'s 
   const html = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'app.html'), 'utf8');
   const section = html.slice(html.indexOf('<fieldset id="search-hover"'), html.indexOf('</fieldset>', html.indexOf('<fieldset id="search-hover"')));
   assert.ok(section.length > 0, 'the fieldset is there');
-  assert.match(section, /<legend>On hover show <span id="search-hover-for"[^>]*><\/span><\/legend>/);
+  assert.match(section, /<legend>For <span id="search-hover-for"[^>]*><\/span><\/legend>/);
+  assert.match(html, /<section id="search-hover-section" class="search-section"[^>]*>\s*<button type="button" id="search-hover-fold" class="search-fold"[^>]*aria-controls="search-hover"[^>]*>On hover show<\/button>\s*<fieldset id="search-hover"/);
   const kinds = [...section.matchAll(/<input type="checkbox" data-hover-kind="([a-z]+)"/g)].map((m) => m[1]);
   assert.deepStrictEqual(kinds, ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'], 'two columns by three rows read across: h left, d right; links, path, tree');
   assert.match(section, /<div class="hover-kinds">/);

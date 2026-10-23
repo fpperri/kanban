@@ -57,26 +57,31 @@
       <hr class="search-divider">
       <div id="search-foot">
         <button type="button" id="isolate-switch" class="isolate-switch" role="switch" aria-checked="false" data-keeps-selection title="Isolate: show only the selection, in every view, by writing it into the search box. Click, or press i, to turn it on."><span class="isolate-switch-track" aria-hidden="true"></span><span class="isolate-switch-label">Isolate</span></button>
-        <div id="search-typing" class="search-typing" role="group" aria-labelledby="search-typing-title" data-keeps-selection title="Per view: whether typing in the search box, a pill, a cue on a card or a link with a search turns Isolate on, which hides what the box does not match. Off, the box lights what it matches.">
-          <span id="search-typing-title" class="search-typing-title">Typing isolates</span>
+      </div>
+      <section id="search-typing-section" class="search-section" aria-labelledby="search-typing-fold">
+        <button type="button" id="search-typing-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-typing" aria-label="Typing isolates" title="Fold or unfold the typing isolates">Typing isolates</button>
+        <div id="search-typing" class="search-typing" role="group" aria-labelledby="search-typing-fold" data-keeps-selection title="Per view: whether typing in the search box, a pill, a cue on a card or a link with a search turns Isolate on, which hides what the box does not match. Off, the box lights what it matches.">
           <label class="search-typing-opt" data-keeps-selection><input type="checkbox" data-typing-view="board" data-keeps-selection> Board</label>
           <label class="search-typing-opt" data-keeps-selection><input type="checkbox" data-typing-view="calendar" data-keeps-selection> Calendar</label>
           <label class="search-typing-opt" data-keeps-selection><input type="checkbox" data-typing-view="gantt" data-keeps-selection> Gantt</label>
           <label class="search-typing-opt" data-keeps-selection><input type="checkbox" data-typing-view="map" data-keeps-selection> Map</label>
           <label class="search-typing-opt" data-keeps-selection><input type="checkbox" data-typing-view="graph" data-keeps-selection> Graph</label>
         </div>
-      </div>
-      <fieldset id="search-hover" class="search-hover" data-keeps-selection>
-        <legend>On hover show <span id="search-hover-for" class="search-hover-for"></span></legend>
-        <div class="hover-kinds">
-          <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="hlinks" data-keeps-selection><span>hlinks</span></label>
-          <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dlinks" data-keeps-selection><span>dlinks</span></label>
-          <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="hpath" data-keeps-selection><span>hpath</span></label>
-          <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dpath" data-keeps-selection><span>dpath</span></label>
-          <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="htree" data-keeps-selection><span>htree</span></label>
-          <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dtree" data-keeps-selection><span>dtree</span></label>
-        </div>
-      </fieldset>
+      </section>
+      <section id="search-hover-section" class="search-section" aria-labelledby="search-hover-fold">
+        <button type="button" id="search-hover-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-hover" aria-label="On hover show" title="Fold or unfold the choice of what a hover shows">On hover show</button>
+        <fieldset id="search-hover" class="search-hover" data-keeps-selection>
+          <legend>For <span id="search-hover-for" class="search-hover-for"></span></legend>
+          <div class="hover-kinds">
+            <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="hlinks" data-keeps-selection><span>hlinks</span></label>
+            <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dlinks" data-keeps-selection><span>dlinks</span></label>
+            <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="hpath" data-keeps-selection><span>hpath</span></label>
+            <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dpath" data-keeps-selection><span>dpath</span></label>
+            <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="htree" data-keeps-selection><span>htree</span></label>
+            <label class="hover-kind" data-keeps-selection><input type="checkbox" data-hover-kind="dtree" data-keeps-selection><span>dtree</span></label>
+          </div>
+        </fieldset>
+      </section>
     </div>
   </div>
   <div class="actions">
@@ -571,10 +576,12 @@
           </section>
           <section class="prefs-group" aria-labelledby="prefs-panel-title">
             <h3 id="prefs-panel-title">Search panel</h3>
-            <p class="prefs-hint">The panel under the search box lists the slices and the pills. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
+            <p class="prefs-hint">The panel under the search box lists the statuses, the slices and the pills, then the Typing isolates and On hover show choices. A section's fold control folds it for this visit; these are how each starts. The arrow at the end of the box, and the p key, switch the panel off and on; this is the same switch.</p>
             <label class="prefs-check"><input type="checkbox" id="prefs-slices-folded" data-keeps-selection data-holds-poll> Slice section starts folded</label>
             <label class="prefs-check"><input type="checkbox" id="prefs-pills-folded" data-keeps-selection data-holds-poll> Pill section starts folded</label>
             <label class="prefs-check"><input type="checkbox" id="prefs-statuses-folded" data-keeps-selection data-holds-poll> Status section starts folded</label>
+            <label class="prefs-check"><input type="checkbox" id="prefs-typing-folded" data-keeps-selection data-holds-poll> Typing isolates section starts folded</label>
+            <label class="prefs-check"><input type="checkbox" id="prefs-hover-folded" data-keeps-selection data-holds-poll> On hover show section starts folded</label>
             <label class="prefs-check"><input type="checkbox" id="prefs-panel-on-focus" data-keeps-selection data-holds-poll> Panel opens when the search box is focused</label>
           </section>
           <section class="prefs-group" aria-labelledby="prefs-editing-title">

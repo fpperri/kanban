@@ -322,8 +322,8 @@ the box, and with nothing selected empties it; a plain click that selects a card
 clears a search field, is stopped for them. The board keeps refreshing on its poll while
 the panel is open, and a pill that has focus keeps it.
 
-**On hover show** — under the foot of the search panel, six checkboxes (`dtree`, `htree`, `dpath`, `hpath`,
-`dlinks` and `hlinks`, the sets of the same names) choose which sets a hover lights. Hovering a card, or
+**On hover show** — in a section of its own in the search panel, six checkboxes (`dtree`, `htree`, `dpath`, `hpath`,
+`dlinks` and `hlinks`, the sets of the same names) choose which sets a hover lights. The section folds like the Slice, Pill and Status sections and starts folded; *On hover show section starts folded* in the preferences sheet says how it starts. Hovering a card, or
 moving keyboard focus onto it, lights the union of the sets ticked for it, in every view: the Board, the Map, the
 Calendar and the Gantt give each card of the union the hover look, and the Graph lights the union, with the lines
 between its cards, and dims the rest, while the hover ring stays on the hovered card alone. Leaving the card clears
@@ -425,12 +425,12 @@ The text the box held before isolating is kept in your browser, per board, so tu
 off after a reload gives it back; in a browser that has none, the box ends up empty. A link with
 the parameter and no query opens with isolate off, and the address drops the parameter.
 
-**Typing isolates** — the foot of the search panel holds a **Typing isolates** checkbox for each view:
+**Typing isolates** — the search panel's Typing isolates section holds a **Typing isolates** checkbox for each view:
 Board, Calendar, Gantt, Map and Graph. Where it is on, typing in the box, a pill, a tag or assignee cue
 on a card and a `?q=` link turn Isolate on by themselves, so the view hides what the box does not match.
 It is on in every view but the Graph, which lights what is typed and hides nothing. Where it is off, the
 box lights its matches with the look of a selected card, hides nothing, and selects nothing; the switch or
-`i` still isolates the query as it stands. The choice is kept in your browser, per board. Isolate turned on
+`i` still isolates the query as it stands. The choice is kept in your browser, per board. The section folds like the Slice, Pill and Status sections and starts folded; *Typing isolates section starts folded* in the preferences sheet says how it starts. Isolate turned on
 this way gives back the box's text as it stands when you turn it off, so the query stays in the box, lit,
 and the next Esc clears it; going to a view where the checkbox is off does the same, and coming back to a view where it
 is on isolates the query again, so each view follows its own checkbox on every switch; an isolate you turned on with the switch
@@ -546,6 +546,10 @@ back button.
   section starts; its fold control still folds it for the visit.
 - *Status section starts folded* is off by default. It says how the search panel's Statuses
   section starts; its fold control still folds it for the visit.
+- *Typing isolates section starts folded* is on by default. It says how the search panel's
+  Typing isolates section starts; its fold control still unfolds it for the visit.
+- *On hover show section starts folded* is on by default. It says how the search panel's
+  On hover show section starts; its fold control still unfolds it for the visit.
 - *Panel opens when the search box is focused* is on by default. It is the switch at the
   end of the search box, the same choice the arrow and the `p` key flip, so each shows
   what the others did. Turning it off closes the panel; turning it on here leaves the

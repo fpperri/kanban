@@ -44,6 +44,8 @@ const CASES = {
   flow: { dot: 3, kinds: ['dtree', 'dlinks'], text: 'dtree:3 | dlinks:3' },
 };
 
+const { unfoldSearchSection } = require('../panel');
+
 module.exports = {
   name: 'hover-space',
   board: 'plan',
@@ -143,6 +145,7 @@ module.exports = {
     await hoveredIs(null);
     await ev(`document.getElementById('search-input').focus()`);
     await waitFor(`!document.getElementById('search-panel').classList.contains('hidden')&&document.getElementById('search-panel').getBoundingClientRect().height>0`);
+    await unfoldSearchSection(page, 'hover');
     await ev(`document.querySelector('#search-hover [data-hover-kind="${c.ticked}"]').click()`);
     await waitFor(`document.querySelector('#search-hover [data-hover-kind="${c.ticked}"]').checked`);
     await blur();

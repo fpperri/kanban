@@ -153,12 +153,17 @@ const typingAt = html.indexOf('<div id="search-typing"');
 const typing = html.slice(typingAt, html.indexOf('</div>', typingAt) + 6);
 const boxes = [...typing.matchAll(/<label[^>]*>\s*<input[^>]*>[^<]*<\/label>/g)].map((m) => m[0]);
 
-test('the foot holds a Typing isolates group: a labelled checkbox for each view, in the order of the views, the Graph last', () => {
+test('the Typing isolates section holds a labelled checkbox for each view, in the order of the views, the Graph last, under a fold control like the other sections', () => {
   assert.ok(typingAt > html.indexOf('id="isolate-switch"'), 'it sits after the switch');
-  assert.ok(typingAt < html.indexOf('</div>', html.indexOf('<div id="search-foot"') + 1) + 400 && typingAt > html.indexOf('<div id="search-foot"'), 'inside the foot');
+  const sectionAt = html.indexOf('<section id="search-typing-section"');
+  assert.ok(sectionAt > html.indexOf('<div id="search-foot"') && sectionAt < typingAt, 'in a section of its own after the foot');
+  const fold = html.slice(html.indexOf('<button type="button" id="search-typing-fold"'), html.indexOf('</button>', html.indexOf('id="search-typing-fold"')) + 9);
+  assert.strictEqual(attr(fold.match(/<button[^>]*>/)[0], 'class'), 'search-fold');
+  assert.strictEqual(attr(fold.match(/<button[^>]*>/)[0], 'aria-controls'), 'search-typing');
+  assert.notStrictEqual(attr(fold.match(/<button[^>]*>/)[0], 'data-keeps-selection'), null);
+  assert.match(fold, />Typing isolates<\/button>/);
   assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'role'), 'group');
-  assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'aria-labelledby'), 'search-typing-title');
-  assert.match(typing, /<span id="search-typing-title"[^>]*>Typing isolates<\/span>/);
+  assert.strictEqual(attr(typing.match(/<div[^>]*>/)[0], 'aria-labelledby'), 'search-typing-fold');
   assert.deepStrictEqual(boxes.map((b) => attr(b.match(/<input[^>]*>/)[0], 'data-typing-view')), ['board', 'calendar', 'gantt', 'map', 'graph']);
   assert.deepStrictEqual(boxes.map((b) => b.replace(/<[^>]*>/g, '').trim()), ['Board', 'Calendar', 'Gantt', 'Map', 'Graph']);
 });

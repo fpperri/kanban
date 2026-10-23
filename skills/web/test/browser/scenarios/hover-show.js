@@ -49,7 +49,7 @@ const CASES = {
   sidebar: { card: 7, before: { kinds: ['hlinks'], lit: [2, 7, 22] }, press: ['hlinks', 'hpath', 'dtree'], after: { kinds: ['dtree', 'hpath'], lit: [1, 2, 7, 8, 22, 23, 24, 25] }, text: 'dtree:7 | hpath:7' },
 };
 
-const { openPanel: openSidePanel } = require('../panel');
+const { openPanel: openSidePanel, unfoldSearchSection } = require('../panel');
 
 module.exports = {
   name: 'hover-show',
@@ -87,7 +87,8 @@ module.exports = {
     const noteIs = (text) => waitFor(`${NOTE}===${JSON.stringify(text)}`);
     const openPanel = async () => {
       await ev(`document.getElementById('search-input').focus()`);
-      return waitFor(PANEL_OPEN);
+      await waitFor(PANEL_OPEN);
+      return unfoldSearchSection(page, 'hover');
     };
     const onBoard = async () => {
       await open('/?view=board');

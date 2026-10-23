@@ -919,7 +919,7 @@ to `127.0.0.1` only.
   anywhere outside the search bar closes it, leaving the switch as it was. The panel has
   five regions, drawn on their own: the **Statuses section** first, then the **slice section**
   (next entry) with its fold control, the **pill section** with its fold control, a divider, and a
-  foot that holds the **Isolate** switch (see Isolate). The Statuses section shows the current
+  foot that holds the **Isolate** switch (see Isolate), then the **Typing isolates** section and the **On hover show** section, each with a fold control like the others (`#search-typing-fold`, `#search-hover-fold`) and each folded to start; the same fold code serves all five (`searchFoldSection`, `search-panel.js`). The Statuses section shows the current
   view's own status pills with their state, for the Map, the Gantt, the Calendar and the Graph,
   at every width: it is open to start and folds like the others, a tap on a pill switches that
   status in the view and a right-click solos it, as the view's own pills do. It is hidden on the
@@ -1098,7 +1098,7 @@ to `127.0.0.1` only.
   (the writes with the reasons `typing`, `pill`, `cue` and `link`, decided at `writeSearch` by
   `typingTurnsIsolateOn`). The clear button, the Ctrl+F prefill, a cut, a click's selection and a menu
   item turn nothing on, and a box that holds only a `slice:` cut has no query to isolate. The panel's
-  foot holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
+  Typing isolates section (`#search-typing-section`, folded to start) holds one checkbox for each view (`#search-typing`, an input with `data-typing-view` for Board,
   Calendar, Gantt, Map and Graph), kept per board in the browser under a key of their own, `typing.isolates`,
   as **On hover show** keeps `hover.show` (`typing-isolates.js`, the views listed by `VIEW_MODES`): ticked in every view but the Graph, so typing narrows the Board and lights in the Graph
   as it always did. Unticked, the box lights what is typed: its matches wear the selected look, nothing
@@ -1160,7 +1160,9 @@ to `127.0.0.1` only.
   default: it says how the search panel's pill section starts, and the section's own fold
   control still folds it for the visit. **Status section starts folded** is off by default:
   it says how the Statuses section starts, and its own fold control still folds it for the
-  visit. **Panel opens when the search box is focused** is
+  visit. **Typing isolates section starts folded** and **On hover show section starts folded** are on by
+  default (`typingFolded` and `hoverFolded`): they say how those two sections of the panel start, and each fold control still unfolds its section for the visit.
+  **Panel opens when the search box is focused** is
   on by default: it is the arrow's switch, the same choice the arrow and the `p` key flip,
   so each shows what the others did; turning it off closes the panel, and turning it on
   from the sheet leaves the panel closed until the box is focused. Switching it off moves focus to
@@ -1615,7 +1617,7 @@ to `127.0.0.1` only.
   highlight forward on its own: every render call site reads `hoveredId` the same way it
   already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
   the highlight the way a naive `:hover`-only or event-only approach would.
-- **On hover show** — under the search panel's foot, a `fieldset#search-hover` of six checkboxes
+- **On hover show** — in a section of its own in the search panel (`#search-hover-section`, with the fold control `#search-hover-fold`, folded to start; its legend reads `For` and carries the note), a `fieldset#search-hover` of six checkboxes
   (`input[data-hover-kind]`: `dtree`, `htree`, `dpath`, `hpath`, `dlinks`, `hlinks`) chooses which sets a
   hover or a keyboard focus lights; the legend carries `#search-hover-for`, which says whose choice the
   boxes show (`Flow`, or `Hierarchy and the other views`). The panel is `hover-show-ui.js`
