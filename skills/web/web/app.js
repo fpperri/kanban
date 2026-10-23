@@ -6253,12 +6253,10 @@ function addCardToSelection() {
 // right-clicked (the open card, in the card details' menu) joins the selection as one part,
 // never the sets of the whole subject, even when that card is inside it. The part is resolved
 // with the others on every render (selection.js); the search box is left alone.
-const EXPLORE_PARTS = { hpath: hpathPart, htree: htreePart, dpath: dpathPart, dtree: dtreePart };
-
 function addExploreToSelection(kind) {
   hideContextMenu();
-  if (menuSubject.clicked === null || menuSubject.clicked === undefined) return;
-  setSelection(addPart(selectionState.selection, EXPLORE_PARTS[kind](menuSubject.clicked)));
+  if (menuSubject.clicked == null) return;
+  setSelection(addPart(selectionState.selection, graphPart(kind, menuSubject.clicked)));
   renderBoard();
 }
 
@@ -6653,7 +6651,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Peek and Add to selection, then Explore's four sets, which add to the selection
   $('#ctx-peek').addEventListener('click', peekCard);
   $('#ctx-add').addEventListener('click', addCardToSelection);
-  for (const kind of Object.keys(EXPLORE_PARTS)) $(`#ctx-${kind}`).addEventListener('click', () => addExploreToSelection(kind));
+  for (const kind of EXPLORE_KINDS) $(`#ctx-${kind}`).addEventListener('click', () => addExploreToSelection(kind));
   $('#bulk-schedule-apply').addEventListener('click', applyBulkSchedule);
   $('#bulk-schedule-close').addEventListener('click', () => $('#bulk-schedule').classList.add('hidden'));
   $('#bulk-schedule-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('bulkSchedule'));

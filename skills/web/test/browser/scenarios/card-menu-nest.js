@@ -156,6 +156,11 @@ module.exports = {
     check('Down on Path reaches Tree', await waitFor(`${ACTIVE}==='ctx-tree'`, 2000), await ev(ACTIVE));
     await key('Enter');
     check('Enter on Tree opens its panel and highlights Hierarchy', await waitFor(`${OPEN('ctx-tree')}&&${ACTIVE}==='ctx-htree'`, 2500), await ev(ACTIVE));
+    await ev(`document.getElementById('ctx-tree').focus()`);
+    await key('ArrowLeft');
+    check('Left on Tree, whose panel is open, shuts that panel and keeps the highlight on Tree', await waitFor(`${SHUT('ctx-tree')}&&${OPEN('ctx-explore')}&&${ACTIVE}==='ctx-tree'`, 2500) && await ev(MENU_UP), await ev(ACTIVE));
+    await key('Enter');
+    await waitFor(`${OPEN('ctx-tree')}&&${ACTIVE}==='ctx-htree'`, 2500);
     await key('Escape');
     check('the first Esc shuts the third panel and leaves Explore up', await waitFor(`${SHUT('ctx-tree')}&&${OPEN('ctx-explore')}&&${ACTIVE}==='ctx-tree'`, 2500) && await ev(MENU_UP), await ev(ACTIVE));
     await key('Escape');

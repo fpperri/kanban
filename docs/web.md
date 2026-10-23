@@ -417,7 +417,8 @@ right-clicking inside an open card opens the same menu for that card, without Pe
 
 **Path** and **Tree** in Explore are rows of their own, a third level: each opens **Hierarchy** and
 **Dependency**, by hover, click, tap or the keys (Right or Enter opens one, Left or Esc closes that
-panel alone and returns to its row, one level back). The hierarchy path is the card's parents up to
+panel alone and returns to its row, one level back; from a row whose own panel is open, Left and Esc
+both close that panel and keep the highlight on the row). The hierarchy path is the card's parents up to
 its root and every card nested under it, and the hierarchy tree the whole parent tree from its root
 down; both follow `parent` only. The dependency path is everything the card waits for and everything
 waiting on it, transitively, and the dependency tree its connected set; both follow `waiting_for`

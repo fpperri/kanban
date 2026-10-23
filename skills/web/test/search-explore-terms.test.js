@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { parseSearchQuery, filterCards, resolveTerms, cardMatchesQuery, searchIsolateText, searchIsolateBox } = require('../web/search');
-const { NO_SELECTION, cardPart, pathPart, hpathPart, htreePart, dpathPart, dtreePart, addPart, resolveSelection, partsOf, pruneSelectionParts } = require('../web/selection');
+const { NO_SELECTION, cardPart, pathPart, graphPart, addPart, resolveSelection, partsOf, pruneSelectionParts } = require('../web/selection');
 
 // 1 is the root; 2 and 3 are under 1; 4 is under 3 and waits for 2; 5 waits for 4; 6 is an archived child of 2;
 // 7 is a stranger; 8 has a parent on another board; 9 and 10 are each other's parent.
@@ -90,35 +90,35 @@ test('an unresolved one matches nothing instead of throwing', () => {
 });
 
 test('the isolate text writes a part of each kind as its term, in the order added', () => {
-  const selection = [cardPart(1), hpathPart(3), htreePart(4), dpathPart(5), dtreePart(5), pathPart(2)].reduce(addPart, NO_SELECTION);
+  const selection = [cardPart(1), graphPart('hpath', 3), graphPart('htree', 4), graphPart('dpath', 5), graphPart('dtree', 5), pathPart(2)].reduce(addPart, NO_SELECTION);
   assert.strictEqual(searchIsolateText(partsOf(selection)), '#1 | hpath:3 | htree:4 | dpath:5 | dtree:5 | path:2');
 });
 
 test('the isolate text of a part matches what the selection resolves it to over the whole board', () => {
   const matchQuery = (text) => new Set(ids(text));
-  for (const part of [hpathPart(3), htreePart(4), dpathPart(4), dtreePart(5)]) {
+  for (const part of [graphPart('hpath', 3), graphPart('htree', 4), graphPart('dpath', 4), graphPart('dtree', 5)]) {
     const selection = addPart(NO_SELECTION, part);
     assert.deepStrictEqual([...resolveSelection(selection, matchQuery, null)].sort(), ids(searchIsolateText(partsOf(selection))).sort());
   }
 });
 
 test('where the box hides what it does not match, the rest stays ANDed on when one of the four is among the parts, as for a path or a tree', () => {
-  const selection = [hpathPart(3), cardPart(7)].reduce(addPart, NO_SELECTION);
+  const selection = [graphPart('hpath', 3), cardPart(7)].reduce(addPart, NO_SELECTION);
   assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection), { limits: true }), '(hpath:3 | #7) tags:ui');
   assert.strictEqual(searchIsolateBox('tags:ui', partsOf(selection), { limits: false }), 'hpath:3 | #7');
-  assert.strictEqual(searchIsolateBox('tags:ui', partsOf([dtreePart(5)].reduce(addPart, NO_SELECTION)), { limits: true }), 'dtree:5 tags:ui');
+  assert.strictEqual(searchIsolateBox('tags:ui', partsOf([graphPart('dtree', 5)].reduce(addPart, NO_SELECTION)), { limits: true }), 'dtree:5 tags:ui');
 });
 
 test('a part of the four goes when its card is gone from the board, and stays while the card is there', () => {
-  const selection = [hpathPart(3), dtreePart(5)].reduce(addPart, NO_SELECTION);
+  const selection = [graphPart('hpath', 3), graphPart('dtree', 5)].reduce(addPart, NO_SELECTION);
   assert.deepStrictEqual(partsOf(pruneSelectionParts(selection, ['3', '4'])), [{ kind: 'hpath', id: '3' }]);
 });
 
 test('the part constructors key the id whole, a string whether it came as a number or not', () => {
-  assert.deepStrictEqual(hpathPart(3), { kind: 'hpath', id: '3' });
-  assert.deepStrictEqual(htreePart('G4'), { kind: 'htree', id: 'G4' });
-  assert.deepStrictEqual(dpathPart(5), { kind: 'dpath', id: '5' });
-  assert.deepStrictEqual(dtreePart(5), { kind: 'dtree', id: '5' });
-  assert.strictEqual(addPart(addPart(NO_SELECTION, hpathPart(3)), hpathPart('3')).additions.length, 0, 'the same part twice is one part');
-  assert.strictEqual(addPart(addPart(NO_SELECTION, hpathPart(3)), htreePart(3)).additions.length, 1, 'a different kind of the same card is a part of its own');
+  assert.deepStrictEqual(graphPart('hpath', 3), { kind: 'hpath', id: '3' });
+  assert.deepStrictEqual(graphPart('htree', 'G4'), { kind: 'htree', id: 'G4' });
+  assert.deepStrictEqual(graphPart('dpath', 5), { kind: 'dpath', id: '5' });
+  assert.deepStrictEqual(graphPart('dtree', 5), { kind: 'dtree', id: '5' });
+  assert.strictEqual(addPart(addPart(NO_SELECTION, graphPart('hpath', 3)), graphPart('hpath', '3')).additions.length, 0, 'the same part twice is one part');
+  assert.strictEqual(addPart(addPart(NO_SELECTION, graphPart('hpath', 3)), graphPart('htree', 3)).additions.length, 1, 'a different kind of the same card is a part of its own');
 });

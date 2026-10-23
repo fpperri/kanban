@@ -85,6 +85,14 @@ test('Left closes the open panel and returns to its row, and does nothing at the
   assert.strictEqual(m.menuKeyAction('ArrowLeft', onParent), null);
 });
 
+test('Left on a row whose own panel is open closes that panel, as Esc does from the same spot', () => {
+  const open = { level: 'top', onParent: true, subOpen: true, ownOpen: true };
+  assert.strictEqual(m.menuKeyAction('ArrowLeft', open), 'close-sub');
+  assert.strictEqual(m.menuKeyAction('Escape', open), 'close-sub');
+  assert.strictEqual(m.menuKeyAction('ArrowLeft', { ...open, level: 'sub' }), 'close-sub', 'and a nested row in a panel');
+  assert.strictEqual(m.menuKeyAction('ArrowLeft', { level: 'top', onParent: true, subOpen: true, ownOpen: false }), null, 'a row whose panel is shut has nothing to close');
+});
+
 test('Esc closes the open panel first, and at the top level is left to the page, which closes the menu', () => {
   assert.strictEqual(m.menuKeyAction('Escape', inSub), 'close-sub');
   assert.strictEqual(m.menuKeyAction('Escape', { level: 'top', onParent: true, subOpen: true }), 'close-sub', 'a panel hover-opened, with the row highlighted');

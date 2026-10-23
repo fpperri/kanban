@@ -413,6 +413,18 @@ test('Esc with a panel hover-opened and the highlight on its row closes the pane
   assert.strictEqual(p.isOpen('ctx-edit'), false);
 });
 
+test('Left on a row whose panel is open closes that panel and keeps the highlight on the row, as Esc does', async () => {
+  const p = await open();
+  p.card();
+  p.click(p.el('ctx-edit'));
+  p.focus('ctx-edit');
+  const e = p.key('ArrowLeft');
+  assert.strictEqual(e.prevented, true);
+  assert.strictEqual(p.isOpen('ctx-edit'), false);
+  assert.strictEqual(p.focused(), 'ctx-edit');
+  assert.strictEqual(p.menu.root.classList.contains('hidden'), false);
+});
+
 test('the keys do nothing while the menu is closed, or with Ctrl, Alt or Cmd held', async () => {
   const p = await open();
   assert.strictEqual(p.key('ArrowDown').prevented, undefined, 'closed');
@@ -712,6 +724,19 @@ test('Esc does the same one level back, and with the highlight on a row whose pa
   p.key('Escape');
   assert.strictEqual(p.isOpen('ctx-explore'), false);
   assert.strictEqual(p.menu.root.classList.contains('hidden'), false, 'the menu stays until the page closes it');
+});
+
+test('Left and Esc agree on Path: from the row whose panel is open, either closes that panel alone and keeps Explore open', async () => {
+  for (const key of ['ArrowLeft', 'Escape']) {
+    const p = await open();
+    openExplore(p);
+    p.click(p.el('ctx-path'));
+    p.focus('ctx-path');
+    const e = p.key(key);
+    assert.strictEqual(e.prevented, true, key);
+    assert.deepStrictEqual(['ctx-explore', 'ctx-path'].map(p.isOpen), [true, false], key);
+    assert.strictEqual(p.focused(), 'ctx-path', key);
+  }
 });
 
 test('moving the highlight off Path with Down shuts its panel, as it does for the first level', async () => {

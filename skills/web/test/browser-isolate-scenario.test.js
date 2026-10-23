@@ -11,7 +11,7 @@ const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../web/search');
 const { pillList, pillRows } = require('../web/pills');
-const { NO_SELECTION, cardPart, dpathPart, queryPart, addPart, resolveSelection } = require('../web/selection');
+const { NO_SELECTION, cardPart, graphPart, queryPart, addPart, resolveSelection } = require('../web/selection');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate');
 
@@ -79,7 +79,7 @@ test('every pair of loose cards, with the path and the pill, writes the text the
   for (const x of CASES.loose) {
     for (const y of CASES.loose) {
       if (x === y) continue;
-      const selection = [cardPart(x), cardPart(y), dpathPart(CASES.pathOf), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
+      const selection = [cardPart(x), cardPart(y), graphPart('dpath', CASES.pathOf), queryPart(CASES.pill.query)].reduce((s, p) => addPart(s, p), NO_SELECTION);
       const text = searchIsolateText([selection.anchor, ...selection.additions]);
       assert.strictEqual(text, `#${x} | #${y} | ${CASES.pathKind}:${CASES.pathOf} | ${CASES.pill.query}`);
       const expected = sorted([x, y, ...CASES.pathCards, ...CASES.pill.cards]);

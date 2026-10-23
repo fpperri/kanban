@@ -17,7 +17,7 @@ const glossary = read('GLOSSARY.md');
 test('docs/web.md names Path and Tree under Explore, as a third level of Hierarchy and Dependency', () => {
   assert.match(webDoc, /\*\*Explore\*\* \(Isolate, \*\*Path\*\* and \*\*Tree\*\*\)/);
   assert.match(webDoc, /\*\*Path\*\* and \*\*Tree\*\* in Explore are rows of their own, a third level: each opens \*\*Hierarchy\*\* and \*\*Dependency\*\*/);
-  assert.match(webDoc, /Right or Enter opens one, Left or Esc closes that panel alone and returns to its row, one level back/);
+  assert.match(webDoc, /Right or Enter opens one, Left or Esc closes that panel alone and returns to its row, one level back; from a row whose own panel is open, Left and Esc both close that panel and keep the highlight on the row/);
 });
 
 test('docs/web.md says what the four sets are and which relation each follows', () => {
@@ -41,7 +41,8 @@ test('the web skill says the four entries add one part for menuSubject.clicked a
   assert.match(webSkill, /four entries \(`ctx-hpath`, `ctx-dpath`, `ctx-htree`, `ctx-dtree`\) that add one part of the matching kind \(`hpath`, `dpath`, `htree`, `dtree`\) to the selection for the card that was right-clicked, `menuSubject\.clicked` \(the open card, in the card details' menu\), and never for the whole subject, even when that card is inside it/);
   assert.match(webSkill, /the keys work the same at the third level, where Right or Enter on Path or Tree opens its panel and Left or Esc shut that panel alone and return to its row, one level back/);
   assert.match(webSkill, /a tap opens a third-level panel in place at phone width and a second tap shuts it, Explore staying open/);
-  assert.match(webSkill, /`menuNestSubs` are the menu's own groups, `menuNestAllSubs` the nested ones too/);
+  assert.match(webSkill, /`menuNestTopGroups` are the menu's own groups, `menuNestAllGroups` the nested ones too/);
+  assert.match(webSkill, /from a row whose own panel is open, Left and Esc both close that panel and keep the highlight on the row/);
 });
 
 test('the web skill says Isolate writes the four terms', () => {

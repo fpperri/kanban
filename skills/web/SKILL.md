@@ -789,8 +789,9 @@ to `127.0.0.1` only.
   highlight its first entry, Left or Esc shut it and return to the row, Home and End go to the first and
   last entry of the level; the keys work the same at the third level, where Right or Enter on Path or
   Tree opens its panel and Left or Esc shut that panel alone and return to its row, one level back (a
-  `.ctx-sub` may sit in a `.ctx-sub-panel`: `menuNestSubs` are the menu's own groups, `menuNestAllSubs`
-  the nested ones too, and opening a group shuts the others of its level only); a tap opens a
+  `.ctx-sub` may sit in a `.ctx-sub-panel`: `menuNestTopGroups` are the menu's own groups,
+  `menuNestAllGroups` the nested ones too, and opening a group shuts the others of its level only; from
+  a row whose own panel is open, Left and Esc both close that panel and keep the highlight on the row); a tap opens a
   third-level panel in place at phone width and a second tap shuts it, Explore staying open; the menu takes the focus when it opens (`tabindex="-1"`,
   `menuNestFocus`) and gives it back when it closes (`menuNestRelease`), and its keys are read in the
   capture phase only while focus is inside it, so they reach nothing behind it and nothing in a field
