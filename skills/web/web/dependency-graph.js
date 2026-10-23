@@ -300,71 +300,6 @@ function pathIds(cardList, rawId, ctx) {
   return visited;
 }
 
-// The four sets Explore adds for one card, each by one relation alone (tree: and path: walk
-// both at once, over the edges the map is built from). The hierarchy follows `parent` only: a
-// parent on another board, a missing parent and a self-parent are no link. The dependency
-// follows `waiting_for` only: a missing card and a self-wait are no link. Every card of the
-// board counts, archived ones too; an unknown id is an empty set, and a loop ends the walk.
-//
-// - hpathIds: the card, its parents up to the root, and every card nested under it.
-// - htreeIds: the whole parent tree from the card's root down.
-// - dpathIds: everything it waits for and everything waiting on it, transitively.
-// - dtreeIds: its connected set over waiting_for, either direction.
-function relationLinks(cards, ctx, kind) {
-  const ids = new Set(cards.map((c) => c.id));
-  const up = new Map();
-  const down = new Map();
-  const link = (from, to) => {
-    if (from === to || !ids.has(from) || !ids.has(to)) return;
-    if (!up.has(to)) up.set(to, []);
-    up.get(to).push(from);
-    if (!down.has(from)) down.set(from, []);
-    down.get(from).push(to);
-  };
-  for (const c of cards) {
-    if (kind === 'hierarchy') {
-      const parent = NEST.localParentId(c, ctx);
-      if (parent !== null) link(parent, c.id);
-    } else {
-      for (const w of c.waiting_for || []) link(w, c.id);
-    }
-  }
-  return { up, down };
-}
-
-function reachFrom(start, ...steps) {
-  const seen = new Set([start]);
-  const todo = [start];
-  while (todo.length) {
-    const at = todo.pop();
-    for (const step of steps) for (const next of step.get(at) || []) if (!seen.has(next)) { seen.add(next); todo.push(next); }
-  }
-  return seen;
-}
-
-// The root a hierarchy tree starts from: the climb ends at a card with no parent, or at the
-// card where a parent loop closes.
-function climbToRoot(id, up) {
-  const seen = new Set([id]);
-  let root = id;
-  while ((up.get(root) || []).length && !seen.has(up.get(root)[0])) { root = up.get(root)[0]; seen.add(root); }
-  return root;
-}
-
-function exploreIds(kind, shape, cardList, rawId, ctx) {
-  const cards = depCards(cardList);
-  const id = depKey(rawId);
-  if (!cards.some((c) => c.id === id)) return new Set();
-  const { up, down } = relationLinks(cards, ctx, kind);
-  if (shape === 'path') return new Set([...reachFrom(id, up), ...reachFrom(id, down)]);
-  return kind === 'dependency' ? reachFrom(id, up, down) : reachFrom(climbToRoot(id, up), down);
-}
-
-const hpathIds = (cardList, rawId, ctx) => exploreIds('hierarchy', 'path', cardList, rawId, ctx);
-const htreeIds = (cardList, rawId, ctx) => exploreIds('hierarchy', 'tree', cardList, rawId, ctx);
-const dpathIds = (cardList, rawId, ctx) => exploreIds('dependency', 'path', cardList, rawId, ctx);
-const dtreeIds = (cardList, rawId, ctx) => exploreIds('dependency', 'tree', cardList, rawId, ctx);
-
 // Every relation the map can draw, for the cards in `visibleIds` (null = all):
 // the dependency edges of buildDependencyGraph plus one pair per immediate parent
 // and child, never a grandparent and grandchild. A pair is not an edge:
@@ -420,15 +355,11 @@ function buildRelationsGraph(cardList, visibleList, ctx) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { buildDependencyGraph, buildRelationsGraph, layerNodes, treeIds, pathIds, hpathIds, htreeIds, dpathIds, dtreeIds };
+  module.exports = { buildDependencyGraph, buildRelationsGraph, layerNodes, treeIds, pathIds };
 } else {
   window.buildDependencyGraph = buildDependencyGraph;
   window.buildRelationsGraph = buildRelationsGraph;
   window.layerNodes = layerNodes;
   window.treeIds = treeIds;
   window.pathIds = pathIds;
-  window.hpathIds = hpathIds;
-  window.htreeIds = htreeIds;
-  window.dpathIds = dpathIds;
-  window.dtreeIds = dtreeIds;
 }

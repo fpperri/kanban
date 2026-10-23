@@ -62,7 +62,7 @@ test('a card queued to be created has no id yet, so its sheet has none of the fo
 
 test('the page\'s four sets match kanban-web\'s for every card of a board with a loop, a self-link, a missing card, another board\'s parent and an archived child', () => {
   const { board, open } = require('./nesting-view');
-  const web = require('../../web/web/dependency-graph');
+  const web = require('../../web/web/explore-sets');
   const live = [
     [1, 'todo', 'Root'], [2, 'todo', 'Under 1', { parent: 1 }], [3, 'todo', 'Under 1, waits for 2', { parent: 1, waiting_for: '[2]' }],
     [4, 'todo', 'Under 3', { parent: 3 }], [5, 'todo', 'Waits for 4 and a missing card', { waiting_for: '[4, 99]' }],
@@ -79,10 +79,10 @@ test('the page\'s four sets match kanban-web\'s for every card of a board with a
   open(board('', live, gone), (page) => {
     for (const id of cards.map((c) => c.id).concat(['99', '15'])) {
       for (const [name, fn] of [['hpathIds', web.hpathIds], ['htreeIds', web.htreeIds], ['dpathIds', web.dpathIds], ['dtreeIds', web.dtreeIds]]) {
-        const onPage = JSON.parse(page.run(`JSON.stringify([...${name}(${JSON.stringify(id)})].sort())`));
+        const onPage = JSON.parse(page.run(`JSON.stringify([...${name}(searchUniverse(), ${JSON.stringify(id)}, searchCtx)].sort())`));
         assert.deepStrictEqual(onPage, [...fn(cards, id, { board: 'order' })].sort(), `${name}(${id})`);
       }
     }
-    assert.deepStrictEqual(JSON.parse(page.run('JSON.stringify([...htreeIds("4")].sort())')), ['1', '14', '2', '3', '4', '6'], 'sanity: the own-name child and the archived child are in the tree');
+    assert.deepStrictEqual(JSON.parse(page.run('JSON.stringify([...htreeIds(searchUniverse(), "4", searchCtx)].sort())')), ['1', '14', '2', '3', '4', '6'], 'sanity: the own-name child and the archived child are in the tree');
   });
 });

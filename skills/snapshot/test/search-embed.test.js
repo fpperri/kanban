@@ -18,6 +18,7 @@ const webDir = path.join(__dirname, '..', '..', 'web', 'web');
 const MODULES = [
   { file: 'slices.js', placeholder: '__SLICES_JS__', label: 'the slices module' },
   { file: 'waiting-blocked.js', placeholder: '__WAITING_BLOCKED_JS__', label: 'the waiting rules' },
+  { file: 'explore-sets.js', placeholder: '__EXPLORE_SETS_JS__', label: 'the Explore sets module' },
   { file: 'search.js', placeholder: '__SEARCH_JS__', label: 'the search module' },
   { file: 'pills.js', placeholder: '__PILLS_JS__', label: 'the pill list' },
   { file: 'slice-run.js', placeholder: '__SLICE_RUN_JS__', label: 'the run of slices' },

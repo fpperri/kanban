@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { hpathIds, htreeIds, dpathIds, dtreeIds } = require('../web/dependency-graph');
+const { hpathIds, htreeIds, dpathIds, dtreeIds } = require('../web/explore-sets');
 
 const set = (ids) => new Set(ids);
 

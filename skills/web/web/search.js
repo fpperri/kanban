@@ -101,6 +101,8 @@
 // tree:/path: resolution needs the full card graph, which a single (term,
 // card) pair doesn't have — see resolveTerms below for where that happens.
 const DG = (typeof module !== 'undefined' && module.exports) ? require('./dependency-graph') : window;
+// The four Explore sets are explore-sets.js's, named by its list of kinds.
+const EXS = (typeof module !== 'undefined' && module.exports) ? require('./explore-sets') : window;
 // Named WBS (not WB) — dependency-graph.js already claims WB in this shared
 // page scope (every web/*.js top-level name must be unique).
 const WBS = (typeof module !== 'undefined' && module.exports) ? require('./waiting-blocked') : window;
@@ -122,8 +124,8 @@ const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'as
 // tree:/path: and the four Explore sets are deliberately NOT in KNOWN_FIELDS — that array
 // drives the lowercased-substring value semantics, which don't apply to a card id. Each
 // names the graph function that resolves it (resolveTerms).
-const GRAPH_FUNCTIONS = { tree: 'treeIds', path: 'pathIds', hpath: 'hpathIds', htree: 'htreeIds', dpath: 'dpathIds', dtree: 'dtreeIds' };
-const GRAPH_FIELDS = Object.keys(GRAPH_FUNCTIONS);
+const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS);
+const graphFunctionName = (field) => `${field}Ids`;
 // ADR 0009: review:/blocked: are their own field family — a
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
 // scope is dropped as mid-typing), so they're parsed separately below.
@@ -626,7 +628,7 @@ function searchRemoveGrownAlt(raw, term) {
 
 // A path, a tree or one of the four Explore sets: named whole by a card's id.
 function searchIsNamedPart(part) {
-  return !!part && Object.prototype.hasOwnProperty.call(GRAPH_FUNCTIONS, part.kind);
+  return !!part && GRAPH_FIELDS.includes(part.kind);
 }
 
 function searchIsolatePartText(part) {
@@ -675,6 +677,7 @@ function termMatchesCard(term, card) {
   const title = (card.title || '').toLowerCase();
   const body = (card.body || '').toLowerCase();
   const tags = card.tags || [];
+  if (GRAPH_FIELDS.includes(term.field)) return false;
   switch (term.field) {
     case 'id': return searchKey(card.id) === searchKey(term.value);
     case 'title': return searchFieldHit(title, term);
@@ -692,10 +695,10 @@ function termMatchesCard(term, card) {
     case 'review': return term.value ? searchFieldHit(WBS.reviewReason(card.review), term) : WBS.isReviewValue(card.review);
     case 'blocked': return term.value ? searchFieldHit(WBS.blockedReason(card.blocked), term) : WBS.isBlockedValue(card.blocked);
     // pre-resolved by filterCards (below) into an id Set — a raw,
-    // unresolved 'tree'/'path'/'hpath'/'htree'/'dpath'/'dtree'/'waiting'/'slice' term has no
+    // unresolved graph term ('tree', 'path' and the four Explore sets), 'waiting' or 'slice' has no
     // graph to resolve against here (a single (term, card) pair isn't enough), so it matches
     // nothing rather than throwing. Always goes through filterCards in practice.
-    case 'tree': case 'path': case 'hpath': case 'htree': case 'dpath': case 'dtree': case 'waiting': case 'slice': case 'group': return false;
+    case 'waiting': case 'slice': case 'group': return false;
     case 'ids': return term.ids.has(searchKey(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break
@@ -750,8 +753,8 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
   const resolved = terms.map((term) => {
     let next = term;
     if (GRAPH_FIELDS.includes(term.field)) {
-      const name = GRAPH_FUNCTIONS[term.field];
-      next = { field: 'ids', value: term.value, ids: (graph[name] || DG[name])(cards, term.value, ctx) };
+      const name = graphFunctionName(term.field);
+      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
     } else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'group') next = { field: 'ids', value: term.value, ids: groupIds(cards, term, ctx) };
     else if (term.field === 'waiting') {
