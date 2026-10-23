@@ -196,8 +196,8 @@ test('the fan\'s footer line says the l key steps the names and which is on', as
   assert.match(line(), /^solid line: parent, .* · l steps the names: relevant$/);
   s.press('l');
   assert.match(line(), /l steps the names: all$/);
-  const force = await open({ layout: 'force' });
-  assert.doesNotMatch(byClass(force.host, 'graph-key')[0].textContent, /names/, 'Force has no names');
+  const flow = await open({ layout: 'flow' });
+  assert.doesNotMatch(byClass(flow.host, 'graph-key')[0].textContent, /names/, 'Flow has no names');
 });
 
 // --- selecting paints names in place -----------------------------------------------------------------------
@@ -302,8 +302,8 @@ test('with the search panel open and focus outside the box, l steps the setting:
   assert.strictEqual(current(s), 'all');
 });
 
-test('in Force and Status, and outside the Graph, l does nothing', async () => {
-  for (const layout of ['force', 'status']) {
+test('in Flow, and outside the Graph, l does nothing', async () => {
+  for (const layout of ['flow']) {
     const s = await open({ layout });
     const e = s.press('l');
     assert.strictEqual(e.defaultPrevented, false, layout);

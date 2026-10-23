@@ -21,20 +21,16 @@ const byName = (name) => scenarios.find((s) => s.name === name);
 // The checks the Graph drive made before it was a scenario. The console-error
 // check that closed it is now the harness's, for every scenario.
 const GRAPH_CHECKS = [
-  'graph renders after deep link ?view=graph', 'default layout is tiers', 'no NaN/Infinity in drawn geometry',
+  'graph renders after deep link ?view=graph', 'default graph is the Hierarchy', 'no NaN/Infinity in drawn geometry',
   'every node is card-el with data-id', 'graph container visible and board hidden', 'toggle button reads Board view and is pressed',
-  'force layout renders', 'status layout renders', 'status rings run done, doing, todo, backlog from the centre out',
-  'archive pill adds archived cards as a second clump', 'hover dims the graph and marks neighbours', 'mouseout clears the focus',
+  'archive pill adds archived cards', 'hover dims the graph and marks neighbours', 'mouseout clears the focus',
   'background pixel is not a node', 'isDragging is set mid-pan', 'drag pans the world', 'isDragging cleared after the pan',
   'a pan does not clear the selection (phantom click swallowed)', 'wheel zooms in', 'zoom out button zooms out', 'Fit restores the fitted view',
-  'clicking a zoom button keeps a multi-selection', 'clicking the active layout keeps the zoomed view',
+  'clicking a zoom button keeps a multi-selection', 'clicking the pressed graph choice keeps the zoomed view',
   'a zoom-button click does not leave focus on a poll-blocking control', 'plain click selects and does NOT open the card',
   'a selected card keeps its relations lit', 'the selection focus survives the pointer leaving', 'double click opens the card (URL gains card=)',
   'a double click on the empty canvas after a pan clears the selection', 'clicking empty canvas leaves the selection', 'double-clicking empty canvas clears the selection', 'a query typed in the Graph keeps every dot, lights its matches, a done one included, and dims the rest', 'clearing search restores the graph',
-  'isDragging is true during a node drag', 'the dragged card sits under the pointer', 'the svg is marked as dragging',
-  'related cards are pulled along with the dragged card', 'unrelated cards move far less than related ones',
-  'the drag ended cleanly (isDragging false, no dragging class)', 'a drag does not leave a selection behind (phantom click swallowed)',
-  'the dragged arrangement survives the 5s poll', 'in Tiers a card does not drag and the view does not pan from it',
+  'in Tiers a card does not drag and the view does not pan from it',
   'the 5s poll keeps the user pan', 'layout choice survives a reload (view.mode + graph.layout)', 'toggle returns to the board',
 ];
 

@@ -149,31 +149,27 @@ back. A wider strip shows more of each note's words. The width is kept per board
 ## Graph
 
 The **Graph** view (the header's "Graph" button) draws every card at once as
-a dot, joined by its relations: a solid line from a parent to its child, a
-dashed arrow from a card to the card that waits for it. Three layouts, remembered
-per board, with **Tiers** first:
+a dot, in one of two graphs, **Hierarchy** or **Flow**, chosen at the top of its option panel
+(Hierarchy opens first; see **Flow** below). Hierarchy joins the cards by their relations: a solid
+line from a parent to its child, a dashed arrow from a card to the card that waits for it. The Hierarchy is drawn
+as the fan called **Tiers**.
 
-- **Tiers** draws a fan all the way round the centre, but for a narrow seam at
-  the top: a band for each tier of the board's
-  `hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
-  without a tier, the first ring being the cards right under a tier card; each tree gets its
-  own sector, loose cards with a tier share
-  one, and the other loose cards sit in an Unnested block outside the fan, a
-  column for each status, when the Unnested option is table (by default they are on a ring
-  outside the fan: see the option row below). Each band has a faint arc and a caption with its name
-  up the seam at the top, there is a divider between sectors, and the Unnested
-  block is titled and each column is captioned with its status. Each tier band that
-  holds a card is washed in its type's colour, a neutral wash when the type has none,
-  behind the lines and the dots; depth rings, the Unnested ring and the Unnested block
-  are not washed, and a click on a wash is a click on empty space. A caption shows
-  its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
-  with its count, its split by status and the `slice:` term that cuts to it. Fit
-  and the first draw frame all of it.
-- **Force** pulls related cards together and rings the unrelated ones round the
-  edge.
-- **Status** makes one ring per status, with the last column innermost (done,
-  doing, todo, backlog from the centre out). Archived cards form a second group
-  when the Archive pill is on.
+**Tiers** draws a fan all the way round the centre, but for a narrow seam at
+the top: a band for each tier of the board's
+`hierarchy:`, tier 1 innermost, then a ring for each depth that holds a card
+without a tier, the first ring being the cards right under a tier card; each tree gets its
+own sector, loose cards with a tier share
+one, and the other loose cards sit in an Unnested block outside the fan, a
+column for each status, when the Unnested option is table (by default they are on a ring
+outside the fan: see the option row below). Each band has a faint arc and a caption with its name
+up the seam at the top, there is a divider between sectors, and the Unnested
+block is titled and each column is captioned with its status. Each tier band that
+holds a card is washed in its type's colour, a neutral wash when the type has none,
+behind the lines and the dots; depth rings, the Unnested ring and the Unnested block
+are not washed, and a click on a wash is a click on empty space. A caption shows
+its name alone; hovering it, or moving keyboard focus onto it, shows a tooltip
+with its count, its split by status and the `slice:` term that cuts to it. Fit
+and the first draw frame all of it.
 
 Tiers has an option row in the option panel beside the fan: Lines (folded, chain,
 all, off), Dependencies (on, off), Order (status, rank), Names (relevant, all, none)
@@ -190,6 +186,37 @@ Unnested says where the cards with no parent, no children and no tier are drawn:
 ring outside the fan by default, not at all, on the depth 0 ring, or in the block outside
 the rim. The row's choices are kept per board.
 
+**Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
+from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the
+choice, **frontier** by default or **all**, decides the columns. Frontier counts the steps until a card is
+ready, and only the dependencies that are not done: the first column is `done`, faded, then `ready now`
+(the first column with work in it is what you can pick up now), `1 step`, `2 steps`, and a card in or
+behind a dependency loop stands in a last `loop` column. All counts the longest chain of dependencies behind
+a card, done ones included: `waits for nothing`, `chain 1`, `chain 2`, a loop sharing one column. Each column
+heading carries its card count. Cards with no dependency either way sit in a strip below the columns, titled
+`no dependency either way` with its count. Within a column the cards are ordered to cut the arrows that cross,
+ties by id, and a tall column wraps into side-by-side stacks. A **Lanes** switch beside the Dependencies
+switch, **off** by default, groups the cards into lanes: each card with a dependency sits in the lane of its
+nearest parent with a tier, else its root, under a header that leads with that card's type mark in its type
+colour, its tier name (none for a card with no tier), `#id title`, the lane's card count and its ready
+count. A card is ready when it is open, in no loop and waits for nothing that is not done. The columns line
+up across the lanes. With frontier the lanes with ready cards come first, the most ready first, then the
+others in outline order; with all, every lane is in outline order. With frontier a lane folds into the strip
+at the bottom, which then reads `no open dependency`, when none of its cards with a dependency is open; a
+lane whose open cards wait only on done cards stays, since those cards are ready now. With all no lane folds.
+A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it, not
+every card under its lane card. A header is its card's node: a click, Shift- or Ctrl-click,
+double-click, Enter, Space, hovering and focus act on it as on the card's dot, the card menu opens from it with the same items, and
+the header and the dot of its card light and select together. A dot keeps its status colour and its type mark,
+and grows with the dependencies it is in; in frontier the done ones are faded. Search lighting, the status pills,
+`slice:` cuts, isolate, selection, the card menu, double-click and Enter and the zoom work as in Hierarchy, but
+hovering a card, or a lone card picked by a click, lights it with the cards its dependencies join to it, not its
+parent. A dot cannot be dragged. The choice and the switches are remembered per board in your browser and written
+in the address as `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: a link's values win on that load, and a press
+replaces the page's address without adding a step to Back. A load writes the address the same way, from the link and
+what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the choice and the switches
+are its first rows.
+
 A dot takes its status colour, grows with its relations, goes hollow when done
 and dim when archived. A type that has an `icon:` in the board's `types:` list draws its dot
 in that outline (circle, square, diamond, triangle, hexagon or star), still in the status
@@ -205,8 +232,7 @@ A search typed in the Graph hides nothing: its matches light, done cards include
 and the rest dims. Only a `slice:` term on its own in the query cuts the Graph, as it
 cuts every view; under `|` it lights. Empty the box, press Esc or double-click the empty Graph to drop it;
 click a card to start a new selection and clear the box but for its cut. Switch to another view and
-the box goes on filtering there, while nothing is selected by it. In Force, drag a dot and the cards related to it follow, like pulling on
-a thread; the arrangement stays until the cards change or the page reloads.
+the box goes on filtering there, while nothing is selected by it. A dot is never dragged.
 Drag the background to pan, scroll or use `−`, `+` and **Fit**, in the options panel, to zoom.
 The status pills work as on the Gantt, Archive off by default. A card
 whose parent is hidden (archived, or filtered out by a status pill)

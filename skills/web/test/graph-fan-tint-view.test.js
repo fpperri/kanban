@@ -45,12 +45,12 @@ const cls = (el) => (el.attrs.class || '').split(' ');
 
 function stamp() {
   const model = drawnModel(board);
-  const layout = graphLayout(model, 'tiers', { statuses: STATUSES, unnested: 'table' });
+  const layout = graphLayout(model, 'hierarchy', { statuses: STATUSES, unnested: 'table' });
   const sandbox = { document: fakeDocument() };
   vm.createContext(sandbox);
   const helpers = ['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan'].map((n) => fn(n)).join('\n');
   vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${helpers}`, sandbox);
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, types: board.config.types });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, types: board.config.types });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
   const all = [];
   const walk = (el) => { all.push(el); el.children.forEach(walk); };

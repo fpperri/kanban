@@ -1,7 +1,7 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { graphLayoutTiers, graphLayout, graphPlan } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphLayout, graphPlan } = require('../web/graph-model');
 const {
   STATUSES, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');
@@ -18,8 +18,8 @@ after(cleanUp);
 
 const planBoard = loadBoard('plan');
 const TYPES = planBoard.config.types;
-const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, types: TYPES };
-const layoutOf = (m, unnested = 'table') => graphLayoutTiers(m, { statuses: STATUSES, unnested });
+const OPTS = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, types: TYPES };
+const layoutOf = (m, unnested = 'table') => graphLayoutHierarchy(m, { statuses: STATUSES, unnested });
 const planOf = (m, opts = OPTS, unnested = 'table') => graphPlan(m, layoutOf(m, unnested), opts);
 const planModel = (opts) => drawnModel(planBoard, opts);
 
@@ -100,9 +100,9 @@ test('tint: a board without a hierarchy draws no wash, and so does a hierarchy n
   assert.deepStrictEqual(planOf(buildOf([card(1), card(2, { parent: 1 })], ['goal', 'epic'])).tints, []);
 });
 
-test('tint: the Force and Status layouts draw no wash', () => {
+test('tint: the Flow draws no wash', () => {
   const m = planModel();
-  for (const kind of ['force', 'status']) {
+  for (const kind of ['flow']) {
     const plan = graphPlan(m, graphLayout(m, kind, { statuses: STATUSES }), { ...OPTS, kind });
     assert.deepStrictEqual(plan.tints, [], kind);
   }

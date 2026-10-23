@@ -653,8 +653,8 @@ the same way but stay on the month or the range they show, so a search can leave
 page the Calendar or scroll the Gantt to the match yourself. The jump is not ported, since the page
 ports those models and does not embed them.
 
-**No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan, Force
-or Status layout, with its option row, its lighting and its names, has no counterpart: the Map is this
+**No Graph view.** kanban-web's Graph, which draws every card at once as a dot in the tier fan or the Flow,
+with its option row, its lighting and its names, has no counterpart: the Map is this
 page's one picture of the relations, and the slices and pills of the panel cut every view without it.
 The `l` key that steps the fan's names goes with it.
 

@@ -132,8 +132,8 @@ test('a drawn fan gives each named card one leader before its dot, with no style
   const board = makeBoard();
   const model = graphBuild(board.active, { ctx: { board: 'kanban', priorities: [] }, hierarchy: board.hierarchy });
   const fan = { lines: 'folded', dependencies: 'on', order: 'status', names: 'all', unnested: 'outermost' };
-  const plan = graphPlan(model, graphLayout(model, 'tiers', { statuses: board.statuses }), {
-    kind: 'tiers', statusClass: (st) => st, titleOf: (c) => c.title, fan,
+  const plan = graphPlan(model, graphLayout(model, 'hierarchy', { statuses: board.statuses }), {
+    kind: 'hierarchy', statusClass: (st) => st, titleOf: (c) => c.title, fan,
   });
   const out = vm.runInContext('graphDrawPlan', sandbox)(plan);
   assert.strictEqual(out.nameEls.size, plan.nodes.length, 'a label and a leader for every card');
@@ -154,9 +154,9 @@ test('a drawn fan gives each named card one leader before its dot, with no style
   const walk = (el) => { all.push(el); el.children.forEach(walk); };
   walk(out.stage);
   for (const el of all) for (const k of ['style', 'fill', 'stroke']) assert.strictEqual(el.attrs[k], undefined, `${el.tag} ${k}`);
-  const bare = graphPlan(model, graphLayout(model, 'force'), { kind: 'force', statusClass: (st) => st, titleOf: (c) => c.title });
+  const bare = graphPlan(model, graphLayout(model, 'flow'), { kind: 'flow', statusClass: (st) => st, titleOf: (c) => c.title });
   const plain = vm.runInContext('graphDrawPlan', sandbox)(bare);
-  assert.strictEqual(plain.nameEls.size, 0, 'Force names no card, so it draws no leader');
+  assert.strictEqual(plain.nameEls.size, 0, 'the Flow names no card, so it draws no leader');
 });
 
 test('the stylesheet shows a name only when it is placed, its leader only when it is called, with tokens and no hex colour', () => {

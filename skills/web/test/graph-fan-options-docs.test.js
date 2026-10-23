@@ -22,11 +22,11 @@ const docGraph = () => {
   return webDoc.slice(start, webDoc.indexOf('\n## ', start + 4)).replace(/\s+/g, ' ');
 };
 
-test('the Graph section says Tiers has an option row, folded behind an Options toggle, and only Tiers has it', () => {
+test('the Graph section says Tiers has an option row, folded behind an Options toggle', () => {
   const text = graph();
   assert.match(text, /Tiers has an \*\*option row\*\* above the fan/);
   assert.match(text, /folded behind an Options toggle, like the Map's, and starts folded/);
-  assert.match(text, /Force and Status have no option row/);
+  assert.doesNotMatch(text, /Force|Status have no/);
 });
 
 test('the Graph section says what Lines draws in each of its four values, folded the default', () => {
@@ -63,13 +63,13 @@ test('the Graph section says a press of an option does not move the view, so Fit
   const text = graph();
   assert.match(text, /Pressing Lines, Dependencies or Order never pans, zooms or re-fits the view, so a fan framed once keeps its place/);
   assert.match(text, /\*\*Fit\*\* frames every card again/);
-  assert.match(text, /Picking a layout re-fits the view; after that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes/);
+  assert.match(text, /Choosing a graph re-fits the view; after that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes/);
 });
 
 test('the Graph section no longer says every relation is drawn in Tiers', () => {
   const text = graph();
-  assert.match(text, /Relations:\*\* in Force and Status a solid line joins a parent to its child/);
-  assert.match(text, /in Tiers the Lines option says which parent lines are drawn/);
+  assert.match(text, /Relations:\*\* the Lines option says which parent lines are drawn/);
+  assert.match(text, /a dashed arrow runs from a card to the card that waits for it, its head on the waiter/);
 });
 
 test('the web doc says the same in short', () => {

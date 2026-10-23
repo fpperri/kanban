@@ -25,7 +25,7 @@ const docGraph = () => {
 
 test('the Graph section says the Tiers layout draws a band per tier, then a ring per depth for the cards without a tier', () => {
   const text = graph();
-  assert.match(text, /Tiers draws the \*\*tier fan\*\*/);
+  assert.match(text, /The Hierarchy draws the \*\*tier fan\*\*, which this entry calls \*\*Tiers\*\*/);
   assert.match(text, /a \*\*band\*\* for each tier of the board's `hierarchy:`, tier 1 innermost, then a \*\*ring\*\* for each depth that holds a card without a tier/);
   assert.match(text, /A depth with no such card has no ring/);
 });
@@ -99,10 +99,10 @@ test('the Graph section no longer describes the old full-circle Tiers', () => {
   assert.doesNotMatch(text, /on the outermost ring/);
 });
 
-test('the Tiers button\'s title says the fan goes all the way round the centre', () => {
+test('the Hierarchy button\'s title says the fan goes all the way round the centre', () => {
   const view = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
-  const title = /tiers: '(Tiers: [^']*)'/.exec(view);
-  assert.ok(title, 'the Tiers title is in graph-view.js');
+  const title = /hierarchy: '(Hierarchy: [^']*)'/.exec(view);
+  assert.ok(title, 'the Hierarchy title is in graph-view.js');
   assert.match(title[1], /all the way round the centre/);
   assert.match(title[1], /a band for each tier/);
 });

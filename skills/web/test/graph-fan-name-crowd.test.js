@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { performance } = require('node:perf_hooks');
 
-const { graphLayoutTiers, graphPlan, graphFanNames } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphPlan, graphFanNames } = require('../web/graph-model');
 const { graphNamesPlace, graphNameMeets, graphNameDiscHits } = require('../web/graph-names');
 const {
   STATUSES, buildOf, rootShapedCards, placeOn, pathPoints, drawnBox, within, leaderPieces, leaderCrossings,
@@ -43,9 +43,9 @@ const cases = () => {
   const out = [];
   for (const unnested of ['outermost', 'table']) {
     for (const lines of ['folded', 'all']) {
-      const layout = graphLayoutTiers(MODEL, { statuses: STATUSES, unnested });
+      const layout = graphLayoutHierarchy(MODEL, { statuses: STATUSES, unnested });
       const fan = { lines, dependencies: 'on', order: 'status', names: 'all', unnested };
-      const plan = graphPlan(MODEL, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, fan });
+      const plan = graphPlan(MODEL, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, fan });
       // Every point of every line and divider, by x, so a box finds the points under it at once.
       const drawn = [...plan.links, ...plan.dividers.map((v) => ({ d: `M${v.x1} ${v.y1}L${v.x2} ${v.y2}`, from: 'divider', to: '' }))];
       const points = drawn.flatMap((l) => pathPoints(l.d).map((q) => ({ ...q, l }))).sort((p, q) => p.x - q.x);

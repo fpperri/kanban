@@ -168,13 +168,13 @@ test('the layout\'s input and its cache key are the same with and without a type
   const build = (match) => graphBuild(POOL, { ctx: CTX, visibleIds: drawn(match) });
   const without = build(matchOf(''));
   const opts = { statuses: STATUSES };
-  const layout = graphLayout(without, 'tiers', opts);
+  const layout = graphLayout(without, 'hierarchy', opts);
   for (const query of ['zephyr', 'status:done', 'zephyr | venue', 'nothing-matches-this']) {
     const typed = build(matchOf(query));
     assert.deepStrictEqual(typed.nodes.map((n) => n.id), without.nodes.map((n) => n.id), `${query}: the same cards`);
     assert.deepStrictEqual(typed.links, without.links, `${query}: the same relations`);
-    assert.strictEqual(graphSignature(typed, 'tiers', opts), graphSignature(without, 'tiers', opts), `${query}: the same cache key`);
-    assert.strictEqual(graphLayout(typed, 'tiers', opts), layout, `${query}: the layout is the one already made`);
+    assert.strictEqual(graphSignature(typed, 'hierarchy', opts), graphSignature(without, 'hierarchy', opts), `${query}: the same cache key`);
+    assert.strictEqual(graphLayout(typed, 'hierarchy', opts), layout, `${query}: the layout is the one already made`);
   }
 });
 
@@ -182,7 +182,7 @@ test('the check is a real one: hiding the non-matches, as the Graph did before, 
   const match = matchOf('zephyr');
   const hidden = graphBuild(POOL, { ctx: CTX, visibleIds: graphVisibleIds(POOL, match.ids, FILTER, STATUSES) });
   const kept = graphBuild(POOL, { ctx: CTX, visibleIds: drawn(match) });
-  assert.notStrictEqual(graphSignature(hidden, 'tiers', { statuses: STATUSES }), graphSignature(kept, 'tiers', { statuses: STATUSES }));
+  assert.notStrictEqual(graphSignature(hidden, 'hierarchy', { statuses: STATUSES }), graphSignature(kept, 'hierarchy', { statuses: STATUSES }));
 });
 
 // --- a lighting -----------------------------------------------------------------------

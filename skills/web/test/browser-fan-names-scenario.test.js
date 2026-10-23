@@ -188,7 +188,7 @@ function standIn(over = {}) {
       if (expr === '!window.__stale') return true;
       if (expr === `${tierFan.DRAWN}&&${tierFan.TIERS_PRESSED}`) return view === 'graph' && layout === 'tiers';
       if (expr === scenario.BOARD_READY) return view === 'board';
-      for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.layoutIs(name)) return view === 'graph' && layout === name;
+      for (const name of ['tiers', 'flow']) if (expr === tierFan.layoutIs(name)) return view === 'graph' && layout === name;
       if (expr === options.ROW_SHOWN) return view === 'graph' && layout === 'tiers';
       if (expr === scenario.PANEL_OPEN) return panel;
       if (expr === scenario.MENU_UP) return surface === 'menu';
@@ -247,7 +247,7 @@ function standIn(over = {}) {
       if (expr === options.TICK) { reveal(); if (over.dupAfterPoll) doubled = true; return true; }
       if (expr === `document.getElementById('search-panel-toggle').click()`) { panel = !panel; return true; }
       if (/requestAnimationFrame/.test(expr)) return true;
-      for (const name of ['tiers', 'force', 'status']) if (expr === tierFan.pickLayout(name)) { layout = name; st().layout = name; return true; }
+      for (const name of ['tiers', 'flow']) if (expr === tierFan.pickLayout(name)) { layout = name; st().layout = name; return true; }
       const dotAt = /^\(\(\)=>\{const dot=document\.querySelector\('\.graph-node\[data-id="(\d+)"\] \.graph-dot'\)/.exec(expr);
       if (dotAt) return model().nodes.some((n) => n.id === dotAt[1]) ? { x: 10000 + Number(dotAt[1]), y: 1 } : null;
       const created = /^fetch\('\/api\/cards',\{method:'POST',headers:\{'content-type':'application\/json'\},body:JSON\.stringify\((.*)\)\}\)\.then\(\(r\)=>r\.status\)$/.exec(expr);
@@ -291,8 +291,7 @@ test('each check listed here is in the scenario', async () => {
   has(/with the notifications panel open, l does nothing/);
   has(/with the preferences sheet open, l does nothing/);
   has(/with the search panel open and focus outside the box, l steps the setting/);
-  has(/in force, l does nothing/);
-  has(/in status, l does nothing/);
+  has(/in the flow, l does nothing/);
   has(/outside the Graph/i);
   has(/a reload keeps the Names choice/);
   has(/another board starts at relevant/);
@@ -320,7 +319,7 @@ test('a key that types and steps, steps behind a surface or with a chord, or ste
   await failsWith({ ignoresSurfaces: true }, /with the notifications panel open, l does nothing/, 'n steps behind the panel');
   await failsWith({ ignoresSurfaces: true }, /with the preferences sheet open, l does nothing/, 'n steps behind the sheet');
   await failsWith({ chordSteps: true }, /l with Ctrl or Alt held does nothing/, 'a chord steps');
-  await failsWith({ stepsEverywhere: true }, /in force, l does nothing/, 'n steps in Force');
+  await failsWith({ stepsEverywhere: true }, /in the flow, l does nothing/, 'n steps in the Flow');
   await failsWith({ stepsEverywhere: true }, /on the Board|the Board is left alone/, 'n steps on the Board');
 });
 

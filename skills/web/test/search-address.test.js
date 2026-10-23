@@ -139,19 +139,19 @@ test('every other way of writing the box moves the address too: a cue and the Ct
 });
 
 test('a link opened with q and view keeps view, writes nothing to the address on load, and the next keystroke makes q equal the box', async () => {
-  const { page, session } = await openAt('?q=zephyr&view=graph');
+  const { page, session } = await openAt('?q=zephyr&view=map');
   assert.strictEqual(page.input.value, 'zephyr');
   assert.strictEqual(session.replaces, 0, 'the link\'s own write finds the address already matching');
-  assert.strictEqual(session.search, '?q=zephyr&view=graph');
+  assert.strictEqual(session.search, '?q=zephyr&view=map');
   page.input.typed('zephyr s');
   assert.strictEqual(page.input.value, 'zephyr s');
-  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr s', view: 'graph' });
+  assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr s', view: 'map' });
 });
 
 test('a link with only a view is left as it is on load', async () => {
-  const { session } = await openAt('?view=graph');
+  const { session } = await openAt('?view=map');
   assert.strictEqual(session.replaces, 0);
-  assert.strictEqual(session.search, '?view=graph');
+  assert.strictEqual(session.search, '?view=map');
 });
 
 test('a link whose q the deep-link reader trims is brought in line with the box on load', async () => {
@@ -164,7 +164,7 @@ test('a link whose q the deep-link reader trims is brought in line with the box 
 test('a link with isolate=1 and no usable query loses the parameter on load: the box is empty and nothing is isolated', async () => {
   const cases = [
     ['?isolate=1', ''],
-    ['?isolate=1&view=graph', '?view=graph'],
+    ['?isolate=1&view=map', '?view=map'],
     ['?q=&isolate=1&view=map', '?view=map'],
     ['?q=%20%20&isolate=1&view=map', '?view=map'],
     ['?card=1&isolate=1', '?card=1'],

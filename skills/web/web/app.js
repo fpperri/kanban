@@ -1638,7 +1638,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const focusedId = focused ? focused.dataset.id : null;
     const pointerId = hoveredId;
     renderBoard(); // the Board follows the line too: the phone's tabs and one status, or every column, and the Map or the Graph once
-    const again = focusedId === null ? null : cardElInShownView(focusedId);
+    const again = focusedId === null ? null : cardElInShownView(focusedId, focused);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   });
@@ -2239,7 +2239,7 @@ function applyBoardData(data) {
     if (again) again.focus({ preventScroll: true });
   }
   if (focusedCard) {
-    const again = cardElInShownView(focusedCardId);
+    const again = cardElInShownView(focusedCardId, focusedCard);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
   }
@@ -2248,10 +2248,13 @@ function applyBoardData(data) {
 }
 
 // The card's element in the view that shows. The other views stay in the page, hidden, and the Board comes first,
-// so a lookup over the whole document would find a hidden copy.
-function cardElInShownView(id) {
-  const root = $(VIEW_CONTAINERS[loadViewMode()]);
-  return root ? root.querySelector(`.card-el[data-id="${id}"]`) : null;
+// so a lookup over the whole document would find a hidden copy. `from` is the element that had the focus: the Graph
+// has a second element for some cards, and finds again the kind `from` was (graphCardEl).
+function cardElInShownView(id, from) {
+  const mode = loadViewMode();
+  const root = $(VIEW_CONTAINERS[mode]);
+  if (!root) return null;
+  return mode === 'graph' ? graphCardEl(root, id, from) : root.querySelector(`.card-el[data-id="${id}"]`);
 }
 
 async function loadBoard() {

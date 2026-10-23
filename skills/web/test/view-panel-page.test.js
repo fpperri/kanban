@@ -69,17 +69,18 @@ const inside = (root, cls) => byClass(root, cls);
 
 // --- the Graph -------------------------------------------------------------------------------------
 
-test('Graph, wide with nothing chosen: the layouts, the zoom and the Options section are in the panel, the rest stays in the view', async () => {
+test('Graph, wide with nothing chosen: the graph choice, the zoom and the Options section are in the panel, the rest stays in the view', async () => {
   const s = await open('graph');
   const panel = s.panel();
   assert.ok(panel, 'the panel is built');
   assert.strictEqual(panel.tag, 'aside');
-  assert.strictEqual(inside(panel, 'graph-layout-btn').length, 3);
+  assert.strictEqual(inside(panel, 'graph-kind-btn').length, 2);
+  assert.strictEqual(inside(panel, 'graph-layout-btn').length, 0, 'the Hierarchy offers no layout to pick');
   assert.strictEqual(inside(panel, 'graph-zoom-btn').length, 3);
   assert.strictEqual(inside(panel, 'graph-options').length, 1);
   const main = s.main();
   for (const cls of ['graph-count', 'graph-key', 'graph-stage', 'view-panel-toggle']) assert.strictEqual(inside(main, cls).length, 1, `${cls} stays in the view`);
-  for (const cls of ['graph-layout-btn', 'graph-zoom-btn', 'graph-options']) assert.strictEqual(inside(main, cls).length, 0, `${cls} is not in the view`);
+  for (const cls of ['graph-kind-btn', 'graph-zoom-btn', 'graph-options']) assert.strictEqual(inside(main, cls).length, 0, `${cls} is not in the view`);
   for (const cls of ['graph-filter-row', 'graph-filter-toggle', 'status-pill']) assert.strictEqual(inside(main, cls).length, 0, `${cls}: the Graph shows no status pill row`);
   assert.deepStrictEqual(s.host.children.map((c) => c.classes[0]), ['graph-main', 'view-panel'], 'the panel stands after the view, on its right');
 });
@@ -91,11 +92,11 @@ test('Graph: the (i) and then the option button make the floating top row; the c
   assert.deepStrictEqual(byClass(s.main(), 'graph-info')[0].children.map((c) => c.classes[0]), ['graph-count', 'graph-key']);
 });
 
-test('Graph: the layout buttons and the zoom buttons keep their labels, titles and data', async () => {
+test('Graph: the Hierarchy | Flow buttons and the zoom buttons keep their labels, titles and data', async () => {
   const s = await open('graph');
-  const layouts = inside(s.panel(), 'graph-layout-btn');
-  assert.deepStrictEqual(layouts.map((b) => [b.textContent, b.dataset.layout, b.getAttribute('aria-pressed')]), [['Tiers', 'tiers', 'true'], ['Force', 'force', 'false'], ['Status', 'status', 'false']]);
-  assert.ok(layouts.every((b) => b.title.length > 10 && b.dataset.keepsSelection !== undefined && b.dataset.holdsPoll !== undefined));
+  const kinds = inside(s.panel(), 'graph-kind-btn');
+  assert.deepStrictEqual(kinds.map((b) => [b.textContent, b.dataset.graphKind, b.getAttribute('aria-pressed')]), [['Hierarchy', 'hierarchy', 'true'], ['Flow', 'flow', 'false']]);
+  assert.ok(kinds.every((b) => b.title.length > 10 && b.dataset.keepsSelection !== undefined && b.dataset.holdsPoll !== undefined));
   const zoom = inside(s.panel(), 'graph-zoom-btn');
   assert.deepStrictEqual(zoom.map((b) => [b.textContent, b.title, b.dataset.graphAction]), [['−', 'Zoom out', 'out'], ['+', 'Zoom in', 'in'], ['Fit', 'Fit every card in the panel', 'fit']]);
 });
@@ -117,7 +118,7 @@ test('Graph, closed by a kept choice: no panel is built, and the view still draw
   const s = await open('graph', { stored: { [KEY]: '{"map":null,"graph":false}' } });
   assert.strictEqual(s.panel(), null);
   assert.deepStrictEqual(s.host.children.map((c) => c.classes[0]), ['graph-main']);
-  assert.strictEqual(inside(s.host, 'graph-layout-btn').length, 0);
+  assert.strictEqual(inside(s.host, 'graph-kind-btn').length, 0);
   assert.strictEqual(inside(s.host, 'graph-stage').length, 1);
 });
 

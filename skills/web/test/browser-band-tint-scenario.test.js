@@ -41,8 +41,8 @@ function worldOf(st, over) {
   if (st.cut) visible = board.live.filter((c) => typeOf(c) === 'goal').map((c) => c.id);
   if (st.pill) visible = visible.filter((id) => board.live.find((c) => c.id === id).status !== 'doing');
   const model = drawnModel(board, { visible });
-  const layout = graphLayout(model, 'tiers', { statuses: STATUSES, unnested: st.unnested });
-  const plan = graphPlan(model, layout, { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title, types: board.config.types });
+  const layout = graphLayout(model, 'hierarchy', { statuses: STATUSES, unnested: st.unnested });
+  const plan = graphPlan(model, layout, { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title, types: board.config.types });
   const tints = st.kind === 'tiers' ? (over.tints ? over.tints(plan.tints, plan, layout) : plan.tints) : [];
   return { model, layout, plan, tints, view: graphFit(layout.bounds, STAGE.right, STAGE.bottom) };
 }
@@ -153,7 +153,7 @@ function standIn(over = {}) {
       if (expr === scenario.STATUS_PILL) { st.pill = !st.pill; return true; }
       if (expr === tierFan.writeBox('slice:goal')) { st.cut = true; return true; }
       if (expr === tierFan.writeBox('')) { st.cut = false; return true; }
-      for (const kind of ['force', 'status', 'tiers']) if (expr === tierFan.pickLayout(kind)) { st.kind = kind; return true; }
+      for (const kind of ['flow', 'tiers']) if (expr === tierFan.pickLayout(kind)) { st.kind = kind; return true; }
       return run(expr);
     },
     // A press and a release at a point: Ctrl on a dot picks it; a double click on empty space clears the picks.
@@ -285,7 +285,7 @@ test('a page that keeps the four washes whatever is cut or switched off, and dra
   assert.ok(names.includes('fixture: a board without a hierarchy draws no wash'));
 });
 
-test('a page that draws a wash in the Force or Status layout fails that layout\'s check', async () => {
+test('a page that draws a wash in the Flow fails its check', async () => {
   const page = standIn();
   const original = page.ev;
   let calls = 0;
@@ -294,8 +294,8 @@ test('a page that draws a wash in the Force or Status layout fails that layout\'
     return original(expr);
   };
   await scenario.run(page);
-  assert.ok(calls >= 2);
-  assert.deepStrictEqual(failed(page), ['plan: the force layout draws no wash', 'plan: the status layout draws no wash']);
+  assert.ok(calls >= 1);
+  assert.deepStrictEqual(failed(page), ['plan: the flow draws no wash']);
 });
 
 test('the scenario never waits on a fixed sleep, and writes no style attribute or inline handler into the page', () => {

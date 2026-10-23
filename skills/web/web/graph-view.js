@@ -8,37 +8,35 @@
 // drives any .card-el[data-id]. The Graph is the one deliberate exception for a
 // click: a plain click makes the card the anchor of a new selection, Shift or
 // Ctrl/Cmd adds one card or takes it out (the layout has no reading order to
-// range over), all painted in place, and a double click opens, because
-// dragging a card makes a bare click a selection gesture. What is selected is
+// range over), all painted in place, and a double click opens; a card is never dragged, so a
+// bare click is a selection gesture. What is selected is
 // lit and the rest dims (graphLightCards); a search typed in the box hides
 // nothing, it is the anchor of the selection and its matches light. A caption of
 // the tier fan shows its name alone; the pointer or focus on it shows its tip, one
-// tooltip the stage shares (graphShowTip), with the count of its cards. Tiers also has an
+// tooltip the stage shares (graphShowTip), with the count of its cards. The Hierarchy also has an
 // option row in the option panel (lines, dependencies, order, names, unnested), kept per board:
 // a press redraws the Graph and hands focus back to the control, and no control of the
 // row holds the poll, starts a pan or clears the selection. Names says which cards carry their
 // title (graphFanNames, graph-model.js) and graph-names.js where each sits: every card of the
 // fan has one label and one leader, set from the placement with attributes and classes, so a
 // selection paints names in place, and a zoom places them again once it settles; the
-// l key steps the setting through the shared key guard while the Graph shows Tiers.
+// l key steps the setting through the shared key guard while the Graph shows the Hierarchy.
+// The Graph draws one of two graphs, chosen at the top of the option panel: Hierarchy (the tier
+// fan above) and Flow (graph-flow.js: the cards in columns by their dependencies, with the Dependencies
+// switch, frontier or all). Flow draws no parent line and keeps every other gesture of the dots: its
+// column headings and strip are marks behind the dots that take no pointer. Its second switch, Lanes,
+// puts the cards in a lane for each tier card, each lane under a header that leads with that card's
+// type mark. A header is that card's node (a .graph-node, graphDrawPlan): the dot's handlers act on it,
+// and it is lit and selected with the dot. The choice and the switches are kept per
+// board and in the address (graph=, deps=, lanes=), the address winning on a load.
 
 const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';
 const GRAPH_PAN_THRESHOLD = 4;
-const GRAPH_DRAG_ALPHA = 0.3;
-const GRAPH_DRAG_STEPS = 2;
-const GRAPH_COOL_FRAMES = 40;
-const GRAPH_SETTLED_ALPHA = 0.004;
 const GRAPH_ZOOM_STEP = 1.12;
 const GRAPH_TIP_GAP = 6;
 const GRAPH_BUTTON_ZOOM = 1.25;
 const GRAPH_LABELS_ALL_K = 1.4;
 const GRAPH_LABELS_ALL_MAX_NODES = 60;
-const GRAPH_LAYOUT_TITLES = {
-  tiers: 'Tiers: the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
-  force: 'Force: related cards pull together, loose cards sit around the edge',
-  status: 'Status: one ring per status, done innermost; archive is its own group',
-};
-const GRAPH_LAYOUT_LABELS = { tiers: 'Tiers', force: 'Force', status: 'Status' };
 // The tier fan's option row (GRAPH_FAN_OPTION_VALUES, graph-model.js): what each option is
 // called and says. A value reads as itself on its button. A later option is one more
 // entry here and in the model's table.
@@ -64,9 +62,25 @@ const GRAPH_FAN_OPTION_LABELS = {
     hint: 'Where the cards with no parent, no children and no tier are drawn. Outermost: one ring outside every depth ring, grouped by status, under an unnested caption. Off: not drawn, and no relation to a drawn card is. Depth 0: on the depth 0 ring, in a sector of their own. Table: a block outside the fan, a column for each status.',
   },
 };
+const GRAPH_KIND_TITLES = {
+  hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier; a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
+  flow: 'Flow: the cards in columns by their dependencies, left to right; an arrow runs from the card waited for to the card that waits',
+};
+const GRAPH_FLOW_DEPS_LABEL = {
+  label: 'Dependencies',
+  hint: 'Frontier: columns by the steps until a card is ready, counting only the dependencies not done; done cards stand faded in the first column and a dependency loop in the last. All: columns by the longest chain of dependencies behind a card, done ones included.',
+};
+const GRAPH_FLOW_LANES_LABEL = {
+  label: 'Lanes',
+  hint: 'Off: the cards in columns alone. On: each card in the lane of its nearest parent with a tier, else its root, under a header with the type mark of that card, its tier, title, cards and ready cards. Frontier puts the lanes with ready cards first, the most ready first, and folds a lane into the strip when none of its cards with a dependency is open; all keeps the outline order and folds none. A card with no dependency stays in the strip.',
+};
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
 let graphLayoutKind = null;
+// The Flow's Dependencies and Lanes switches as the Graph holds them: 'frontier' or 'all', and a
+// boolean (graph-flow.js spells the boolean as text only in storage and the address).
+let graphDepsSwitch = null;
+let graphLanesSwitch = null;
 let graphStatusFilter = null;
 let graphFanOptions = null;
 // Set when the option panel opened or closed: the next draw frames the cards again in the
@@ -80,9 +94,6 @@ let graphPinch = null;
 let graphLastPoint = null;
 // The first finger of a touch that landed on a card, so a second finger can still start a pinch.
 let graphTouch = null;
-let graphDrag = null;
-const graphArrangements = new Map();
-const GRAPH_ARRANGEMENTS_MAX = 6;
 let graphFrame = 0;
 let graphLastError = null;
 // Where the fan's names sit (graphNamesPlace, graph-names.js) is worked out again only when
@@ -94,18 +105,120 @@ let graphNamesMemo = null;
 let graphNamesTimer = 0;
 const graphNamesMeasure = { family: null, ctx: null, seen: new Map() };
 
+// The graph the Graph draws: the address's graph= when it says one (a link, or the page as it was
+// left), else the one kept for the board. What the board kept that is not Hierarchy or Flow, `tiers`
+// and a layout this version no longer draws included, reads as the Hierarchy (mergeGraphLayout).
 function graphLoadLayout() {
   if (graphLayoutKind) return graphLayoutKind;
   let saved = null;
   try { saved = localStorage.getItem(storageKey(state.projectName, 'graph.layout')); }
   catch (e) { saved = null; }
-  graphLayoutKind = mergeGraphLayout(saved);
+  graphLayoutKind = mergeGraphLayout(graphAddressKind(location.search) || saved);
   return graphLayoutKind;
 }
 
 function graphSaveLayout() {
   try { localStorage.setItem(storageKey(state.projectName, 'graph.layout'), graphLayoutKind); }
   catch (e) { /* storage unavailable — the layout choice just won't persist this session */ }
+}
+
+// The Flow's Dependencies switch: the address's deps= when it says one, else the one kept for the board.
+function graphLoadDeps() {
+  if (graphDepsSwitch) return graphDepsSwitch;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'graph.deps')); }
+  catch (e) { saved = null; }
+  graphDepsSwitch = graphFlowMergeDeps(graphFlowLink(location.search).deps || saved);
+  return graphDepsSwitch;
+}
+
+function graphSaveDeps() {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.deps'), graphDepsSwitch); }
+  catch (e) { /* storage unavailable — the switch just won't persist this session */ }
+}
+
+// The Flow's Lanes switch: the address's lanes= when it says one, else the one kept for the board.
+function graphLoadLanes() {
+  if (graphLanesSwitch !== null) return graphLanesSwitch;
+  let saved = null;
+  try { saved = localStorage.getItem(storageKey(state.projectName, 'graph.lanes')); }
+  catch (e) { saved = null; }
+  const link = graphFlowLink(location.search).lanes;
+  graphLanesSwitch = link === null ? graphFlowLanesFromText(saved) === true : link;
+  return graphLanesSwitch;
+}
+
+function graphSaveLanes() {
+  try { localStorage.setItem(storageKey(state.projectName, 'graph.lanes'), graphFlowLanesText(graphLanesSwitch)); }
+  catch (e) { /* storage unavailable — the switch just won't persist this session */ }
+}
+
+// What an address says of the Graph: graph=hierarchy|flow, null when absent or not one of those.
+// The Flow's own parameters, deps and lanes, are read by graphFlowLink (graph-flow.js).
+function graphAddressKind(search) {
+  let params;
+  try { params = new URLSearchParams(search || ''); } catch (e) { return null; }
+  const kind = params.get('graph');
+  return GRAPH_KINDS.includes(kind) ? kind : null;
+}
+
+// What the address should become once the Graph shows `kind` (with `deps` and `laned` while it is the
+// Flow): every other parameter stays as it was, and deps and lanes go with the Flow. The search string
+// to replace the entry with (leading "?", or "" when nothing is left), or null when the address
+// already says it.
+function graphAddressFor(search, kind, deps, laned) {
+  const params = new URLSearchParams(search || '');
+  const want = mergeGraphLayout(kind);
+  let changed = false;
+  if (params.get('graph') !== want) { params.set('graph', want); changed = true; }
+  if (want === 'flow') changed = graphFlowSetParams(params, deps, laned) || changed;
+  else changed = graphFlowDropParams(params) || changed;
+  if (!changed) return null;
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+// The address says which graph the Graph draws, and the Dependencies and Lanes switches while it is the
+// Flow, so a reload or a link opens the same picture. It is written on a press and on every draw, so a
+// Graph that opened from the board's memory says so too; it REPLACES the entry the page is on, adds
+// nothing to Back, and does nothing once the address says it.
+function graphWriteAddress() {
+  const search = graphAddressFor(location.search, graphLoadLayout(), graphLoadDeps(), graphLoadLanes());
+  if (search == null) return;
+  try { history.replaceState(null, '', location.pathname + search); } catch (e) { /* the address lags until the next press */ }
+}
+
+// A press on the Hierarchy | Flow choice. Unnested off is the Hierarchy's
+// alone, so a switch into or out of it changes the cards the Graph draws, and a selection
+// and the pill counts only reach those: the board works them out again.
+function graphSetLayoutKind(to) {
+  const next = mergeGraphLayout(to);
+  const was = graphLoadLayout();
+  if (next === was) return;
+  graphLayoutKind = next;
+  graphViews.delete(graphLayoutKind);
+  graphSaveLayout();
+  graphWriteAddress();
+  if (graphLoadOptions().unnested === 'off' && (was === 'hierarchy' || next === 'hierarchy')) renderBoard();
+  else renderGraphView();
+}
+
+function graphSetDeps(to) {
+  const next = graphFlowMergeDeps(to);
+  if (next === graphLoadDeps()) return;
+  graphDepsSwitch = next;
+  graphSaveDeps();
+  graphWriteAddress();
+  renderGraphView();
+}
+
+function graphSetLanes(to) {
+  const next = to === 'on';
+  if (next === graphLoadLanes()) return;
+  graphLanesSwitch = next;
+  graphSaveLanes();
+  graphWriteAddress();
+  renderGraphView();
 }
 
 // Whether the count line and the key show: off until the (i) button is pressed, kept per board.
@@ -184,14 +297,14 @@ function graphSetOption(key, value) {
   else renderGraphView();
 }
 
-// The Unnested option as it applies now: only the Tiers layout has it, so any other layout
+// The Unnested option as it applies now: only the Hierarchy has it, so the Flow
 // answers null. What the Graph draws (renderGraphView) and what a selection can reach
 // (graphLeftOut) both read it here.
 function graphUnnestedNow() {
-  return graphLoadLayout() === 'tiers' ? graphLoadOptions().unnested : null;
+  return graphLoadLayout() === 'hierarchy' ? graphLoadOptions().unnested : null;
 }
 
-// The cards the Tiers layout leaves out of the Graph under Unnested off, for the ones
+// The cards the Hierarchy leaves out of the Graph under Unnested off, for the ones
 // that decide what the Graph shows (graphVisibleIds); null when nothing is left out.
 function graphLeftOut(pool) {
   if (graphUnnestedNow() !== 'off') return null;
@@ -200,12 +313,12 @@ function graphLeftOut(pool) {
 
 function resetGraphViewState() {
   graphLayoutKind = null;
+  graphDepsSwitch = null;
+  graphLanesSwitch = null;
   graphStatusFilter = null;
   graphFanOptions = null;
   graphRefitNext = false;
   graphViews.clear();
-  graphStopDrag(false);
-  graphArrangements.clear();
   graphCur = null;
   if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
@@ -279,57 +392,75 @@ function graphPlural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+// One segmented control: an option's label, then a button for each of its values, in the markup the
+// fan's options and the Flow's switches share. A button names its option (`key`) and value as the
+// fan's do, so a press hands focus back to the button the redraw builds (keepControlFocus); the
+// click handler tells the options apart by the key (deps, lanes, or one of the fan's).
+function graphBuildSwitch(def, key, values, current) {
+  const group = document.createElement('span');
+  group.className = 'graph-option';
+  group.title = def.hint;
+  const label = document.createElement('span');
+  label.className = 'graph-option-label';
+  label.textContent = def.label;
+  group.appendChild(label);
+  const seg = document.createElement('span');
+  seg.className = 'graph-option-seg';
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', def.label);
+  for (const value of values) {
+    const on = current === value;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `graph-option-btn${on ? ' active' : ''}`;
+    b.dataset.key = key;
+    b.dataset.val = value;
+    b.dataset.keepsSelection = '';
+    b.setAttribute('aria-pressed', String(on));
+    b.textContent = value;
+    seg.appendChild(b);
+  }
+  group.appendChild(seg);
+  return group;
+}
+
 // The fan's option row: one segmented control for each option in the model's table, always
 // shown, since the panel it stands in is what hides it. Every control keeps the
 // selection and none holds the poll: a press rebuilds the row and hands focus back to the
-// control (keepControlFocus), the way a status pill does. The row is only for Tiers.
+// control (keepControlFocus), the way a status pill does. The row is only for the Hierarchy.
 function graphBuildOptionsRow(options) {
   const row = document.createElement('div');
   row.className = 'graph-options';
   row.dataset.keepsSelection = '';
   for (const key of Object.keys(GRAPH_FAN_OPTION_VALUES)) {
-    const meta = GRAPH_FAN_OPTION_LABELS[key];
-    const group = document.createElement('span');
-    group.className = 'graph-option';
-    group.title = meta.hint;
-    const label = document.createElement('span');
-    label.className = 'graph-option-label';
-    label.textContent = meta.label;
-    group.appendChild(label);
-    const seg = document.createElement('span');
-    seg.className = 'graph-option-seg';
-    seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', meta.label);
-    for (const value of GRAPH_FAN_OPTION_VALUES[key]) {
-      const on = options[key] === value;
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = `graph-option-btn${on ? ' active' : ''}`;
-      b.dataset.key = key;
-      b.dataset.val = value;
-      b.dataset.keepsSelection = '';
-      b.setAttribute('aria-pressed', String(on));
-      b.textContent = value;
-      seg.appendChild(b);
-    }
-    group.appendChild(seg);
-    row.appendChild(group);
+    row.appendChild(graphBuildSwitch(GRAPH_FAN_OPTION_LABELS[key], key, GRAPH_FAN_OPTION_VALUES[key], options[key]));
   }
   return row;
 }
 
-// The option panel's contents (app.js builds the panel itself): the layouts, the zoom, and
-// for Tiers the option row. These stood in the top row of the view before.
-function graphBuildPanel(kind, fan) {
+// The Flow's option row: the Dependencies and Lanes switches, kept per board.
+function graphBuildFlowRow(deps, lanes) {
+  const row = document.createElement('div');
+  row.className = 'graph-options graph-flow-options';
+  row.dataset.keepsSelection = '';
+  row.appendChild(graphBuildSwitch(GRAPH_FLOW_DEPS_LABEL, 'deps', GRAPH_FLOW_DEPS, deps));
+  row.appendChild(graphBuildSwitch(GRAPH_FLOW_LANES_LABEL, 'lanes', ['off', 'on'], lanes ? 'on' : 'off'));
+  return row;
+}
+
+// The option panel's contents (app.js builds the panel itself): the Hierarchy | Flow choice, the zoom,
+// then for Hierarchy the option row of the tier fan and for Flow the Flow's switches. These stood in the
+// top row of the view before.
+function graphBuildPanel(kind, fan, deps, lanes) {
   const panel = buildViewPanel('graph', 'Graph options');
-  const layouts = document.createElement('div');
-  layouts.className = 'graph-layouts';
-  for (const k of GRAPH_LAYOUTS) {
-    const b = graphButton('graph-layout-btn', GRAPH_LAYOUT_LABELS[k], GRAPH_LAYOUT_TITLES[k], { layout: k });
+  const kinds = document.createElement('div');
+  kinds.className = 'graph-kinds';
+  for (const k of GRAPH_KINDS) {
+    const b = graphButton('graph-kind-btn', k === 'flow' ? 'Flow' : 'Hierarchy', GRAPH_KIND_TITLES[k], { graphKind: k });
     b.setAttribute('aria-pressed', String(k === kind));
-    layouts.appendChild(b);
+    kinds.appendChild(b);
   }
-  panel.appendChild(layouts);
+  panel.appendChild(kinds);
   const zoom = document.createElement('div');
   zoom.className = 'graph-zoom';
   zoom.appendChild(graphButton('graph-zoom-btn', '−', 'Zoom out', { graphAction: 'out' }));
@@ -337,6 +468,7 @@ function graphBuildPanel(kind, fan) {
   zoom.appendChild(graphButton('graph-zoom-btn', 'Fit', 'Fit every card in the panel', { graphAction: 'fit' }));
   panel.appendChild(zoom);
   if (fan) panel.appendChild(graphBuildOptionsRow(fan.options));
+  if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps, lanes));
   return panel;
 }
 
@@ -357,7 +489,7 @@ function graphBuildControls(cardCount, relationCount, fan, panelOpen) {
   info.setAttribute('aria-label', 'Card count and key');
   info.setAttribute('aria-pressed', String(infoOn));
   row.appendChild(info);
-  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the layouts, the zoom and the options', panelOpen));
+  row.appendChild(buildViewPanelToggle('graph', 'Show or hide the graph choice, the zoom and the options', panelOpen));
   frag.appendChild(row);
   const box = document.createElement('div');
   box.className = infoOn ? 'graph-info' : 'graph-info graph-info-off';
@@ -413,7 +545,7 @@ const GRAPH_FIT_NAMES_MARGIN = 6;
 function graphFrameFit(c) {
   const b = c.layout.bounds;
   const fit = graphFit(b, c.w, c.h, GRAPH_FIT_PAD);
-  if (c.kind !== 'tiers') return fit;
+  if (c.kind !== 'hierarchy') return fit;
   const kept = { x: c.view.x, y: c.view.y, k: c.view.k };
   Object.assign(c.view, fit);
   graphPaintNames();
@@ -500,14 +632,21 @@ function graphLightCards(lit) {
   graphClearFocus();
   if (!graphCur || !lit) return;
   graphCur.svg.classList.add('graph-dim');
-  for (const id of lit.nodes) graphCur.nodeEls.get(id).classList.add('graph-near');
+  for (const id of lit.nodes) {
+    for (const el of [graphCur.nodeEls.get(id), ...(graphCur.headEls.get(id) || [])]) el.classList.add('graph-near');
+  }
   for (const i of lit.links) graphCur.linkEls[i].classList.add('graph-near');
 }
 
 // The pointer or keyboard focus on a card: that card and its one-hop relations.
 function graphSetFocus(id) {
   if (!graphCur || id == null || !graphCur.model.byId.has(id)) { graphClearFocus(); return; }
-  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id), graphCur.lines));
+  graphLightCards(graphLit(graphCur.model, graphNeighbours(graphCur.model, id, graphLinkKind()), graphCur.lines));
+}
+
+// The Flow draws the dependencies alone, so it lights a card with the cards those join to it.
+function graphLinkKind() {
+  return graphCur && graphCur.kind === 'flow' ? 'wait' : undefined;
 }
 
 // The lone card the selection holds, or null: only a card picked on its own,
@@ -521,7 +660,7 @@ function graphLoneCardId() {
 // matches included (graphRestLit).
 function graphRestFocus() {
   if (!graphCur) return;
-  graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId() }, graphCur.lines));
+  graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId(), linkKind: graphLinkKind() }, graphCur.lines));
 }
 
 function graphSettleFocus() {
@@ -571,7 +710,7 @@ function graphNamesFont() {
 function graphPaintNames() {
   clearTimeout(graphNamesTimer);
   graphNamesTimer = 0;
-  if (!graphCur || graphCur.kind !== 'tiers' || !graphCur.nameEls.size) {
+  if (!graphCur || graphCur.kind !== 'hierarchy' || !graphCur.nameEls.size) {
     if (graphCur) graphCur.names = null;
     return;
   }
@@ -607,7 +746,7 @@ function graphPaintNames() {
 // a pan, which keeps the zoom, places nothing; nor does a zoom with nothing named, which no zoom
 // moves. O(1), so the transform stays one write a frame.
 function graphQueueNames() {
-  const names = graphCur && graphCur.kind === 'tiers' ? graphCur.names : null;
+  const names = graphCur && graphCur.kind === 'hierarchy' ? graphCur.names : null;
   if (!names || names.k === graphCur.view.k || !(names.placed.size || names.unnamed.length)) return;
   clearTimeout(graphNamesTimer);
   graphNamesTimer = setTimeout(graphPaintNames, GRAPH_NAMES_SETTLE_MS);
@@ -616,6 +755,7 @@ function graphQueueNames() {
 function graphPaintSelection() {
   if (!graphCur) return;
   for (const [nid, el] of graphCur.nodeEls) el.classList.toggle('selected', selectedIds.has(nid));
+  for (const [nid, els] of graphCur.headEls) for (const h of els) h.classList.toggle('selected', selectedIds.has(nid));
   graphPaintNames();
   graphRestFocus();
 }
@@ -670,10 +810,13 @@ function graphDrawPlan(plan) {
     if (t.color) wash.setAttribute('data-type-color', t.color);
     world.appendChild(wash);
   }
-  for (const r of plan.rings) {
-    world.appendChild(fixed(graphEl('circle', { cx: r.cx, cy: 0, r: r.r }, r.cls)));
-  }
   for (const g of plan.guides) world.appendChild(fixed(graphEl('path', { d: g.d }, g.cls)));
+  for (const r of plan.flow.rects) world.appendChild(fixed(graphEl('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 4 }, r.cls)));
+  for (const t of plan.flow.texts) {
+    const el = graphEl('text', { x: t.x, y: t.y, 'text-anchor': t.anchor }, t.cls);
+    el.textContent = t.text;
+    world.appendChild(el);
+  }
   for (const d of plan.dividers) {
     world.appendChild(fixed(graphEl('line', { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 }, 'graph-divider')));
   }
@@ -700,6 +843,34 @@ function graphDrawPlan(plan) {
     }
     return p;
   });
+  // A lane's header is its card's node: it wears the dot's classes (graph-node, card-el) and its data-id,
+  // so every handler that finds a `.graph-node` (click, double click, Enter, Space, hover, focus) and the
+  // card menu take it for that card. Drawn after the links and before the dots, so a dot wins where the two
+  // meet. Its text stays one size at any zoom (graphView sets --graph-k), and the type's mark takes its
+  // colour once the Graph is on the page (paintTypeColors). graphCur.headEls holds them by card, to light
+  // and select them with the dots.
+  const headEls = new Map();
+  for (const h of plan.flow.heads) {
+    const cls = `graph-node card-el graph-flow-lane-head${selectedIds.has(h.id) ? ' selected' : ''}${isHoverHighlighted(hoveredId, h.id) ? ' hover-highlight' : ''}`;
+    const g = graphEl('g', { transform: `translate(${h.x} ${h.y})`, tabindex: 0 }, cls);
+    g.setAttribute('data-id', String(h.id));
+    const tip = graphEl('title');
+    tip.textContent = h.title;
+    g.appendChild(tip);
+    const inner = graphEl('g', {}, 'graph-flow-lanehead-in');
+    if (h.icon) {
+      const mark = graphEl('path', { d: h.icon.d, transform: 'translate(7 -4)' }, 'graph-flow-icon');
+      if (h.icon.color) mark.setAttribute('data-type-color', h.icon.color);
+      inner.appendChild(mark);
+    }
+    const text = graphEl('text', { x: h.icon ? 20 : 0, y: 0 }, 'graph-flow-lanehead-text');
+    text.textContent = h.text;
+    inner.appendChild(text);
+    g.appendChild(inner);
+    world.appendChild(g);
+    if (!headEls.has(h.id)) headEls.set(h.id, []);
+    headEls.get(h.id).push(g);
+  }
   const nodeEls = new Map();
   const nameEls = new Map();
   for (const n of plan.nodes) {
@@ -730,41 +901,31 @@ function graphDrawPlan(plan) {
     world.appendChild(g);
     nodeEls.set(n.id, g);
   }
-  for (const r of plan.rings) {
-    const t = graphEl('text', { x: r.cx + 4, y: -r.r - 3 }, 'graph-ring-label');
-    t.textContent = r.label;
-    world.appendChild(t);
-  }
-  for (const t of plan.titles) {
-    const el = graphEl('text', { x: t.x, y: t.y }, 'graph-title');
-    el.textContent = t.text;
-    world.appendChild(el);
-  }
   stage.appendChild(svg);
   const tip = graphBuildTip();
   stage.appendChild(tip);
-  return { stage, svg, world, arrow, linkEls, nodeEls, nameEls, tip };
+  return { stage, svg, world, arrow, linkEls, nodeEls, headEls, nameEls, tip };
 }
 
 function renderGraphView() {
   const host = document.getElementById('graph-view');
-  graphStopDrag(true);
-  let kind, filter, fanOptions, model, layout, layoutOpts, plan, sig;
+  let kind, filter, fanOptions, deps, lanes, model, layout, layoutOpts, plan, sig;
   const panelMoved = graphRefitNext;
   graphRefitNext = false;
   try {
     kind = graphLoadLayout();
     filter = graphLoadFilter();
-    fanOptions = kind === 'tiers' ? graphLoadOptions() : null;
+    fanOptions = kind === 'hierarchy' ? graphLoadOptions() : null;
     const pool = state.active.concat(state.archived);
     const visibleIds = graphVisibleIds(pool, currentGraphQueryEffect().visibleIds, filter, boardStatuses());
     model = graphBuild(pool, {
       ctx: nestingCtx(), visibleIds, types: state.types, hierarchy: state.hierarchy, unnested: graphUnnestedNow(),
     });
-    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order, unnested: fanOptions && fanOptions.unnested };
+    deps = kind === 'flow' ? graphLoadDeps() : null;
+    lanes = kind === 'flow' ? graphLoadLanes() : null;
+    layoutOpts = { statuses: boardStatuses(), order: fanOptions && fanOptions.order, unnested: fanOptions && fanOptions.unnested, deps, lanes };
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
-    if (kind === 'force' && graphArrangements.has(sig)) layout = graphWithPositions(layout, model, graphArrangements.get(sig));
     plan = graphPlan(model, layout, {
       selectedIds, loneCardId: graphLoneCardId(), hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
       types: state.types,
@@ -776,6 +937,7 @@ function renderGraphView() {
     return;
   }
   graphLastError = null;
+  graphWriteAddress();
   host.textContent = '';
   graphCur = null;
 
@@ -784,7 +946,7 @@ function renderGraphView() {
   const main = document.createElement('div');
   main.className = 'graph-main';
   host.appendChild(main);
-  if (panelOpen) host.appendChild(graphBuildPanel(kind, fan));
+  if (panelOpen) host.appendChild(graphBuildPanel(kind, fan, deps, lanes));
   main.appendChild(graphBuildControls(model.nodes.length, model.links.length, fan, panelOpen));
   if (!plan.nodes.length) {
     const p = document.createElement('p');
@@ -800,6 +962,7 @@ function renderGraphView() {
   const w = drawn.stage.clientWidth || 800;
   const h = drawn.stage.clientHeight || 600;
   drawn.svg.classList.add(`graph-kind-${kind}`);
+  if (kind === 'flow') drawn.svg.classList.add(`graph-flow-${deps}`);
   let view = graphViews.get(kind);
   const refit = !view || ((view.sig !== sig || panelMoved) && !view.touched);
   if (!view) {
@@ -809,7 +972,7 @@ function renderGraphView() {
   view.sig = sig;
   graphCur = {
     kind, sig, model, layout, plan, view, w, h, nodeCount: plan.nodes.length, lines: plan.links,
-    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
+    svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
   };
   if (refit) Object.assign(view, graphFrameFit(graphCur), { touched: false });
   graphPaintNames();
@@ -818,6 +981,14 @@ function renderGraphView() {
 }
 
 // --- wiring --------------------------------------------------------------------
+
+// The element of card `id` in the Graph's `root` that is the kind `from`, the element that had the
+// focus, was. A Flow lane's header is a second element of its card beside the dot, so a header is found
+// again as a header and a dot as a dot.
+function graphCardEl(root, id, from) {
+  const head = !!(from && from.classList && from.classList.contains('graph-flow-lane-head'));
+  return root.querySelector(`.card-el[data-id="${id}"]${head ? '.graph-flow-lane-head' : ':not(.graph-flow-lane-head)'}`);
+}
 
 function graphSwallowNextClick() {
   if (graphClickSwallow) document.removeEventListener('click', graphClickSwallow, true);
@@ -861,7 +1032,6 @@ function graphStartPinch(e, host, touch) {
   const first = touch ? touch.id : graphPan.pointerId;
   const firstPoint = touch || (graphLastPoint && graphLastPoint.id === first ? graphLastPoint : { x: graphPan.sx, y: graphPan.sy });
   graphFinishPan();
-  graphStopDrag(true);
   graphPinch = {
     ids: [first, e.pointerId],
     points: new Map([[first, { x: firstPoint.x, y: firstPoint.y }], [e.pointerId, { x: e.clientX, y: e.clientY }]]),
@@ -893,112 +1063,6 @@ function graphEndPinch(swallow) {
   if (swallow) graphSwallowNextClick();
 }
 
-// --- node drag (force layout) --------------------------------------------------
-// Dragging a card pins it to the pointer and lets the cards related to it
-// follow: the same force step as the layout, continued from what is on screen.
-// One rAF loop at most; every exit path goes through graphStopDrag.
-
-function graphWorldPoint(e) {
-  const rect = graphCur.svg.getBoundingClientRect();
-  const v = graphCur.view;
-  return { x: (e.clientX - rect.left - v.x) / v.k, y: (e.clientY - rect.top - v.y) / v.k };
-}
-
-function graphPaintDrag(d) {
-  for (const [id, p] of graphForcePositions(d.sim)) {
-    d.pos.set(id, p);
-    graphCur.nodeEls.get(id).setAttribute('transform', `translate(${graphRound(p.x)} ${graphRound(p.y)})`);
-  }
-  const paths = graphLinkPaths(graphCur.model, d.layout, 'force');
-  for (let i = 0; i < paths.length; i++) graphCur.linkEls[i].setAttribute('d', paths[i]);
-}
-
-function graphDragKick(d) {
-  if (!d.raf) d.raf = requestAnimationFrame(graphDragFrame);
-}
-
-function graphDragFrame() {
-  const d = graphDrag;
-  if (!d || !d.sim || !graphCur) return;
-  d.raf = 0;
-  for (let i = 0; i < GRAPH_DRAG_STEPS; i++) {
-    graphForceStep(d.sim, d.alpha, d.pin);
-    d.alpha *= 0.985;
-  }
-  graphPaintDrag(d);
-  if (d.released) {
-    d.frames--;
-    if (d.frames <= 0) { graphStopDrag(true); return; }
-  } else if (d.alpha < GRAPH_SETTLED_ALPHA) {
-    return;
-  }
-  d.raf = requestAnimationFrame(graphDragFrame);
-}
-
-function graphBeginDrag(d) {
-  d.moved = true;
-  isDragging = true;
-  try { document.getElementById('graph-view').setPointerCapture(d.pointerId); } catch (err) { /* synthetic pointers can't be captured */ }
-  graphCur.svg.classList.add('graph-dragging');
-  graphSetFocus(d.id);
-  d.sim = graphForceSim(graphCur.model, graphCur.layout.pos);
-  d.pos = new Map(graphCur.layout.pos);
-  d.layout = { pos: d.pos, rings: [], spokes: [], titles: [] };
-  d.sig = graphCur.sig;
-  d.alpha = GRAPH_DRAG_ALPHA;
-}
-
-function graphDragMove(e) {
-  const d = graphDrag;
-  if (!d || e.pointerId !== d.pointerId || d.released || !graphCur) return;
-  if (d.moved && e.pointerType === 'mouse' && e.buttons === 0) { graphReleaseDrag(e); return; }
-  const w = graphWorldPoint(e);
-  if (!d.moved) {
-    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) <= GRAPH_PAN_THRESHOLD) return;
-    graphBeginDrag(d);
-    const at = d.pos.get(d.id);
-    const down = graphWorldPoint({ clientX: d.sx, clientY: d.sy });
-    d.grab = { x: at.x - down.x, y: at.y - down.y };
-  }
-  d.pin = { id: d.id, x: w.x + d.grab.x, y: w.y + d.grab.y };
-  d.alpha = Math.max(d.alpha, GRAPH_DRAG_ALPHA);
-  graphDragKick(d);
-}
-
-function graphReleaseDrag(e) {
-  const d = graphDrag;
-  if (!d || d.released) return;
-  if (!d.moved) { graphDrag = null; return; }
-  d.released = true;
-  d.pin = null;
-  d.alpha = Math.max(d.alpha, GRAPH_DRAG_ALPHA);
-  d.frames = GRAPH_COOL_FRAMES;
-  graphSwallowNextClick();
-  const under = e && e.type === 'pointerup' && document.elementFromPoint(e.clientX, e.clientY);
-  const node = under && under.closest && under.closest('.graph-node');
-  if (node) graphSetFocus(node.dataset.id);
-  else graphRestFocus();
-  graphDragKick(d);
-}
-
-// commit keeps the simulated arrangement for the signature it was made under.
-function graphStopDrag(commit) {
-  const d = graphDrag;
-  if (!d) return;
-  graphDrag = null;
-  if (d.raf) cancelAnimationFrame(d.raf);
-  if (!d.moved) return;
-  isDragging = false;
-  if (commit && d.sim) {
-    const positions = graphForcePositions(d.sim);
-    graphArrangements.delete(d.sig);
-    graphArrangements.set(d.sig, positions);
-    while (graphArrangements.size > GRAPH_ARRANGEMENTS_MAX) graphArrangements.delete(graphArrangements.keys().next().value);
-    if (graphCur) graphCur.layout = graphWithPositions(graphCur.layout, graphCur.model, positions);
-  }
-  if (graphCur) graphCur.svg.classList.remove('graph-dragging');
-}
-
 // The panel opened or closed: the stage has another width, so the cards are framed again.
 function graphRedrawForPanel() {
   graphRefitNext = true;
@@ -1012,21 +1076,12 @@ function wireGraphView(host) {
     const infoBtn = e.target.closest('.graph-info-toggle');
     if (infoBtn) { keepControlFocus(infoBtn, () => { graphInfoSet(!graphInfoOn()); renderGraphView(); }); return; }
     const option = e.target.closest('.graph-option-btn[data-key][data-val]');
-    if (option) { keepControlFocus(option, () => graphSetOption(option.dataset.key, option.dataset.val)); return; }
-    const layoutBtn = e.target.closest('.graph-layout-btn[data-layout]');
-    if (layoutBtn) {
-      if (mergeGraphLayout(layoutBtn.dataset.layout) === graphLoadLayout()) return;
-      const was = graphLoadLayout();
-      const next = mergeGraphLayout(layoutBtn.dataset.layout);
-      graphLayoutKind = next;
-      graphViews.delete(graphLayoutKind);
-      graphSaveLayout();
-      // Unnested off is the Tiers layout's alone, so a switch into or out of Tiers changes the cards the
-      // Graph draws, and a selection and the pill counts only reach those: the board works them out again.
-      if (graphLoadOptions().unnested === 'off' && (was === 'tiers' || next === 'tiers')) renderBoard();
-      else renderGraphView();
+    if (option) {
+      keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : option.dataset.key === 'lanes' ? graphSetLanes(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
       return;
     }
+    const kindBtn = e.target.closest('.graph-kind-btn[data-graph-kind]');
+    if (kindBtn) { graphSetLayoutKind(kindBtn.dataset.graphKind); return; }
     const zoomBtn = e.target.closest('.graph-zoom-btn[data-graph-action]');
     if (!zoomBtn || !graphCur) return;
     const action = zoomBtn.dataset.graphAction;
@@ -1047,16 +1102,7 @@ function wireGraphView(host) {
     if (graphPan && e.pointerId !== graphPan.pointerId && e.target.closest('.graph-canvas')) { graphStartPinch(e, host); return; }
     if (!graphPan && graphTouch && e.isPrimary === false && e.pointerId !== graphTouch.id && e.target.closest('.graph-canvas')) { graphStartPinch(e, host, graphTouch); return; }
     if (e.isPrimary !== false) graphTouch = { id: e.pointerId, x: e.clientX, y: e.clientY };
-    if (graphDrag) graphStopDrag(true);
-    const node = e.target.closest('.graph-node');
-    if (node) {
-      if (graphCur.kind !== 'force' || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-      const id = node.dataset.id;
-      const model = graphCur.model.byId.get(id);
-      if (!model || model.deg === 0) return;
-      graphDrag = { pointerId: e.pointerId, id, sx: e.clientX, sy: e.clientY, moved: false, released: false, raf: 0, sim: null, pin: null };
-      return;
-    }
+    if (e.target.closest('.graph-node')) return;
     if (graphPan) return;
     if (!e.target.closest('.graph-canvas') || e.target.closest('.card-el')) return;
     const v = graphCur.view;
@@ -1081,12 +1127,10 @@ function wireGraphView(host) {
     graphCur.view.touched = true;
     graphScheduleTransform();
   });
-  host.addEventListener('pointermove', graphDragMove);
   const finish = (e) => {
     if (graphTouch && graphTouch.id === e.pointerId) graphTouch = null;
     if (graphPinch && graphPinch.points.has(e.pointerId)) graphEndPinch(true);
     if (graphPan && e.pointerId === graphPan.pointerId) graphFinishPan();
-    if (graphDrag && e.pointerId === graphDrag.pointerId) graphReleaseDrag(e);
   };
   host.addEventListener('pointerup', finish);
   host.addEventListener('pointercancel', finish);
@@ -1154,14 +1198,14 @@ function wireGraphView(host) {
 // The l key steps the fan's names: relevant, all, none. A key that types nothing but reads a
 // letter, so it reads the whole key guard unchanged, as p, m and i do: off while a field has
 // focus and while a menu, a dialog, the notifications panel or the preferences sheet is up;
-// the search panel is not one of those. It acts only while the Graph shows Tiers, the one
-// layout with names. A chord (Ctrl, Cmd, Alt), Shift on the key and a held key are not it;
+// the search panel is not one of those. It acts only while the Graph shows the Hierarchy, the one
+// graph with names. A chord (Ctrl, Cmd, Alt), Shift on the key and a held key are not it;
 // Caps Lock gives a capital N with no Shift, and counts. An option that has focus is
 // rebuilt by the redraw, so it gets focus back, as after a press.
 function onGraphNamesKey(e) {
   if (!e.key || e.key.toLowerCase() !== 'l' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (keyGuardOff(document)) return;
-  if (loadViewMode() !== 'graph' || graphLoadLayout() !== 'tiers') return;
+  if (loadViewMode() !== 'graph' || graphLoadLayout() !== 'hierarchy') return;
   e.preventDefault();
   const step = () => graphSetOption('names', graphFanNextNames(graphLoadOptions().names));
   const control = focusedRebuiltControl();

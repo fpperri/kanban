@@ -43,7 +43,7 @@ const NEUTRAL = 'rgb(139, 148, 158)';
 function dotsOf(board, { types }) {
   const live = board.cards.filter((c) => !c.archived);
   const model = graphBuild(live, { ctx: { board: board.config.name, priorities: board.config.priorities }, types });
-  const plan = graphPlan(model, graphLayout(model, 'tiers'), { statusClass: (s) => s, titleOf: (c) => c.title });
+  const plan = graphPlan(model, graphLayout(model, 'hierarchy'), { statusClass: (s) => s, titleOf: (c) => c.title });
   return plan;
 }
 

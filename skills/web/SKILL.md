@@ -2155,10 +2155,9 @@ to `127.0.0.1` only.
   scroll position is carried across re-renders.
 - **Graph view** — a top-bar "Graph" button (a line icon, then the word; `aria-pressed`; it reads "Board view" with the Board icon
   while the graph is up) swaps the board for the **Graph**: every card at once as a dot,
-  joined by its relations, in one of three **layouts** picked from a button row in the
-  graph's own header (`aria-pressed` marks the active one). **Tiers** opens first and is
-  the default for any unknown saved value. Tiers draws the **tier fan**: the
-  centre is the apex and the fan goes all the way round the centre but for a narrow **seam**
+  joined by its relations. The Hierarchy draws the **tier fan**, which this entry calls
+  **Tiers** where an option or a key names it; it opens first and is the default for any
+  unknown saved value. The centre is the apex and the fan goes all the way round the centre but for a narrow **seam**
   straight up, a **band** for each tier of the
   board's `hierarchy:`, tier 1 innermost, then a **ring** for each depth that holds a card
   without a tier (a card whose type is not in the hierarchy, or that has none), counted
@@ -2195,13 +2194,7 @@ to `127.0.0.1` only.
   column count their cards. Fit and the first draw frame the
   whole circle, every dot, every caption and the Unnested block, and no two captions
   overlap, in every mode of the Unnested option. On a board with no hierarchy every
-  slice is a depth, so Tiers draws a ring for each depth. **Force** pulls
-  related cards together and rings the unrelated ones round the edge; it is a fixed
-  simulation with no randomness, so the same cards always land in the same place. **Status**
-  draws one ring per status, the board's last column innermost: done, doing, todo,
-  backlog from the centre out, each ring sized by how many cards it holds (its label
-  shows the count). With the Archive pill on, archived cards form a second group titled
-  "archive" beside the live one.
+  slice is a depth, so Tiers draws a ring for each depth.
   **A dot** shows the card's status colour (the same fixed hues and palette as the rest
   of the app), is bigger the more relations the card has, is hollow when the card is
   `done`, and is dimmed when archived. A type with an icon draws its dot in that outline
@@ -2212,13 +2205,12 @@ to `127.0.0.1` only.
   the flag rings sit outside every shape, the star's points included. A card's id
   prints beside its dot when it has three or more relations, is hovered or selected, when
   the view is zoomed in, or when the graph is small; a card the Tiers fan names and finds room for shows its title instead,
-  beside its ring or in a row outside the rim (see **Options**). **Relations:** in Force and Status a solid line joins a
-  parent to its child, in Tiers the Lines option says which parent lines are drawn (see **Options**),
-  and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
+  beside its ring or in a row outside the rim (see **Options**). **Relations:** the Lines option says which parent
+  lines are drawn (see **Options**), and a dashed arrow runs from a card to the card that waits for it, its head on the waiter.
   A parent is drawn only when it is also drawn on this view, otherwise the card is a
   root there; a card waiting on a hidden card still reads waiting.
   **Options.** Tiers has an **option row** above the fan, folded behind an Options toggle, like the Map's, and starts
-  folded; Force and Status have no option row. It holds five options, the first value of each the
+  folded. It holds five options, the first value of each the
   default. **Lines** draws the parent lines: **folded** (the default) gives a line to the end of each
   dependency chain, as the Map draws its chain ends, and a parent's other children on one ring share one
   **counted line** that prints their count; **chain** gives a line to every chain end and none to the
@@ -2240,7 +2232,7 @@ to `127.0.0.1` only.
   whether the panel is open or not; it reads the shared key guard, so it does nothing while a field has focus (the
   search box types an l) or while a card menu, a dialog, the notifications panel or the preferences sheet is
   open, and it works with the search panel open. The footer line under the Graph shows the setting (`l steps the
-  names: relevant`). Force and Status have no names.
+  names: relevant`). The Flow has no names.
   **Where names sit.** A name is never tilted and keeps its size on screen at any zoom. A parent, a card with children,
   which wears the outer ring, is named beside its ring, inside the rim. Every other named card is named in a row outside
   the rim on its own side of the fan, the cards of a side taking the rows in the order of their rays down it, and a
@@ -2265,7 +2257,7 @@ to `127.0.0.1` only.
   switch into or out of Tiers while Unnested is off works the selection and the pill counts out again);
   **depth 0** draws them on the depth 0 ring, between the tier bands and depth 1, in a sector of their own, and
   the ring's caption is the depth 0 band's, `depth 0`, and its tooltip counts them; **table** draws the Unnested
-  block outside the rim. The Unnested option is Tiers' own: Force and Status draw every card. A counted line
+  block outside the rim. The Unnested option is Tiers' own: the Flow draws every card. A counted line
   lights whenever its parent does. The chain ends are read on the whole board, so hiding a card with a status pill or a search
   never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
   sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
@@ -2313,19 +2305,57 @@ to `127.0.0.1` only.
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
   shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
   order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click
-  (bulk menu) is the shared grammar of ADR 0006. In **Force**, **dragging a dot** pulls
-  the cards related to it along, like pulling on a thread; the arrangement stays until
-  the cards change or the page reloads (Tiers and Status do not drag). **Pan** by dragging the background
+  (bulk menu) is the shared grammar of ADR 0006. A dot is never dragged. **Pan** by dragging the background
   (a drag moves past 4px and the click that ends it is swallowed, so a pan is never read as
   a click on empty space and keeps the selection); the **wheel** zooms at the pointer and the `−`, `+` and **Fit** buttons zoom
-  about the centre or fit every card in the panel. Picking a layout re-fits the view; after
+  about the centre or fit every card in the panel. Choosing a graph re-fits the view; after
   that a pan or zoom is kept, and an untouched view re-fits when the set of cards changes.
-  Per board in `localStorage`: the layout under `graph.layout` and the status pills under
+  Per board in `localStorage`: the graph choice under `graph.layout` and the status pills under
   `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
   `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
   The 5-second poll rebuilds the view and keeps the
   layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
-  Graph view.
+  Graph view. The Graph draws one of two graphs, chosen at the top of the option panel:
+  **Hierarchy**, which is all of the above, and **Flow** (see **Graph Flow**).
+- **Graph Flow** — the Graph's second graph, beside **Hierarchy** (the tier fan, above). The option
+  panel opens with a **Hierarchy | Flow** choice (`.graph-kind-btn`, `aria-pressed` on the one drawn), Hierarchy first;
+  under Flow the panel holds the zoom and the **Dependencies** and **Lanes** switches, and none of Hierarchy's option row.
+  Flow lays the drawn cards out by their dependencies (`waiting_for`, read among the cards drawn) in **columns** from left to right, with no parent line
+  and no tier wash; the words are the glossary's **Flow** and **Frontier**. The **Dependencies** switch is **frontier**
+  (the default) or **all**. **Frontier** counts the steps until a card is ready and only the dependencies that are not done (a card that
+  is `done` or archived is done): the first column is `done`, faded, then `ready now`, `1 step`, `2 steps` and on,
+  and a card in or behind a dependency loop stands in a last `loop` column. Only the open cards are read, so a loop with a done card in it is no loop.
+  **All** counts the longest chain of dependencies behind a card, done ones included: `waits for nothing`, `chain 1`,
+  `chain 2` and on, the members of a loop sharing one column. Each column is a shaded frame with a heading that prints its card count
+  (`ready now · 4`); the `done` column is faded. A card with **no dependency either way** among the drawn cards sits in a **strip** below the
+  columns, in either mode, titled `no dependency either way` with its count (`· 18 cards`). Within a column the cards are ordered to cut the
+  arrows that cross (the mean place of what each waits for and what waits for it, two sweeps each way), ties by id, and a column of more than
+  fourteen cards wraps into side-by-side stacks. The **Lanes** switch (`.graph-option-btn[data-key=lanes]`, `off` or `on`, off by default) groups the
+  cards that are in a column into **lanes**: each card with a dependency is in the lane of its nearest parent with a tier, else of its root (the slice's own rule,
+  read among the cards drawn, so a card whose parent is hidden is a root), under a header (`.graph-flow-lane-head`, with the lane card's `data-id`) that leads with that
+  card's type mark in its type colour (`data-type-color`, painted by `paintTypeColors`), its tier name (none for a card with no tier), `#id title`, the lane's
+  card count and its ready count; a card is ready when it is open, in no loop and waits for nothing that is not done, in either mode. The columns are made of the cards in the
+  lanes alone and stand across them, so a column's cards share one x whichever lane they are in, and the lanes' frames (`.graph-flow-lane`) replace the columns' shaded frames.
+  With frontier the lanes with ready cards come first, the most ready first, then the others in outline order; with all, every lane is in outline order. With frontier a lane
+  folds into the strip when none of its cards with a dependency is open (every such card is done), and the strip then reads `no open dependency`; a lane whose open cards wait only on done cards
+  stays, since those cards are ready now. With all no lane folds. A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it
+  (`header.count`), not every card under its lane card. A header is its card's node: a `.graph-node.card-el.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots,
+  so every handler of the dots (click, Shift/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu) takes it for that card, with the same items;
+  `graphCur.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together. It is not a second dot: the card keeps its one dot. An **arrow** runs from the card waited for to the card that waits, leaving to the right
+  and arriving from the left with its head at the rim; a dot keeps its status colour and its type mark, grows with the waits it is in (a parent
+  does not enlarge it), and is faded in frontier when done or archived. A loop, a card that waits for itself and a chain of any
+  length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,
+  selection, the card menu, double-click, Enter, Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
+  that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. Hover, focus and a
+  lone selected card light the card with the cards its **dependencies** join to it, not its parent or children, and the lit lines are the arrows. A dot
+  cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
+  and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, frontier and lanes off. The address carries them as
+  `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;
+  every draw of the Graph writes the address too (`graphWriteAddress`, a no-op once it says the picture), so a Graph that opened from the board's memory says so and a link copied after a plain reload opens the same picture;
+  a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is
+  chosen. The choice and the switches are buttons that keep the selection; a press of a switch redraws the Flow and re-frames a view the person has
+  not moved. On a phone the panel is the **bottom sheet**, with the choice and the switches in it. The Flow's pure layout is `web/graph-flow.js` (`graphFlowPlace`),
+  read by `graph-model.js`; the snapshot has no Graph view, so it embeds none of it.
 
 ## Board config: `config.yaml`
 

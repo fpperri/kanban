@@ -2,7 +2,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphBuild, graphLayoutTiers, graphLayout, graphPlan, graphFit, graphVisibleIds, graphRadius,
+  graphBuild, graphLayoutHierarchy, graphLayout, graphPlan, graphFit, graphVisibleIds, graphRadius,
 } = require('../web/graph-model');
 const scenario = require('./browser/scenarios/tier-fan');
 const {
@@ -21,8 +21,8 @@ after(cleanUp);
 
 const planBoard = loadBoard('plan');
 const PLAN = scenario.CASES.plan;
-const OPTS = { kind: 'tiers', statusClass: (s) => s, titleOf: (c) => c.title };
-const layoutOf = (m) => graphLayoutTiers(m, { statuses: STATUSES, unnested: 'table' });
+const OPTS = { kind: 'hierarchy', statusClass: (s) => s, titleOf: (c) => c.title };
+const layoutOf = (m) => graphLayoutHierarchy(m, { statuses: STATUSES, unnested: 'table' });
 const planOf = (m) => graphPlan(m, layoutOf(m), OPTS);
 const planModel = (opts) => drawnModel(planBoard, opts);
 const rim = (l) => (l.bands.length ? l.bands[l.bands.length - 1].r1 : 0);
@@ -300,9 +300,9 @@ test('drawing: the loose caption stands to the side of its sector with its text 
   for (const make of Object.values(LOOSE_BOARDS)) check(side(make));
 });
 
-test('drawing: the force and status layouts draw no arcs, captions, dividers, block or loose caption', () => {
+test('drawing: the flow draws no arcs, captions, dividers, block or loose caption', () => {
   const m = planModel();
-  for (const kind of ['force', 'status']) {
+  for (const kind of ['flow']) {
     const plan = graphPlan(m, graphLayout(m, kind, { statuses: STATUSES, unnested: 'table' }), { ...OPTS, kind });
     assert.deepStrictEqual([plan.guides, plan.captions, plan.dividers], [[], [], []], kind);
     assert.strictEqual(plan.block, null, kind);
