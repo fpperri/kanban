@@ -25,7 +25,7 @@
 // and Ctrl is 2); a card's dot is clicked only where it is the topmost thing.
 //
 // Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
-// isolateNow, selectedIds, selectionState.
+// hoveredId, isolateNow, selectedIds, selectionState.
 
 const CASES = {
   cut: { query: 'slice:goal..objective', cards: [1, 2, 7, 25, 26] },
@@ -38,7 +38,7 @@ module.exports = {
   timeoutMs: 90000,
   CASES,
   async run(page) {
-    const { ev, send, open, waitFor, click, key, rightClick, check } = page;
+    const { ev, send, open, waitFor, mouse, click, key, rightClick, check } = page;
     const sorted = (...ids) => ids.slice().sort((a, b) => a - b);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const idsOf = (selector) => `JSON.stringify([...new Set([...document.querySelectorAll(${JSON.stringify(selector)})].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))`;
@@ -168,6 +168,11 @@ module.exports = {
     await ev(`document.activeElement&&document.activeElement.blur&&document.activeElement.blur()`);
     await key('Escape');
     check('Esc drops the card and empties the box, so the search starts from a clean Graph', await pickedIs([]) && await boxIs(''), { box: await boxText() });
+    // The pointer is still on the dot just clicked, and a hovered card lights its On hover show sets over a
+    // typed search, so it goes to the empty corner of the canvas before the query is typed.
+    const corner = await ev(`(()=>{const r=document.querySelector('.graph-canvas').getBoundingClientRect();return {x:r.right-14,y:r.bottom-14}})()`);
+    await mouse('mouseMoved', corner.x, corner.y);
+    await waitFor(`hoveredId===null`);
     await typeIn(CASES.docs.query);
     check('a search typed in the Graph lights its matches and is the typed anchor', await shows(LIT_DOTS, CASES.docs.lit) && same((await parts()).anchor, 'query:typing'), await parts());
     let unlit = null;
