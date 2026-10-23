@@ -38,6 +38,7 @@ const PAGE_GLOBALS = [
   'settingsUi',
   'shownCardIds',
   'state',
+  'storageKey',
   'todosUi',
   'toast',
   'writeSearch',

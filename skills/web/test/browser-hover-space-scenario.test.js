@@ -54,7 +54,7 @@ test('the text each Space writes is what the Hierarchy\'s defaults give, and wha
   assert.strictEqual(hoverShowTerms(['hpath'].concat(kinds), board.first), board.tickedText, 'a set ticked in the panel is written in the panel\'s order');
   assert.strictEqual(hoverShowTerms(kinds, graph.dot), graph.text);
   assert.strictEqual(hoverShowTerms(kinds, graph.focused), graph.focusedText);
-  assert.strictEqual(hoverShowTerms(hoverShowDefaults().flow, flow.dot), flow.text);
+  assert.strictEqual(hoverShowTerms(flow.kinds, flow.dot), flow.text);
 });
 
 test('on the Board the cards each text names are the cards the scenario expects lit, among the cards the Board draws', () => {
@@ -76,11 +76,14 @@ test('in the Graph the dot\'s text lights its card and its one-hop relations, an
   assert.ok(!graph.lit.every((id) => id === graph.focused) && graph.lit.includes(graph.focused), 'the focused card is one of the lit, so Ctrl+Space narrows the selection to it alone');
 });
 
-test('in the Flow the dot is a card the plan board has, and its text is the Flow\'s own default, the same two sets as the Hierarchy\'s', () => {
+test('in the Flow the dot is a card the plan board has, and its text is the choice the Flow was given, which is not the Hierarchy\'s', () => {
   const b = plan();
-  const { flow, board } = space.CASES;
+  const { flow, board, graph } = space.CASES;
   assert.ok(b.liveIds.has(String(flow.dot)));
-  assert.strictEqual(flow.text, hoverShowTerms(hoverShowDefaults().hierarchy, flow.dot));
+  assert.strictEqual(flow.text, hoverShowTerms(flow.kinds, flow.dot));
+  assert.notDeepStrictEqual(flow.kinds, hoverShowDefaults().hierarchy);
+  assert.notStrictEqual(flow.text, hoverShowTerms(hoverShowDefaults().hierarchy, flow.dot), 'the Flow\'s text tells its choice from the Hierarchy\'s');
+  assert.strictEqual(graph.text, hoverShowTerms(hoverShowDefaults().hierarchy, graph.dot), 'the Hierarchy\'s own text, checked after the Flow\'s');
   assert.strictEqual(flow.dot, board.second);
 });
 
@@ -112,11 +115,11 @@ test('run against a stand-in page, the scenario opens the Board, the Graph and t
   const { page, log } = standIn();
   await space.run(page);
   assert.deepStrictEqual(log.bad, []);
-  assert.deepStrictEqual(log.opened, ['/?view=board', '/?view=graph', '/?view=graph&graph=flow']);
+  assert.deepStrictEqual(log.opened, ['/?view=board', '/?view=graph', '/?view=graph&graph=flow', '/?view=graph&graph=hierarchy']);
   assert.ok(log.checks.every(([, ok]) => ok === true), 'every check is made on a boolean the page answers');
   assert.deepStrictEqual(log.keys, [
     [' ', {}], [' ', { shift: true }], [' ', {}], [' ', { shift: true }], [' ', {}], ['a', {}], [' ', {}], [' ', { shift: true }], [' ', {}],
-    [' ', {}], [' ', { ctrl: true }], [' ', {}], [' ', {}],
+    [' ', {}], [' ', { ctrl: true }], [' ', {}], [' ', {}], [' ', {}],
   ]);
   assert.deepStrictEqual(log.sent, [['Input.insertText', { text: space.CASES.board.typed }]]);
 });
@@ -133,6 +136,7 @@ test('every line of the ticket has a check of its own in the scenario', () => {
     'and isolate stays on',
     'Ctrl+Space on a focused dot selects its card alone',
     'and Space on it is the write again, with the focused card standing for the hover',
-    'in the Flow Space writes its own choice, dlinks and hlinks',
+    'in the Flow Space writes its own choice, dtree and dlinks, not the Hierarchy',
+    'and the Hierarchy still writes its own choice, unchanged by the Flow',
   ]) assert.ok(src.includes(text), text);
 });
