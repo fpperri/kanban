@@ -111,11 +111,9 @@ test('Esc stops the browser\'s own Esc with isolate on, in the step that ends th
   assert.doesNotMatch(isolateSrc, /isolateEscapeKeepsBox/, 'the second reading of the key guard is gone');
 });
 
-test('a click on empty space and a click on a Graph card leave what isolate wrote', () => {
+test('a click on empty space leaves what isolate wrote, and a click on a card writes nothing while isolate is on', () => {
   assert.match(appSrc.match(/function onClickAway\([\s\S]*?\n\}/)[0], /if \(isolateNow\(\)\) return;/);
-  const click = graphViewSrc.match(/function graphClickNode\([\s\S]*?\n\}/)[0];
-  assert.match(click, /if \(boxMirrorsSelection\(\)\) mirrorSelectionInBox\(before, false\);/);
-  assert.doesNotMatch(click, /writeSearch/, 'while isolated the click writes nothing: the only write is the mirror, which is off while isolate is on');
+  // A click on a Graph card or a Board card while isolated writes nothing: box-mirror-wiring.test.js runs it in the page.
 });
 
 test('the keystroke handler leaves the isolate text\'s leading # alone, and nothing else reads the strip', () => {
@@ -177,9 +175,8 @@ test('each checkbox is a checkbox that never clears a selection, holds no poll, 
   assert.notStrictEqual(attr(typing.match(/<div[^>]*>/)[0], 'data-keeps-selection'), null);
 });
 
-test('the script wires the group once, reads and writes the choice through the page\'s preferences, and the stylesheet draws it', () => {
-  assert.match(isolateSrc, /\$\('#search-typing'\)\.addEventListener\('change', onTypingIsolatesChange\)/);
-  assert.match(code(isolateSrc), /setTypingIsolates\(box\.dataset\.typingView, box\.checked\)/);
+test('the boxes show the choice on every repaint, and the stylesheet draws the group', () => {
+  // A change of a box sets the choice of its view: isolate.test.js fires it in the page.
   assert.match(code(isolateSrc), /typingIsolatesIn\(box\.dataset\.typingView\)/);
   assert.match(css, /\.search-typing \{/);
   assert.match(read('search-panel.js'), /syncTypingIsolates\(\);/, 'every repaint of the board keeps the boxes right');

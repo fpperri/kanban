@@ -59,6 +59,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard(), typing =
   elements['#search-pills'] = control();
   elements['#graph-view'] = control();
   elements['#isolate-switch'] = spied();
+  elements['#search-typing'] = control();
   elements['#search-chip'] = spied(hidden());
   elements['#search-panel-toggle'] = spied();
   elements['#search-pills-fold'] = spied();
@@ -1087,7 +1088,7 @@ test('a pill typing started on the Board filters it again after a trip to the Gr
 
 test('the Typing isolates choice of a view is set by its checkbox, kept per board, and read back', async () => {
   const s = await open({ typing: true });
-  const change = (view, checked) => s.page.run(`onTypingIsolatesChange({ target: { closest: () => ({ dataset: { typingView: '${view}' }, checked: ${checked} }) } })`);
+  const change = (view, checked) => s.elements['#search-typing'].fire('change', { target: { closest: () => ({ dataset: { typingView: view }, checked }) } });
   assert.strictEqual(s.page.run("typingIsolatesIn('board')"), true);
   assert.strictEqual(s.page.run("typingIsolatesIn('graph')"), false);
   change('board', false);

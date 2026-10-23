@@ -538,10 +538,12 @@ test('Esc in the box reaches the same end: it clears the box, the `slice:` run i
   assert.deepStrictEqual(s.state().ids, []);
 });
 
-test('the last Esc stage reads the Esc decision (escapeStage) and clears through the one clear', () => {
-  const body = fn('stepSelectionBack');
-  assert.match(body, /escapeStage\(now, \$\('#search-input'\)\.value\)/);
-  assert.match(body, /stage === 'box'\) \{ clearSearch\(\); return; \}/);
+test('the last Esc stage clears the box through the one writer, with the reason clear, and tells its listeners', () => {
+  const s = escapeSandbox({ value: 'slice:objective..2 tags:next-up', selected: [], active: 'body' });
+  const told = [];
+  vm.runInContext('searchWriteListeners', s).push((text, reason) => told.push([text, reason]));
+  s.escapeStep();
+  assert.deepStrictEqual(told, [['', 'clear']]);
 });
 
 test('while focus is in a text field other than the search box, or a select, the Esc step touches neither the selection nor the box', () => {
