@@ -3535,7 +3535,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // of the slice section, the Ctrl+F prefill, a ?q= link, the isolate switch (and its menu entries
 // and key), a click on a card in the Graph, and the step down the selection (Esc, a double click
 // on empty space) all come through writeSearch(text, reason). The reasons are 'typing', 'clear',
-// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'prefill' and 'selection'. A write that carries a
+// 'cue', 'pill', 'unpill', 'slice', 'isolate', 'link', 'prefill', 'selection' and 'hover' (Space
+// on a hovered card writes its sets as typing writes, but never turns isolate on: it is not among
+// ISOLATING_REASONS, selection.js). A write that carries a
 // query the person made (typing, a pill, a cue, a link) turns isolate on first where the view's
 // Typing isolates is on (typingTurnsIsolateOn, selection.js; isolateFromTyping, isolate.js). It sets the
 // box, repaints the board, then tells each listener (text, reason). Code that
@@ -3625,7 +3627,7 @@ function selectionFollowingBox(selection) {
   const isolated = isolateNow() !== null;
   if (reason === 'slice') return loadViewMode() === 'graph' && !isolated && isTypedAnchor(selection) ? selectionAfterTyping(selection, text) : selection;
   const followed = loadViewMode() === 'graph' && !isolated ? selectionAfterTyping(selection, text) : selection;
-  if (reason !== 'typing' && reason !== 'clear') return followed;
+  if (reason !== 'typing' && reason !== 'clear' && reason !== 'hover') return followed;
   return selectionAfterBoxEdit({ selection: followed, rangeStart: selectionState.rangeStart }, text, searchHasAlt).selection;
 }
 
@@ -6343,8 +6345,7 @@ function exploreIntoBox(kind, e) {
   if (menuSubject.clicked == null) return;
   const input = $('#search-input');
   const term = `${kind}:${window.kanbanIds.idKey(menuSubject.clicked) ?? menuSubject.clicked}`;
-  const text = e && e.shiftKey ? searchAddAlt(input.value, term) : searchJoinSlice(term, searchSplitSlice(input.value).slices);
-  writeSearch(text, 'typing');
+  writeSearch(searchWithTerms(input.value, term, !!(e && e.shiftKey)), 'typing');
 }
 
 // Bulk archive asks WHERE before it moves anything (ADR 0010): the

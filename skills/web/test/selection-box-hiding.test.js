@@ -69,3 +69,8 @@ test('a write that carries no query, or lands while isolate is on, turns nothing
   assert.strictEqual(typingTurnsIsolateOn({ reason: 'typing', text: 'zephyr', isolated: true, setting: true }), false);
   assert.strictEqual(typingTurnsIsolateOn({ reason: 'typing', text: 'zephyr', isolated: false, setting: undefined }), false, 'a setting that is not known is off');
 });
+
+test('Space on a hovered card writes the box for the reason hover, which never turns isolate on', () => {
+  assert.ok(!ISOLATING_REASONS.includes('hover'));
+  for (const setting of [true, false]) assert.strictEqual(typingTurnsIsolateOn({ reason: 'hover', text: 'dlinks:12 | hlinks:12', isolated: false, setting }), false, `Typing isolates ${setting}`);
+});

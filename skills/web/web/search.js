@@ -572,6 +572,14 @@ function searchAddAlt(raw, term) {
   return fresh.length ? searchJoinSlice(searchAltsText(have.concat(fresh)), slices) : text;
 }
 
+// The box after a pick writes `terms` (the text of one or more alternatives): they replace what the
+// box held but for its run of slices, or with `add` join it as more alternatives (searchAddAlt), so an
+// empty box takes them either way. Explore's Path and Tree and Space on a hovered card write this way.
+function searchWithTerms(raw, terms, add) {
+  const text = String(raw == null ? '' : raw);
+  return add ? searchAddAlt(text, terms) : searchJoinSlice(terms, searchSplitSlice(text).slices);
+}
+
 // Takes `term` out of the box as the alternative it is, whatever else the box
 // holds. Only a whole alternative goes: a term inside a longer one stays. What is
 // left is written as it would have been before the term was added, and a text
@@ -930,7 +938,7 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
-    searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchRemoveAlt, searchRemoveGrownAlt,
+    searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchWithTerms, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
     searchIsolateText, searchIsolateBox, searchIsolateRestore,
   };
@@ -946,6 +954,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.searchBracket = searchBracket;
   window.searchHasAlt = searchHasAlt;
   window.searchAddAlt = searchAddAlt;
+  window.searchWithTerms = searchWithTerms;
   window.searchRemoveAlt = searchRemoveAlt;
   window.searchRemoveGrownAlt = searchRemoveGrownAlt;
   window.searchSplitSlice = searchSplitSlice;

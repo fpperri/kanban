@@ -71,8 +71,15 @@ function hoverShowTiles(kinds, cards, id, ctx) {
   return tiles;
 }
 
+// The terms Space writes for a card: one per ticked set, as alternatives, in the panel's order
+// (`dlinks:12 | hlinks:12`), and empty when none is ticked. `key` is the card's id as the search
+// writes it (`12`, or `kanban#12` on a board with prefixed ids).
+function hoverShowTerms(kinds, key) {
+  return hoverShowList(kinds).map((kind) => `${kind}:${key}`).join(' | ');
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { HOVER_SHOW_KINDS, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles };
+  module.exports = { HOVER_SHOW_KINDS, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms };
 } else {
   window.HOVER_SHOW_KINDS = HOVER_SHOW_KINDS;
   window.HOVER_SHOW_GRAPHS = HOVER_SHOW_GRAPHS;
@@ -82,4 +89,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.hoverShowGraph = hoverShowGraph;
   window.hoverShowIds = hoverShowIds;
   window.hoverShowTiles = hoverShowTiles;
+  window.hoverShowTerms = hoverShowTerms;
 }

@@ -1152,7 +1152,7 @@ to `127.0.0.1` only.
   the page answers, each with what it does, and shows the state it is in for the keys that have
   one: `names: relevant` (the tier fan's names option), `slice: all` or the cut the box holds,
   `pill: off` or the pills that are on, `isolate: off` and `panel on focus: on`. The keys are
-  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
+  `/`, `Ctrl/Cmd+F`, `Esc`, `Enter`, `Space`, `Shift+Space`, `Ctrl+Space`, `Ctrl/Cmd+S`, `Alt+Enter`, `n`, `e`, `a` and `d d`, `t`, `Space` `e` `c` `d d` `Alt+Up` `Alt+Down` `Tab` `Shift+Tab` on a todo item, `Alt+1` `Alt+2` `Alt+3` `Alt+4`, `Tab` and `Shift+Tab`, `Ctrl+M`, `Ctrl+B` `Ctrl+I` `Ctrl+U` `Alt+S` `Ctrl+E` `Ctrl+K`, `Ctrl+Shift+7` `Ctrl+Shift+8` `Ctrl+Shift+.`, `Ctrl+Shift+D`, `Ctrl/Cmd+Shift+V`, `l`, `[` `]` `{` `}`,
   `Menu` and `Shift+F10` on a focused slice entry, `m` and `Shift+m`, `i`, `p` and `?`. The
   list is `hotkeys.js`, the one list, and a unit test reads the page's own key handlers and
   fails when a handler reads a key the list lacks, or the list names a key no handler reads.
@@ -1619,7 +1619,22 @@ to `127.0.0.1` only.
   The sets are worked out from the whole board, archived cards included, and the Graph lights those it draws.
   With the defaults the Graph lights what it lit before: in the Hierarchy a card and its parent, its children and
   the cards it waits for or that wait for it, in the Flow the card and the cards its dependencies join to it. The
-  snapshot has no hover and no such section.
+  snapshot has no hover and no such section. **Space takes the hover**: `onHoverSpaceKey` (`hover-show-ui.js`), one
+  `keydown` listener on the document that reads the whole key guard (`keyGuardDetailOff`: off in a field, behind a
+  menu, a dialog, the notifications panel, the preferences sheet or the notes palette), leaves a target that answers
+  Space itself (`HOVER_SPACE_OWN`: an input, textarea, select, button, link, summary, contenteditable, or a
+  `button`, `checkbox`, `switch` or `tab` role), and a key a handler already took (a todo item's tick). `hotkeySpace`
+  (`hotkeys.js`, pure) reads the chord: Space is `write`, Shift+Space `add`, Ctrl or Cmd with Space `select`, any other
+  chord and a held key none. The card is `hoveredId`, else the one with the focus (`hoverSpaceSubject`); the text is
+  `hoverShowTerms` (`hover-show.js`: one `kind:id` per ticked set, in the panel's order, joined by ` | `) put in the
+  box by `searchWithTerms` (`search.js`, which Explore's Path and Tree use too): it replaces what the box held but for
+  its run of slices, or with Shift joins it as more alternatives (`searchAddAlt`), and an empty box takes it either way.
+  The write is `writeSearch(text, 'hover')`. `hover` is a write reason of its own, not one of `ISOLATING_REASONS`
+  (`selection.js`), so it never turns isolate on whatever the view's Typing isolates says, and `selectionFollowingBox`
+  treats it as a write by hand: in the Graph the written terms are the typed anchor, and a pill the box no longer
+  holds goes off. With no card, or no set ticked, nothing is written and the key is not prevented. In the Graph
+  `Ctrl+Space` (or Cmd) on a focused dot is the selection (`wireGraphView`'s `keydown`, which reads `hotkeySpace`),
+  what Space was before.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
   delete and clear-all; Delete's confirmation is the delete popup, which also says what goes
@@ -2375,7 +2390,7 @@ to `127.0.0.1` only.
   action has no cards to act on. Back in the Graph with the box unchanged and nothing
   selected, its matches light again; a selection carried in from another view stays, and
   the box has no effect in the Graph until it is edited. **Double-click** (or **Enter** on
-  a focused dot; **Space** selects) opens the card. The Graph is a deliberate exception to
+  a focused dot) opens the card, and **Ctrl+Space** on a focused dot selects it, as a click does. The Graph is a deliberate exception to
   "click opens" (ADR 0006): a click makes the dot's card the anchor of a new selection, and
   shift+click or ctrl/cmd+click adds one card or takes it out (the layout has no reading
   order, so there is no range). Every dot carries `.card-el` and `data-id`, so right-click
@@ -2414,12 +2429,12 @@ to `127.0.0.1` only.
   folds into the strip when none of its cards with a dependency is open (every such card is done), and the strip then reads `no open dependency`; a lane whose open cards wait only on done cards
   stays, since those cards are ready now. With all no lane folds. A card with no dependency is in no lane but in the strip, so a lane's card count is the cards drawn in it
   (`header.count`), not every card under its lane card. A header is its card's node: a `.graph-node.card-el.graph-flow-lane-head` with the card's `data-id` and `tabindex` 0, drawn after the arrows and before the dots,
-  so every handler of the dots (click, Shift/Ctrl-click, double-click, Enter, Space, hover and focus lighting, the card menu) takes it for that card, with the same items;
+  so every handler of the dots (click, Shift/Ctrl-click, double-click, Enter, Ctrl+Space, hover and focus lighting, the card menu) takes it for that card, with the same items;
   `graphCur.headEls` holds the headers by card, and a header and the dot of its card are lit and selected together. It is not a second dot: the card keeps its one dot. An **arrow** runs from the card waited for to the card that waits, leaving to the right
   and arriving from the left with its head at the rim; a dot keeps its status colour and its type mark, grows with the waits it is in (a parent
   does not enlarge it), and is faded in frontier when done or archived. A loop, a card that waits for itself and a chain of any
   length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,
-  selection, the card menu, double-click, Enter, Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
+  selection, the card menu, double-click, Enter, Ctrl+Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
   that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. A lone selected card lights the card with the cards its **dependencies** join to it, not its parent or children, and hover and focus
   light what the Flow's *On hover show* ticks (`dlinks` alone by default, so the same cards), and the lit lines are the arrows. A dot
   cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
