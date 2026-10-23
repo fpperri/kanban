@@ -1546,7 +1546,7 @@ to `127.0.0.1` only.
   calendar a run cut at a week boundary is two chips, and the card's own deadline chip is
   a third on a different day — this is the only way to see a card's whole extent at a
   glance. A background wash (`hoveredId`, app.js, one id — never a Set, only one card is
-  hovered/focused at a time), a different tone from selection's own wash (`--accent-soft`) so the two
+  hovered/focused at a time; the cards that take the wash are the Set `hoverLit`, see **On hover show**), a different tone from selection's own wash (`--accent-soft`) so the two
   never read alike, and never an outline, so a selected card stays reading as selected
   while hovered. Applies everywhere `.selected` does (board tiles, archived tiles,
   calendar chips on the month grid AND the sub-month grids, gantt bars and their gutter
@@ -1570,6 +1570,31 @@ to `127.0.0.1` only.
   highlight forward on its own: every render call site reads `hoveredId` the same way it
   already reads `selectedIds`, so a poll landing under a stationary pointer doesn't lose
   the highlight the way a naive `:hover`-only or event-only approach would.
+- **On hover show** — under the search panel's foot, a `fieldset#search-hover` of six checkboxes
+  (`input[data-hover-kind]`: `dtree`, `htree`, `dpath`, `hpath`, `dlinks`, `hlinks`) chooses which sets a
+  hover or a keyboard focus lights; the legend carries `#search-hover-for`, which says whose choice the
+  boxes show (`Flow`, or `Hierarchy and the other views`). The panel is `hover-show-ui.js`
+  (`syncHoverShowPanel` on every repaint, one delegated `change` that calls `hoverShowPick`) and the choice and the
+  union are `hover-show.js`, pure, with no DOM, on the dual-environment pattern: `mergeHoverShow`,
+  `hoverShowWith`, `hoverShowGraph`, `hoverShowIds` (the union of the sets for a card, through the Explore sets
+  of `explore-sets.js`, so `dlinks` and `hlinks` too) and `hoverShowTiles`. The choice is one list of sets per
+  graph kind, `{ "hierarchy": [...], "flow": [...] }`, kept per board in `localStorage` under `hover.show`; a
+  value this version does not offer, a set it does not know and storage that refuses read as the default,
+  an empty list is a choice (nothing ticked). The defaults are what each view lit before the choice
+  existed: the Hierarchy `dlinks` and `hlinks`, the Flow `dlinks` alone. `hoverShowGraph` names the kind a
+  view reads: the Flow's in the Graph's Flow, the Hierarchy's in the Hierarchy and in every view that is not
+  the Graph (the Board, the Map, the Calendar and the Gantt), whatever layout the Graph last showed. `hoverLit` is
+  the Set of ids the renderers read through `isHoverHighlighted`, null when nothing is hovered, and `syncHoverLit`
+  keeps it in step with `hoveredId`, at every `setHoveredId` and every `renderBoard`, and `refreshHover` after a
+  box is ticked. Outside the Graph it is the hovered card and the union (`hoverShowTiles`), and
+  `applyHoverHighlight` gives each card of it the wash in one pass over the cards on the page, not one query per
+  id. In the Graph the hover ring stays on the hovered card alone (`hoverLit` holds that card), and
+  `graphSetFocus` lights the union with `graphLit`, dimming the rest, in place of the one-hop relations it lit
+  before; with nothing ticked the union is empty and the Graph lights what it lights when the pointer is on no card.
+  The sets are worked out from the whole board, archived cards included, and the Graph lights those it draws.
+  With the defaults the Graph lights what it lit before: in the Hierarchy a card and its parent, its children and
+  the cards it waits for or that wait for it, in the Flow the card and the cards its dependencies join to it. The
+  snapshot has no hover and no such section.
 - **Speedbumps** — every destructive action confirms first, naming its object: archive,
   delete, bulk archive/delete (one confirm per batch, with the count), notification
   delete and clear-all; Delete's confirmation is the delete popup, which also says what goes
@@ -2299,8 +2324,8 @@ to `127.0.0.1` only.
   and relations sits in the header; a board with nothing to draw says "No cards to show".
   **Lighting.** The Graph dims everything but what is lit, and one dimming serves the
   pointer, a lone card, a selection and a search typed in the box. **Hover or keyboard
-  focus** on a dot lights that card and the cards it has a relation with, with the lines
-  between them, until the pointer leaves. **Click** a dot to select it (painted in place,
+  focus** on a dot lights the sets *On hover show* ticks for that card (by default the card and the cards it has a
+  relation with), with the lines between them, until the pointer leaves. **Click** a dot to select it (painted in place,
   so a double click is not interrupted by a rebuild): a **lone card** picked by a click
   stays lit with its one-hop relations after the pointer leaves, and the relations light
   without being selected; hovering another dot shows that one's relations until the
@@ -2370,8 +2395,8 @@ to `127.0.0.1` only.
   does not enlarge it), and is faded in frontier when done or archived. A loop, a card that waits for itself and a chain of any
   length never hang the drawing (the strongly connected parts are cut first, iteratively). Search lighting, the status pills, `slice:` cuts, isolate,
   selection, the card menu, double-click, Enter, Space and the zoom work as in Hierarchy, on the same dots (`.graph-node.card-el[data-id]`): the cards
-  that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. Hover, focus and a
-  lone selected card light the card with the cards its **dependencies** join to it, not its parent or children, and the lit lines are the arrows. A dot
+  that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. A lone selected card lights the card with the cards its **dependencies** join to it, not its parent or children, and hover and focus
+  light what the Flow's *On hover show* ticks (`dlinks` alone by default, so the same cards), and the lit lines are the arrows. A dot
   cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
   and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, frontier and lanes off. The address carries them as
   `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;
