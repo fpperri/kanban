@@ -247,8 +247,9 @@ module.exports = {
     await ev(`document.getElementById('search-clear-btn').click()`);
     check('and the clear button empties the box and leaves the card picked', await boxIs('') && await pickedIs([CASES.dated.card]));
     await press('calendar-toggle-btn');
-    const [year, monthIndex] = await ev(`(()=>{const d=new Date();return [d.getFullYear(),d.getMonth()]})()`);
-    check('the Calendar opens on the page\'s own current month, whatever is selected', await titleIs('calendar', monthName(year, monthIndex)), await titleOf('calendar'));
+    // A view switch with a card picked says it in the box, and the Calendar entered with a query whose matches are off screen
+    // pages to the nearest one, so it opens on the card's month and not on the current one.
+    check('the Calendar entered with the card picked writes it into the box and opens on its month', await boxIs(`#${CASES.dated.card}`) && await titleIs('calendar', CASES.dated.month), { box: await boxText(), title: await titleOf('calendar') });
     await blur();
     await key('i');
     check('isolating the card dated in 2031, in the Calendar\'s month view, jumps to its month', await titleIs('calendar', CASES.dated.month), await titleOf('calendar'));
@@ -350,5 +351,6 @@ module.exports = {
     await ev(`(async()=>{await autoRefreshTick();})()`);
     check('the card appears on the Board after the next poll, and the box is as it was', await shows(SELECTORS.board, sorted(...CASES.pill.cards, CASES.tagged)) && (await boxText()) === CASES.pill.query, await nowShown(SELECTORS.board));
     await ev(`localStorage.removeItem('kanban.plan.prefs')`);
+    await ev(`localStorage.removeItem('kanban.plan.typing.isolates')`);
   },
 };

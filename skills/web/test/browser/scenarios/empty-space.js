@@ -163,6 +163,7 @@ module.exports = {
     check('and the chip goes off', await waitFor(`document.getElementById('search-chip').classList.contains('hidden')`) && (await chip()).hidden, await chip());
     check('and the Board shows every card again', await waitFor(`new Set([...document.querySelectorAll('#board .card-el')].map((e)=>e.dataset.id)).size===${shownBefore}`), { shownBefore });
     await ev(`localStorage.removeItem('kanban.fixture.prefs')`);
+    await ev(`localStorage.removeItem('kanban.fixture.typing.isolates')`);
 
     // --- a search typed in the Graph is the anchor there ----------------------------------------------
     await open('/?view=graph');
