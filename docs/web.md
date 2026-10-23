@@ -182,6 +182,8 @@ drawn: brackets, the default, draws for each parent and each ring its children s
 bracket from the first of them to the last, in the order the Order option shows, with a tick to each child and one line up
 to the parent, and prints the number of children on it; a child alone on its ring keeps a
 plain line. Lines gives each child its own line. With Lines off there is nothing to group.
+A bracket's line up to the parent meets the arc in a gap between two children, never at a child's angle, the gap nearest the
+parent whose line keeps clear of every other card's mark, and the count sits in the free gap nearest it.
 Names puts a card's title on the fan: relevant, the default, names the
 selection, what it lights and the highest parents, all names every card and none names
 no card; the l key steps through them. A parent's name sits beside its ring; every other

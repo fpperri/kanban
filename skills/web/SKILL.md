@@ -2343,7 +2343,10 @@ to `127.0.0.1` only.
   on its ring keeps a plain line; **lines** gives each child its own line. With Lines off there is nothing to group:
   the Group buttons stay shown and change nothing. A bracket is drawn heavier and brighter than the ring guides, its
   arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so
-  neighbours never meet. A choice kept by an older version still reads as it drew: the retired
+  neighbours never meet. A bracket's stem is one straight line from the parent to the middle of a gap between two
+  neighbouring children, never to a child's angle: it takes the gap nearest the parent's angle whose line keeps clear of
+  every other card's mark, the next nearest when a mark is in the way, and the count sits in the free gap nearest the
+  stem, beside the stem's end when no other gap is wide enough. A choice kept by an older version still reads as it drew: the retired
   value folded as chain with brackets, and a stored chain or all as that value with Group lines. **Dependencies** are
   on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
   **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map

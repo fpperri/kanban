@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const {
-  graphLayout, graphPlan, graphLit, graphRestLit,
+  graphLayout, graphPlan, graphLit, graphRestLit, graphFanLines, graphFanBus, graphFanMarks, graphRadius,
+  GRAPH_FAN_REACH, GRAPH_FAN_BUS_BESIDE, GRAPH_FAN_STEM_MARGIN,
 } = require('../web/graph-model');
 const { card, buildOf } = require('./helpers/fan-boards');
 
@@ -219,33 +220,136 @@ test('a bracket is one arc from the first child to the last, a tick to each chil
   }
 });
 
-test('the stem runs along its parent\'s own ray when the parent stands among its children', () => {
+// The stem of a counted line: its two ends, the parent's and the arc's.
+const stemOf = (line) => {
+  const m = new RegExp(`^M(${NUM}) (${NUM})L(${NUM}) (${NUM})`).exec(line.d);
+  return { px: Number(m[1]), py: Number(m[2]), ex: Number(m[3]), ey: Number(m[4]) };
+};
+const toSegment = (s, x, y) => {
+  const dx = s.ex - s.px;
+  const dy = s.ey - s.py;
+  const t = Math.max(0, Math.min(1, ((x - s.px) * dx + (y - s.py) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(s.px + dx * t - x, s.py + dy * t - y);
+};
+const midsOf = (layout, ids) => {
+  const a = ids.map((id) => layout.polar.get(id).a).sort((x, y) => x - y);
+  return a.slice(1).map((v, i) => (v + a[i]) / 2);
+};
+
+test('the stem of a parent among its children meets the arc in the gap nearest its angle, never on a child', () => {
   const { layout, plan } = withLines(seated(), {}, 'rank');
   const line = plan.links.find((l) => l.count !== undefined);
-  const kids = ['2', '3', '4', '5'].map((id) => layout.polar.get(id).a);
+  const kids = ['2', '3', '4', '5'].map((id) => layout.polar.get(id).a).sort((x, y) => x - y);
   const parent = layout.polar.get('1').a;
-  assert.ok(parent >= Math.min(...kids) - 1e-6 && parent <= Math.max(...kids) + 1e-6, 'a parent stands among its children here');
-  const stem = new RegExp(`^M${NUM} ${NUM}L(${NUM}) (${NUM})`).exec(line.d);
-  assert.ok(same(angleOf(Number(stem[1]), Number(stem[2])), parent));
+  assert.ok(parent >= kids[0] - 1e-6 && parent <= kids[3] + 1e-6, 'a parent stands among its children here');
+  const s = stemOf(line);
+  const end = angleOf(s.ex, s.ey);
+  const nearest = midsOf(layout, ['2', '3', '4', '5']).sort((x, y) => Math.abs(x - parent) - Math.abs(y - parent))[0];
+  assert.ok(same(end, nearest), 'the stem ends at the middle of the gap nearest the parent');
+  for (const a of kids) assert.ok(!same(end, a), 'and not at a child\'s angle');
 });
 
-test('the arc does not run on to the parent when the parent stands outside its children: the stem reaches the nearer end of the arc', () => {
+// Card 1 stands at the angle of its strategy 4, itself at the middle of its three children 5 to 7,
+// and the goal's four untyped children 2, 3, 8 and 9 are on the ring those three share: a goal's
+// stem along its own ray would run through card 4's mark and end beside card 6.
+const crossed = () => buildOf([
+  card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { type: 'strategy', parent: 1 }),
+  card(5, { parent: 4 }), card(6, { parent: 4 }), card(7, { parent: 4 }), card(8, { parent: 1 }), card(9, { parent: 1 }),
+]);
+const reachOf = (model, id) => graphRadius(model.byId.get(id)) * GRAPH_FAN_REACH;
+const countedOf = (model, layout, from) => graphFanLines(model, layout.places, { ...DEFAULTS, lines: 'all' }).find((l) => l.kids && l.from === from);
+
+test('no stem ends within a child\'s reach of a child, and every stem keeps its margin clear of every mark but its parent\'s', () => {
+  const model = crossed();
+  const { layout, plan } = withLines(model, {});
+  const brackets = plan.links.filter((l) => l.count !== undefined);
+  assert.deepStrictEqual(brackets.map((l) => [l.from, l.count]).sort(), [['1', 4], ['4', 3]]);
+  assert.ok(same(layout.polar.get('1').a, layout.polar.get('4').a) && same(layout.polar.get('4').a, layout.polar.get('6').a), 'cards 1, 4 and 6 stand on one ray');
+  for (const l of brackets) {
+    const s = stemOf(l);
+    for (const k of countedOf(model, layout, l.from).kids) {
+      const at = layout.pos.get(k);
+      assert.ok(Math.hypot(s.ex - at.x, s.ey - at.y) >= reachOf(model, k), `card ${l.from}'s stem ends within card ${k}'s reach`);
+      assert.ok(!same(angleOf(s.ex, s.ey), layout.polar.get(k).a), `card ${l.from}'s stem ends at card ${k}'s angle`);
+    }
+    for (const n of model.nodes) {
+      if (n.id === l.from) continue;
+      const at = layout.pos.get(n.id);
+      assert.ok(toSegment(s, at.x, at.y) >= reachOf(model, n.id) + GRAPH_FAN_STEM_MARGIN - 1e-6, `card ${l.from}'s stem passes too close to card ${n.id}`);
+    }
+  }
+});
+
+test('a stem takes the nearest gap whose line is clear, and the next nearest when a mark is in the way', () => {
+  const model = crossed();
+  const { layout } = withLines(model, {});
+  const line = countedOf(model, layout, '1');
+  const parent = layout.polar.get('1').a;
+  const free = stemOf(graphFanBus(layout, line, false, []));
+  assert.ok(same(angleOf(free.ex, free.ey), parent), 'with nothing in the way the nearest gap is the one on the parent\'s own ray');
+  const around = stemOf(graphFanBus(layout, line, false, graphFanMarks(model, layout)));
+  const second = midsOf(layout, line.kids).sort((x, y) => Math.abs(x - parent) - Math.abs(y - parent))[1];
+  assert.ok(same(angleOf(around.ex, around.ey), second), 'card 4\'s mark blocks that gap, so the stem takes the second nearest');
+});
+
+test('a bracket with no clear gap takes the nearest gap', () => {
+  const model = crossed();
+  const { layout } = withLines(model, {});
+  const wall = [{ id: 'wall', x: 0, y: 0, clear: 1e6 }];
+  const s = stemOf(graphFanBus(layout, countedOf(model, layout, '1'), false, wall));
+  assert.ok(same(angleOf(s.ex, s.ey), layout.polar.get('1').a));
+});
+
+test('the arc does not run on to the parent when the parent stands outside its children: the stem reaches the gap nearer to it', () => {
   const model = buildOf([
-    card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { type: 'strategy', parent: 1 }),
-    card(5, { parent: 4 }), card(6, { parent: 4 }), card(7, { parent: 4 }), card(8, { parent: 4 }),
+    card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 }), card(4, { parent: 1 }), card(5, { type: 'strategy', parent: 1 }),
+    card(6, { parent: 5 }), card(7, { parent: 5 }), card(8, { parent: 5 }), card(9, { parent: 5 }),
   ]);
   const { layout, plan } = withLines(model, {});
   const line = plan.links.find((l) => l.count !== undefined && l.from === '1');
-  assert.strictEqual(line && line.count, 2, 'cards 2 and 3 share a ring');
-  const kids = [layout.polar.get('2').a, layout.polar.get('3').a];
+  assert.strictEqual(line && line.count, 3, 'cards 2 to 4 share a ring');
+  const kids = ['2', '3', '4'].map((id) => layout.polar.get(id).a).sort((x, y) => x - y);
   const parent = layout.polar.get('1').a;
-  assert.ok(parent < Math.min(...kids) - 0.01 || parent > Math.max(...kids) + 0.01, 'card 4 and its children push the parent off the span of cards 2 and 3');
-  const stem = new RegExp(`^M${NUM} ${NUM}L(${NUM}) (${NUM})`).exec(line.d);
-  const near = parent < Math.min(...kids) ? Math.min(...kids) : Math.max(...kids);
-  assert.ok(same(angleOf(Number(stem[1]), Number(stem[2])), near), 'the stem ends on the arc at its nearer end');
+  assert.ok(parent < kids[0] - 0.01 || parent > kids[2] + 0.01, 'card 5 and its children push the parent off the span of cards 2 to 4');
+  const near = midsOf(layout, ['2', '3', '4']).sort((x, y) => Math.abs(x - parent) - Math.abs(y - parent))[0];
+  const s = stemOf(line);
+  assert.ok(same(angleOf(s.ex, s.ey), near), 'the stem ends in the gap nearer the parent');
   const arc = new RegExp(`A${NUM} ${NUM} 0 \\d \\d (${NUM}) (${NUM})`).exec(line.d);
   const start = new RegExp(`L(${NUM}) (${NUM})A`).exec(line.d);
-  assert.ok(same(angleOf(Number(start[1]), Number(start[2])), Math.min(...kids)) && same(angleOf(Number(arc[1]), Number(arc[2])), Math.max(...kids)), 'and the arc spans the children alone');
+  assert.ok(same(angleOf(Number(start[1]), Number(start[2])), kids[0]) && same(angleOf(Number(arc[1]), Number(arc[2])), kids[2]), 'and the arc spans the children alone');
+});
+
+test('children all at one angle keep the stem on the parent\'s ray to the arc', () => {
+  const polar = new Map([['p', { r: 100, a: 1 }], ['a', { r: 200, a: 1.4 }], ['b', { r: 200, a: 1.4 }]]);
+  const bus = graphFanBus({ polar }, { from: 'p', kids: ['a', 'b'], count: 2 }, false, []);
+  const turn = 200 - 27;
+  const r = (v) => Math.round(v * 100) / 100;
+  assert.ok(bus.d.startsWith(`M${r(Math.cos(1) * 100)} ${r(Math.sin(1) * 100)}L${r(Math.cos(1.4) * turn)} ${r(Math.sin(1.4) * turn)}`));
+  assert.ok(Number.isFinite(bus.label.x) && Number.isFinite(bus.label.y));
+});
+
+test('the count sits in the free gap nearest the stem, never the stem\'s own gap', () => {
+  const { layout, plan } = withLines(seated(), {}, 'rank');
+  const line = plan.links.find((l) => l.count !== undefined);
+  const s = stemOf(line);
+  const mids = midsOf(layout, ['2', '3', '4', '5']);
+  const label = angleOf(line.label.x, line.label.y);
+  const stem = angleOf(s.ex, s.ey);
+  assert.ok(!same(label, stem), 'not where the stem meets the arc');
+  const others = mids.filter((m) => !same(m, stem)).sort((x, y) => Math.abs(x - stem) - Math.abs(y - stem));
+  assert.ok(same(label, others[0]), 'the middle of the gap nearest the stem');
+});
+
+test('with no other gap wide enough the count sits on the arc beside the junction, not on it', () => {
+  const { layout, plan } = withLines(buildOf([card(1, { type: 'goal' }), card(2, { parent: 1 }), card(3, { parent: 1 })]), {});
+  const line = plan.links.find((l) => l.count !== undefined);
+  const s = stemOf(line);
+  assert.ok(Math.abs(Math.hypot(line.label.x, line.label.y) - Math.hypot(s.ex, s.ey)) < 0.1, 'on the arc');
+  const apart = Math.hypot(line.label.x - s.ex, line.label.y - s.ey);
+  assert.ok(Math.abs(apart - GRAPH_FAN_BUS_BESIDE) < 0.5, `${apart} from the junction`);
+  const kids = ['2', '3'].map((id) => layout.polar.get(id).a).sort((x, y) => x - y);
+  const label = angleOf(line.label.x, line.label.y);
+  assert.ok(label > kids[0] && label < kids[1], 'still between the two children');
 });
 
 test('a child alone on its ring keeps a plain line to the parent, with no label', () => {

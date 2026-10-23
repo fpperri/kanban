@@ -668,6 +668,8 @@ const GRAPH_FAN_DIVIDER_CLEAR = 9;
 const GRAPH_FAN_BUS_IN = 27;
 const GRAPH_FAN_BUS_IN_NEAR = 14;
 const GRAPH_FAN_BUS_LABEL = 14;
+const GRAPH_FAN_BUS_BESIDE = 10;
+const GRAPH_FAN_STEM_MARGIN = 3;
 
 // How far the widest outline an icon can draw reaches from its centre, in dot
 // radii. Marks are spaced for it whatever icon a card has, so an icon moves no dot
@@ -1243,45 +1245,79 @@ function graphFanBlockPlan(block) {
 
 // The counted line of the brackets group, drawn as a bracket: one arc just inside the ring
 // the children sit on from the first child's angle to the last's, and one stem from the parent
-// along its own ray to the arc. The arc hooks at both ends: it is one stroke that runs from
-// the first child in to the arc, round it, and out to the last child; every other child has
-// a tick of its own from the arc out to it. A parent whose angle lies outside the children's
-// does not lengthen the arc: its stem reaches the nearer end of it, straight. Brackets side by
-// side on one ring would read as one line, so they alternate between two insets from the ring:
-// `near` is 0 for the far inset (GRAPH_FAN_BUS_IN short of the ring) and 1 for the near one
-// (GRAPH_FAN_BUS_IN_NEAR), which graphBracketNears hands out along the ring. All of it is
-// pieces apart from each other, so a child's mark covers the end of its tick. The label with
-// the count sits on the arc, in the gap between two neighbouring children nearest the stem,
-// knocked out of the line by the text's own halo; when no gap is wide enough it sits where the
-// stem meets the arc. The children are on one ring, so one radius serves them all.
-function graphFanBus(layout, line, near) {
+// to the arc. The arc hooks at both ends: it is one stroke that runs from the first child in to
+// the arc, round it, and out to the last child; every other child has a tick of its own from the
+// arc out to it. A parent whose angle lies outside the children's does not lengthen the arc.
+// Brackets side by side on one ring would read as one line, so they alternate between two insets
+// from the ring: `near` is 0 for the far inset (GRAPH_FAN_BUS_IN short of the ring) and 1 for the
+// near one (GRAPH_FAN_BUS_IN_NEAR), which graphBracketNears hands out along the ring. All of it
+// is pieces apart from each other, so a child's mark covers the end of its tick.
+// The stem is one straight line from the parent to the middle of a gap between two neighbouring
+// children, on the arc, never to a child's angle: a parent stands at the middle of its children,
+// so a stem along its own ray would end on the middle child's tick and read as a line from that
+// child. It takes the gap nearest the parent's angle (the nearer end, for a parent outside the
+// children's range) whose line clears every mark but its parent's, `marks` ({ id, x, y, clear }:
+// a mark's centre and its reach, graphFanMarks), by the margin GRAPH_FAN_STEM_MARGIN; if that gap
+// is blocked it falls back to the next nearest, and a bracket with no clear gap takes the nearest.
+// One child, or children all at one angle, have no gap: the stem keeps to the parent's ray.
+// The label with the count sits on the arc in the gap nearest the stem that is wide enough
+// (GRAPH_FAN_BUS_LABEL), never the stem's own, knocked out of the line by the text's own halo;
+// with no other gap wide enough it sits beside the junction, GRAPH_FAN_BUS_BESIDE along the arc
+// on the side the stem does not come from. The children are on one ring, so one radius serves
+// them all.
+function graphFanBus(layout, line, near, marks = []) {
   const at = (r, a) => `${graphRound(Math.cos(a) * r)} ${graphRound(Math.sin(a) * r)}`;
   const parent = layout.polar.get(line.from);
   const kids = line.kids.map((id) => layout.polar.get(id)).sort((x, y) => x.a - y.a);
   const ring = kids[0].r;
   const out = ring > parent.r ? 1 : -1;
   const turn = ring - out * (near ? GRAPH_FAN_BUS_IN_NEAR : GRAPH_FAN_BUS_IN);
-  const angles = kids.map((k) => k.a);
   const lo = kids[0];
   const hi = kids[kids.length - 1];
-  const stem = Math.min(hi.a, Math.max(lo.a, parent.a));
+  const spread = hi.a - lo.a > 1e-6;
+  const gaps = [];
+  for (let i = 1; i < kids.length; i++) {
+    if (kids[i].a - kids[i - 1].a > 1e-6) gaps.push({ lo: kids[i - 1].a, hi: kids[i].a, mid: (kids[i].a + kids[i - 1].a) / 2 });
+  }
+  const px = Math.cos(parent.a) * parent.r;
+  const py = Math.sin(parent.a) * parent.r;
+  const clears = (a) => {
+    const ex = Math.cos(a) * turn - px;
+    const ey = Math.sin(a) * turn - py;
+    const len2 = ex * ex + ey * ey;
+    return marks.every((m) => {
+      if (m.id === line.from) return true;
+      const t = len2 ? Math.max(0, Math.min(1, ((m.x - px) * ex + (m.y - py) * ey) / len2)) : 0;
+      return Math.hypot(px + ex * t - m.x, py + ey * t - m.y) >= m.clear + GRAPH_FAN_STEM_MARGIN;
+    });
+  };
+  const nearest = gaps.slice().sort((x, y) => Math.abs(x.mid - parent.a) - Math.abs(y.mid - parent.a));
+  const meet = nearest.find((g) => clears(g.mid)) || nearest[0];
+  const stem = meet ? meet.mid : Math.min(hi.a, Math.max(lo.a, parent.a));
   let d = `M${at(parent.r, parent.a)}L${at(turn, stem)}`;
-  if (hi.a - lo.a > 1e-6) {
+  if (spread) {
     d += `M${at(lo.r, lo.a)}L${at(turn, lo.a)}A${graphRound(turn)} ${graphRound(turn)} 0 ${hi.a - lo.a > Math.PI ? 1 : 0} 1 ${at(turn, hi.a)}L${at(hi.r, hi.a)}`;
     for (const k of kids.slice(1, -1)) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
   } else {
     for (const k of kids) d += `M${at(turn, k.a)}L${at(k.r, k.a)}`;
   }
-  const mids = [];
-  for (let i = 1; i < angles.length; i++) {
-    if ((angles[i] - angles[i - 1]) * turn > GRAPH_FAN_BUS_LABEL) mids.push((angles[i] + angles[i - 1]) / 2);
-  }
-  mids.sort((x, y) => Math.abs(x - stem) - Math.abs(y - stem));
-  const where = mids.length ? mids[0] : stem;
+  const free = gaps.filter((g) => g !== meet && (g.hi - g.lo) * turn > GRAPH_FAN_BUS_LABEL);
+  free.sort((x, y) => Math.abs(x.mid - stem) - Math.abs(y.mid - stem));
+  const where = free.length ? free[0].mid : stem + (parent.a > stem ? -1 : 1) * GRAPH_FAN_BUS_BESIDE / turn;
   return {
     d,
     label: { x: graphRound(Math.cos(where) * turn), y: graphRound(Math.sin(where) * turn), text: String(line.count) },
   };
+}
+
+// Every mark of the fan with its reach, for graphFanBus to keep a stem clear of: the centre of
+// each card and how far its mark goes from it, as the layout spaces marks (graphRadius and
+// GRAPH_FAN_REACH).
+function graphFanMarks(model, layout) {
+  return model.nodes.map((n) => {
+    const p = layout.pos.get(n.id);
+    return { id: n.id, x: p.x, y: p.y, clear: graphRadius(n) * GRAPH_FAN_REACH };
+  });
 }
 
 // Which inset each bracket takes: along one ring the brackets, in the order of their first
@@ -1390,9 +1426,10 @@ function graphPlan(model, layout, opts) {
     ? graphFanLines(model, fan.places, o.fan)
     : model.links.map((l, i) => ({ from: l.from, to: l.to, kind: l.kind, link: i })).filter((line) => kind !== 'flow' || line.kind === 'wait');
   const nears = fan ? graphBracketNears(fan, drawn) : new Set();
+  const marks = fan && drawn.some((line) => line.kids) ? graphFanMarks(model, fan) : [];
   const links = drawn.map((line) => {
     if (line.kids) {
-      const bus = graphFanBus(fan, line, nears.has(line));
+      const bus = graphFanBus(fan, line, nears.has(line), marks);
       return {
         from: line.from, to: line.to, kind: 'parent', d: bus.d, cls: 'graph-link graph-link-parent graph-link-counted', arrow: false, count: line.count, label: bus.label,
       };
@@ -1427,7 +1464,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL,
     graphBuild, graphUnnestedIds, graphRadius, graphNeighbours, graphLit, graphQueryEffect, graphRestLit,
     graphFanNames, graphFanNextNames, graphFanNameText,
-    graphFanPlace, graphFanLines, graphLayoutHierarchy, graphLayoutFlow, graphLinkPaths,
+    graphFanPlace, graphFanLines, graphFanBus, graphFanMarks, GRAPH_FAN_REACH, GRAPH_FAN_BUS_BESIDE, GRAPH_FAN_STEM_MARGIN, graphLayoutHierarchy, graphLayoutFlow, graphLinkPaths,
     graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
     graphVisibleIds, graphZoomAt, graphPlan, graphTipAt,
   };

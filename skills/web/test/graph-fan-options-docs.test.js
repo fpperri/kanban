@@ -38,6 +38,12 @@ test('the Graph section says what Lines gives a line to and what Group does with
   assert.match(text, /A choice kept by an older version still reads as it drew: the retired value folded as chain with brackets, and a stored chain or all as that value with Group lines/);
 });
 
+test('the Graph section says where a bracket\'s stem meets its arc: in a gap between two children, clear of every other mark', () => {
+  assert.match(graph(), /A bracket's stem is one straight line from the parent to the middle of a gap between two neighbouring children, never to a child's angle: it takes the gap nearest the parent's angle whose line keeps clear of every other card's mark, the next nearest when a mark is in the way, and the count sits in the free gap nearest the stem, beside the stem's end when no other gap is wide enough/);
+  assert.match(docGraph(), /A bracket's line up to the parent meets the arc in a gap between two children, never at a child's angle, the gap nearest the parent whose line keeps clear of every other card's mark, and the count sits in the free gap nearest it/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /The stem is one straight line that meets the arc in the middle of a gap between two neighbouring children, never at a child's angle/);
+});
+
 test('the Graph section says how a bracket looks: heavier than the ring guides, hooked at both ends, alternating insets along a ring', () => {
   const text = graph();
   assert.match(text, /A bracket is drawn heavier and brighter than the ring guides, its arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so neighbours never meet/);
