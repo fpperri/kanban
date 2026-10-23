@@ -2195,8 +2195,8 @@ to `127.0.0.1` only.
   arc through each further row. Each tier band that holds a card is washed in its type's
   colour (the `color:` of that type in the board's `types:` list), one **wash** across its
   whole ring, behind the lines, the dots and the captions, so the hierarchy reads as coloured
-  areas; a tier whose type has no colour gets a neutral wash, and a tier nobody is in, a depth
-  ring, the Unnested ring and the Unnested block get none. The wash takes no click: a click or
+  areas; a tier whose type has no colour gets a neutral wash, and a depth
+  ring, the Unnested ring and the Unnested block get none (a tier with no drawn card has no band, so no wash). The wash takes no click: a click or
   a double click on it is a click on empty space. A `slice:` cut, a status pill and isolate keep
   the washes of the bands still drawn and drop those of the bands they leave empty. A caption shows its name alone: hovering it, or moving
   keyboard focus onto it (a caption is a tab stop), shows a **tooltip** with the number of
