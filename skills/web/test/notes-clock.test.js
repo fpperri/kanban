@@ -96,3 +96,47 @@ test('a range opened on the clock follows it; one the request or the person set 
   const slot = n.noteRangeFor(n.noteSubjectFrom({ kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600 }, IS), null, '2026-10-16');
   assert.strictEqual(slot.clock, undefined);
 });
+
+test('a field on Today or Now is worked out at the write; a picked or typed value is used as it is', () => {
+  const sub = n.noteSubjectFrom({}, IS);
+  const run = (f, ctx, subject = sub) => { const p = plan('x', subject, f, ctx); return [p.day, p.at, p.bad]; };
+  assert.deepStrictEqual(run(field('Now', false, 'Today'), at('2026-10-16', '16:40')), ['2026-10-16', '16:40', '']);
+  assert.deepStrictEqual(run(field('Now', false, 'Today'), at('2026-10-16', '16:41')), ['2026-10-16', '16:41', ''], 'the next minute');
+  assert.deepStrictEqual(run(field('Now', false, 'Today'), at('2026-10-17', '00:05')), ['2026-10-17', '00:05', ''], 'the next day');
+  assert.deepStrictEqual(run(field(' now ', false, ' TODAY '), at('2026-10-17', '00:05')), ['2026-10-17', '00:05', ''], 'in any case');
+  assert.deepStrictEqual(run(field('16:40', false, '2026-10-16'), at('2026-10-17', '00:05')), ['2026-10-16', '16:40', ''], 'a picked value equal to today is not Today');
+  assert.deepStrictEqual(run(field('09:30', false, '2026-10-12'), at('2026-10-17', '00:05')), ['2026-10-12', '09:30', '']);
+});
+
+test('Today and Now win over the day and time the subject came with, as the person chose them', () => {
+  const slot = n.noteSubjectFrom({ kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600 }, IS);
+  const p = plan('x', slot, field('Now', false, 'Today'), at('2026-10-20', '12:12'));
+  assert.deepStrictEqual([p.day, p.at], ['2026-10-20', '12:12']);
+  const untimedBox = n.noteSubjectFrom({ kind: 'untimed', day: '2026-10-14' }, IS);
+  assert.strictEqual(plan('x', untimedBox, field('Now'), at('2026-10-20', '12:12')).at, '12:12');
+  assert.strictEqual(plan('x', untimedBox, field('Now', true), at('2026-10-20', '12:12')).at, null, 'the untimed tick still wins');
+  assert.strictEqual(plan('- x', n.noteSubjectFrom({}, IS), field('Now'), at('2026-10-20', '12:12')).at, null, 'and so does a leading -');
+});
+
+test('the date and time fields start on Today and Now unless the request gave a day or a time', () => {
+  assert.strictEqual(n.noteDayField(n.noteSubjectFrom({}, IS)), 'Today');
+  assert.strictEqual(n.noteDayField(n.noteSubjectFrom({ target: '22' }, IS)), 'Today');
+  assert.strictEqual(n.noteDayField(n.noteSubjectFrom({ target: '22', day: '2026-10-14' }, IS)), '2026-10-14');
+  assert.strictEqual(n.noteDayField(n.noteSubjectFrom({ kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600 }, IS)), '2026-10-14');
+  assert.strictEqual(n.noteDayField(n.noteSubjectFrom({ at: '10:00' }, IS)), 'Today', 'a time alone gives no day');
+  assert.strictEqual(n.noteTimeField(n.noteSubjectFrom({}, IS)), 'Now');
+  assert.strictEqual(n.noteTimeField(n.noteSubjectFrom({ target: '22', at: '09:42' }, IS)), '09:42');
+  assert.strictEqual(n.noteTimeField(n.noteSubjectFrom({ kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600 }, IS)), '09:00');
+  assert.strictEqual(n.noteTimeField(n.noteSubjectFrom({ kind: 'untimed', day: '2026-10-14' }, IS)), '');
+  assert.strictEqual(n.noteTimeField({ kind: 'card', id: '7', day: '2026-10-16', untimed: true }), '');
+});
+
+test('the words Today and Now are read in any case and are no date or time', () => {
+  for (const t of ['Today', 'today', ' TODAY ']) assert.strictEqual(n.noteIsToday(t), true, t);
+  for (const t of ['Now', 'now', ' NOW ']) assert.strictEqual(n.noteIsNow(t), true, t);
+  assert.strictEqual(n.noteIsToday('2026-10-16'), false);
+  assert.strictEqual(n.noteIsNow('16:40'), false);
+  assert.strictEqual(n.noteFieldDay('today'), null);
+  assert.strictEqual(n.noteFieldTime('now'), null);
+  assert.match(plan('x', n.noteSubjectFrom({}, IS), field('tomorrow'), at('2026-10-16', '10:00')).bad, /tomorrow is not a time/);
+});

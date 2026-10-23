@@ -198,7 +198,7 @@ module.exports = {
     await mouse('mouseMoved', friday.x, friday.y, { button: 'none', clickCount: 0 });
     await key('n');
     check('calnotes: n with the pointer on Friday\'s column opens the palette on Day, that Friday', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week', '3 days', 'Day*']) && await ev(RANGE_LABEL) === 'Fri 16 Oct', await ev(RANGE_LABEL));
-    check('calnotes: the pointer sets the range only: the note still goes to today', await ev(`${q('.np-date')}.value`) === await ev('localTodayStr()'));
+    check('calnotes: the pointer sets the range only: the note still goes to today', await ev(`${q('.np-date')}.value`) === 'Today');
     check('calnotes: Esc closes it again', await closePalette());
     await mouse('mouseMoved', 5, 5, { button: 'none', clickCount: 0 });
 

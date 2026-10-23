@@ -14,7 +14,12 @@
 // What Enter writes (noteWritePlan). The time is the line's, else none when the untimed
 // tick or a `-` says so, else the time field's, else now (or none in a day's untimed box).
 // The target is the line's mention, else the chip's card or group, else the card last
-// noted, else nothing. The day is the subject's.
+// noted, else nothing. The day is the date field's, else the subject's.
+//
+// The date and time fields say Today and Now, or a picked or typed value. Today and Now are
+// worked out when Enter is pressed, from the clock the caller passes, so a palette left open
+// writes the day and time of that moment; a value is used as it is, even when it equals today
+// or now. They start as Today and Now unless the request gave a day or a time.
 //
 // Pure: the caller passes what it knows of the board (which ids are cards or groups), the
 // clock and the storage, so Node tests drive it with plain values. Same dual-environment
@@ -32,6 +37,8 @@ const NOTE_LAYOUT_FEATURE = 'notes.layout';
 const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
 const NOTE_FIELD_TIME = /^(\d{1,2})[:.]?(\d{2})$/;
+const NOTE_TODAY = 'Today';
+const NOTE_NOW = 'Now';
 
 // A subject that is a card or a group (the palette writes on it and lists its notes), and one that is
 // about cards: those or several cards at once.
@@ -52,6 +59,10 @@ function noteFieldTime(text) {
   const min = Number(m[2]);
   return h < 24 && min < 60 ? `${notePad(h)}:${m[2]}` : null;
 }
+
+// Whether a field's text is the word Today or Now, in any case.
+const noteIsToday = (text) => String(text == null ? '' : text).trim().toLowerCase() === NOTE_TODAY.toLowerCase();
+const noteIsNow = (text) => String(text == null ? '' : text).trim().toLowerCase() === NOTE_NOW.toLowerCase();
 
 const noteBadTime = (text) => `${text} is not a time; a time reads HH:MM.`;
 const noteBadDay = (text) => `${text} is not a date; a date reads YYYY-MM-DD.`;
@@ -135,6 +146,11 @@ function noteSubjectFrom(req, o) {
   }
   return { kind: 'none', day, ...clock };
 }
+
+// What the date and time fields say when a subject opens: Today unless the request gave the day, Now
+// unless it gave a time (an hour of the Calendar, a card's `at`), and nothing in a day's untimed box.
+const noteDayField = (sub) => (sub.clockDay ? NOTE_TODAY : sub.day);
+const noteTimeField = (sub) => (sub.kind === 'untimed' || sub.untimed ? '' : sub.at || NOTE_NOW);
 
 // The tabs the palette shows for a subject, in order: Notes (when the board keeps a logbook), a
 // group's own Group tab, the Scratchpad of a card or group (when the board keeps scratchpads) and its
@@ -232,6 +248,7 @@ function noteWritePlan(parsed, subject, field, o) {
   const value = String(field.value == null ? '' : field.value).trim();
   if (parsed.at) at = parsed.at;
   else if (parsed.untimed || field.untimed) at = null;
+  else if (noteIsNow(value)) at = o.now;
   else if (value === '') at = subject.kind === 'untimed' || subject.untimed ? null : subject.at || o.now;
   else {
     at = noteFieldTime(value);
@@ -239,7 +256,8 @@ function noteWritePlan(parsed, subject, field, o) {
   }
   let day = subject.clockDay ? o.today : subject.day || o.today;
   const dayText = String(field.day == null ? '' : field.day).trim();
-  if (dayText !== '') {
+  if (noteIsToday(dayText)) day = o.today;
+  else if (dayText !== '') {
     const picked = noteFieldDay(dayText);
     if (picked === null) bad = bad || noteBadDay(dayText);
     else day = picked;
@@ -493,6 +511,7 @@ function noteLayoutSave(storage, projectName, layout) {
 
 const NOTES_EXPORTS = {
   NOTE_NO_CARD, noteIsTarget, noteIsAboutCards,
+  NOTE_TODAY, NOTE_NOW, noteHhmm, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
   noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,

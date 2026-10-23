@@ -261,7 +261,8 @@ Open it directly with `?view=graph`.
 the notes list's "today" labels) moves to the new day across midnight and when the page is shown again,
 without a reload, and a Calendar or Gantt window you have not moved moves with it. Every date or time the
 page or the server stamps (a note's day and time, a card's `updated` line and its start and end dates)
-is read at the moment of the write. A field you filled in yourself keeps what you typed.
+is read at the moment of the write. A field you filled in yourself keeps what you typed, and a notes
+date or time left on Today or Now is worked out when Enter is pressed.
 
 **Search** — the box in the header says what to look for, and Isolate says whether the rest hides:
 with Isolate on the box hides what it does not match, and with it off the box lights its matches.
@@ -690,18 +691,22 @@ Type a note and press Enter: it is written into the card's day file and the pale
 the next note; Shift+Enter starts a new line. The note box starts one line high and grows with its
 text, typed and wrapped lines both, up to 12 lines or 40% of the window, whichever is less (30 lines or 70% of the window when the palette is full screen), and
 scrolls inside past that; the box a listed note is edited in grows the same way and opens sized to
-the note. The subject row sets where and when the note goes: a **date** (with a picker; today, or the
-day of the hour or all-day box the palette was opened from) beside the **time**, the *untimed* tick,
+the note. The subject row sets where and when the note goes: a **date** (with a picker; Today, or the
+day of the hour or all-day box the palette was opened from) beside the **time** (with a menu of Now and
+the half hours; Now, or the time of the hour or card it was opened from), the *untimed* tick,
 which drops the time and keeps the day, and a **card** picker, a searchable list of *no card* and the
 live cards that aims the palette at the one chosen, as typing a bare `#22` and Enter does; a card id
 typed in it (`22` or `#22`) aims it too, on Enter or on leaving the field. Its menu hangs off the page
 and is never clipped by the palette. A leading
 `10:30` sets that note's time, a leading `-` makes it untimed, and a leading `#22` aims it at another
 card and wins over the picker; the line under the box says exactly which day, time and card Enter
-will write. A palette left open reads the clock when it writes, not when it opened: a date or time field
-you have not touched follows the clock (it moves with the minute and the day, and when the page is shown
-again), and Enter writes the day and time of that moment; a day or time the request gave (an hour or
-all-day box of the Calendar, a card's time) and one you typed stay as they are.
+will write. A palette left open reads the clock when it writes, not when it opened: the date and time
+fields start on **Today** and **Now**, and Enter works them out when it is pressed, so a note written
+after midnight, or an hour later, gets that moment's day and time. The **Today** and **Now** buttons
+beside the fields (or typing the word) put a field back on it. A date or time you picked or typed is
+used as it is, even when it equals today or now, and stays for the next note; a day or time the request
+gave (an hour or all-day box of the Calendar, a card's time) opens as that picked value. The line under
+the box says what Enter will write now, and is drawn again each minute and when the page is shown again.
 
 The list below groups the notes by day and card, newest first, with a filter field of its own
 (`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a note

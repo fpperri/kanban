@@ -605,7 +605,7 @@ test('n on the Calendar with the pointer on a day opens on that day', async () =
   assert.deepStrictEqual(p.pressed(), ['day']);
   assert.strictEqual(p.label(), 'Wed 14 Oct');
   assert.deepStrictEqual(p.listed(), ['a']);
-  assert.strictEqual(p.ui().date.value, p.today, 'the pointer sets the range, not the day the note goes to');
+  assert.strictEqual(p.ui().date.value, 'Today', 'the pointer sets the range, not the day the note goes to');
 });
 
 test('n on the Calendar with a card hovered or selected opens that card on All, whatever the range', async () => {
@@ -674,7 +674,7 @@ test('n with the pointer on a day sets the range to that day and leaves the note
   onCalendar(p, "'2026-10-14'");
   keyN(p);
   assert.strictEqual(p.label(), 'Wed 14 Oct');
-  assert.strictEqual(p.ui().date.value, p.today, 'the note still goes to today');
+  assert.strictEqual(p.ui().date.value, 'Today', 'the note still goes to today');
 });
 
 test('clearing the chip on the Calendar goes back to the Calendar\'s range, not to Day today', async () => {
