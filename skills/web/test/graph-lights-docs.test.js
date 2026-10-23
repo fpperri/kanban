@@ -84,6 +84,6 @@ test('the web doc\'s Graph section says the same in short: a typed search lights
   const section = webDoc.slice(start, webDoc.indexOf('\n## ', start + 4)).replace(/\s+/g, ' ');
   assert.match(section, /A search typed in the Graph hides nothing: its matches light, done cards included, and the rest dims/);
   assert.match(section, /Only a `slice:` term on its own in the query cuts the Graph, as it cuts every view; under `\|` it lights/);
-  assert.match(section, /the box lights its matches there and hides nothing, while nothing is selected by it/);
+  assert.match(section, /the box isolates it there where that view's Typing isolates is on, or lights its matches and hides nothing where it is off, while nothing is selected by it/);
   assert.doesNotMatch(section, /or the search\)/);
 });
