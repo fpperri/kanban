@@ -179,3 +179,14 @@ test('the graphs and No relations still fold and unfold, and a save leaves the o
   assert.strictEqual(w.renders, 1);
   assert.strictEqual(sectionsSandbox({ stored: w.writes }).loadMapSectionsCollapsed().graph, true);
 });
+
+test('a choice is kept in the browser alone: it writes nothing to the address and adds no history step', () => {
+  const w = optionsSandbox();
+  const touched = [];
+  w.history = { pushState: () => touched.push('pushState'), replaceState: () => touched.push('replaceState') };
+  w.location = new Proxy({}, { get(_, k) { touched.push(`location.${String(k)}`); return ''; }, set(_, k) { touched.push(`location.${String(k)}=`); return true; } });
+  w.setMapOption('parent', 'above');
+  w.setMapOption('group', 'one');
+  assert.deepStrictEqual(touched, []);
+  assert.deepStrictEqual(Object.keys(w.writes), [KEY]);
+});
