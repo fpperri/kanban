@@ -38,7 +38,13 @@ module.exports = {
       if (!p) throw new Error(`nothing matches ${sel}`);
       await click(p.x, p.y);
     };
-    const metrics = (width) => send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: false });
+    const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
+    // The page sees a new width, and draws the view again when it crosses the phone line, in its next frame, which can come
+    // after a press made straight on: the press then goes down on the old button and up on the new one, and is no click.
+    const metrics = async (width) => {
+      await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: false });
+      await frames();
+    };
     const load = async (url) => {
       await ev('window.__stale=true');
       await open(url);

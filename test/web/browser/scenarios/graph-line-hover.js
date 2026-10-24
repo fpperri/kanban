@@ -118,8 +118,12 @@ module.exports = {
     await key(' ', { shift: true });
     check('Shift+Space on a hovered dependency line adds its two cards to what the box holds as more alternatives',
       await boxIs(`${bracketTerms} | #${CASES.hierarchy.dependency.from} | #${CASES.hierarchy.dependency.to}`), await ev(`document.getElementById('search-input').value`));
-    await ev(`document.getElementById('search-clear-btn').click()`);
+    // The pointer leaves before the box is cleared, and the clear waits for the page to show the box's cards lit and no others. The page
+    // lights by the mouseover and mouseout the browser sends for what lies under the pointer, a frame after a draw: a pointer that
+    // leaves in the frame after a clear has drawn the Graph under it leaves a card lit that no mouseout puts out.
     await away();
+    await litIs([...new Set([...CASES.hierarchy.bracket.lit, ...CASES.hierarchy.dependency.lit])].sort((a, b) => a - b));
+    await ev(`document.getElementById('search-clear-btn').click()`);
     check('with the box cleared and the pointer off every line, nothing is lit', await boxIs('') && await undimmed());
     await key(' ');
     check('and Space with no line hovered writes nothing', await boxIs(''));
