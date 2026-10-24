@@ -116,11 +116,11 @@ to `127.0.0.1` only.
 
 ## Reading further
 
-`docs/web.md` describes the app screen by screen, phone layout included. Read a reference file only when the task touches its subject:
+`docs/web.md` describes the app screen by screen, phone layout included. The reference files hold the rest; read one only when the task touches its subject:
 
-- `references/launching.md`: the double-click wrapper's naming, migration, git excludes and lock; the tunnel's environment variable, startup errors and CSP.
-- `references/map.md`, `references/calendar.md`, `references/gantt.md`, `references/graph.md`, `references/graph-flow.md`: that view in full.
-- `references/card-rendering.md`: how a tile and the card details are drawn.
-- `references/deep-links.md`: the `?card=`, `?q=` and `?view=` addresses, the popup history, the tab icon.
-- `references/api.md`: the HTTP routes and the `/api/board` payload.
-- `references/internals.md`: modules, DOM ids, storage keys and listener wiring, for a change to the page's code.
+- Read `references/launching.md` when the double-click wrapper misbehaves, or you need its naming, migration, git excludes and lock, or the tunnel's environment variable, startup errors and CSP.
+- Read `references/map.md`, `references/calendar.md`, `references/gantt.md`, `references/graph.md` (Hierarchy) or `references/graph-flow.md` (Flow) when the task touches that view.
+- Read `references/card-rendering.md` when the task touches how a tile or the card details are drawn.
+- Read `references/deep-links.md` when you hand the human a link to a card, a search or a view, or touch the popup's history.
+- Read `references/api.md` when the task calls or changes the server's HTTP routes or the `/api/board` payload.
+- Read `references/internals.md` when the task changes the page's code: modules, DOM ids, storage keys, listener wiring.
