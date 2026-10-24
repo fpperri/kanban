@@ -36,13 +36,24 @@ Scenarios drive the real page in headless Chrome over the DevTools Protocol, eac
 - A scenario that needs no browser to prove its wording, selectors or checks gets a `browser-<name>-scenario.test.js` beside the others; those run in `test:unit`.
 - The `phone` and `phone-flip` scenarios are folders of steps. A step is a file in `test/web/browser/scenarios/phone-steps/` or `phone-flip-steps/` exporting `run(page)`; `test/web/browser/steps.js` runs them in name order, so a new step is one new file and touches no registry, no names test and no other step. Each starts from a clean page (about:blank, empty tab history, the scenario's boards' browser storage cleared, the start size, 390 by 844, with touch on for `phone`), reads the DOM and only the page globals `PAGE_GLOBALS` in `test/web/browser-globals.test.js` already lists, puts back any card it writes, and takes a few seconds at most (`phone` has 120 s for all its steps). `steps.js` also exports `tap`, `swipe` and `pinch`, which send `Input.dispatchTouchEvent` sequences.
 
-## Docs agree with code
+## Docs and the tests that hold them
 
-Docs are held to the code by tests that read them as text. The pattern: a `*-docs.test.js` file reads `SKILL.md`, `docs/web.md`, `docs/snapshot.md`, `GLOSSARY.md` or the README, takes the section by its heading or its bold lead, and asserts the words the code makes true (and the words it made false are gone). `test/web/docs-agree.test.js` and `test/snapshot/docs-agree.test.js` pin the places where two docs once disagreed. A feature that changes behaviour a doc states changes the doc and its test in the same commit. `docs/testing.md` itself is pinned by `test/web/testing-docs.test.js`.
+A doc gets a pinning test only for what a person, a tool or an agent copies, runs or parses: a command, a flag, a path, a file name or format, a port, a route or a payload shape. The test takes its expectation from the code, or runs the doc's own example through the real module; it never quotes a sentence. `test/web/hotkeys-coverage.test.js` is the model: the keys the page reads are found in its own source, and the list is held to them.
 
-## A docs change brings its docs test
+Prose about what the app does gets no docs test. The behaviour tests and the browser scenarios pin the behaviour, so changing a sentence of `docs/web.md`, of a web or snapshot `SKILL.md` or of `GLOSSARY.md` costs no test, and a behaviour with no test of its own is a gap to fill in the behaviour tests, not with a regex on a doc.
 
-The rule above is held by the `tests` workflow. Its unit job checks out the whole history and, after `npm test`, runs `test/web/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches `docs/*.md`, any `SKILL.md`, any `plugin/skills/**/references/*.md`, `README.md` or `GLOSSARY.md` and touches no `test/**/*-docs.test.js` and no `docs-agree.test.js`, the step fails and names the doc that changed. On a push to `main` there is no pull request base and it does nothing.
+The docs tests, and what each holds to the code:
+
+- `test/web/kanban-skill-contract.test.js`: the `config.yaml` examples of the kanban skill, the web skill and the README (read by `parseConfig`), the card fields, the card and notification examples, the forms of a parent, the starter against its file, and the commands against the scripts and flags they run.
+- `test/web/notes-kit-contract.test.js`: the logbook, scratchpad, todo and group examples of the kanban skill, read by their stores, the file names the skill gives, and the placeholders `path-vars.js` fills.
+- `test/web/doc-examples.test.js`: the search terms and the address the docs show, run through the search module.
+- `test/snapshot/snapshot-contract.test.js`: the ops and `fm` shapes of `apply-protocol.md` against the payload the editor makes, and the web modules `docs/cross-harness.md` names against the generator's embed table.
+- `test/web/doc-paths.test.js`: every repository path a doc names exists.
+- `test/web/handles-in-skill-docs.test.js`: no `SKILL.md` carries a bare `@handle`, which the harness would read as an import.
+- `test/web/docs-utf8.test.js`: every doc decodes as strict UTF-8.
+- `test/web/testing-docs.test.js`: this file's scripts, flags, variables and paths.
+
+The contract docs are the kanban skill's `SKILL.md`, the snapshot's `plugin/skills/snapshot/references/apply-protocol.md`, `docs/cross-harness.md` and the README's `config.yaml` and `Starter config` sections. The `tests` workflow's unit job checks out the whole history and, after `npm test`, runs `test/web/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches a contract doc and touches no docs test (`test/**/*-contract.test.js`, `test/**/*-docs.test.js`, `test/web/doc-examples.test.js` or `test/web/doc-paths.test.js`), the step fails and names the doc. For the README it reads the diff of the file and counts only the hunks that land in those two sections. On a push to `main` there is no pull request base and it does nothing.
 
 For a change the tests cannot say anything about (a typo, a reworded sentence no test reads), a line in any commit message of the pull request lets it through:
 
