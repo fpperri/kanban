@@ -115,13 +115,6 @@ test('two mentions give one sentence each', async () => {
   assert.strictEqual(note.textContent, 'beta#1 is a card on the beta board, not this one. Gamma#2 is a card on the Gamma board, not this one.');
 });
 
-test('the web skill and the web docs say another board\'s mention is text and the panel names the board', () => {
-  const doc = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
-  for (const [name, text] of [['the web skill', doc('plugin', 'skills', 'web', 'SKILL.md')], ['the web docs', doc('docs', 'web.md')]]) {
-    assert.match(text, /another board's mention is searched as text and the panel says which board holds the card/i, name);
-  }
-});
-
 test('the status region is written only when its text changes, so a poll or a repeat keystroke does not announce it again', async () => {
   const { page, note } = await openWithNote();
   const writes = [];

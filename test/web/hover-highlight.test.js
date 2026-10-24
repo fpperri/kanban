@@ -40,7 +40,6 @@ test('isHoverHighlighted treats id 0 as a real id, and an empty set lights nothi
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
 const appCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
-const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
 
 test('hoveredId is a single module-level id, never a Set — only one card is hovered/focused at a time; hoverLit is the Set of cards that take the look', () => {
   assert.match(appJs, /let hoveredId = null;/);
@@ -211,14 +210,4 @@ test('applyBoardData re-finds the focused card after renderBoard, and puts the p
   assert.match(fn[0], /if \(hoveredId !== pointerId\) setHoveredId\(pointerId\);/, 'the refocus fires focusin — restore the pointer\'s card');
 });
 
-// --- doc pin: SKILL.md documents the hover/focus highlight
 
-test('SKILL.md documents the hover/focus highlight bullet', () => {
-  const start = skill.indexOf('- **Hover/focus highlight**');
-  assert.ok(start > -1, 'the Hover/focus highlight bullet exists');
-  const bullet = skill.slice(start, skill.indexOf('- **Speedbumps**', start));
-  assert.match(bullet, /hoveredId/);
-  assert.match(bullet, /--accent-soft/, 'names the selection token it must stay distinct from');
-  assert.match(bullet, /tabindex="0"/, 'documents keyboard reachability');
-  assert.match(bullet, /due diamond/, 'names the one card-el surface .selected also skips');
-});

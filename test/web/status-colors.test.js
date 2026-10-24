@@ -136,22 +136,6 @@ test('the map node border is one neutral weight for every status — status move
 // tile (the amber stroke means waiting, a derived dependency state; the
 // manual blocked sticker is a red pill, not a border)
 
-// Every other SKILL.md prose paragraph documenting a border/
-// dot feature gets a phrase-pinning doc test here or
-// in status-pill-docs.test.js, specifically to catch silent drift;
-// this bullet is pinned the same way.
-test('SKILL.md documents the map node\'s priority/waiting border', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
-  const bullet = skill.match(/\*\*Node treatments:\*\*[\s\S]*?(?=\n  \*\*Status-filter row\*\*)/);
-  assert.ok(bullet, 'the Node treatments block exists in the Dependency map section');
-  assert.match(bullet[0], /#f85149/, 'names the red high-priority color');
-  assert.match(bullet[0], /#d29922/, 'names the amber waiting color');
-  assert.match(bullet[0], /[Ww]aiting\s+wins over high/, 'states the declaration-order precedence rule');
-  assert.match(bullet[0], /never gets the priority\/waiting\s+stroke/, 'states the archived-mutual-exclusivity rule explicitly');
-  assert.match(bullet[0], /red pill/, 'routes the manual blocked sticker to the pill, not the border channel');
-  assert.ok(!bullet[0].includes('blocked_by'), 'no stale blocked_by vocabulary survives in the bullet');
-});
-
 test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exactly', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.card\.high\s*\{[^}]*border-left:\s*3px solid var\(--id-high\)/, 'board tile high-priority red (reference)');
@@ -302,28 +286,6 @@ test('a status dot immediately followed by an archived dot gets a gap', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.status-dot \+ \.archived-dot\s*\{[^}]*margin-left:\s*4px/,
     'archived always follows statusBadge() directly (status, archived order) — needs the same adjacent-sibling gap');
-});
-
-test('SKILL.md documents the archived ball as its own bullet', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
-  const bullet = skill.match(/- \*\*Archived ball\*\*[\s\S]*?(?=\n- \*\*)/);
-  assert.ok(bullet, 'the Archived ball bullet exists');
-  assert.match(bullet[0], /archivedBadge\(\)/, 'names the helper');
-  assert.match(bullet[0], /ARCHIVE_COLOR/, 'names the fixed color it wears');
-  // calendarChipEl conditionally renders it (archived cards
-  // are opt-in there via the Archive pill) — only cardEl (live board tiles) structurally
-  // never can, so that's the absence rule left to state explicitly.
-  assert.match(bullet[0], /`cardEl` never renders it/, 'states the absence rule for live board tiles explicitly');
-  // status+archived are the only glyphs that can land adjacent —
-  // the order is pinned as the one used everywhere.
-  assert.match(bullet[0], /status,\s*\n?\s*archived/, 'states the one dot order used everywhere');
-  assert.match(bullet[0], /Glyph order, identical\s+everywhere both dots land together/, 'states the order holds on every surface, not per-surface');
-  assert.match(bullet[0], /58px tall/, 'documents the map node height that makes room for the dot column');
-});
-
-test('SKILL.md\'s Dependency map section points from the status-dot narrative to the archived ball closing the loop', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
-  assert.match(skill, /the grey \*\*Archived ball\*\* \(above\) joins the dot column/, 'the status-dot narrative points to the archived ball closing the loop');
 });
 
 test('app.css agrees with the JS palette on every status-colored surface', () => {

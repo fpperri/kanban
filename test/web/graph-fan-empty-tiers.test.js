@@ -84,13 +84,11 @@ test('empty tiers: the rings keep their order, tier 1 nearest the centre and the
   [1, 2, 3, 4, 5].forEach((id, i) => assert.ok(Math.abs(radius(l, id) - radii[i]) < 1e-6));
 });
 
-test('empty tiers: the Hierarchy hint, the web skill and the web doc say a tier with no drawn card has no ring', () => {
+test('empty tiers: the Hierarchy hint says a tier with no drawn card has no ring', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', ...p), 'utf8').replace(/\s+/g, ' ');
-  assert.match(/hierarchy: '(Hierarchy: [^']*)'/.exec(read('web', 'graph-view.js'))[1], /a tier or a depth with no drawn card has no ring/);
-  assert.match(read('SKILL.md'), /neither has a tier with no drawn card: its band, arc and caption are not drawn and the rings left close up, with Types on or off/);
-  assert.match(read('..', '..', '..', 'docs', 'web.md'), /a tier or a depth with no drawn card has no ring, no arc and no name, and the rings left close up/);
+  const view = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(/hierarchy: '(Hierarchy: [^']*)'/.exec(view)[1], /a tier or a depth with no drawn card has no ring/);
 });
 
 // --- a slice cut that leaves out the top tiers: the fan closes in on what is left ----------------

@@ -117,3 +117,21 @@ test('the board sorts every column against ONE outline index built over active a
     assert.ok(render[0].indexOf('outlineOrder(') < render[0].indexOf('for (const col of boardColumnIds())'), 'computed once, before the column loop');
   });
 });
+
+test('what is worked out from the nesting is never written: finishing a child leaves its parent\'s file as it was, and no file holds a list of children', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-nest-derived-'));
+  const parentFile = path.join(dir, '0001.parent.card.md');
+  fs.writeFileSync(parentFile, '---\nid: 1\nstatus: doing\npriority: Normal\n---\n\n# Parent\n');
+  fs.writeFileSync(path.join(dir, '0002.child.card.md'), '---\nid: 2\nstatus: todo\npriority: Normal\nparent: 1\n---\n\n# Child\n');
+  const before = fs.readFileSync(parentFile, 'utf8');
+  await withServer(dir, async (base) => {
+    assert.strictEqual((await req(base, 'PATCH', '/api/cards/2', { status: 'done' })).status, 200);
+    const grand = await req(base, 'POST', '/api/cards', { title: 'Grandchild', parent: '2' });
+    assert.strictEqual(grand.status, 201);
+    await req(base, 'PATCH', '/api/cards/2', { rank: 10 });
+  });
+  assert.strictEqual(fs.readFileSync(parentFile, 'utf8'), before, 'the parent was not touched');
+  for (const name of fs.readdirSync(dir)) {
+    assert.doesNotMatch(fs.readFileSync(path.join(dir, name), 'utf8'), /^(children|depth|altitude|thread|rollup|roll-up):/m, `${name} holds no worked-out value`);
+  }
+});

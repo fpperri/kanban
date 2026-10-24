@@ -156,6 +156,15 @@ test('turning one pill on leaves the others\' counts as they were: they are take
   assert.deepStrictEqual(s.counts(), before);
 });
 
+test('a slice: cut in the box leaves the count of every pill as it was: the counts are taken before the box and any cut', async () => {
+  const s = await open({ typing: true });
+  const before = s.counts();
+  s.type('slice:goal');
+  assert.deepStrictEqual(s.counts(), before);
+  s.type('slice:..epic tags:ui');
+  assert.deepStrictEqual(s.counts(), before);
+});
+
 test('a status pill that hides the done cards takes them out of the counts', async () => {
   const s = await open({ view: 'map' });
   assert.strictEqual(s.counts().review, 2, 'card 6 is done and counted while its status pill is on');
