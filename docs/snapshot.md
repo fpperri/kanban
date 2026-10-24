@@ -88,11 +88,11 @@ the bar mode and rank editing to kanban-web.
 
 ![Scroll-button stack](images/snapshot-scroll-stack.jpg)
 
-The snapshot ships a fixed **scroll-button stack** in the corner (it doubles as
-the context menu): jump to top/bottom, page up/down, add a card, and a `⋯` that
-cycles how much of the stack is shown. It's how you move around without the
-page scrolling out from under you. It was added when the Claude app swipe-dismissed
-an HTML preview; that no longer happens, and the stack stays.
+Phones swipe-dismiss an HTML preview, so the snapshot ships a fixed
+**scroll-button stack** in the corner (it doubles as the context menu): jump to
+top/bottom, page up/down, add a card, and a `⋯` that cycles how much of the
+stack is shown. It's how you move around without the page scrolling out from
+under you.
 
 ## The other views
 

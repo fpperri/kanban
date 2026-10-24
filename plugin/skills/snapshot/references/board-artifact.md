@@ -75,3 +75,16 @@ extract of the board, not a summary.
 - Every card's true, uncapped body length rides along in the embedded JSON (`bn`); a
   body the cap actually cut ends with a small note in the sheet naming exactly how
   much was left out.
+
+## Why opt-in
+
+Publishing used to be the default whenever the Artifact tool existed, and it was a
+mistake worth naming so it does not come back. That route opened with a gallery
+round-trip and several title spellings (the current title and the two legacy ones in
+step 1) before a single file existed, and it ended at a rule that says *confirm before
+minting*, so the default path could not complete without asking anyway. A default that
+mandates a confirmation is not a default; it is an opt-in wearing a default's clothes,
+and it charged every plain "build me the board" two extra turns to reach the one thing
+the skill exists to produce. The cost is worst on a private board, where publishing
+puts real content on a hosted page, so the answer is to ask first, every time, and the
+ceremony is pure overhead forever.

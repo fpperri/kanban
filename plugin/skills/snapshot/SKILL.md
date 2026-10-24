@@ -22,6 +22,8 @@ python <SCRIPTS_DIR>/build_editor.py <kanban-directory> --out <scratchpad-dir>/k
 
 **Delivery: build the file and hand it over. That is the whole default.** SendUserFile with display "render" where that exists, otherwise write the file and tell the human where it is. No gallery lookup, no publish, no `config.yaml` write, nothing to keep in sync. Record each staged file's `mtimeMs` at generation time: they are the conflict guard when the payload comes back.
 
+**The file is a full text extract of the board.** Card bodies travel in it, archived cards' included (capped, not removed), and the generator has no flag to leave archived cards out; the way round is to build from a filtered staged copy of the board. Before handing the file anywhere it could be hosted, read `references/board-artifact.md`, "What the file carries".
+
 **Publishing is opt-in, and only when the human asks for it**: they say artifact, publish, "put it on my phone as a page", or name the board's existing page. Then, and only then, read `references/board-artifact.md`, which owns the whole identity flow (the `artifact:` key, adopting a gallery match, confirming before minting a page that does not exist yet) and what the file carries (full card bodies, archived ones included).
 
 ## Applying a payload
@@ -37,9 +39,9 @@ A message starting `Apply kanban changes (N ops, base <ISO>):` followed by a JSO
 The build script produces the page; no build or apply run needs its description. Read the file that matches the task:
 
 - `references/search.md` when the task touches the search box, its panel, the pills or slices, or a query term.
-- `references/cards.md` when the task touches how a card, its body, a sticker, an assignee, a nested card or the pending-changes tray shows.
+- `references/cards.md` when the task touches how a card, its body, the status and Archive pills, a type chip, a sticker, an assignee, a nested card or the pending-changes tray shows.
 - `references/views.md` when the task touches the Map, the Gantt, the Calendar or the card sheet's Explore buttons.
 - `references/layout.md` when the task touches width tiers, the header, the page title or the tab icon.
-- `references/phone.md` when the task touches the scroll-button stack, the column-head controls, the bell, the pending pill, the clipboard or the close guard.
+- `references/phone.md` when the task touches the scroll-button stack, the column-head controls, the bell, the pending pill, the card sheet (pill row, collapsible sections, new-card Accept/Cancel), the clipboard, the close guard or the `textContent` rule.
 - `references/pointer.md` when the task touches the right-click card menu or drag and drop.
 - `references/gaps.md` when asked whether the snapshot can do something kanban-web does, and before adding a feature to either surface.

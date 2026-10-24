@@ -91,10 +91,9 @@ host's native confirm-exit prompt on an ordinary tab close/navigate/reload;
 `pagehide` and a `visibilitychange` to hidden also fire a best-effort
 clipboard write of the payload (through the same `copyPayload()` helper,
 forced onto its synchronous `execCommand` path since an async Clipboard
-write is unreliable during unload), because a host that dismisses the
-view instead of navigating it away fires no `beforeunload`: the Claude mobile
-app did that on swipe-down, until the dismissal stopped (see the scroll
-stack above). An empty tray never arms any of this, and neither does a payload that is already on the
+write is unreliable during unload), because the Claude mobile app
+dismisses the snapshot without firing `beforeunload` at all. An empty tray
+never arms any of this, and neither does a payload that is already on the
 clipboard. `visibilitychange` fires on every tab switch and app
 backgrounding, not just on a real dismissal, so the exit copy puts the
 human's focus, text selection and scroll offset back afterwards — coming
@@ -105,10 +104,10 @@ the same build opened through its Artifact link, because the artifact
 host renders the page in a sandboxed frame that cannot raise the native
 dialog. On the Artifact surface the best-effort clipboard copy is
 therefore the whole of the protection, so keep it working even if the
-prompt is ever dropped. The Claude mobile app's swipe-down dismissal
-motivated the extra two events; whether they fired and the copy landed
-there was never verified on a real device, and the dismissal no longer
-happens.
+prompt is ever dropped. Still unverified: whether
+`pagehide`/`visibilitychange` fire at all, and whether the copy lands,
+when the Claude mobile app dismisses the view — the case that motivated
+the extra two events, and the one that needs a real device.
 
 ## Card text
 
