@@ -12,7 +12,7 @@ The whole kanban — every `*.card.md` file in a board directory (`.kanban/`, th
 _Avoid_: project, list.
 
 **Board name**:
-The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, snapshot title, kanban-afk's `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
+The short name that qualifies a card mention: the `name:` value in the board's `config.yaml`, one token with no whitespace and no `#`. Declared by the human once, never derived at read time, and shown identically on every surface (web heading and tab, snapshot title, the `<board>` in prose and in the `(board #id)` commit tag). A board without a name cannot be mentioned across boards; the first AI to service it seeds one from the folder that holds the board's home and notifies the human, who may rename it.
 _Avoid_: project name, repo name, parent folder (they usually coincide; the rule is the declared value).
 
 **Card**:
@@ -52,11 +52,11 @@ A card is waiting while any card listed in its `waiting_for` is not `done`. Deri
 _Avoid_: blocked (that's the sticker below), blocked_by (retired field name), gated.
 
 **Blocked** (manual, via **blocked**):
-A human-placed impediment sticker whose value is the reason: `blocked: <text>`. A card is blocked iff the trimmed value contains ≥ 1 alphanumeric character; YAML boolean special-case: `false`/`no` → not blocked, `true` → blocked with reason unspecified. Omit the field entirely when clear (lean rule). A blocked card cannot enter `doing` ("blocked: <reason>"), and agents never grab it in any column; blocking a card already in `doing` does not evict it. The impediment may be a human decision, not only an external one: `blocked: waiting on your call about the schema` is the "stuck until you act" counterpart to `review`'s "finished, approve me" — the AFK dispatcher sets it when a card needs your input to proceed. External impediment and awaited decision mean the same thing: your action is needed before work resumes.
+A human-placed impediment sticker whose value is the reason: `blocked: <text>`. A card is blocked iff the trimmed value contains ≥ 1 alphanumeric character; YAML boolean special-case: `false`/`no` → not blocked, `true` → blocked with reason unspecified. Omit the field entirely when clear (lean rule). A blocked card cannot enter `doing` ("blocked: <reason>"), and agents never grab it in any column; blocking a card already in `doing` does not evict it. The impediment may be a human decision, not only an external one: `blocked: waiting on your call about the schema` is the "stuck until you act" counterpart to `review`'s "finished, approve me" — an agent sets it when a card needs your input to proceed. External impediment and awaited decision mean the same thing: your action is needed before work resumes.
 _Avoid_: waiting, dependency, blocked_by, review (that's "done, approve me"; blocked is "stuck, act so I can proceed").
 
-**Review** (manual or dispatcher, via **review**):
-A "finished — approve me" sticker: `review: <text>`, the text saying what to check. Overlays any status exactly like `blocked` — a sticker, never a column. Present iff the trimmed value contains ≥ 1 alphanumeric character (same predicate as `blocked`). A PR-shaped value (`review: PR #6`) is polled by the AFK dispatcher each tick (merged → clear it + card `done`; changes-requested → re-work); free text (`review: read the design doc`) is cleared by the human on approval. Agents skip a review card, and the corpse-sweep reads it as a human hold, not a dead worker. Surfaced by `review:` search (present) / `review:PR` (substring) and click-to-filter on the pill.
+**Review** (manual, via **review**):
+A "finished — approve me" sticker: `review: <text>`, the text saying what to check. Overlays any status exactly like `blocked` — a sticker, never a column. Present iff the trimmed value contains ≥ 1 alphanumeric character (same predicate as `blocked`). The value may name a pull request (`review: PR #6`) or be plain text (`review: read the design doc`); either way the human clears the sticker on approval. Agents skip a review card. Surfaced by `review:` search (present) / `review:PR` (substring) and click-to-filter on the pill.
 _Avoid_: column, lane (it is a sticker, not a status); approved, done (a review card is not done yet).
 
 **Web** (skill `kanban-web`):
