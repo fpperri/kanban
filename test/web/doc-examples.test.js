@@ -13,7 +13,7 @@ const { iterationNextDraft } = require('../../plugin/skills/web/web/iterations')
 
 const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webDocs = read('docs', 'web.md');
-const snapshotSkill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
+const snapshotSkill = read('plugin', 'skills', 'snapshot', 'references', 'search.md');
 
 const card = (id, over = {}) => ({ id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], parent: null, waiting_for: [], ...over });
 const CARDS = [

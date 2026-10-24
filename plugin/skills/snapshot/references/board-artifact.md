@@ -59,3 +59,19 @@ board's page earlier in this session: do steps 2–3 only — build, then
 publish by the URL you already hold, skipping the `read` in step 3. Do not
 re-run the kanban-snapshot skill's generation flow and do not re-derive
 identity — you already have the URL.
+
+## What the file carries
+
+Read this before a build goes anywhere it could be hosted: the page is a full text
+extract of the board, not a summary.
+
+- Every archived card's body travels inside the file, truncated (1500 characters) but
+  not removed, and live bodies ride along capped at 4000 characters.
+- The generator takes no flag to leave archived cards out. The only way to build a
+  snapshot without them today is to stage a filtered copy of the board and point the
+  script at that.
+- On a board holding anything sensitive, read the points above again before handing the
+  file anywhere it could be hosted.
+- Every card's true, uncapped body length rides along in the embedded JSON (`bn`); a
+  body the cap actually cut ends with a small note in the sheet naming exactly how
+  much was left out.
