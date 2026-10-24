@@ -13,7 +13,7 @@
 // Any other doc (docs/web.md, the web skill, the glossary, the rest of the README) is prose about the
 // app, which the behaviour tests and the browser scenarios hold: changing it asks for nothing. On a
 // push to main there is no pull request base, so the step does nothing. Pure apart from reading
-// `git diff --name-only <base>...HEAD`, `git log <base>..HEAD` and, when README.md changed, its diff;
+// `git diff --name-only --diff-filter=d <base>...HEAD` (a deleted file pins nothing), `git log <base>..HEAD` and, when README.md changed, its diff;
 // `decide` takes plain lists.
 //
 //   node test/web/docs-pinned-check.js [--base <ref>]
@@ -98,7 +98,7 @@ function run({ env, args, git }) {
   let messages;
   let readmeConfig = false;
   try {
-    changed = git(['diff', '--name-only', `${base}...HEAD`]).split('\n').map((l) => l.trim()).filter(Boolean);
+    changed = git(['diff', '--name-only', '--diff-filter=d', `${base}...HEAD`]).split('\n').map((l) => l.trim()).filter(Boolean);
     messages = git(['log', '--format=%B%x00', `${base}..HEAD`]).split('\0').map((m) => m.trim()).filter(Boolean);
     if (changed.includes(README)) {
       readmeConfig = touchesReadmeConfig(git(['show', `HEAD:${README}`]).replace(/\r\n/g, '\n'), git(['diff', '-U0', `${base}...HEAD`, '--', README]));

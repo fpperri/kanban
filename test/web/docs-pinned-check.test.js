@@ -146,11 +146,11 @@ test('on a push to main there is no base: it does nothing and runs no git', () =
   assert.deepStrictEqual(calls, []);
 });
 
-test('on a pull request it reads git diff --name-only <base>...HEAD and git log <base>..HEAD', () => {
+test('on a pull request it reads the files changed since <base> without the deleted ones, and git log <base>..HEAD', () => {
   const { git, calls } = fakeGit(['docs/cross-harness.md'], ['docs: wording\n\nDocs-test: none, wording only']);
   const r = run({ env: { GITHUB_BASE_REF: 'main' }, args: [], git });
   assert.strictEqual(r.code, 0);
-  assert.deepStrictEqual(calls.map((c) => c.split(' ').slice(0, 3).join(' ')), ['diff --name-only origin/main...HEAD', 'log --format=%B%x00 origin/main..HEAD']);
+  assert.deepStrictEqual(calls, ['diff --name-only --diff-filter=d origin/main...HEAD', 'log --format=%B%x00 origin/main..HEAD']);
 });
 
 test('on a pull request it exits 1 with the message when a contract doc changed alone', () => {
