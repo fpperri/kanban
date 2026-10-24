@@ -6,8 +6,8 @@ const { read } = require('./helpers/doc-text');
 // docs/testing.md asks for a docs test only when a contract doc changes. The CI step runs
 // docs-pinned-check.js on a pull request; this file holds its decision to fixtures, with no git.
 
-test('the contract docs are the kanban skill, the apply protocol and the cross-harness note, and nothing else', () => {
-  for (const f of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/snapshot/references/apply-protocol.md', 'docs/cross-harness.md']) assert.ok(isContractDoc(f), f);
+test('the contract docs are the kanban skill and its references, the apply protocol and the cross-harness note, and nothing else', () => {
+  for (const f of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/kanban/references/config.md', 'plugin/skills/kanban/references/notes-kit.md', 'plugin/skills/snapshot/references/apply-protocol.md', 'docs/cross-harness.md']) assert.ok(isContractDoc(f), f);
   for (const f of ['plugin/skills/web/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'plugin/skills/snapshot/references/board-artifact.md', 'docs/web.md', 'docs/snapshot.md', 'docs/testing.md', 'GLOSSARY.md', 'README.md', 'docs/adr/0001-x.md', 'plugin/skills/kanban/scripts/apply-starter.js']) assert.ok(!isContractDoc(f), f);
 });
 
@@ -27,7 +27,7 @@ test('a changed contract doc with no docs test changed fails and names the doc',
 });
 
 test('each contract doc is held to it, and the message names every one that changed', () => {
-  for (const doc of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/snapshot/references/apply-protocol.md', 'docs/cross-harness.md']) {
+  for (const doc of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/kanban/references/groups.md', 'plugin/skills/snapshot/references/apply-protocol.md', 'docs/cross-harness.md']) {
     assert.strictEqual(decide({ changed: [doc], messages: [] }).ok, false, doc);
   }
   const r = decide({ changed: ['docs/cross-harness.md', 'plugin/skills/kanban/SKILL.md'], messages: [] });

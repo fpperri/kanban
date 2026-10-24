@@ -12,17 +12,20 @@ const todos = require('../../plugin/skills/web/scripts/todo-store');
 const { readGroups } = require('../../plugin/skills/web/scripts/group-store');
 const ids = require('../../plugin/skills/web/web/ids');
 
-// The notes kit's files are written by hand by agents, from the kanban skill: a day file of the
-// logbook, a scratchpad page, a todo list, a group file, and the paths that hold them. Each example
-// the skill shows is written to a board and read by the real store, and what the store reads is
-// compared with what the example says; the names and the placeholders are held to the code's.
+// The notes kit's files are written by hand by agents, from the kanban skill's references: a day file
+// of the logbook, a scratchpad page, a todo list (references/notes-kit.md), a group file
+// (references/groups.md), and the paths that hold them (the placeholders in notes-kit.md, the keys in
+// config.md). Each example shown is written to a board and read by the real store, and what the store
+// reads is compared with what the example says; the names and the placeholders are held to the code's.
 
-const skill = read('plugin', 'skills', 'kanban', 'SKILL.md');
-const logbookSection = section(skill, '### The logbook: notes in day files', '### The scratchpad');
-const scratchpadSection = section(skill, '### The scratchpad: a disposable page per card or group', '### The todo list');
-const todoSection = section(skill, '### The todo list: a task list per card or group', '### The placeholders');
-const placeholderSection = section(skill, '### The placeholders in the logbook, scratchpad and todo paths', '### Groups: files');
-const groupSection = section(skill, '### Groups: files that list their cards', '### Migrating `epic: true`');
+const notesKit = read('plugin', 'skills', 'kanban', 'references', 'notes-kit.md');
+const groupsRef = read('plugin', 'skills', 'kanban', 'references', 'groups.md');
+const configRef = read('plugin', 'skills', 'kanban', 'references', 'config.md');
+const logbookSection = section(notesKit, '## The logbook: notes in day files', '## The scratchpad');
+const scratchpadSection = section(notesKit, '## The scratchpad: a disposable page per card or group', '## The todo list');
+const todoSection = section(notesKit, '## The todo list: a task list per card or group', '## The placeholders');
+const placeholderSection = section(notesKit, '## The placeholders in the logbook, scratchpad and todo paths');
+const groupSection = section(groupsRef, '## Groups: files that list their cards');
 const readmeStarter = section(read('README.md'), '## Starter config', '## More docs');
 
 function onBoard(config, files, then) {
@@ -121,13 +124,12 @@ test('the placeholders the code fills are the ones the skill and the README name
   }
   for (const key of PATH_KEYS) {
     assert.ok(placeholderSection.includes(`\`${key}:\``), `the skill lists ${key}: among the paths`);
-    assert.ok(skill.includes(`**\`${key}\` —`), `${key}: has its own paragraph`);
+    assert.ok(configRef.includes(`**\`${key}\` —`), `${key}: has its own paragraph in the config reference`);
   }
 });
 
 test('the path and the variable the skill writes out resolve as it says: <repo> is the git root, and with none the feature is off', () => {
-  const configSection = section(skill, '### `config.yaml`', '### `notifications.md`');
-  const vars = parseConfig(fenced(configSection, 'yaml')[0]).vars;
+  const vars = parseConfig(fenced(configRef, 'yaml')[0]).vars;
   const [name, value] = Object.entries(vars)[0];
   const example = new RegExp(`logbook: (<${name}>/[^\`)]+)`).exec(placeholderSection)[1];
   const parsed = parseConfig(`vars:\n  ${name}: ${value}\nlogbook: ${example}\n`);
