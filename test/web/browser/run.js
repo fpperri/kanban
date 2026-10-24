@@ -31,9 +31,10 @@
 //         when the CI environment variable is set (GitHub does) it is 1, off.
 //         KANBAN_BROWSER_CPU_THROTTLE=<rate> overrides either, and =1 turns it off locally.
 //         The first line of the run and the last line of the summary say which factor it used.
-// --fault throw:<name> makes that scenario throw; --fault kill-chrome kills
-//         Chrome mid-run. They exist for fault-check.js, which proves both are
-//         reported and cleaned up.
+// --fault throw:<name> makes that scenario throw; --fault kill-chrome runs a scenario
+//         that kills Chrome the moment it starts and then waits, in place of the first
+//         one picked, so the run is still going when Chrome dies. They exist for
+//         fault-check.js, which proves both are reported and cleaned up.
 // Exit:   0 all scenarios passed, 1 a scenario failed, 2 no browser found,
 //         3 harness error.
 //
@@ -54,7 +55,6 @@ const scenarios = require('./scenarios');
 
 const IS_WIN = process.platform === 'win32';
 const WATCHDOG_MS = 300000;
-const KILL_CHROME_AFTER_MS = 1500;
 const RATE = cpuThrottleRate();
 
 function findChrome() {
@@ -144,7 +144,9 @@ async function startChrome(chrome, root) {
 
 async function main(argv) {
   const args = parseArgs(argv);
-  const picked = withFault(selectScenarios(scenarios, args), args.fault);
+  let chromeRec = null;
+  const killChrome = () => { try { process.kill(chromeRec.child.pid, 'SIGKILL'); } catch (e) { /* already gone */ } };
+  const picked = withFault(selectScenarios(scenarios, args), args.fault, { killChrome });
   if (args.list) {
     console.log(scenarios.map((s) => s.name).join('\n'));
     return EXIT.OK;
@@ -172,24 +174,14 @@ async function main(argv) {
     materialize(key, dirs[key], { port: ports[key] });
     boards[key] = { base: await startServer(serverJs, key, dirs[key], ports[key]) };
   }
-  const { rec: chromeRec, cdp } = await startChrome(chrome, root);
+  const started = await startChrome(chrome, root);
+  const { cdp } = started;
+  chromeRec = started.rec;
 
   const env = createBrowserEnv({
     cdp, boards, shotsDir: args.shots, chromeExited: chromeRec.exited, rate: RATE,
     resetBoard: (key) => materialize(key, dirs[key], { port: ports[key] }),
   });
-  if (args.fault && args.fault.kind === 'kill-chrome') {
-    const begin = env.begin.bind(env);
-    let armed = false;
-    env.begin = async (sc, ctx) => {
-      const page = await begin(sc, ctx);
-      if (!armed) {
-        armed = true;
-        setTimeout(() => { try { process.kill(chromeRec.child.pid, 'SIGKILL'); } catch (e) { /* already gone */ } }, KILL_CHROME_AFTER_MS);
-      }
-      return page;
-    };
-  }
 
   const results = await runScenarios(picked, env, { timeoutMs: DEFAULT_TIMEOUT_MS, rate: RATE });
   for (const line of summaryLines(results, { rate: RATE })) console.log(line);

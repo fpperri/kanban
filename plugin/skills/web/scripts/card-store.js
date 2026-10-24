@@ -414,8 +414,8 @@ function updateCard(dir, id, changes) {
   // Prompt: joins blocked/review's family here (same
   // section, same lean rule — a blank clears the line) but is NOT a sticker:
   // no presence predicate, no doing-gate involvement, opposite polarity — a
-  // signal FOR the AI to pick up rather than FROM the card TO a human. How a
-  // dispatcher consumes/clears it is out of scope here (see this skill's
+  // signal FOR the AI to pick up rather than FROM the card TO a human. How an
+  // agent consumes/clears it is out of scope here (see this skill's
   // SKILL.md); this layer only owns the managed-write contract. Always
   // quoted (yaml-list's quote/unquote, the same contract notifications.md's
   // `message` field already uses) since free-form prompt text routinely
@@ -591,7 +591,7 @@ function createCard(dir, input) {
   // when NEITHER title nor prompt carries anything (the client's `required`
   // toggle is the only enforcement, and it's bypassable
   // — a space-only title trims to '' client-side, and any direct API caller
-  // — curl, kanban-afk dispatch — bypasses the browser entirely), there is
+  // — curl, an agent — bypasses the browser entirely), there is
   // nothing for any view to fall back to: "Untitled" is the
   // safety net for exactly that one case.
   const rawTitle = input.title || '';

@@ -6,7 +6,9 @@
 //                                 still runs, the run exits non-zero
 //   Chrome killed mid-run         the run exits non-zero within the time limit and
 //                                 leaves no Chrome, no server and no temporary
-//                                 board copy behind
+//                                 board copy behind; the scenario it runs kills
+//                                 Chrome once it has started and then waits, so
+//                                 the run cannot end before the kill lands
 //
 // It runs run.js with the --fault flag in a temporary folder of its own, so
 // whatever is left in that folder, or running on it, is the runner's doing.

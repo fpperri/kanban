@@ -441,7 +441,7 @@ to `127.0.0.1` only.
   escalate a card to `@afk` (only the trusted card body may pre-authorize
   autonomous work). It is NOT a sticker:
   no presence predicate, no `doing`-gate involvement, and `eligible_cards.sh` (the
-  kanban skill's pickup query) does not exclude on it. How a dispatcher discovers,
+  kanban skill's eligible-cards query) does not exclude on it. How an agent finds,
   consumes, and clears a queued prompt is out of scope — this app's job stops at the
   managed write: the lean rule (a blank clears the line), plus the value is always
   written **quoted** (the same contract `notifications.md`'s `message` field uses —
@@ -461,7 +461,7 @@ to `127.0.0.1` only.
   other flag field: the field's consumption lifecycle isn't built yet, so what
   "presence" should read as is undefined, and unbounded free-form text needs its own
   design pass for a board-scan cue. **One narrow exception:** a card with an EMPTY title
-  but a prompt — e.g. dispatched by an external process before it's been given a
+  but a prompt — e.g. written by an external process before it's been given a
   title — shows the sparkle + the prompt text itself in the title's own spot, everywhere
   a title renders: board/Archive-column tiles, map node labels and the map's
   No relations tiles, gantt bar text / gutter label / due-marker tooltip, calendar chips

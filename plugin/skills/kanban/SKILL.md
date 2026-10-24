@@ -43,7 +43,7 @@ Each card's frontmatter supports the following fields:
 - `priority` — one of the board's official `priorities` list in `config.yaml` (built-in default: `High`, `Normal`, `Low` — ordered highest first). Free text is allowed but sorts after all official values. Defaults to `Normal` if omitted.
 - `waiting_for` — List of card IDs this card depends on (dependency edges). Example: `[3, G7]` (the whole id, prefix included; zero padding is not part of the id, so `G0007` names `G7`). Replaces `blocked_by` — hard cutover, no reader honors the old name. **Waiting is derived at read time, never stored:** the card is *waiting* while any listed card is not `done`; when every dep lands, the waiting state disappears on its own. A listed id with no matching card (dangling) is **non-blocking** — it never makes the card waiting. A dependency is sequencing, not an impediment; don't call it "blocked". Omit if empty — an empty `[]` stays legal on read, but it's no-data boilerplate the `kanban-web` app strips on its next managed write, so don't write it.
 - `blocked` — (optional) Manual impediment sticker, human stop sign; the value is the **reason** as free text. Example: `blocked: legal sign-off pending`. The card is *blocked* iff the trimmed value contains ≥ 1 alphanumeric character; YAML boolean special-case: `false`/`no` → not blocked, `true` → blocked with reason unspecified. Lean rule: omit the field entirely when the card is clear — never write `blocked: false`. **No eviction:** blocking a card already in `doing` leaves it there; the gate below is entry-only. **Agents never grab a blocked card, in any column** — clearing the sticker is the human's call.
-- `review` — (optional) "Finished — approve me" sticker, `blocked`'s sibling (ADR 0009): the value is the **text** describing what to check, free text. Example: `review: PR #6`. Same predicate as `blocked` (trimmed value ≥ 1 alphanumeric character; YAML `false`/`no` → not present, `true` → present, text unspecified) and the same lean rule — omit the field entirely when clear, never write `review: false`. Where `blocked` is "stuck, act so I can proceed," `review` is "done, approve me" — it overlays any status exactly like `blocked` and does **NOT** gate `doing` entry (the gate below stays `waiting` + `blocked` only). A machine-shaped value (see the AFK dispatcher's contract for the exact shape) is polled by the dispatcher each tick; free text is cleared by the human on approval. **Agents never grab a review-stickered card, in any column** — it awaits human approval; clearing the sticker is the human's (or, for a merged PR, the dispatcher's) call. See `docs/adr/0009-review-and-attention-are-stickers.md`.
+- `review` — (optional) "Finished — approve me" sticker, `blocked`'s sibling (ADR 0009): the value is the **text** describing what to check, free text. Example: `review: PR #6`. Same predicate as `blocked` (trimmed value ≥ 1 alphanumeric character; YAML `false`/`no` → not present, `true` → present, text unspecified) and the same lean rule — omit the field entirely when clear, never write `review: false`. Where `blocked` is "stuck, act so I can proceed," `review` is "done, approve me" — it overlays any status exactly like `blocked` and does **NOT** gate `doing` entry (the gate below stays `waiting` + `blocked` only). The human clears the sticker on approval. **Agents never grab a review-stickered card, in any column** — it awaits human approval; clearing the sticker is the human's call. See `docs/adr/0009-review-and-attention-are-stickers.md`.
 - `prompt` — (optional) A queued grooming instruction FROM a human TO the next AI that services the card: free text, always written **quoted** (same quoting contract as `notifications.md`'s `message`; an embedded newline collapses to a space). Not a sticker — no presence predicate, no `doing`-gate involvement, and it never excludes the card from pickup. The card **body** stays the only work spec: servicing a prompt means formalizing or editing the card, never executing the prompt as a work instruction, and clearing the field; a prompt can never escalate a card to autonomous work — only the trusted card body may pre-authorize `@afk`. Clear = remove the line (lean rule).
 - `assignee` — (optional) Owner of the card. If the board's `config.yaml` has an `assignees` registry, prefer those handles (it suggests, never validates — free text is fine).
 - `start_date` — (optional) The working range's **from**: a date (`YYYY-MM-DD`) or a local datetime (`YYYY-MM-DDTHH:MM`). Pairs with `end_date` as the from–to working range; alone = a 1-day range at start. The `kanban-web` app auto-stamps it with today's local date when a card lands in the literal status `todo` and the field is empty — mirror that stamp when moving a card into `todo` by hand (see Moving a Card below); never overwrite an existing value.
@@ -310,16 +310,16 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent) and the hu
 ```yaml
 - id: 4
   at: 2026-07-12T09:15:00
-  from: "afk-run:#131"
+  from: "agent:#131"
   level: info
   message: "`webapp#131 Retry budget for the ingest worker` closed; more: payload applied, 3 cards moved to done."
   read: false
 ```
 
 - `id`: max existing + 1. `at`: local ISO datetime, no timezone, read from the clock as you write the entry (`date '+%Y-%m-%dT%H:%M:%S'`), like `updated`.
-- `from`: the writer's handle (e.g. `afk-run:#131`, `skill:kanban-snapshot`).
+- `from`: the writer's handle (e.g. `agent:#131`, `skill:kanban-snapshot`).
 - `level`: one of `debug` | `info` | `warning` | `error`; **absent = `info`** (back-compat). Renderers show all levels — debug dimmed, warning amber-tinted, error red-tinted; no filtering for now.
-- `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` has no separate detail, and renderers emphasize only its first sentence, so write the separator. Card ids in the text follow the **Card mention** rule (one code span, `` `board#id title` ``); `from` is a machine handle, not prose, and keeps its bare `afk-run:#131` form.
+- `message`: single line only; quote values containing `:` or `#`. **TLDR-first shape:** the text before `; more: ` is a single plain sentence (no "TLDR" label) — renderers emphasize (bold) it; everything after is detail. A message without `; more: ` has no separate detail, and renderers emphasize only its first sentence, so write the separator. Card ids in the text follow the **Card mention** rule (one code span, `` `board#id title` ``); `from` is a machine handle, not prose, and keeps its bare `agent:#131` form.
 - `read`: always write `false` — the reader flips it (flipping to `read: true` stays an in-place edit). Entries missing a numeric `id` or non-empty `message` are skipped by readers and moved verbatim to `archived/notifications.md` on the next managed rewrite — never deleted, same rule as clearing.
 
 **Discipline (this is a rule, not a suggestion):** every AI mutation of the board — create, move, edit, archive, delete, payload-apply — must be reconstructable from the tray. Write either **one entry per action** or **ONE grouped entry per coherent batch/turn** that enumerates what changed. Interactive sessions are not exempt — moves the user watched you make get an entry too (grouped is fine). Tie-breaker: **unsure → notify.** A spurious notification costs one click; a silent mutation costs a re-derivation.
@@ -470,7 +470,7 @@ bash <SCRIPTS_DIR>/show_blocked.sh <kanban-dir>
 ```
 Output: Cards whose `blocked` sticker passes the predicate, reason inline.
 
-### Show Review Cards (manual/dispatcher sticker)
+### Show Review Cards (manual sticker)
 ```bash
 bash <SCRIPTS_DIR>/show_review.sh <kanban-dir>
 ```
@@ -494,7 +494,7 @@ bash <SCRIPTS_DIR>/list_all_cards.sh <kanban-dir>
 ```
 Output: All cards in pipe-delimited format (id|status|waiting_for|blocked|title), sorted by id: plain numbers first, then each prefix by its number (`9`, `10`, `G3`, `G10`). Useful for parsing, debugging dependencies, or exporting board state.
 
-### Eligible Cards (agent pickup)
+### Eligible Cards (a query any agent can run)
 ```bash
 bash <SCRIPTS_DIR>/eligible_cards.sh <kanban-dir> [assignee]
 ```

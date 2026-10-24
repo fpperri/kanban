@@ -1,6 +1,6 @@
 'use strict';
 // Pure helper for the board tile's title display: a card
-// born with a `prompt` but no title yet (an AI-dispatched card waiting on a
+// born with a `prompt` but no title yet (an AI-queued card waiting on a
 // title of its own) shows the prompt text itself as a temporary stand-in, so
 // the tile never renders visually blank while that's pending. Same
 // dual-environment pattern as priority-badge.js/assignee-badge.js — no DOM

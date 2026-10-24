@@ -365,10 +365,30 @@ async function runScenarios(scenarios, env, opts = {}) {
   return results;
 }
 
-// The fault flag: the named scenario throws before it does anything, so the
-// run can show that a throw is FAIL under its name and the rest still run.
-function withFault(scenarios, fault) {
-  if (!fault || fault.kind !== 'throw') return scenarios;
+// How long the held scenario of --fault kill-chrome waits for the kill to land before it fails
+// on its own timeout: well inside the 30 s fault-check.js allows a killed run.
+const HELD_TIMEOUT_MS = 10000;
+
+// The scenario --fault kill-chrome runs in place of the first one picked, on that one's
+// boards. It kills Chrome the moment it has started and then waits for ever, so the run
+// cannot finish before the kill lands: it ends when the loop finds Chrome gone, or, if
+// the kill never lands, at the scenario's timeout, as a failure either way.
+function heldScenario(first, killChrome) {
+  return {
+    name: 'held',
+    board: first.board,
+    alsoBoards: first.alsoBoards,
+    timeoutMs: HELD_TIMEOUT_MS,
+    run: async () => { killChrome(); await new Promise(() => {}); },
+  };
+}
+
+// The fault flag. throw:<name> makes the named scenario throw before it does anything, so the
+// run can show that a throw is FAIL under its name and the rest still run. kill-chrome puts the
+// held scenario in place of the first one picked; `killChrome` ends the run's Chrome.
+function withFault(scenarios, fault, { killChrome } = {}) {
+  if (!fault) return scenarios;
+  if (fault.kind === 'kill-chrome') return [heldScenario(scenarios[0], killChrome), ...scenarios.slice(1)];
   if (!scenarios.some((s) => s.name === fault.scenario)) {
     throw new Error(`unknown scenario '${fault.scenario}': ${scenarios.map((s) => s.name).join(', ')}`);
   }

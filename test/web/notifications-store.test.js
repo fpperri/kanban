@@ -78,7 +78,7 @@ test('serializeNotifications quotes strings so colons and hashes survive the rou
 
 test('level survives a serialize→parse round-trip for every legal value', () => {
   for (const level of ['debug', 'info', 'warning', 'error']) {
-    const entry = [{ id: 6, at: '2026-07-12T10:00:00', from: 'afk-run:#131', level, message: 'leveled', read: false }];
+    const entry = [{ id: 6, at: '2026-07-12T10:00:00', from: 'agent:#131', level, message: 'leveled', read: false }];
     assert.deepStrictEqual(ns.parseNotifications(ns.serializeNotifications(entry)), entry);
   }
 });
