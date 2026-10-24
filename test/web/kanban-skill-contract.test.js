@@ -9,8 +9,8 @@ const { toJSON, readCardFile } = require('../../plugin/skills/web/scripts/card-s
 const { parseNotifications } = require('../../plugin/skills/web/scripts/notifications-store');
 const { parseParent } = require('../../plugin/skills/web/web/nesting');
 
-// What an agent or a person copies from the kanban skill, the README's config section and the config
-// example of docs/web.md: the config.yaml they show, the card frontmatter, the notifications entry,
+// What an agent or a person copies from the kanban skill, the README's config section and the web
+// skill's config example: the config.yaml they show, the card frontmatter, the notifications entry,
 // the starter, the commands. Each is read by the real module, and what the module reads is where the
 // expectation comes from, so a doc is held to the file formats and not to its own sentences.
 
