@@ -94,3 +94,9 @@ test('the Hotkeys rules take their colours from the theme tokens: no hex and no 
     assert.ok(css.includes(`${token.slice(4, -1)}:`), `${token} is a defined token`);
   }
 });
+
+test('the section is to read and not to change: no control in its markup, and the script draws only a list of keys, what they do and a state', () => {
+  assert.doesNotMatch(section, /<(input|button|select|textarea)\b/i);
+  const made = [...sheetSrc.matchAll(/createElement\('([a-z]+)'\)/g)].map((m) => m[1]);
+  assert.deepStrictEqual([...new Set(made)].sort(), ['kbd', 'li', 'span']);
+});

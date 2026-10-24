@@ -323,3 +323,12 @@ test('the phone rules for the panel and its pills sit in one phone block at the 
   assert.match(block, /\.status-pill \{[^}]*min-height: 44px/);
   assert.doesNotMatch(block, /#[0-9a-f]{3,8}\b|rgb\(/i, 'no colour of its own');
 });
+
+test("a right-click that is not on a pill is left to the browser and the card menu: nothing is stopped, nothing is soloed", async () => {
+  const s = await open({ view: 'calendar' });
+  const before = s.pressed();
+  let prevented = 0;
+  s.pills.fire('contextmenu', { target: { closest: () => null }, preventDefault() { prevented++; } });
+  assert.strictEqual(prevented, 0);
+  assert.deepStrictEqual(s.pressed(), before);
+});
