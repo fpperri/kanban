@@ -12,7 +12,7 @@
   read: false
 - id: 3
   at: 2026-07-12T14:31:00
-  from: "afk-run:#6"
+  from: "agent:#6"
   level: info
   message: "Card #6 moved to doing; more: rounding spec #5 landed done, so the settlement engine's wait cleared and the gate let it in."
   read: false

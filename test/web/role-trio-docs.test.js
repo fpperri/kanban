@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 // --- the assignee registry is the @human/@hitl/@afk role trio ----------------
-// kanban/config.yaml's registry itself is board data (dispatcher-owned, not
+// kanban/config.yaml's registry itself is board data (not
 // under test here) — this guards the SKILL.md docs that teach AI writers the
 // registry shape and the kind-driven grab semantics, so a future edit can't
 // silently reintroduce a single-human example handle or drop the @hitl

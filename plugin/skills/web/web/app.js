@@ -691,7 +691,7 @@ function cardEl(card) {
   const scheduleHtml = scheduleBlockHtml(card); // start/end/due stack, see helper above
   const parent = parentTile(card);
   // A card with no title yet but a queued prompt (an
-  // AI-dispatched card waiting on kanban-afk to name it) shows the sparkle +
+  // AI-queued card waiting for an agent to name it) shows the sparkle +
   // prompt text in the title's own spot — a temporary stand-in, never a
   // permanent glyph, gone the moment a real title lands. card-title.js's
   // cardTitleDisplay is the pure decision; the prompt text is user data like
