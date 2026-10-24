@@ -40,7 +40,7 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 - Pass `<kanban-dir>` explicitly (the path resolved above) — omitting it makes the
   server apply the same discovery itself, relative to *its own* working directory:
   `.kanban/` first, then `kanban/`.
-- **Port precedence: CLI argument > `config.yaml`'s `port:` > default `7777`.**
+- **Port precedence: CLI argument > `config.yaml`'s `port:` > default `7777`.** The `kanban-snapshot` skill ignores `port:` entirely — it's a serving fact for this app, not board content it renders.
   A board's `config.yaml` may carry a top-level `port:` key (same top-level-only
   rule as `name:` — an indented `port:` inside an assignee entry is not it; see
   `plugin/skills/kanban/references/config.md` for the full key contract) to **pin**
@@ -120,7 +120,8 @@ to `127.0.0.1` only.
 
 - Read `references/launching.md` when the double-click wrapper misbehaves, or you need its naming, migration, git excludes and lock, or the tunnel's environment variable, startup errors and CSP.
 - Read `references/map.md`, `references/calendar.md`, `references/gantt.md`, `references/graph.md` (Hierarchy) or `references/graph-flow.md` (Flow) when the task touches that view.
-- Read `references/card-rendering.md` when the task touches how a tile or the card details are drawn.
-- Read `references/deep-links.md` when you hand the human a link to a card, a search or a view, or touch the popup's history.
+- Read `references/card-rendering.md` when the task touches how a tile or the card details are drawn, the header icons, or the hover and focus highlight.
+- Read `references/deep-links.md` when you hand the human a link to a card, a search or a view, or touch the popup's history, the tab icon or Copy board path.
 - Read `references/api.md` when the task calls or changes the server's HTTP routes or the `/api/board` payload.
 - Read `references/internals.md` when the task changes the page's code: modules, DOM ids, storage keys, listener wiring.
+- Read `docs/testing.md` when you add or run a test: which npm script runs what, how a server test and a browser scenario are added, and how the docs are held to the code.

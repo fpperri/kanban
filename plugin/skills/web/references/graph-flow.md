@@ -32,7 +32,7 @@ selection, the card menu, double-click, Enter, Ctrl+Space and the zoom work as i
 that are not drawn are not laid out, and a card whose only dependency is hidden has no dependency drawn, so it is in the strip. A lone selected card lights the card with the cards its **dependencies** join to it, not its parent or children, and hover and focus
 light what the Flow's *On hover show* ticks (`dlinks` and `hlinks` by default, so those cards and the card's parent and children), and the lit lines are the arrows. A dot
 cannot be dragged in Flow; the background pans. The choice is kept per board in `localStorage` under `graph.layout` (`hierarchy` or `flow`)
-and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer reads as Hierarchy, all and lanes on, the defaults (`GRAPH_FLOW_DEFAULT_DEPS`, `GRAPH_FLOW_DEFAULT_LANES`). The address carries them as
+and the switches under `graph.deps` and `graph.lanes` (`1` or `0`); a value this version does not offer, `tiers` (what an older version called the Hierarchy) and a layout an older version kept included, reads as Hierarchy, all and lanes on, the defaults (`GRAPH_FLOW_DEFAULT_DEPS`, `GRAPH_FLOW_DEFAULT_LANES`). The address carries them as
 `graph=hierarchy|flow`, `deps=frontier|all` and `lanes=0|1`: on a load the address wins, and a link's value is kept for that load only until a press;
 every draw of the Graph writes the address too (`graphWriteAddress`, a no-op once it says the picture), so a Graph that opened from the board's memory says so and a link copied after a plain reload opens the same picture;
 a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is

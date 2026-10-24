@@ -71,7 +71,7 @@ arc hooks out to its first and last child, and brackets side by side on one ring
 neighbours never meet. A bracket's stem is one straight line from the parent to the middle of a gap between two
 neighbouring children, never to a child's angle: it takes the gap nearest the parent's angle whose line keeps clear of
 every other card's mark, the next nearest when a mark is in the way, and the count sits in the free gap nearest the
-stem, beside the stem's end when no other gap is wide enough.  **Dependencies** are
+stem, beside the stem's end when no other gap is wide enough. A choice kept by an older version still reads as it drew: the retired value `folded` as chain with brackets, and a stored chain or all as that value with Group lines.  **Dependencies** are
 on (the default) or off, the dashed arrows for `waiting_for`. **Order** sorts siblings within a sector: by
 **status** (the default), doing, todo, backlog, the other live statuses in column order, done, archived, as the Map
 orders its rows, or by **rank**, the outline's own order; cards of one status keep the outline's order.
@@ -124,7 +124,7 @@ lines while it is lit, and a line has no click action and no keyboard focus. The
 never moves a line. The lines and dependencies only redraw; the order moves siblings along their own stretch of the
 sector, and no card changes its band, its ring or its sector; the Unnested option moves the cards with no relative and no tier to
 another ring, a sector or out of the Graph. The choices are kept per board in `localStorage` under
-`graph.options`; the row is always shown in the option panel, with no fold. A press on the row never starts a pan,
+`graph.options`; the row is always shown in the option panel, with no fold, and a `graph.optionsFolded` value left by an older version is never read. A press on the row never starts a pan,
 never clears the selection and never pauses the 5-second poll. Pressing Lines, Dependencies or Order never pans, zooms or
 re-fits the view, so a fan framed once keeps its place and **Fit** frames every card again.
 Pressing Unnested, which changes what the fan draws and what Fit frames, frames an untouched view again; a view the person has panned or zoomed stays where it is.

@@ -28,7 +28,7 @@ height follows its content (Dependency map). The gantt
 bar and the board tile's grey-border cues are untouched — one more glyph on top,
 not a replacement.
 
-**Board tile date stack** (kanban.proj#260) — `scheduleRows()` (column-sort.js) reads
+**Board tile date stack** — `scheduleRows()` (column-sort.js) reads
 the card's three LITERAL frontmatter fields directly (`start_date`/`end_date`/
 `due_date`), not the `scheduleKey` triad the Due date sort collapses to, so a card
 carrying all three shows all three instead of hiding two behind the deadline. One row
@@ -43,7 +43,7 @@ with the id/badges — three stacked lines don't fit a nowrap flex child. Each g
 rides a fixed-width `.card-schedule-glyph` box (the arrows and the flag come from
 different fallback faces and measure ~1.6px apart) so the three dates line up in one
 column. Both `cardEl` and `archiveCardEl` render it
-through the shared `scheduleBlockHtml()` helper. 
+through the shared `scheduleBlockHtml()` helper. `scheduleLabel()` (the old single-line `⚑ MM-DD`-or-bare label) still exists and is still unit-tested but has no production caller left. 
 
 **Overdue cue** — `isOverdue()` (column-sort.js): the card's `due_date` day part is
 strictly earlier than today, and the card is neither `done` nor archived. Day-granular
@@ -52,7 +52,7 @@ rolls over — and keyed on `due_date` alone, never the `due`/`end`/`start` tria
 Due date sort uses: a working range sliding past today is a schedule slip, not a missed
 deadline. An unparseable value never flags (fails safe rather than string-comparing
 free text). It recolors the deadline cue each surface ALREADY draws, in the same danger
-red as the blocked pill: in the board tile's date stack (kanban.proj#260, under the
+red as the blocked pill: in the board tile's date stack (under the
 title), the due row alone (text + weight — the tile's `border-left` is
 priority/waiting's channel, untouched); on the calendar's due chip (border + `⚑` glyph,
 winning over that chip's amber); and the gantt's due diamond (fill). Tooltips say so in
@@ -70,7 +70,7 @@ not name, or names without a color, is a neutral chip. Like a reserved assignee 
 the value is free-form, so the chip rides a `data-type-color` attribute and
 `paintTypeColors()` (app.js) paints it with CSSOM assignments after `innerHTML` lands
 (the CSP blocks style attributes). The app attaches no meaning to a type, `epic`
-included: it wears a color only when the list gives it one.
+included: it wears a color only when the list gives it one. The retired `epic` flag is neither read nor written: no form checkbox, no `epic:` search term, no "Epics" chip on the map, no fixed orange and no wash on any surface.
 **Icons:** a listed type may also carry an `icon:` (see the `icon` key under Board config in docs/web.md). A type with an icon starts its chip with that glyph, in the chip's own
 colour (the glyph is plain text inside the chip, so it takes the colour the chip is
 painted), wherever a chip is drawn: Board and Archive tiles, the Map's rich rows and the
@@ -148,7 +148,7 @@ drag-driven status changes, and bulk edits alike, since all go through the same 
 endpoint — and is left untouched by archive/restore (those move the file, not its
 content). ADR 0008.
 
-**Hover/focus highlight** (kanban.proj#261) — resting the pointer over, or moving
+**Hover/focus highlight** — resting the pointer over, or moving
 keyboard focus onto, any piece of a card lights every piece sharing its id, the same
 card-el grammar and same "one card, several DOM elements" reach as selection: on the
 calendar a run cut at a week boundary is two chips, and the card's own deadline chip is

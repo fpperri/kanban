@@ -56,7 +56,7 @@ poll and a reload, and are not URL parameters. The rules behind them (which pare
 lines, which trees, the row order, the No relations set, where cards and lines fall) are map-relations.js, pure and
 unit-tested, with no other module behind it so a page without the web app's scripts can
 embed it as is, like nesting.js. The options row is always shown in the option panel,
-with no toggle of its own.
+with no toggle of its own; an `options` value left in `map.sections.collapsed` by an older version is dropped when that entry is read.
 **Node treatments:** the border is one neutral weight for every node — status never
 strokes it. A small dot in the node's corner carries the status color (same palette as
 the column headers), its own tooltip naming the **raw on-disk status**; status dots

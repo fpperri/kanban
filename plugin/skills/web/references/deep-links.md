@@ -21,7 +21,7 @@ not a deep link at all and is ignored outright.
   An empty or whitespace-only `q` reads as absent, never as a filter matching
   everything. Because the query lands in the box rather than in a separate filter
   layer, `q` is subject to everything a typed query is — including matching archived
-  cards (`kanban.proj#264`).
+  cards.
 - **One unusable key never discards the others.** An unrecognized `view` value (or
   none) leaves the persisted/default view untouched; an id that doesn't resolve to any
   active or archived card (missing, not an id, or just unknown) shows a toast, no

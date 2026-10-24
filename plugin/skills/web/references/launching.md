@@ -5,9 +5,6 @@ What `launcher.js write` writes and guards, and what starting the server behind 
 A port must be a number and each origin is re-emitted as `--allow-origin=<its parsed origin>`; a `--home-url` is re-emitted as
 `--home-url=<its parsed address>`; anything else is refused.
 
-The `kanban-snapshot` skill ignores `port:` entirely — it's a
-serving fact for this app, not board content it renders.
-
 ## Double-click launcher
 
 `launcher.js write` (re)writes a double-clickable wrapper for restarting this same board
