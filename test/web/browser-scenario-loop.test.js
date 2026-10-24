@@ -69,6 +69,52 @@ test('a fault naming no scenario is refused rather than ignored', () => {
   assert.deepStrictEqual(withFault([ok('graph')], null).map((s) => s.name), ['graph']);
 });
 
+test('a kill-chrome fault puts a held scenario, on the board of the first one picked, in its place and leaves the rest', () => {
+  const smoke = { ...ok('smoke', 's'), board: 'plan', alsoBoards: ['malformed'] };
+  const scenarios = withFault([smoke, ok('graph', 'g')], { kind: 'kill-chrome' }, { killChrome: () => {} });
+  assert.deepStrictEqual(scenarios.map((s) => s.name), ['held', 'graph']);
+  assert.strictEqual(scenarios[0].board, 'plan');
+  assert.deepStrictEqual(scenarios[0].alsoBoards, ['malformed']);
+  assert.ok(scenarios[0].timeoutMs > 0 && scenarios[0].timeoutMs < 30000, 'a kill that never lands must fail the run well inside the check\'s limit');
+});
+
+test('the held scenario kills Chrome once it has started and then waits, so the scenario is still running however long the kill takes', async () => {
+  const env = fakeEnv();
+  let kills = 0;
+  const killChrome = () => { kills += 1; setTimeout(() => env.lose('killed by SIGKILL'), 150); };
+  const [held] = withFault([ok('graph', 'g')], { kind: 'kill-chrome' }, { killChrome });
+  assert.strictEqual(kills, 0, 'the kill waits for the scenario to start');
+  const t0 = Date.now();
+  const [r] = await runScenarios([held], env, { log: () => {} });
+  assert.ok(Date.now() - t0 >= 140, 'the scenario finished before the kill landed');
+  assert.strictEqual(kills, 1);
+  assert.strictEqual(r.status, 'FAIL');
+  assert.match(r.error, /Chrome is gone: killed by SIGKILL/);
+  assert.strictEqual(exitCodeFor([r]), EXIT.FAILED);
+});
+
+test('the held scenario never finishes by itself', async () => {
+  const [held] = withFault([ok('graph', 'g')], { kind: 'kill-chrome' }, { killChrome: () => {} });
+  const outcome = await Promise.race([held.run({}).then(() => 'finished'), new Promise((r) => setTimeout(() => r('still running'), 200))]);
+  assert.strictEqual(outcome, 'still running');
+});
+
+test('a kill that never lands fails the held scenario at its timeout instead of hanging, and the run exits non-zero', async () => {
+  const [held] = withFault([ok('graph', 'g')], { kind: 'kill-chrome' }, { killChrome: () => {} });
+  const t0 = Date.now();
+  const [r] = await runScenarios([{ ...held, timeoutMs: 80 }], fakeEnv(), { log: () => {} });
+  assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0}ms`);
+  assert.strictEqual(r.status, 'FAIL');
+  assert.match(r.error, /timed out after 0\.08s/);
+  assert.strictEqual(exitCodeFor([r]), EXIT.FAILED);
+});
+
+test('the held scenario takes the CPU rate like any scenario: its timeout is lengthened by it', async () => {
+  const [held] = withFault([ok('graph', 'g')], { kind: 'kill-chrome' }, { killChrome: () => {} });
+  const [r] = await runScenarios([{ ...held, timeoutMs: 40 }], fakeEnv(), { log: () => {}, rate: 3 });
+  assert.match(r.error, /timed out after 0\.12s/);
+});
+
 test('a scenario that hangs is cut off at its own timeout and the next one runs', async () => {
   const hang = { name: 'hang', board: 'fixture', timeoutMs: 60, run: () => new Promise(() => {}) };
   const t0 = Date.now();

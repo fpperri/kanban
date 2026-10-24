@@ -82,11 +82,10 @@ test('a forced throw is judged wrong when the run exits zero, the scenario is no
 });
 
 const killedOutput = [
-  '== graph  (board fixture)',
-  'PASS  [graph] graph renders after deep link ?view=graph',
-  'FAIL  [graph] scenario failed: Chrome is gone: Chrome killed by SIGKILL',
-  'FAIL  graph       1.6s  Chrome is gone: Chrome killed by SIGKILL',
-  '0 passed, 1 failed (1 scenarios, 1 checks)',
+  '== held  (board fixture)',
+  'FAIL  [held] scenario failed: Chrome is gone: killed by SIGKILL',
+  'FAIL  held        0.1s  Chrome is gone: killed by SIGKILL',
+  '0 passed, 1 failed (1 scenarios, 0 checks)',
 ].join('\n');
 
 test('a killed Chrome is judged right when the run exits non-zero in time and leaves nothing behind', () => {

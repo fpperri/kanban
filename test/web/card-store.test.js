@@ -235,8 +235,8 @@ test('createCard treats a missing title field the same as an explicit empty one'
 // neither title nor prompt is no data at
 // all — nothing left for cardTitleDisplay to fall back to on any view.
 // The "Untitled" safety net survives for exactly that case (the
-// browser's `required` toggle is not the only path in — curl, kanban-afk
-// dispatch, any direct POST /api/cards caller bypasses it entirely).
+// browser's `required` toggle is not the only path in — curl, an agent,
+// any direct POST /api/cards caller bypasses it entirely).
 test('createCard falls back to "Untitled" when both title and prompt are empty', () => {
   const dir = tmpBoard();
   const card = cs.createCard(dir, { title: '', prompt: '', status: 'backlog' });
