@@ -9,13 +9,15 @@ const { toJSON, readCardFile } = require('../../plugin/skills/web/scripts/card-s
 const { parseNotifications } = require('../../plugin/skills/web/scripts/notifications-store');
 const { parseParent } = require('../../plugin/skills/web/web/nesting');
 
-// What an agent or a person copies from the kanban skill, the README's config section and the web
-// skill's config example: the config.yaml they show, the card frontmatter, the notifications entry,
-// the starter, the commands. Each is read by the real module, and what the module reads is where the
-// expectation comes from, so a doc is held to the file formats and not to its own sentences.
+// What an agent or a person copies from the kanban skill (its SKILL.md and the config.md and nesting.md
+// beside it in references/), the README's config section and the web skill's config example: the
+// config.yaml they show, the card frontmatter, the notifications entry, the starter, the commands.
+// Each is read by the real module, and what the module reads is where the expectation comes from, so
+// a doc is held to the file formats and not to its own sentences.
 
 const skill = read('plugin', 'skills', 'kanban', 'SKILL.md');
-const configSection = section(skill, '### `config.yaml`', '### `notifications.md`');
+const configSection = read('plugin', 'skills', 'kanban', 'references', 'config.md');
+const nesting = read('plugin', 'skills', 'kanban', 'references', 'nesting.md');
 const readme = read('README.md');
 const readmeConfig = section(readme, '## config.yaml', '## Starter config');
 const readmeStarter = section(readme, '## Starter config', '## More docs');
@@ -23,7 +25,7 @@ const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webConfig = section(webSkill, '## Board config: `config.yaml`', '\n## ');
 
 const EXAMPLES = [
-  ['the kanban skill', fenced(configSection, 'yaml')[0]],
+  ['the kanban skill\'s config reference', fenced(configSection, 'yaml')[0]],
   ['the README', fenced(readmeConfig, 'yaml')[0]],
   ['the web skill', fenced(webConfig, 'yaml')[0]],
 ];
@@ -51,13 +53,13 @@ test('an exemption is a key some example shows: none is left over', () => {
   assert.deepStrictEqual(Object.keys(NOT_READ_BY_CODE).filter((key) => !shown.has(key)), []);
 });
 
-test('every key the reader reads from the file is documented in the kanban skill\'s config section', () => {
+test('every key the reader reads from the file is documented in the kanban skill\'s config reference', () => {
   const documented = (key) => configSection.includes(`\`${key}`) || new RegExp(`^${key}:`, 'm').test(configSection);
   for (const key of [...KEY_ORDER, 'vars']) assert.ok(documented(key), `${key} is documented`);
 });
 
 test('the registry in each example reads as the role trio: three handles with the three kinds the grab rules name', () => {
-  const kindsNamed = [...section(skill, '**Grab semantics for AI writers:**', 'Status values are').matchAll(/`kind: ([\w-]+)`/g)].map((m) => m[1]);
+  const kindsNamed = [...section(skill, '**Grab semantics for AI writers:**', 'Only a handle whose').matchAll(/`kind: ([\w-]+)`/g)].map((m) => m[1]);
   assert.deepStrictEqual(kindsNamed, ['human', 'ai-hitl', 'ai-afk']);
   for (const [where, example] of EXAMPLES) {
     const handles = parseConfig(example).assignees;
@@ -92,8 +94,8 @@ test('the six icon names the code knows are the six the skill and the examples l
   }
 });
 
-test('every card field the reader gives back has a bullet in the skill\'s Card Fields list', () => {
-  const fields = section(skill, '## Card Fields', '## Creating a Card');
+test('every card field the reader gives back has a bullet in the skill\'s Card Fields list or the nesting reference', () => {
+  const fields = `${section(skill, '## Card Fields', '## Creating a Card')}\n${nesting}`;
   const derived = new Set(['title', 'body', 'archived', 'file']);
   for (const field of Object.keys(toJSON({ file: 'x.card.md' })).filter((key) => !derived.has(key))) {
     assert.ok(fields.includes(`\n- \`${field}\` `), `${field} has a bullet`);
@@ -127,7 +129,7 @@ test('the card the skill shows is one the reader reads, in a file named as the s
 });
 
 test('the notifications entry the skill shows is one the reader reads, with a TLDR-first message', () => {
-  const [example] = fenced(section(skill, '### `notifications.md`', '### The logbook'), 'yaml');
+  const [example] = fenced(section(skill, '### `notifications.md`', '### The notes kit'), 'yaml');
   const [entry, ...rest] = parseNotifications(example);
   assert.ok(entry, 'the entry is read');
   assert.strictEqual(rest.length, 0);
@@ -140,7 +142,7 @@ test('the notifications entry the skill shows is one the reader reads, with a TL
 });
 
 test('a parent written the ways the skill shows reads as a parent, and this board\'s own name in board#id form is this board', () => {
-  const bullet = skill.split('\n').find((line) => line.startsWith('- `parent` '));
+  const bullet = nesting.split('\n').find((line) => line.startsWith('- `parent` '));
   const shown = [...bullet.matchAll(/`((?:[\w-]+#)?_?[A-Z]*\d+)`/g)].map((m) => m[1]);
   assert.ok(shown.some((s) => s.includes('#')) && shown.some((s) => !s.includes('#')), 'both forms are shown');
   for (const text of shown) {
@@ -155,12 +157,12 @@ test('a parent written the ways the skill shows reads as a parent, and this boar
   }
 });
 
-test('the starter is what the skill and the README say it is', () => {
+test('the starter is what the config reference and the README say it is', () => {
   const starter = parseConfig(read('plugin', 'skills', 'kanban', 'starter-config.yaml'));
-  const starterPara = section(skill, '**The starter config.**', '\n- **A new board.**').replace(/\s+/g, ' ');
+  const starterPara = section(configSection, '**The starter config.**', '\n**Bringing an existing board').replace(/\s+/g, ' ');
   const readmeText = readmeStarter.replace(/\s+/g, ' ');
   const hierarchy = `[${starter.hierarchy.join(', ')}]`;
-  for (const [where, text] of [['the skill', starterPara], ['the README', readmeText]]) {
+  for (const [where, text] of [['the config reference', starterPara], ['the README', readmeText]]) {
     assert.ok(text.includes(`\`${hierarchy}\``) || text.includes(`**Hierarchy:** \`${hierarchy}\``), `${where} names ${hierarchy}`);
     for (const [prefix, target] of Object.entries(starter.prefixes)) assert.ok(text.includes(`${prefix}: ${target}`), `${where} names the prefix ${prefix}: ${target}`);
     for (const t of starter.types) assert.ok(text.includes(`\`${t.name}\``), `${where} names the type ${t.name}`);
@@ -184,8 +186,8 @@ test('the bundled demo board carries the starter\'s types, hierarchy and prefixe
 
 test('each command the skill and the README show runs a script that exists and knows the flags shown', () => {
   const shown = [
-    ...fenced(section(skill, '**The starter config.**', '**Grab semantics'), 'bash'),
-    ...fenced(section(skill, '### Migrating `epic: true`', '## Human surfaces'), 'bash'),
+    ...fenced(section(skill, '**A new board.**', '**Grab semantics'), 'bash'),
+    ...fenced(section(configSection, '## Migrating `epic: true`'), 'bash'),
     ...fenced(readmeStarter, 'bash'),
   ].flatMap((block) => block.split('\n')).filter((line) => /\bnode |\bbash /.test(line));
   assert.ok(shown.length >= 5, 'the commands are found');
@@ -200,4 +202,10 @@ test('each command the skill and the README show runs a script that exists and k
     scripts.add(name);
   }
   assert.deepStrictEqual([...scripts].sort(), ['apply-starter.js', 'migrate_epic_to_type.sh']);
+});
+
+test('every file in the kanban skill\'s references folder is one the body sends an agent to', () => {
+  const files = fs.readdirSync(path.join(ROOT, 'plugin', 'skills', 'kanban', 'references')).filter((f) => f.endsWith('.md')).sort();
+  assert.deepStrictEqual(files, ['archive-packages.md', 'config.md', 'groups.md', 'nesting.md', 'notes-kit.md', 'notifications.md']);
+  for (const file of files) assert.ok(skill.includes(`\`references/${file}\``), `the body names references/${file}`);
 });
