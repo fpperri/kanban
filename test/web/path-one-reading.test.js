@@ -87,3 +87,15 @@ test('a card\'s folder inside an iteration\'s folder and a card\'s folder outsid
   assert.strictEqual(sp.readPad(dir, '7').body, 'in');
   assert.strictEqual(sp.readPad(dir, '8').body, 'out');
 });
+
+test('a group\'s folder with no iteration is read once, as the group\'s: its id is a group\'s, not an iteration\'s', () => {
+  const dir = tmpBoard(`${SIDE_BY_SIDE}prefixes:\n  _: .groups\n`);
+  fs.mkdirSync(at(dir, '.groups'), { recursive: true });
+  fs.writeFileSync(at(dir, '.groups', '_0003.offsite.md'), '---\nid: _3\nname: offsite\n---\n');
+  sp.writePad(dir, '_3', 'plan');
+  td.addTodo(dir, '_3', { text: 'book', version: td.readTodos(dir, '_3').version });
+  assert.deepStrictEqual(list(at(dir, 'work')), ['_0003.offsite']);
+  assert.deepStrictEqual(sp.listTargets(dir), ['_3']);
+  assert.deepStrictEqual(td.listTargets(dir), ['_3']);
+  assert.strictEqual(sp.readPad(dir, '_3').body, 'plan');
+});

@@ -196,6 +196,17 @@ describe('a click on a pill', () => {
       assert.strictEqual(pill(page, 'review').on, false);
     });
   });
+
+  test('typing the query of a pill turns the pill on, and typing it away turns it off again', () => {
+    withBuiltBoard('plan', (page) => {
+      openPanel(page);
+      page.type(page.byId('q'), 'review:');
+      assert.strictEqual(pill(page, 'review').on, true);
+      assert.strictEqual(pill(page, 'blocked').on, false);
+      page.type(page.byId('q'), 'review');
+      assert.strictEqual(pill(page, 'review').on, false);
+    });
+  });
 });
 
 describe('the counts', () => {
