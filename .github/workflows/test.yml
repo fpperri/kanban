@@ -23,7 +23,7 @@ jobs:
           python-version: '3.11'
       - run: npm test
       - if: ${{ !cancelled() }}
-        run: node skills/web/test/docs-pinned-check.js
+        run: node test/web/docs-pinned-check.js
 
   browser:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
           ref: main
           path: older
       - run: npm run test:browser -- --only smoke --plugin older --shots browser-shots-older
-      - run: node skills/web/test/browser/fault-check.js
+      - run: node test/web/browser/fault-check.js
       - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:

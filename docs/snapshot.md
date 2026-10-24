@@ -13,7 +13,7 @@ archive rules — in one place.
 From the repo root:
 
 ```bash
-python skills/snapshot/scripts/build_editor.py examples/demo-board --out editor.html
+python plugin/skills/snapshot/scripts/build_editor.py examples/demo-board --out editor.html
 ```
 
 (`python3` on macOS/Linux if that is the only interpreter name; on Windows `python3`
@@ -24,7 +24,7 @@ phone). The screenshots below are the bundled `examples/demo-board` on a phone.
 
 Under Claude Code, this file is delivered as the board's **Board artifact** —
 one hosted page per board, refreshed in place — per
-`skills/snapshot/references/board-artifact.md`.
+`plugin/skills/snapshot/references/board-artifact.md`.
 
 ## Board
 

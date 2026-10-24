@@ -1,0 +1,153 @@
+const { test, after } = require('node:test');
+const assert = require('node:assert');
+
+const scenario = require('./browser/scenarios/graph-flow');
+const scenarios = require('./browser/scenarios');
+const { graphBuild, graphNeighbours, graphQueryEffect } = require('../../plugin/skills/web/web/graph-model');
+const { graphFlowPlace, graphFlowMarks } = require('../../plugin/skills/web/web/graph-flow');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { loadBoard, cleanUp } = require('./helpers/fan-boards');
+
+// The graph-flow scenario only runs in a browser (in CI). Here its lists are held to the Flow layout and
+// the Graph model over the plan board's own cards, so a wrong expectation fails in the unit suite and not
+// only in a slow browser run.
+
+after(cleanUp);
+
+const board = loadBoard('plan');
+const searchCtx = { ...board.ctx, hierarchy: board.config.hierarchy };
+const CASE = scenario.CASES.plan;
+const sorted = (list) => [...list].map(Number).sort((a, b) => a - b);
+const modelOf = (visible = board.live.map((c) => c.id)) => graphBuild(board.all, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(visible) });
+const flowOf = (deps, model = modelOf(), lanes = false) => graphFlowPlace(model, { deps, lanes });
+const headsOf = (flow) => graphFlowMarks(flow).texts.map((t) => t.text);
+const columnsOf = (flow) => flow.columns.map((c) => sorted(c.ids));
+
+test('the scenario is in the runner, on the plan board with the fixture board beside it', () => {
+  assert.strictEqual(scenarios.find((s) => s.name === 'graph-flow'), scenario);
+  assert.strictEqual(scenario.board, 'plan');
+  assert.deepStrictEqual(scenario.alsoBoards, ['fixture']);
+  assert.ok(scenario.timeoutMs >= 60000 && scenario.timeoutMs <= 120000);
+});
+
+test('the columns, their headings and the strip are the Flow layout\'s, in frontier and in all', () => {
+  for (const deps of ['frontier', 'all']) {
+    const flow = flowOf(deps);
+    assert.deepStrictEqual(columnsOf(flow), CASE[deps].columns, deps);
+    assert.deepStrictEqual(headsOf(flow), CASE[deps].heads, deps);
+    assert.strictEqual(flow.strip.count, CASE.strip, deps);
+  }
+});
+
+test('the board is what the scenario says: 26 live cards, seven joined by a wait, one of them done, the rest with no dependency either way', () => {
+  const model = modelOf();
+  assert.strictEqual(model.nodes.length, CASE.dots);
+  const waits = model.links.filter((l) => l.kind === 'wait');
+  assert.deepStrictEqual(waits.map((l) => `${l.from}>${l.to}`).sort(), CASE.arrows.slice().sort());
+  const joined = new Set(waits.flatMap((l) => [l.from, l.to]));
+  assert.strictEqual(joined.size, 8);
+  assert.strictEqual(model.nodes.length - joined.size, CASE.strip);
+  assert.strictEqual(model.byId.get(String(CASE.done)).status, 'done');
+  assert.ok(model.nodes.filter((n) => n.status === 'done' && joined.has(n.id)).length === 1, 'card 5 is the only done card with a dependency');
+  assert.notStrictEqual(model.byId.get(String(CASE.typed)).shape, 'circle', 'the typed card draws a mark, not a round dot');
+});
+
+test('a lone card lights with its dependencies in the Flow, and its parent besides in the Hierarchy', () => {
+  const model = modelOf();
+  const id = String(CASE.lone.card);
+  assert.deepStrictEqual(sorted(graphNeighbours(model, id, 'wait')), CASE.lone.lit);
+  assert.ok(graphNeighbours(model, id).has('1'), 'in the Hierarchy card 1, its parent, lights too');
+  assert.strictEqual(model.byId.get(id).parentId, '1');
+});
+
+test('the query lights a done card and a card in the strip', () => {
+  const terms = parseSearchQuery(CASE.search.query, board.name);
+  const lit = sorted(filterCards(board.all, terms, searchCtx).map((c) => c.id)).filter((id) => board.live.some((c) => Number(c.id) === id));
+  assert.deepStrictEqual(lit, CASE.search.lit);
+  const flow = flowOf('frontier');
+  const columnOf = (id) => flow.columns.find((c) => c.ids.includes(String(id)));
+  assert.strictEqual(columnOf(CASE.done).label, 'done');
+  assert.strictEqual(columnOf(10), undefined, 'card 10 is in the strip');
+  assert.ok(flow.strip.ids.includes('10'));
+});
+
+test('without the done cards the Flow has no done column, 27 has no dependency drawn and goes to the strip', () => {
+  const visible = board.live.filter((c) => c.status !== 'done').map((c) => c.id);
+  const model = modelOf(visible);
+  const flow = flowOf('frontier', model);
+  const want = CASE.withoutDone;
+  assert.strictEqual(model.nodes.length, want.dots);
+  assert.deepStrictEqual(headsOf(flow), want.frontier.heads);
+  assert.deepStrictEqual(columnsOf(flow), want.frontier.columns);
+  assert.strictEqual(flow.strip.count, want.strip);
+  assert.ok(flow.strip.ids.includes('27'));
+});
+
+test('the slice cut draws the cards the scenario says, none of which waits for another', () => {
+  const terms = parseSearchQuery(CASE.cut.query, board.name);
+  const match = { terms, ids: new Set(filterCards(board.all, terms, searchCtx).map((c) => String(c.id))) };
+  const effect = graphQueryEffect(match, board.all, searchCtx);
+  const live = new Set(board.live.map((c) => String(c.id)));
+  const draws = sorted([...effect.visibleIds].filter((id) => live.has(id)));
+  assert.deepStrictEqual(draws, CASE.cut.draws);
+  const flow = flowOf('frontier', modelOf(draws.map(String)));
+  assert.deepStrictEqual(flow.columns, []);
+  assert.deepStrictEqual(headsOf(flow), [`no dependency either way · ${draws.length} cards`]);
+});
+
+test('the isolated cards are laid out by the dependencies between them', () => {
+  const want = CASE.isolated;
+  const model = modelOf(want.draws.map(String));
+  const flow = flowOf('frontier', model);
+  assert.deepStrictEqual(headsOf(flow), want.heads);
+  assert.deepStrictEqual(columnsOf(flow), want.columns);
+  assert.strictEqual(flow.strip, null);
+  assert.deepStrictEqual(model.links.filter((l) => l.kind === 'wait').map((l) => `${l.from}>${l.to}`).sort(), want.arrows);
+  assert.strictEqual(want.text, want.draws.map((id) => `#${id}`).join(' | '));
+});
+
+test('the loop the scenario adds goes where the scenario says, in frontier and in all', () => {
+  const extra = [
+    { id: '30', title: 'Loop first', status: 'todo', archived: false, parent: null, waiting_for: ['31'], blocked: false, review: false },
+    { id: '31', title: 'Loop second', status: 'todo', archived: false, parent: null, waiting_for: ['30'], blocked: false, review: false },
+    { id: '32', title: 'Loop behind it', status: 'todo', archived: false, parent: null, waiting_for: ['30'], blocked: false, review: false },
+  ];
+  const cards = board.all.concat(extra);
+  const model = graphBuild(cards, { ctx: board.ctx, hierarchy: board.config.hierarchy, types: board.config.types, visibleIds: new Set(board.live.concat(extra).map((c) => c.id)) });
+  const frontier = headsOf(graphFlowPlace(model, { deps: 'frontier' }));
+  assert.deepStrictEqual(frontier, [...CASE.frontier.heads.slice(0, 3), ...CASE.loop.frontier, CASE.frontier.heads.at(-1)]);
+  assert.deepStrictEqual(headsOf(graphFlowPlace(model, { deps: 'all' })), [...CASE.loop.all, CASE.all.heads.at(-1)]);
+});
+
+test('the lanes are those of the Flow layout over the plan board: who is in which lane, the headers in order, the headings with lanes', () => {
+  const model = modelOf();
+  const want = CASE.lanes;
+  for (const deps of ['frontier', 'all']) {
+    const flow = flowOf(deps, model, true);
+    assert.deepStrictEqual(flow.lanes.map((l) => sorted(l.ids)), want.ids, deps);
+    const marks = graphFlowMarks(flow, { titleOf: (id) => model.byId.get(id).card.title });
+    assert.deepStrictEqual(marks.heads.map((h) => h.text), want.headers.map((h) => h.text), deps);
+    assert.deepStrictEqual(marks.heads.map((h) => Number(h.id)), want.headers.map((h) => h.id), deps);
+    assert.deepStrictEqual(marks.texts.map((t) => t.text), want[deps], deps);
+    assert.deepStrictEqual(columnsOf(flow), CASE[deps].columns, `${deps}: the lanes keep the columns`);
+    assert.strictEqual(flow.strip.count, CASE.strip, deps);
+  }
+});
+
+test('the marks the scenario expects in the headers are those of the types: the goal has a colour, the strategy and the task a mark without one', () => {
+  const model = modelOf();
+  const type = (id) => board.config.types.find((t) => t.name === model.byId.get(String(id)).card.type);
+  const [goal, strategy, task] = CASE.lanes.headers.map((h) => type(h.id));
+  assert.deepStrictEqual([goal.icon, goal.color], ['star', CASE.lanes.headers[0].mark]);
+  assert.ok(strategy.icon && !strategy.color && task.icon && !task.color);
+  assert.deepStrictEqual(CASE.lanes.headers.slice(1).map((h) => h.mark), ['', '']);
+});
+
+test('the headers the scenario drives are lane cards that have a dot, and the header of one lights it with its dependencies', () => {
+  const model = modelOf();
+  const lanes = flowOf('frontier', model, true).lanes.filter((l) => l.header).map((l) => Number(l.header.id));
+  assert.ok(lanes.includes(CASE.head.card) && lanes.includes(CASE.head.other), 'both have a header in the lanes');
+  assert.notStrictEqual(CASE.head.card, CASE.head.other);
+  assert.ok(model.byId.has(String(CASE.head.card)) && model.byId.has(String(CASE.head.other)), 'and a dot');
+  assert.deepStrictEqual(sorted(graphNeighbours(model, String(CASE.head.card), 'wait')), CASE.head.lit);
+});

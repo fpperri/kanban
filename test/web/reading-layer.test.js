@@ -1,0 +1,64 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+// The reading layer is a set of rules, not only a set of tokens: the tokens'
+// contrast lives in theme-contrast.test.js, and this pins which role paints
+// with which token, so a card body cannot drift back to one flat lightness.
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+
+function rule(selector) {
+  const re = new RegExp('(^|\\n)' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}');
+  const m = re.exec(css);
+  assert.ok(m, `rule not found: ${selector}`);
+  return m[2];
+}
+
+test('card body prose paints --prose; headings paint --md-preview-heading and bold --md-preview-bold', () => {
+  assert.match(rule('.detail-body'), /color:\s*var\(--prose\)/);
+  assert.match(rule('.detail-body h1, .detail-body h2, .detail-body h3'), /color:\s*var\(--md-preview-heading\)/);
+  assert.match(rule('.detail-body strong'), /color:\s*var\(--md-preview-bold\)/);
+});
+
+test('inline code is its own colour on the raised ground, with no border', () => {
+  const code = rule('.detail-body code');
+  assert.match(code, /color:\s*var\(--code-ink\)/);
+  assert.match(code, /background:\s*var\(--raised\)/);
+  assert.doesNotMatch(code, /(^|[^-])border:/, 'a border around every code span is the noise this layer removes');
+});
+
+test('table headers sit on the raised ground over the strong rule; the first column carries heading ink', () => {
+  const th = rule('.detail-body .md-table th');
+  assert.match(th, /background:\s*var\(--raised\)/);
+  assert.match(th, /border-bottom-color:\s*var\(--line-strong\)/);
+  assert.match(rule('.detail-body .md-table td'), /color:\s*var\(--prose\)/);
+  assert.match(rule('.detail-body .md-table td:first-child'), /color:\s*var\(--ink-strong\)/);
+});
+
+test('no body block caps its width, so fullscreen prose runs the full modal width', () => {
+  assert.doesNotMatch(css, /\.detail-body[^{]*\{[^}]*max-width:\s*\d/);
+});
+
+test('only a leading heading drops its section rule; a leading rule or code block keeps its own', () => {
+  assert.doesNotMatch(rule('.detail-body > :first-child'), /border|padding/);
+  assert.match(rule('.detail-body > h2:first-child'), /border-top:\s*0/);
+});
+
+test('a notification leads with its TLDR in the strongest ink and the rest in prose', () => {
+  assert.match(rule('.notif-message'), /color:\s*var\(--prose\)/);
+  assert.match(rule('.notif-message strong'), /color:\s*var\(--ink-strong\)/);
+});
+
+test('every card mention chip paints --mention on --mention-bg, and a same-board one keeps its line and focus ring in that ink', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+  const chips = [...css.matchAll(/^([^{}\n]*code\.mention)\s*\{([^}]*)\}/gm)];
+  assert.ok(chips.length >= 4, 'the four rules that draw a chip');
+  for (const [, sel, body] of chips) {
+    assert.match(body, /color:\s*var\(--mention\)/, sel);
+    assert.match(body, /background:\s*var\(--mention-bg\)/, sel);
+  }
+  assert.match(css, /code\.mention\.same \{[^}]*border-bottom: 1px dotted var\(--mention\)/);
+  assert.match(css, /code\.mention\.same:focus-visible \{ outline: 2px solid var\(--mention\)/);
+  assert.doesNotMatch(css, /code\.mention[^{]*\{[^}]*var\(--accent\)/);
+});

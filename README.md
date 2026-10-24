@@ -46,7 +46,8 @@ npx skills add fpperri/kanban
 The installer scans the repo, lists the three skills in a selection menu
 (name + short description), and installs the ones you pick into your agent
 harness — Claude Code, GitHub Copilot, and the other harnesses `npx skills`
-supports. Skills whose menu description leads with **(Claude Only)** depend
+supports. It copies each skill's own folder under `plugin/skills/`, so what it
+installs holds no tests. Skills whose menu description leads with **(Claude Only)** depend
 on Claude Code built-ins and won't port cleanly elsewhere — see
 [cross-harness caveats](docs/cross-harness.md).
 
@@ -57,8 +58,8 @@ on Claude Code built-ins and won't port cleanly elsewhere — see
 /plugin install kanban@kanban
 ```
 
-Installs all three skills at once, plus the `.claude-plugin/` marketplace
-wiring. Claude Code only.
+Installs all three skills at once, from the repo's `plugin/` folder alone: the
+tests, `docs/` and `examples/` stay out of the install. Claude Code only.
 
 ## Quick start
 
@@ -74,7 +75,7 @@ With the skills installed, in your agent session:
 Or try the bundled demo board straight from a clone of this repo:
 
 ```bash
-node skills/web/scripts/server.js examples/demo-board
+node plugin/skills/web/scripts/server.js examples/demo-board
 ```
 
 This prints `Kanban app: http://localhost:7777` (or the next free port if
@@ -99,7 +100,7 @@ listed in its skill. See `GLOSSARY.md` for the full parity table.
 Card bodies, the scratchpad's preview and the snapshot's card sheet render rich Markdown the same
 way: headings, nested lists, quotes, tables, strike, underline, collapsible `<details>`, and fenced
 code that shows its language (` ```c# `) with a Copy button. Two libraries are vendored under
-`skills/web/web/vendor` and load only when a body needs one: highlight.js (BSD-3) colours the
+`plugin/skills/web/web/vendor` and load only when a body needs one: highlight.js (BSD-3) colours the
 languages it knows, and mermaid (MIT) draws ` ```mermaid ` blocks as diagrams, in a sandboxed frame. The
 plugin still has no package dependencies. See `docs/web.md` and ADR 0020.
 
@@ -193,7 +194,7 @@ same types as before.
 ## Starter config
 
 A new board's `config.yaml` begins with the starter in
-[`skills/kanban/starter-config.yaml`](skills/kanban/starter-config.yaml), so it
+[`plugin/skills/kanban/starter-config.yaml`](plugin/skills/kanban/starter-config.yaml), so it
 is set up for goals, strategies, objectives and epics before it has a card. Its
 comments say what each line is, and every line can be changed or deleted.
 
@@ -248,8 +249,8 @@ where that entry has none (it never changes a value it has), reports a
 hierarchy that differs and changes no other byte. Run it dry first:
 
 ```bash
-node skills/kanban/scripts/apply-starter.js .kanban --dry-run
-node skills/kanban/scripts/apply-starter.js .kanban
+node plugin/skills/kanban/scripts/apply-starter.js .kanban --dry-run
+node plugin/skills/kanban/scripts/apply-starter.js .kanban
 ```
 
 ## More docs

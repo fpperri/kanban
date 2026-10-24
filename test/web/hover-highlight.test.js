@@ -1,0 +1,224 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const { isHoverHighlighted } = require('../../plugin/skills/web/web/selection');
+
+// kanban.proj#261 — hovering (or keyboard-focusing) any piece of a card
+// lights every piece sharing its id: on the calendar a run cut at a week
+// boundary is two chips, and the card's own deadline chip is a third on a
+// different day, so this is the only way to see a card's true extent.
+
+// --- isHoverHighlighted (selection.js) — the one pure, testable piece.
+// The cards that take the hover look are the Set the page keeps (hoverLit): the hovered card and
+// the sets "On hover show" ticks for it, null when nothing is hovered.
+
+test('isHoverHighlighted is true for each card of the lit set and no other', () => {
+  const lit = new Set(['5', '7']);
+  assert.strictEqual(isHoverHighlighted(lit, '5'), true);
+  assert.strictEqual(isHoverHighlighted(lit, '7'), true);
+  assert.strictEqual(isHoverHighlighted(lit, '6'), false);
+});
+
+test('isHoverHighlighted with nothing hovered (null) lights nothing', () => {
+  assert.strictEqual(isHoverHighlighted(null, '5'), false);
+  assert.strictEqual(isHoverHighlighted(undefined, '5'), false);
+});
+
+test('isHoverHighlighted treats id 0 as a real id, and an empty set lights nothing', () => {
+  assert.strictEqual(isHoverHighlighted(new Set([0]), 0), true);
+  assert.strictEqual(isHoverHighlighted(new Set([0]), 1), false);
+  assert.strictEqual(isHoverHighlighted(new Set(), '5'), false);
+});
+
+// --- surface wiring — each of the six card-representing render call sites
+// reads hoveredId through isHoverHighlighted and stamps a `card-el` element
+// as focusable, the same convention overdue.test.js/assignee-badge.test.js
+// use for app.js DOM glue: structural assertions against the source, since
+// there's no jsdom in this suite to mount the real DOM and hold a pointer
+// still across a re-render.
+
+const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const appCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+
+test('hoveredId is a single module-level id, never a Set — only one card is hovered/focused at a time; hoverLit is the Set of cards that take the look', () => {
+  assert.match(appJs, /let hoveredId = null;/);
+  assert.match(appJs, /\nlet hoverLit = null;/);
+});
+
+test('board tile: cardEl reads hoveredId via isHoverHighlighted and is Tab-reachable', () => {
+  assert.match(appJs, /\(isHoverHighlighted\(hoverLit, card\.id\) \? ' hover-highlight' : ''\);\s*\n\s*el\.draggable = !onPhoneLayout\(\);[^\n]*\n\s*el\.tabIndex = 0;/);
+});
+
+test('archived tile: archiveCardEl carries the same hover-highlight + tabIndex pair', () => {
+  assert.match(appJs, /archived-card' \+ \(paintsSelected\(card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoverLit, card\.id\) \? ' hover-highlight' : ''\);/);
+});
+
+test('calendar chip: calendarChipEl (shared by the month grid AND the sub-month grids) carries hover-highlight + tabIndex', () => {
+  assert.match(appJs, /\(paintsSelected\(card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoverLit, card\.id\) \? ' hover-highlight' : ''\);/);
+  assert.match(appJs, /el\.tabIndex = 0; \/\/ reachable by Tab so the hover cue isn't pointer-only \(kanban\.proj#261\)\s*\n\s*el\.dataset\.id = card\.id;/);
+});
+
+test('gantt bar: ganttBarEl carries hover-highlight + tabIndex, gated the same as .selected', () => {
+  assert.match(appJs, /\(paintsSelected\(bar\.card\.id\) \? ' selected' : ''\) \+\s*\n\s*\(isHoverHighlighted\(hoverLit, bar\.card\.id\) \? ' hover-highlight' : ''\) \+/);
+});
+
+test('gantt gutter label: shares the bar\'s hover-highlight + tabIndex, same card-el parity .selected already has', () => {
+  assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(paintsSelected\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoverLit, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
+});
+
+test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — ghost/missing stubs stay inert', () => {
+  assert.match(appJs, /\$\{selectable && isHoverHighlighted\(hoverLit, id\) \? ' hover-highlight' : ''\}`;/);
+  assert.match(appJs, /<g class="\$\{cls\}" transform="translate\(\$\{p\.x\},\$\{p\.y\}\)"\$\{missing \? '' : ` data-id="\$\{id\}"`\}\$\{selectable \? ' tabindex="0"' : ''\}>/);
+});
+
+test('the gantt due diamond is NOT wired for hover — .selected skips it too, so hover stays at parity rather than inventing new treatment', () => {
+  assert.ok(!appJs.includes("hoveredId, bar.card.id) ? ' hover-highlight' : '') + (bar.card.archived ? ' archived' : '') + (overdue"), 'no hover-highlight concatenated into the due-marker className');
+  assert.ok(!appCss.includes('.gantt-due-marker.hover-highlight'));
+});
+
+// --- delegated wiring: one mouseover/mouseout pair and one focusin/focusout
+// pair on document, mirroring the existing click/contextmenu pair — never a
+// CSS-only :hover (that only ever styles the element under the pointer, and
+// can't reach a card's other pieces).
+
+test('mouseover/mouseout and focusin/focusout are delegated on document, not bound per element', () => {
+  assert.match(appJs, /document\.addEventListener\('mouseover', enterHover\);/);
+  assert.match(appJs, /document\.addEventListener\('mouseout', leaveHover\);/);
+  assert.match(appJs, /document\.addEventListener\('focusin', enterHover\);/);
+  assert.match(appJs, /document\.addEventListener\('focusout', leaveHover\);/);
+});
+
+test('the leave handler only clears hoveredId once the pointer/focus is OUTSIDE the current card-el — an internal boundary (title, tags, a tile\'s own buttons) must not flicker the highlight off', () => {
+  assert.match(appJs, /const to = e\.relatedTarget && e\.relatedTarget\.closest && e\.relatedTarget\.closest\('\.card-el'\);\s*\n\s*if \(to === from\) return;/);
+});
+
+test('applyHoverHighlight repaints the live DOM directly rather than triggering a full renderBoard() per mouse move', () => {
+  assert.match(appJs, /function applyHoverHighlight\(\) \{\s*\n\s*document\.querySelectorAll\('\.hover-highlight'\)\.forEach\(\(el\) => el\.classList\.remove\('hover-highlight'\)\);/);
+});
+
+test('applyHoverHighlight lights the whole set in one pass over the cards, not one query per id', () => {
+  const fn = /function applyHoverHighlight\(\) \{[\s\S]*?\n\}/.exec(appJs)[0];
+  assert.match(fn, /if \(hoverLit == null\) return;/);
+  assert.strictEqual((fn.match(/querySelectorAll/g) || []).length, 2, 'one query to clear, one to light');
+  assert.match(fn, /document\.querySelectorAll\('\.card-el'\)\.forEach\(\(el\) => \{\s*\n\s*if \(hoverLit\.has\(el\.dataset\.id\)\) el\.classList\.add\('hover-highlight'\);/);
+  assert.doesNotMatch(fn, /for \(/, 'no loop over the ids that queries the page each time');
+});
+
+test('hoverLit follows hoveredId: set when a card is hovered, and worked out again at every render and every change of what the hover lights', () => {
+  assert.match(/function setHoveredId\(id\) \{[\s\S]*?\n\}/.exec(appJs)[0], /hoveredId = id;\s*\n\s*syncHoverLit\(\);\s*\n\s*applyHoverHighlight\(\);/);
+  assert.match(/function renderBoard\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /syncHoverLit\(\);/);
+  assert.match(/function refreshHover\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /syncHoverLit\(\);\s*\n\s*applyHoverHighlight\(\);\s*\n\s*if \(loadViewMode\(\) === 'graph'\) graphSettleFocus\(\);/);
+});
+
+test('outside the Graph hoverLit is the hovered card and its ticked sets; in the Graph the hover ring stays on the hovered card alone', () => {
+  const fn = /function hoverLitNow\(\) \{[\s\S]*?\n\}/.exec(appJs)[0];
+  assert.match(fn, /if \(hoveredId == null\) return null;/);
+  assert.match(fn, /loadViewMode\(\) === 'graph' \? new Set\(\[hoveredId\]\) : hoverShowTiles\(hoverShowKindsNow\(\), state\.active\.concat\(state\.archived\), hoveredId, searchCtx\(\)\)/);
+});
+
+// --- surviving the poll: renderBoard()'s full DOM rebuild carries the
+// highlight forward on its own because every render call site reads
+// hoveredId — same "state lives outside the DOM" contract selectedIds
+// already relies on (see the comment above the `let selectedIds` line).
+
+test('hoveredId is declared next to selectedIds/bulkDragIds, documented as surviving renderBoard() the same way', () => {
+  const idx = appJs.indexOf('let hoveredId = null;');
+  assert.ok(idx > -1);
+  const before = appJs.slice(Math.max(0, idx - 900), idx);
+  assert.match(before, /Borrows the selection mechanism/);
+  assert.match(before, /poll's full[\s\S]*DOM rebuild carries the highlight forward/);
+});
+
+// --- CSS: a background wash, not an outline; a different tone from
+// .selected's navy so the two never read alike; declared so a status-colored
+// card still visibly responds AND a selected card still reads as selected.
+
+test('app.css washes every hover-highlight surface with one solid color, no outline', () => {
+  assert.ok(appCss.includes(".card.hover-highlight, .cal-chip.hover-highlight, .gantt-bar.hover-highlight, .gantt-label.hover-highlight { background: var(--hover-wash); }"));
+  assert.ok(appCss.includes('.map-node.hover-highlight rect { fill: var(--hover-wash); }'));
+  assert.ok(!/\.hover-highlight[^{]*\{[^}]*outline/.test(appCss), 'hover never carries an outline — that stays .selected\'s own channel');
+});
+
+test('the hover wash is a different tone from .selected\'s navy — they must never read alike', () => {
+  const hover = /\.card\.hover-highlight[^{]*\{\s*background:\s*var\((--[a-z-]+)\)/i.exec(appCss);
+  const selected = /\.card\.selected \{[^}]*background:\s*var\((--[a-z-]+)\)/i.exec(appCss);
+  assert.ok(hover && selected, 'both washes declare a background token');
+  assert.notStrictEqual(hover[1], selected[1], 'hover and selection never share a token');
+});
+
+test('cascade order: hover-highlight is declared AFTER every per-status background above it, so a colored card still visibly responds to hover', () => {
+  const ganttStatusIdx = appCss.indexOf('.gantt-bar.status-backlog');
+  const hoverIdx = appCss.indexOf('.card.hover-highlight,');
+  const mapHoverIdx = appCss.indexOf('.map-node.hover-highlight rect');
+  assert.ok(ganttStatusIdx > -1 && hoverIdx > -1 && mapHoverIdx > -1);
+  assert.ok(hoverIdx > ganttStatusIdx, 'gantt bar hover wash declared after the per-status background it must beat');
+});
+
+test('cascade order: .selected is declared AFTER hover-highlight, so a selected card keeps reading as selected while hovered', () => {
+  const hoverIdx = appCss.indexOf('.card.hover-highlight,');
+  const mapHoverIdx = appCss.indexOf('.map-node.hover-highlight rect');
+  const selectedIdx = appCss.indexOf('.card.selected {');
+  const mapSelectedIdx = appCss.indexOf('.map-node.selected rect');
+  assert.ok(hoverIdx > -1 && mapHoverIdx > -1 && selectedIdx > -1 && mapSelectedIdx > -1);
+  assert.ok(selectedIdx > hoverIdx, '.card.selected declared after hover-highlight — selected wins the background tie');
+  assert.ok(mapSelectedIdx > mapHoverIdx, '.map-node.selected rect declared after the hover fill — selected wins the tie');
+});
+
+// The hover wash carries no alpha at all, so it never depends on what sits
+// behind it: an alpha wash needs a guaranteed opaque backdrop, and a solid
+// tone sidesteps the question.
+test('the hover wash is a solid color on every surface', () => {
+  const rules = appCss.split(/\r?\n/).filter((l) => l.includes('.hover-highlight'));
+  assert.ok(rules.length >= 2, 'the card/chip/bar/label rule and the map rule are both present');
+  for (const line of rules) {
+    assert.ok(!line.includes('rgba('), 'no alpha in a hover rule: ' + line);
+  }
+});
+
+// The wash rides ONE shared hoveredId, so the pointer moving onto another
+// card takes it off the card that still holds keyboard focus. A focused card
+// must therefore keep a cue of its own that no mouse move can steal, or a Tab
+// user is left with no indicator at all (WCAG 2.4.7).
+
+test('a keyboard-focused card keeps its own ring — the shared hover wash is not the only focus cue', () => {
+  assert.match(appCss, /\.card-el:focus-visible \{[^}]*outline: 2px dashed/);
+  assert.ok(!appCss.includes('.card-el:focus { outline: none; }'), 'the native ring is never suppressed with nothing unstealable in its place');
+});
+
+test('the focus ring is declared before .selected, which keeps winning the outline tie on a selected card', () => {
+  assert.ok(appCss.indexOf('.card-el:focus-visible') < appCss.indexOf('.card.selected {'));
+});
+
+// A card is focusable now (#261) and every render rebuilds it, but a card is
+// NOT one of boardControlFocused's momentary controls: a plain click leaves
+// one focused and nothing takes that focus back, so listing it there would
+// silently freeze the 5s poll — no stale indicator, no error — for the rest
+// of the session. applyBoardData re-finds the focused card after the render.
+
+test('.card-el is NOT in the boardControlFocused poll guard — a click-focused card must never freeze the refresh', () => {
+  const guard = /function boardControlFocused\(\)[\s\S]*?\n\}/.exec(appJs);
+  assert.ok(guard, 'boardControlFocused still exists');
+  assert.ok(!/closest\('[^']*\.card-el/.test(guard[0]), '.card-el must not be a member of the poll-guard selector');
+});
+
+test('applyBoardData re-finds the focused card after renderBoard, and puts the pointer\'s own hover back', () => {
+  const fn = /function applyBoardData\(data\)[\s\S]*?\n\}/.exec(appJs);
+  assert.ok(fn);
+  assert.match(fn[0], /const focusedCard = document\.activeElement[\s\S]*?closest\('\.card-el'\);/);
+  assert.match(fn[0], /again\.focus\(\{ preventScroll: true \}\)/, 'refocus must not scroll the board');
+  assert.match(fn[0], /if \(hoveredId !== pointerId\) setHoveredId\(pointerId\);/, 'the refocus fires focusin — restore the pointer\'s card');
+});
+
+// --- doc pin: SKILL.md documents the hover/focus highlight
+
+test('SKILL.md documents the hover/focus highlight bullet', () => {
+  const start = skill.indexOf('- **Hover/focus highlight**');
+  assert.ok(start > -1, 'the Hover/focus highlight bullet exists');
+  const bullet = skill.slice(start, skill.indexOf('- **Speedbumps**', start));
+  assert.match(bullet, /hoveredId/);
+  assert.match(bullet, /--accent-soft/, 'names the selection token it must stay distinct from');
+  assert.match(bullet, /tabindex="0"/, 'documents keyboard reachability');
+  assert.match(bullet, /due diamond/, 'names the one card-el surface .selected also skips');
+});

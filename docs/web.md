@@ -11,7 +11,7 @@ Desktop / localhost only — see [ADR 0002](adr/0002-kanban-app-local-server-spa
 From the repo root:
 
 ```bash
-node skills/web/scripts/server.js examples/demo-board
+node plugin/skills/web/scripts/server.js examples/demo-board
 ```
 
 It prints `Kanban app: http://localhost:7777` (the next free port if 7777 is
@@ -650,7 +650,7 @@ theme; an unknown language, plain text and an untyped fence stay plain, with no 
 (MIT) draws a ```mermaid fence as a diagram in its theme's colours; a diagram that does not parse stays a
 labelled code block with one line of error under it and never breaks the rest of the body. Both redraw
 when the page's theme changes, and neither is requested by a page that has no block for it. The files
-sit in `skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
+sit in `plugin/skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
 highlight.js 11.12.0, and nothing loads from the network. The snapshot, which cannot carry them, loads
 highlight.js (and its themes) from `cdnjs.cloudflare.com` and mermaid from `cdn.jsdelivr.net`, the same two
 versions, lazily too, each under an SRI `integrity` hash computed from the vendored file, and draws
