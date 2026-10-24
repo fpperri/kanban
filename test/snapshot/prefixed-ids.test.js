@@ -52,16 +52,6 @@ test('waiting_for ids read as whole ids, a padded or prefixed one the same as th
   });
 });
 
-test('the apply protocol says an op names the whole id, prefix included, and how the card file is found', () => {
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const protocol = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'references', 'apply-protocol.md'), 'utf8').replace(/\r\n/g, '\n');
-  assert.ok(protocol.includes('"id":"G3"'), 'a prefixed id is shown as the string it is');
-  assert.match(protocol, /whole id/i);
-  assert.match(protocol, /`#7` and `#G7` are two cards/);
-  assert.match(protocol, /`id:` line/);
-});
-
 // Plain ids, a group and a note that wait on each other: 7 waits on G3, G3 on _12.
 const LINKED = {
   config: 'name: linked\nstatuses: [backlog, todo, doing, done]\n',

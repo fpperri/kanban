@@ -442,3 +442,13 @@ test('going from the Board to the Graph and back keeps the address in line with 
   page.run("setView('board')");
   assert.deepStrictEqual(paramsOf(session.search), { q: 'zephyr', view: 'board', isolate: '1', graph: 'hierarchy' }, 'and the Board isolates the query again');
 });
+
+test('a slice cut in the box comes back with a reload: the address carries it and the box reads it as typed', async () => {
+  for (const text of ['slice:goal..objective', 'tags:ui slice:epic..', '(tags:ui | #12) slice:"big goal"..2']) {
+    const first = await openAt('?view=board');
+    first.page.run(`writeSearch(${JSON.stringify(text)}, 'menu')`);
+    const reloaded = await openAt(first.session.search);
+    assert.strictEqual(reloaded.page.input.value, text, text);
+    assert.strictEqual(reloaded.session.search, first.session.search);
+  }
+});

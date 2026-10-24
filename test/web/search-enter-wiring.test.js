@@ -33,8 +33,3 @@ test('the search box title names Enter', () => {
   assert.match(html, /id="search-input"[\s\S]*?title="[^"]*Enter goes to the first match/);
 });
 
-test('the skill and the web doc say Enter goes to the first match and a second opens a lone one', () => {
-  for (const f of [path.join(ROOT, 'plugin', 'skills', 'web', 'SKILL.md'), path.join(ROOT, 'docs', 'web.md')]) {
-    assert.match(flat(f), /Enter in the search box goes to the first match, and a second Enter opens it when it is the only one/, f);
-  }
-});

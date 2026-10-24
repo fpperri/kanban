@@ -662,3 +662,23 @@ test('a measure that answers no number falls back to the width of the text\'s ch
     assert.deepStrictEqual([...got.placed.entries()], [...plain.placed.entries()]);
   }
 });
+
+// --- no name over an id label that shows -----------------------------------------------------
+
+test('plan board: no name covers the id label of another card where the ids show', () => {
+  let shown = 0;
+  for (const c of matrix()) {
+    if (!c.input.labelsAll) continue;
+    const pad = GRAPH_NAME_PAD / c.k;
+    const rowH = GRAPH_NAME_ROW / c.k;
+    for (const n of c.plan.nodes) {
+      const x0 = n.x + n.reach + 3;
+      const label = { x0: x0 - pad, x1: x0 + nameMeasure(String(n.id)) / c.k + pad, y0: n.y - rowH / 2, y1: n.y + rowH / 2 };
+      for (const [id, p] of c.result.placed) {
+        if (id !== n.id) assert.ok(!graphNameMeets(p.box, label), `${c.where}: card ${id}'s name covers the id label of card ${n.id}`);
+      }
+      shown++;
+    }
+  }
+  assert.ok(shown > 0, 'some case shows the ids');
+});

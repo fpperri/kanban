@@ -27,7 +27,7 @@
 const { HOTKEYS, hotkeyRows } = require('../../../../plugin/skills/web/web/hotkeys');
 
 // What each key that has a state reads before anything is changed comes from the list in hotkeys.js, so a
-// new key is checked without an edit here; hotkeys-sheet.test.js and hotkeys-docs.test.js pin the texts.
+// new key is checked without an edit here; hotkeys-sheet.test.js pins the texts.
 const DEFAULTS = Object.fromEntries(hotkeyRows({}).filter((r) => r.state).map((r) => [r.id, r.state]));
 
 const CASES = { defaults: DEFAULTS, afterKeys: { panel: 'panel on focus: off', pill: 'pill: blocked', isolate: 'isolate: on' }, names: 'names: all' };

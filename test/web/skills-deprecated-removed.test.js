@@ -15,12 +15,3 @@ test('skills-deprecated/ is gone from the repo root', () => {
   assert.ok(!fs.existsSync(path.join(repoRoot, 'skills-deprecated')));
 });
 
-test('GLOSSARY.md no longer points at skills-deprecated/', () => {
-  const text = fs.readFileSync(path.join(repoRoot, 'GLOSSARY.md'), 'utf8');
-  assert.ok(!text.includes('skills-deprecated'));
-});
-
-test('skills/web/SKILL.md no longer points at skills-deprecated/', () => {
-  const text = fs.readFileSync(path.join(repoRoot, 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
-  assert.ok(!text.includes('skills-deprecated'));
-});

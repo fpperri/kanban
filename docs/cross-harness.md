@@ -22,8 +22,11 @@ that tag into the installer's selection menu.
   (`skills/web/web/pills.js`, `skills/web/web/slice-run.js`), the key guard and the combobox rules
   the panel's keys and suggestion list read (`skills/web/web/key-guard.js`,
   `skills/web/web/combobox.js`) and the waiting rules the search reads
-  (`skills/web/web/waiting-blocked.js`) and exits without them, so install it
-  beside `kanban-web`. But the SKILL.md's delivery/apply
+  (`skills/web/web/waiting-blocked.js`), the id module they read ids through
+  (`skills/web/web/ids.js`) and the Markdown renderer and the code-block modules
+  a card's body is drawn with (`skills/web/web/markdown.js`,
+  `skills/web/web/code-libs.js`, `skills/web/web/code-blocks.js`) and exits
+  without them, so install it beside `kanban-web`. But the SKILL.md's delivery/apply
   loop names Claude-specific tools and surfaces (`SendUserFile`, "Cowork",
   the Claude mobile app) — another harness can reuse the underlying idea (run
   the script, hand back the HTML, read a pasted payload back into the chat)

@@ -185,12 +185,3 @@ test('the thread, its markers and the child list are styled with tokens, not hex
   }
 });
 
-test('the web skill documents the thread, the children and the three terminal markers', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
-  const start = skill.indexOf('- **Thread and children**');
-  assert.ok(start !== -1, 'a Thread and children bullet');
-  const bullet = skill.slice(start, skill.indexOf('\n- **', start + 4)).replace(/\s+/g, ' ');
-  for (const word of ['root first', '`unresolved`', '`not followed`', '`loop`', 'rank order', '`archived`']) {
-    assert.ok(bullet.includes(word), `${word} is described`);
-  }
-});

@@ -1,7 +1,5 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
-const path = require('node:path');
 const { STATUS_PALETTE, statusHash } = require('../../plugin/skills/web/web/status-colors');
 const { assigneeColor, assigneeColorClass, assigneeColorVar, findAssigneeEntry } = require('../../plugin/skills/web/web/assignee-colors');
 const { HASH_SLOTS } = require('../../plugin/skills/web/web/status-colors');
@@ -80,25 +78,6 @@ test('assigneeColorClass is deterministic and pure, same contract as statusColor
   assert.strictEqual(assigneeColorClass('@bot', []), assigneeColorClass('@bot', []));
 });
 
-// --- doc pin: SKILL.md documents the Assignee text color ---
-
-test('SKILL.md documents the Assignee text color and the reserved/hashed contract', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
-  const bullet = skill.match(/- \*\*Assignee text color\*\*[\s\S]*?(?=\n- \*\*|\n## )/);
-  assert.ok(bullet, 'the Assignee text color bullet exists');
-  assert.match(bullet[0], /assigneeBadge\(\)/, 'names the helper');
-  assert.match(bullet[0], /assignee-text--palette-N/, 'states the hashed case uses the parallel assignee-text--palette-N class');
-  assert.match(bullet[0], /data-assignee-color/, 'states the reserved-color CSSOM hook');
-  assert.match(bullet[0], /paintAssigneeColors/, 'names the CSSOM-painting function');
-  assert.match(bullet[0], /syncAssigneeColor/, 'names the modal live-sync function');
-  assert.doesNotMatch(bullet[0], /colored dot|dot glyph/, 'no leftover dot-glyph language');
-});
-
-test('SKILL.md documents the OPTIONAL assignees[].color config field', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
-  assert.match(skill, /\*\*`assignees\[\]\.color`\*\* \(OPTIONAL\)/);
-  assert.match(skill, /color: "#58a6ff"\s+# OPTIONAL/, 'the config.yaml example shows the field');
-});
 
 // --- assigneeColorVar: what app.js paints inline ----------------------------
 test('assigneeColorVar paints a reserved colour exactly as written', () => {

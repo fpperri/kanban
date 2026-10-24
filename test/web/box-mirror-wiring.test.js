@@ -355,3 +355,16 @@ test('a view switch with only a pill in the selection leaves the text typed besi
   assert.strictEqual(s.box(), 'review: | zephyr');
   assert.deepStrictEqual(s.told, []);
 });
+
+test('a Ctrl-click or a Cmd-click shows the card in the box in every view that selects by a click, and a second one adds it', async () => {
+  for (const view of ['board', 'map', 'gantt', 'calendar']) {
+    for (const mod of [{ ctrlKey: true }, { metaKey: true }]) {
+      const s = await open({ view });
+      s.click(2, mod);
+      assert.strictEqual(s.box(), '#2', `${view}: ${Object.keys(mod)}`);
+      s.click(5, mod);
+      assert.strictEqual(s.box(), '#2 | #5', `${view}: ${Object.keys(mod)} again`);
+      assert.strictEqual(s.isolate(), null);
+    }
+  }
+});
