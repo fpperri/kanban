@@ -5,7 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { ROOT, read, flat, section, fenced } = require('../web/helpers/doc-text');
 const { BOARD, buildScript } = require('./nesting-fixture');
-const { open, sheet } = require('./nesting-view');
+const { open, sheet, tile } = require('./nesting-view');
 
 // What a tool or an agent reads from the snapshot's docs: the payload the editor makes and the shapes
 // the apply protocol tells the agent to expect in it, and the web modules the generator embeds, which
@@ -103,4 +103,20 @@ test('the quoting rule the protocol gives for a parent that holds a # is the one
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('an op names the whole id, prefix included: the ids the protocol shows are the strings the editor puts in an archive op', () => {
+  const notes = section(protocol, 'Notes: an id arrives as a string', '`edit.fm` is an object');
+  const shown = [...notes.matchAll(/"id":"([^"]+)"/g)].map((m) => m[1]);
+  assert.deepStrictEqual(shown, ['G3', '7', '_12']);
+  const { withBuiltBoard } = require('./search-table');
+  withBuiltBoard('ids', (page) => {
+    for (const id of shown) {
+      page.run('ops.length = 0');
+      page.click(tile(page, id));
+      for (const fn of page.byId('sarch').listeners.click) fn({ target: page.byId('sarch'), stopPropagation() {}, preventDefault() {} });
+      const text = page.run('payload()');
+      assert.deepStrictEqual(JSON.parse(text.slice(text.indexOf('\n') + 1)), [{ op: 'archive', id }], `card ${id}`);
+    }
+  });
 });

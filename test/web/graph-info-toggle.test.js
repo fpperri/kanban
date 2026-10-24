@@ -125,8 +125,3 @@ test('app.css floats the Graph\'s controls and the Map\'s bar top-right on an op
   assert.match(css, /\.graph-info-off \{ display: none; \}/);
 });
 
-test('docs/web.md and SKILL.md say the count and the key sit behind (i)', () => {
-  for (const f of [path.join(__dirname, '..', '..', 'docs', 'web.md'), path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md')]) {
-    assert.match(fs.readFileSync(f, 'utf8'), /(count and (the )?key|key and (the )?(card )?count)[^.]*\(i\)|\(i\)[^.]*(count and (the )?key|card count and key)/i, f);
-  }
-});

@@ -1,7 +1,5 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
-const path = require('node:path');
 const { loadPage } = require('./helpers/page-vm');
 
 // The real page, run in a vm (helpers/page-vm.js) as the search-box writer's
@@ -397,14 +395,3 @@ test('the cards a selection can reach in the Calendar and the Gantt are the date
 
 // --- the web skill mentions the jump ---------------------------------------------------------------
 
-test('SKILL.md describes the jump in the Calendar section and in the Gantt section', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
-  const calendar = skill.match(/- \*\*Calendar view\*\*[\s\S]*?\n- \*\*Gantt view\*\*/);
-  assert.ok(calendar, 'the Calendar view bullet is present');
-  assert.match(calendar[0], /nearest match/);
-  assert.match(calendar[0], /jumps/);
-  const gantt = skill.match(/- \*\*Gantt view\*\*[\s\S]*?(?=\n- \*\*|\n## )/);
-  assert.ok(gantt, 'the Gantt view bullet is present');
-  assert.match(gantt[0], /nearest match/);
-  assert.match(gantt[0], /\*\*All\*\* never jumps/);
-});

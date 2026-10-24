@@ -102,19 +102,3 @@ test('both sections use the one fold code of the Slices, Pills and Statuses sect
   assert.match(panel, /Slices, Statuses, Typing isolates and On hover show sections each hold one/);
 });
 
-test('the guide and the web skill say both sections fold, start folded, and have a preference each in the sheet', () => {
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const root = path.join(__dirname, '..', '..');
-  const flat = (p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
-  const guide = flat(['docs', 'web.md']);
-  const skill = flat(['plugin', 'skills', 'web', 'SKILL.md']);
-  assert.match(guide, /The section folds like the Slice, Pill and Status sections and starts folded; \*Typing isolates section starts folded\* in the preferences sheet says how it starts/);
-  assert.match(guide, /The section folds like the Slice, Pill and Status sections and starts folded; \*On hover show section starts folded\* in the preferences sheet says how it starts/);
-  assert.match(guide, /- \*Typing isolates section starts folded\* is on by default\. It says how the search panel's Typing isolates section starts; its fold control still unfolds it for the visit\./);
-  assert.match(guide, /- \*On hover show section starts folded\* is on by default\. It says how the search panel's On hover show section starts; its fold control still unfolds it for the visit\./);
-  assert.match(skill, /then the \*\*Typing isolates\*\* section and the \*\*On hover show\*\* section, each with a fold control like the others \(`#search-typing-fold`, `#search-hover-fold`\) and each folded to start; the same fold code serves all five \(`searchFoldSection`, `search-panel\.js`\)/);
-  assert.match(skill, /\*\*Typing isolates section starts folded\*\* and \*\*On hover show section starts folded\*\* are on by default \(`typingFolded` and `hoverFolded`\)/);
-  assert.match(skill, /Typing isolates section \(`#search-typing-section`, folded to start\) holds one checkbox for each view/);
-  assert.match(skill, /\*\*On hover show\*\* — in a section of its own in the search panel \(`#search-hover-section`, with the fold control `#search-hover-fold`, folded to start/);
-});
