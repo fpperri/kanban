@@ -9,7 +9,7 @@ const { openPalette } = require('./helpers/palette-page');
 // click and key, where it opens and how it closes. The rules are menu-nest.js, tested apart; the
 // browser runner drives the same in Chrome (scenarios/card-menu-nest.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
 async function open({ groups = null, innerWidth = 1600, innerHeight = 900 } = {}) {

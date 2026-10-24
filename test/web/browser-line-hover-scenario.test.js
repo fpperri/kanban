@@ -1,7 +1,7 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { graphLayout, graphPlan, graphNeighbours } = require('../web/graph-model');
+const { graphLayout, graphPlan, graphNeighbours } = require('../../plugin/skills/web/web/graph-model');
 const { STATUSES, loadBoard, cleanUp, drawnModel } = require('./helpers/fan-boards');
 const scenarios = require('./browser/scenarios');
 const hover = require('./browser/scenarios/graph-line-hover');

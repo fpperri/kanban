@@ -2,7 +2,7 @@
 // The step runner of the phone and phone-flip scenarios, and the touch helpers a step uses. A
 // scenario of this kind is a folder of step files, each exporting run(page); the runner runs them in
 // name order and gives every one a clean start, so a ticket adds a file and touches no one else's.
-// Everything goes through the page the scenario is given, so skills/web/test/browser-steps.test.js
+// Everything goes through the page the scenario is given, so test/web/browser-steps.test.js
 // drives it with a stand-in.
 
 const fs = require('fs');

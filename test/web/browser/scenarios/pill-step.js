@@ -18,12 +18,12 @@
 //
 // The plan board's live cards are 1 to 18 and 22 to 29, with the pills its config gives;
 // the board-pills scenario holds the counts, and this one reuses them. CASES holds the
-// walk, and skills/web/test/browser-pill-step-scenario.test.js holds it to the pill list's
+// walk, and test/web/browser-pill-step-scenario.test.js holds it to the pill list's
 // own step (pillStep in web/pills.js) over the board's own config and cards. Each step
 // waits on the page, never on a fixed sleep; a "nothing happened" check waits two
 // animation frames. Keys go through the runner's key helper, a real key press.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds.
 
 const { CASES: BOARD_PILLS } = require('./board-pills');

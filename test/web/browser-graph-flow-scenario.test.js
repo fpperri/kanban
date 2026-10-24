@@ -3,9 +3,9 @@ const assert = require('node:assert');
 
 const scenario = require('./browser/scenarios/graph-flow');
 const scenarios = require('./browser/scenarios');
-const { graphBuild, graphNeighbours, graphQueryEffect } = require('../web/graph-model');
-const { graphFlowPlace, graphFlowMarks } = require('../web/graph-flow');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { graphBuild, graphNeighbours, graphQueryEffect } = require('../../plugin/skills/web/web/graph-model');
+const { graphFlowPlace, graphFlowMarks } = require('../../plugin/skills/web/web/graph-flow');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const { loadBoard, cleanUp } = require('./helpers/fan-boards');
 
 // The graph-flow scenario only runs in a browser (in CI). Here its lists are held to the Flow layout and

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt, searchWithTerms } = require('../web/search');
+const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt, searchWithTerms } = require('../../plugin/skills/web/web/search');
 
 // Growing and shrinking the box by one alternative: the search module's term
 // interface for a pill added to a selection with Shift. The box is a list of

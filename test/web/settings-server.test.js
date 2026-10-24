@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
-const { parseConfig } = require('../scripts/config-store');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
 
 // The gear's This board pages through the server (docs/adr/0017): one top-level line of
 // config.yaml is replaced, inserted or removed and every other byte stays; a folder the web
@@ -434,7 +434,7 @@ test('a folder value must be text, an iterations value true or false', async () 
 });
 
 test('the inside-the-board rule reads POSIX and Windows spellings of a path alike, on any OS', () => {
-  const { insideBoard } = require('../scripts/settings-store');
+  const { insideBoard } = require('../../plugin/skills/web/scripts/settings-store');
   const dir = path.resolve(os.tmpdir(), 'a-board');
   for (const out of ['../outside', '..\\outside', 'a/../../b', 'a\\..\\..\\b', '..', '/etc/notes', '', '   ', '.', './']) {
     assert.strictEqual(insideBoard(dir, out), null, `refuses ${JSON.stringify(out)}`);

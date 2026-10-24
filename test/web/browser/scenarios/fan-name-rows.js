@@ -15,11 +15,11 @@
 // Shots: names-all (the plan board at Fit, names on all) and names-table (the same with the
 // Unnested block).
 //
-// skills/web/test/browser-fan-name-rows-scenario.test.js answers these expressions from the
+// test/web/browser-fan-name-rows-scenario.test.js answers these expressions from the
 // real placement over the real boards, and varies the page so a check that could never fail
 // is caught.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, graphLoadOptions, graphSetOption, autoRefreshTick.
 
 const {

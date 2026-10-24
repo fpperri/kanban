@@ -9,7 +9,7 @@ const { openPalette, note } = require('./helpers/palette-page');
 // Ctrl+M switch, and the fields they leave alone. The rules are text-edit.js, tested apart; the browser
 // runner drives the same in Chrome (scenarios/notes.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const NOTES = [note('2026-10-15', '7', '09:30', '@human', 'a note to edit')];
 
 async function open(extra = {}) {

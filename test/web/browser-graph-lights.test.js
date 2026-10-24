@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { readConfig } = require('../scripts/config-store');
-const { parseSearchQuery, filterCards } = require('../web/search');
-const { graphBuild, graphNeighbours, graphQueryEffect } = require('../web/graph-model');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { graphBuild, graphNeighbours, graphQueryEffect } = require('../../plugin/skills/web/web/graph-model');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');

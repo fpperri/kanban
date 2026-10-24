@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { parseSearchQuery, filterCards, searchAddTerm } = require('../web/search');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { parseSearchQuery, filterCards, searchAddTerm } = require('../../plugin/skills/web/web/search');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');

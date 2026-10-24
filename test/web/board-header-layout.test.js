@@ -39,9 +39,9 @@ const path = require('node:path');
 // board-wide sticky/scroll fails loudly here instead of silently passing
 // the old regex-only checks.
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const appHtml = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const appHtml = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
 
 test('main#board stretches its columns to equal height instead of sizing each to its own content', () => {
   assert.match(css, /main#board\s*\{[^}]*align-items:\s*stretch/, 'align-items: stretch replaces the old flex-start');

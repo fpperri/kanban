@@ -1532,8 +1532,8 @@ return d}
 // The search panel: kanban-web's panel under the search box, of slices and pills, without its
 // Isolate switch, since this page has no selection to isolate. The pill list, the run of slices
 // and their arithmetic are kanban-web's own modules (pills.js, slice-run.js, embedded above);
-// the drawing and the gestures are this page's, and test/panel-pills.test.js and
-// test/panel-slices.test.js hold them to the web's counts and terms. Everything the panel does
+// the drawing and the gestures are this page's, and test/snapshot/panel-pills.test.js and
+// test/snapshot/panel-slices.test.js hold them to the web's counts and terms. Everything the panel does
 // goes through the one writer of the box (writeBox), so a pill, a slice and a typed search are
 // all the box's text and nothing else is kept: a pill is on while the box holds its query as one
 // of its alternatives, and the run is the slice: term the box holds. Counts are taken over the
@@ -2885,7 +2885,7 @@ renderCalendar();
 
 # The plugin's icon, inlined as the page's tab icon so a snapshot opened on its
 # own shows it without fetching anything. A copy of assets/icon.svg, kept
-# identical by test/icon.test.js.
+# identical by test/snapshot/icon.test.js.
 ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!-- The kanban plugin's icon: a pink brain with four streams falling out of
        it, fading from the brain's pink into the backlog, todo, doing and done

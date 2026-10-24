@@ -1,13 +1,13 @@
 {
   "name": "kanban",
   "private": true,
-  "description": "Test entry points for the kanban plugin repo. The plugin has no package dependencies; it vendors two libraries, mermaid (MIT) and highlight.js (BSD-3), under skills/web/web/vendor.",
+  "description": "Test entry points for the kanban plugin repo. The plugin has no package dependencies; it vendors two libraries, mermaid (MIT) and highlight.js (BSD-3), under plugin/skills/web/web/vendor.",
   "engines": { "node": ">=22" },
   "scripts": {
-    "test": "node --test \"skills/web/test/*.test.js\" \"skills/snapshot/test/*.test.js\"",
-    "test:unit": "node --test \"skills/web/test/!(launcher).test.js\" \"skills/snapshot/test/*.test.js\"",
-    "test:launcher": "node --test skills/web/test/launcher.test.js",
-    "test:browser": "node skills/web/test/browser/run.js",
-    "test:ci": "npm test && npm run test:browser && npm run test:browser -- --reverse && npm run test:browser -- --only smoke --plugin older && node skills/web/test/browser/fault-check.js"
+    "test": "node --test \"test/web/*.test.js\" \"test/snapshot/*.test.js\"",
+    "test:unit": "node --test \"test/web/!(launcher).test.js\" \"test/snapshot/*.test.js\"",
+    "test:launcher": "node --test test/web/launcher.test.js",
+    "test:browser": "node test/web/browser/run.js",
+    "test:ci": "npm test && npm run test:browser && npm run test:browser -- --reverse && npm run test:browser -- --only smoke --plugin older && node test/web/browser/fault-check.js"
   }
 }

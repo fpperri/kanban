@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control } = require('./helpers/page-vm');
-const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
+const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 
 // Editing on a phone, in the real page (helpers/page-vm.js): Save on an edit opened from a card
 // reopens that card, on the status tab of its new status; above the phone width Save does the
@@ -138,7 +138,7 @@ test('above the phone width a ?card= link leaves the remembered tab alone', asyn
   assert.strictEqual(detailFetches(s).length, 1);
 });
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
 test('the edit form phone block fills the viewport and sets every field to 16 px, beside the existing .modal input rule', () => {
   const block = css.match(/\/\* The edit form on a phone[\s\S]*?\*\/\s*@media \(max-width: 759\.98px\) \{[\s\S]*?\n\}/);

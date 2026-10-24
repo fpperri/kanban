@@ -14,8 +14,8 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 // selection-isolate.test.js; the browser runner right-clicks the page itself
 // (scenarios/isolate-link.js).
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,

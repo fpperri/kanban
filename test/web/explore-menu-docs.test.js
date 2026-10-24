@@ -6,12 +6,12 @@ const path = require('node:path');
 // Explore offers Path and Tree, each opening Hierarchy and Dependency, for the card that was
 // right-clicked. The docs that name the menu, the four search terms and the snapshot's four buttons.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 const webDoc = read('docs', 'web.md');
 const snapshotDoc = read('docs', 'snapshot.md');
-const webSkill = read('skills', 'web', 'SKILL.md');
-const snapshotSkill = read('skills', 'snapshot', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
+const snapshotSkill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const glossary = read('GLOSSARY.md');
 
 test('docs/web.md names Path and Tree under Explore, as a third level of Hierarchy and Dependency', () => {

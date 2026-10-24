@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 const cssSrc = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
@@ -15,8 +15,8 @@ function fn(name) {
 }
 
 function rowSandbox() {
-  const { escapeHtml } = require('../web/assignee-badge');
-  const { MAP_OPTION_VALUES, MAP_OPTION_DEFAULTS } = require('../web/map-relations');
+  const { escapeHtml } = require('../../plugin/skills/web/web/assignee-badge');
+  const { MAP_OPTION_VALUES, MAP_OPTION_DEFAULTS } = require('../../plugin/skills/web/web/map-relations');
   const labels = appSrc.match(/const MAP_OPTION_LABELS = \{[\s\S]*?\n\};/);
   assert.ok(labels, 'MAP_OPTION_LABELS found in app.js');
   const sandbox = { escapeHtml, MAP_OPTION_VALUES, MAP_OPTION_DEFAULTS };

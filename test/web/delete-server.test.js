@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
 // Deleting through the server's HTTP API on a temporary board (GLOSSARY.md "Ids, groups and
 // the logbook"): a card's id always leaves every group's list; its logbook day files go only

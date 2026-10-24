@@ -2,10 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   parseSearchQuery, filterCards, searchIsolateText, searchIsolateBox, searchIsolateRestore,
-} = require('../web/search');
+} = require('../../plugin/skills/web/web/search');
 const {
   NO_SELECTION, cardPart, pathPart, treePart, queryPart, typedQueryPart, addPart, selectionWithoutCard, resolveSelection,
-} = require('../web/selection');
+} = require('../../plugin/skills/web/web/selection');
 
 // Isolate writes the selection into the search box as `part | part | ...`: each part by
 // its criterion, so a card that comes to match a query part joins on the next poll. These

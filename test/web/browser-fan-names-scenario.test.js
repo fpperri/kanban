@@ -10,7 +10,7 @@ const tierFan = require('./browser/scenarios/tier-fan');
 const options = require('./browser/scenarios/tier-fan-options');
 const {
   graphBuild, graphFanNames, graphFanNameText, graphNeighbours, GRAPH_FAN_OPTION_VALUES,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const { loadBoard, cleanUp } = require('./helpers/fan-boards');
 
 // The fan-names scenario only runs in a browser (in CI). Here its lists are held to the real

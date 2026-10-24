@@ -5,11 +5,11 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
-const { parseSearchQuery, filterCards } = require('../web/search');
-const { pillList } = require('../web/pills');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { pillList } = require('../../plugin/skills/web/web/pills');
 const scenarios = require('./browser/scenarios');
 const panel = require('./browser/scenarios/search-panel');
 
@@ -109,7 +109,7 @@ test('the scenario does not wait on a fixed sleep, and presses its keys and its 
 });
 
 test('the bulk popup\'s value box opens an assignee suggestion list on focus, so the scenario sends one Esc for the list and the next for the popup', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const html = fs.readFileSync(path.join(web, 'app.html'), 'utf8');
   const app = fs.readFileSync(path.join(web, 'app.js'), 'utf8');
   assert.ok(/<label>[^<]*<input id="bulk-single-input"><\/label>/.test(html), 'the combobox menu is appended after the input, inside its label');
@@ -175,7 +175,7 @@ test('the Graph part drives a second pill, a click off, a right-click solo and i
 });
 
 test('the ids and classes the scenario drives are in the page the panel is drawn on', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const page = ['app.html', 'search-panel.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const name of ['search-panel', 'search-panel-toggle', 'search-pills', 'search-pills-fold', 'search-chip', 'search-clear-btn', 'prefs-pills-folded', 'prefs-panel-on-focus', 'query-pill', 'query-pill-count']) {
     assert.ok(page.includes(name), `${name} is in the page`);

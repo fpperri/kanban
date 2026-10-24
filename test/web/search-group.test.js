@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // group: in the search box (docs/adr/0015). `group:<id or name>` is the cards a group lists,
 // a bare `group:` every card that is in any group, `-group:` and `-group:<id or name>` the

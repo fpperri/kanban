@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const nesting = require('../web/nesting');
+const nesting = require('../../plugin/skills/web/web/nesting');
 
 // A board holding #7 and #G7 (and #9, #10): the whole id is the identity, so
 // the outline, the tree and the parent reader treat #7 and #G7 as two cards.

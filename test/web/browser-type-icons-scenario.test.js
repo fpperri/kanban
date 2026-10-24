@@ -8,11 +8,11 @@ const vm = require('node:vm');
 const scenario = require('./browser/scenarios/type-icons');
 const scenarios = require('./browser/scenarios');
 const { materialize } = require('./browser/boards');
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { readConfig } = require('../scripts/config-store');
-const { graphBuild, graphLayout, graphPlan } = require('../web/graph-model');
-const { typeBadge } = require('../web/type-badge');
-const { typeIconOutline, TYPE_ICON_NAMES } = require('../web/type-icons');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { graphBuild, graphLayout, graphPlan } = require('../../plugin/skills/web/web/graph-model');
+const { typeBadge } = require('../../plugin/skills/web/web/type-badge');
+const { typeIconOutline, TYPE_ICON_NAMES } = require('../../plugin/skills/web/web/type-icons');
 
 // The type-icons scenario only runs in a browser (in CI). Here its logic runs
 // against a stand-in page: each expression the scenario evaluates is answered

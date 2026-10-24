@@ -18,7 +18,7 @@ const path = require('node:path');
 // Floors are WCAG 2.1: 4.5:1 for normal text, 3.0:1 for large text and for
 // non-text UI (borders, focus rings, chart marks).
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 
 function block(source, startIdx) {
   let depth = 0;

@@ -7,9 +7,9 @@ const path = require('node:path');
 // four modes, the default, what each draws, what off takes with it, and that it is Tiers' own.
 // The words are the glossary's: tier, slice, selection, status pill, unnested.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
-const view = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
+const view = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);

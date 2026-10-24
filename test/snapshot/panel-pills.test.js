@@ -1,8 +1,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { pillList } = require('../../web/web/pills');
-const { searchTermText } = require('../../web/web/search');
-const { readConfig } = require('../../web/scripts/config-store');
+const { pillList } = require('../../plugin/skills/web/web/pills');
+const { searchTermText } = require('../../plugin/skills/web/web/search');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
 const { byClass } = require('./page-harness');
 const { board: smallBoard, open } = require('./nesting-view');
 const { planCards, shownIds, webContext, webIds, webMatchIds, withBuiltBoard } = require('./search-table');

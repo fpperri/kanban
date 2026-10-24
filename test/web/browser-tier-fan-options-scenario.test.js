@@ -7,8 +7,8 @@ const scenarios = require('./browser/scenarios');
 const tierFan = require('./browser/scenarios/tier-fan');
 const {
   graphBuild, graphFanLines, graphLayout, graphPlan, GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS,
-} = require('../web/graph-model');
-const { mapOrderRow } = require('../web/map-relations');
+} = require('../../plugin/skills/web/web/graph-model');
+const { mapOrderRow } = require('../../plugin/skills/web/web/map-relations');
 const { loadBoard, cleanUp } = require('./helpers/fan-boards');
 
 // The tier-fan-options scenario only runs in a browser (in CI). Here its lists are held to

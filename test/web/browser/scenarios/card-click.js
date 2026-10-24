@@ -11,7 +11,7 @@
 // and the Gantt draw it as well (the runner puts the board's cards back before
 // the next scenario).
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds.
 
 module.exports = {

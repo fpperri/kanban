@@ -3,18 +3,18 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
-const { typeBadge, boardTypeView } = require('../web/type-badge');
-const { sliceCards, sliceDepths } = require('../web/slices');
-const { depthMap } = require('../web/nesting');
-const { graphBuild } = require('../web/graph-model');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
+const { typeBadge, boardTypeView } = require('../../plugin/skills/web/web/type-badge');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
+const { depthMap } = require('../../plugin/skills/web/web/nesting');
+const { graphBuild } = require('../../plugin/skills/web/web/graph-model');
 const { card } = require('./helpers/fan-boards');
 
 // Types off (typesOn: false, docs/adr/0018): the views ignore the board's types. One gate hands them
 // an empty types list and no hierarchy (boardTypeView, read in applyBoardData); the chips take the
 // flag as well, because a chip with no listed type is still a neutral chip.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 const TYPES = [{ name: 'goal', color: '#a371f7', icon: 'diamond' }, { name: 'epic', color: '' }];

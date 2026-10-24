@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { MAP_OPTION_VALUES, MAP_OPTION_DEFAULTS, mergeMapOptions } = require('../web/map-relations');
+const { MAP_OPTION_VALUES, MAP_OPTION_DEFAULTS, mergeMapOptions } = require('../../plugin/skills/web/web/map-relations');
 
 const CHOSEN = {
   parentLines: 'chain', depLines: 'on', group: 'tree', parent: 'below',

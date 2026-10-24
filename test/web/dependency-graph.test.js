@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildDependencyGraph, layerNodes, treeIds, pathIds } = require('../web/dependency-graph');
+const { buildDependencyGraph, layerNodes, treeIds, pathIds } = require('../../plugin/skills/web/web/dependency-graph');
 
 // --- buildDependencyGraph ---------------------------------------------------
 

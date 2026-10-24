@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const days = require('../web/days');
+const days = require('../../plugin/skills/web/web/days');
 
 // The one reader of a day (YYYY-MM-DD): the group and logbook stores and the iterations rules all
 // take it from here, so they agree on what a day is.

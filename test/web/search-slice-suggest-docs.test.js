@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { searchSuggestionItems } = require('../web/search');
+const { searchSuggestionItems } = require('../../plugin/skills/web/web/search');
 
 // The web skill and the web docs say what the search box suggests after slice: and after
 // .., and the examples they give are held to the search module, so a doc cannot promise a
 // suggestion the box does not make.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const dropdown = flat(skill.slice(skill.indexOf('An\n  autocomplete dropdown'), skill.indexOf('- **Create**')));

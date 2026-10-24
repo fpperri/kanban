@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   VIEW_PANEL_FEATURE, VIEW_PANEL_WIDE_PX, viewPanelDefault, mergeViewPanel, viewPanelOpen, viewPanelWith, loadViewPanel, saveViewPanel,
-} = require('../web/view-panel');
+} = require('../../plugin/skills/web/web/view-panel');
 
 // Whether the option panel of the Map and of the Graph is open: the person's choice kept in the
 // browser per board, else it starts closed at every width.

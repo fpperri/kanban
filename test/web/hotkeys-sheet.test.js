@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { loadPage, control } = require('./helpers/page-vm');
 const { fakeDom } = require('./helpers/fake-dom');
-const { HOTKEYS, hotkeyRows } = require('../web/hotkeys');
+const { HOTKEYS, hotkeyRows } = require('../../plugin/skills/web/web/hotkeys');
 
 // The preferences sheet's Hotkeys section in the real page (helpers/page-vm.js runs every
 // script the page loads in one vm): the gear and the ? key open the sheet, the ? key at the

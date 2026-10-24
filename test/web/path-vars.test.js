@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const cfg = require('../scripts/config-store');
-const { offMessage } = require('../scripts/path-vars');
+const cfg = require('../../plugin/skills/web/scripts/config-store');
+const { offMessage } = require('../../plugin/skills/web/scripts/path-vars');
 
 // The `vars:` block and the built-in word <repo> in the logbook:, scratchpad: and todos: paths
 // (docs/adr/0023). readConfig answers `paths`, the three paths with the variables and <repo> filled

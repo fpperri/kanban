@@ -1,7 +1,7 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { graphLayoutHierarchy, graphLayout, graphPlan } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphLayout, graphPlan } = require('../../plugin/skills/web/web/graph-model');
 const {
   STATUSES, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');

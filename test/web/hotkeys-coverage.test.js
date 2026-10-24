@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { HOTKEYS } = require('../web/hotkeys');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 const { keysRead, keysListed, keysMissing } = require('./helpers/key-reads');
 
 // The Hotkeys list has to name every key the page answers. The keys the handlers read are
@@ -10,7 +10,7 @@ const { keysRead, keysListed, keysMissing } = require('./helpers/key-reads');
 // fails here until the list (hotkeys.js) has an entry for it, and an entry for a key no
 // handler reads fails too, so the list never promises what the page does not do.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const sources = fs.readdirSync(WEB).filter((f) => f.endsWith('.js')).sort()
   .map((file) => ({ file, text: fs.readFileSync(path.join(WEB, file), 'utf8') }));
 

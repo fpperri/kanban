@@ -6,11 +6,11 @@ const vm = require('node:vm');
 // at once as if Delete were pressed with nothing ticked, so a test sees the requests the
 // popup would send; `await calls.pending` waits for them. The popup's DOM is the browser runner's to prove; this runs the page's own
 // performDelete over the real delete-plan.js.
-const WEB = path.join(__dirname, '..', '..', 'web');
+const WEB = path.join(__dirname, '..', '..', '..', 'plugin', 'skills', 'web', 'web');
 const uiSrc = fs.readFileSync(path.join(WEB, 'delete-ui.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function installDelete(sandbox, calls) {
-  Object.assign(sandbox, require('../../web/delete-plan'), { closeGroupDialog() {} });
+  Object.assign(sandbox, require('../../../plugin/skills/web/web/delete-plan'), { closeGroupDialog() {} });
   calls.deletes = [];
   const m = uiSrc.match(/async function performDelete\([\s\S]*?\n\}/);
   if (!m) throw new Error('performDelete found in delete-ui.js');

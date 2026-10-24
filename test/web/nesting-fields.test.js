@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { parseParent, parseRank } = require('../web/nesting');
+const { parseParent, parseRank } = require('../../plugin/skills/web/web/nesting');
 
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
   const m = appSrc.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));

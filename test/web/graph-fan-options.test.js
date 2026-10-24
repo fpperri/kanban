@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const {
   GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_OPTION_DEFAULTS, mergeGraphFanOptions,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 
 // The tier fan's option row holds six settings: which children get a parent line (lines),
 // how those lines are drawn (group), whether the dependency arrows are (dependencies), how
@@ -102,7 +102,7 @@ test('merging gives a new object: the stored one is not changed and the defaults
 
 // --- which lines the fan draws ------------------------------------------------------
 
-const { graphFanPlace, graphFanLines } = require('../web/graph-model');
+const { graphFanPlace, graphFanLines } = require('../../plugin/skills/web/web/graph-model');
 const { card, buildOf } = require('./helpers/fan-boards');
 
 // One tree on a board whose hierarchy is goal, strategy, objective, epic:
@@ -245,8 +245,8 @@ test('no option reaches the layout: the same cards give the same places whatever
 
 // --- the order of siblings within a sector -------------------------------------------
 
-const { graphLayout, graphLayoutCacheClear, graphSignature } = require('../web/graph-model');
-const { mapOrderRow } = require('../web/map-relations');
+const { graphLayout, graphLayoutCacheClear, graphSignature } = require('../../plugin/skills/web/web/graph-model');
+const { mapOrderRow } = require('../../plugin/skills/web/web/map-relations');
 
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 

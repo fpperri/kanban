@@ -7,10 +7,10 @@ const path = require('node:path');
 // pinned so the skill, the human guide and the cross-harness note keep saying
 // what the page does.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const skill = flat(read('skills', 'snapshot', 'SKILL.md'));
+const skill = flat(read('plugin', 'skills', 'snapshot', 'SKILL.md'));
 const guide = flat(read('docs', 'snapshot.md'));
 const crossHarness = flat(read('docs', 'cross-harness.md'));
 
@@ -37,7 +37,7 @@ test('the skill says the glyphs are the web skill\'s own module, embedded as is 
   const chips = bullet('**Type chips.**');
   assert.match(chips, /skills\/web\/web\/type-icons\.js/);
   assert.match(chips, /embedded as is/);
-  assert.match(chips, /test\/type-icons-embed\.test\.js/);
+  assert.match(chips, /test\/snapshot\/type-icons-embed\.test\.js/);
 });
 
 test('the skill says the page also holds the board\'s pills, a label and a query each, in config order, and that the config readers are twins', () => {
@@ -45,7 +45,7 @@ test('the skill says the page also holds the board\'s pills, a label and a query
   assert.match(chips, /`pills:`/);
   assert.match(chips, /a label and a query/);
   assert.match(chips, /in config order/);
-  assert.match(chips, /test\/nesting-config\.test\.js/);
+  assert.match(chips, /test\/snapshot\/nesting-config\.test\.js/);
 });
 
 test('the human guide says a type with an icon starts its chip with that glyph', () => {

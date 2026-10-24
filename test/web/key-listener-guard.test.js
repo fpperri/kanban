@@ -27,7 +27,7 @@ const path = require('node:path');
 //   the handler; a declaration, or an `if (...) return;` / `if (...) { return; }` with no else, has no
 //   effect and the next statement is read; any other statement acts, and the handler fails.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 
 const normalize = (src) => src.replace(/\r\n?/g, '\n');
 

@@ -1,6 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { searchSuggestionItems } = require('../../web/web/search');
+const { searchSuggestionItems } = require('../../plugin/skills/web/web/search');
 const { byClass } = require('./page-harness');
 const { planCards, shownIds, webContext, withBoardPage } = require('./search-table');
 

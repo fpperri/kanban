@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildRelationsGraph, layerNodes } = require('../web/dependency-graph');
-const { MAP_OPTION_DEFAULTS, mapShapeRelations, mapOrderRow } = require('../web/map-relations');
+const { buildRelationsGraph, layerNodes } = require('../../plugin/skills/web/web/dependency-graph');
+const { MAP_OPTION_DEFAULTS, mapShapeRelations, mapOrderRow } = require('../../plugin/skills/web/web/map-relations');
 const { card, treeWithArchivedAndBacklogChildren } = require('./map-fixtures');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };

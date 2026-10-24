@@ -357,12 +357,12 @@ test('the Graph lights the lines it draws: a counted line lights with its parent
 // --- the counted line, stamped ----------------------------------------------------------------
 
 const vm = require('node:vm');
-const { graphBuild, graphLayout, graphPlan } = require('../web/graph-model');
+const { graphBuild, graphLayout, graphPlan } = require('../../plugin/skills/web/web/graph-model');
 
 function stamp(plan) {
   const sandbox = { document: recordingDocument() };
   vm.createContext(sandbox);
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const fn = (name) => src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`))[0];
   vm.runInContext(`const GRAPH_SVG_NS = 'http://www.w3.org/2000/svg';\n${['graphEl', 'graphTspan', 'graphBuildTip', 'graphCaptionEl', 'graphDrawPlan'].map(fn).join('\n')}`, sandbox);
   return vm.runInContext('graphDrawPlan', sandbox)(plan);
@@ -390,9 +390,9 @@ test('the view stamps a counted line as a path with its count beside it, and eve
 });
 
 test('every option the model offers has a label and a hint in the row, so the row cannot lose one', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const labels = src.match(/const GRAPH_FAN_OPTION_LABELS = \{[\s\S]*?\n\};/)[0];
-  const { GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL } = require('../web/graph-model');
+  const { GRAPH_FAN_OPTION_VALUES, GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL } = require('../../plugin/skills/web/web/graph-model');
   const sandbox = { GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL };
   vm.createContext(sandbox);
   vm.runInContext(`${labels}\nthis.labels = GRAPH_FAN_OPTION_LABELS;`, sandbox);

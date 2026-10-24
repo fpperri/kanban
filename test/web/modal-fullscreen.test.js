@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { MODAL_TYPES, DEFAULT_FULLSCREEN, mergeFullscreenState } = require('../web/modal-fullscreen');
+const { MODAL_TYPES, DEFAULT_FULLSCREEN, mergeFullscreenState } = require('../../plugin/skills/web/web/modal-fullscreen');
 
 test('MODAL_TYPES lists the six fullscreen-capable popups', () => {
   assert.deepStrictEqual(MODAL_TYPES, ['edit', 'detail', 'bulkSingle', 'bulkTags', 'bulkSchedule', 'notes']);

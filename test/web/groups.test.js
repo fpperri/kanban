@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const g = require('../web/groups');
+const g = require('../../plugin/skills/web/web/groups');
 
 const ZEPHYR = { id: 'I2', name: 'zephyr-2', folder: 'iteration', start_date: '2026-10-12', end_date: '2026-10-23', auto_join: true, cards: ['3', '7', '15'], extra: {}, file: '.groups/iteration/I0002.zephyr-2.md' };
 const CUTOVER = { id: 'W1', name: 'orders-cutover', folder: 'workflow', start_date: '', end_date: '', auto_join: false, cards: ['7', '15', 'G3'], extra: {}, file: '' };

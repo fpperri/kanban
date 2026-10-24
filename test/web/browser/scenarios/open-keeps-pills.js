@@ -17,7 +17,7 @@
 // them (the runner puts the board's cards back before the next scenario). Card 10 awaits review
 // and card 9 is blocked, and they are the only cards the two pills leave.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectionState.
 
 const VIEWS = ['board', 'map', 'gantt', 'calendar'];

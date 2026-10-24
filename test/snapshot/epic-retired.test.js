@@ -9,7 +9,7 @@ const { execFileSync } = require('node:child_process');
 // search term, draws an Epics chip or owns an epic color. An `epic: true` line
 // on a card is just another frontmatter line, shown and kept like any other.
 
-const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const buildScript = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 const EPIC_WORD = /\bepic|Epic|EPIC/;
 
 function build(config) {

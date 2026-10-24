@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const codeLibs = require('../../web/web/code-libs');
+const codeLibs = require('../../plugin/skills/web/web/code-libs');
 const { BOARD, buildScript, lf, withSnapshot, writeBoard } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 
@@ -14,7 +14,7 @@ const { loadPage } = require('./page-harness');
 // page: a diagram is drawn in a sandboxed frame the page makes from a srcdoc. Every address carries the
 // integrity hash of the vendored file. The page runs in the harness with the libraries played by hand.
 
-const webDir = path.join(__dirname, '..', '..', 'web', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const source = (file) => lf(fs.readFileSync(path.join(webDir, file), 'utf8'));
 const vendored = (...parts) => fs.readFileSync(path.join(webDir, 'vendor', ...parts));
 const sri = (bytes) => `sha384-${crypto.createHash('sha384').update(bytes).digest('base64')}`;

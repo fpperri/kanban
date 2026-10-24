@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { pickDay, initialMonth, hasTime, withTime, withoutTime, DEFAULT_TIME } = require('../web/date-picker');
+const { pickDay, initialMonth, hasTime, withTime, withoutTime, DEFAULT_TIME } = require('../../plugin/skills/web/web/date-picker');
 
 // --- pickDay: what the input's value becomes when a popover day is clicked ---
 

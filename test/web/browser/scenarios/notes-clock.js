@@ -10,7 +10,7 @@
 // equal today and now; the Today and Now buttons put the fields back; an hour of the Calendar opens
 // the fields on its own day and time.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // openNotes, state.
 
 const PAL = `document.getElementById('notes-palette')`;

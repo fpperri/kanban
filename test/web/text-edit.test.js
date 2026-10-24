@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const t = require('../web/text-edit');
+const t = require('../../plugin/skills/web/web/text-edit');
 
 // The keys of the multiline text boxes (text-edit.js): given the text, the selection and the key, the
 // edit to make. `at` plays an edit on the text the way the page does (replace [from, to) with insert,

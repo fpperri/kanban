@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const {
   graphBuild, graphUnnestedIds, graphFanNames, graphLayout, graphPlan, mergeGraphFanOptions, GRAPH_FAN_NAMES_SMALL,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const { loadBoard, cleanUp } = require('./helpers/fan-boards');
 
 // The tier fan's Names option and its Unnested option read the same fan. Names is about the

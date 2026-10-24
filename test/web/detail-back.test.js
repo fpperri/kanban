@@ -9,7 +9,7 @@ const { loadPage, control } = require('./helpers/page-vm');
 // CSS-first: the back button is markup in the card detail header and the phone block of app.css
 // shows it, lays the row out and hides what the phone does not use.
 
-const webDir = path.join(__dirname, '..', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(webDir, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');

@@ -11,7 +11,7 @@ const path = require('node:path');
 // extract the relevant CSS/expressions from build_editor.py by marker +
 // brace-balanced scan and assert on their text.
 
-const srcPath = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const srcPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 const src = fs.readFileSync(srcPath, 'utf8');
 
 function extractStyleBlock() {

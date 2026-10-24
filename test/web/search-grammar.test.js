@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm, searchBracket, searchSuggestionItems, searchRemoveGrownAlt,
-} = require('../web/search');
+} = require('../../plugin/skills/web/web/search');
 
 // The search grammar beyond space-separated terms: `|` for or, round brackets,
 // quoted values and `waiting:`. Driven through the search module's own seam, a
@@ -356,7 +356,7 @@ test('waiting: composes with the rest of the grammar, inside an or and inside a 
 });
 
 test('the resolver turns waiting: into an id term over the whole board, once, and leaves the parsed terms alone', () => {
-  const { resolveTerms } = require('../web/search');
+  const { resolveTerms } = require('../../plugin/skills/web/web/search');
   const terms = parseSearchQuery('waiting: | #29');
   const [resolved] = resolveTerms(WAITS, terms, {});
   assert.strictEqual(resolved.field, 'or');

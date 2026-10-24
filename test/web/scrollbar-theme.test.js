@@ -13,7 +13,7 @@ const path = require('node:path');
 // (::-webkit-scrollbar*), reusing existing palette hexes rather than
 // introducing a new color family.
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 
 // Every scrollable container the app owns: the page itself, the
 // per-column vertical lists and horizontal board strip, popup/modal scroll

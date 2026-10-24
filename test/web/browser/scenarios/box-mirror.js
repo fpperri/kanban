@@ -19,12 +19,12 @@
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. Cards 5 and 10 carry the docs tag, and cards 1, 2, 7,
 // 25 and 26 are the goal, strategy and objective cards, so slice:goal..objective is those five.
-// skills/web/test/browser-box-mirror-scenario.test.js holds CASES to the search module over the board's own
+// test/web/browser-box-mirror-scenario.test.js holds CASES to the search module over the board's own
 // cards. Each step waits on the page, never on a fixed sleep; a "nothing happened" check waits two animation
 // frames. Keys and clicks go through the runner's helpers, a real key press and a real mouse click (Shift is 8
 // and Ctrl is 2); a card's dot is clicked only where it is the topmost thing.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // hoveredId, isolateNow, selectedIds, selectionState.
 
 const CASES = {

@@ -15,14 +15,14 @@ const path = require('node:path');
 // every test below still pins real, current behavior. The snapshot has no
 // separate snapshot/*.js file to require() (all its JS lives inline in
 // build_editor.py's TEMPLATE string), so this file uses the same extract-
-// then-assert technique skills/web/test/notifications.test.js already uses
+// then-assert technique test/web/notifications.test.js already uses
 // for app.js's non-require-able DOM code: read the .py source as text and
 // pull the function bodies out by brace-balanced scanning. fmtBodySegs uses
 // no character Python string-escapes (no backslashes), so the raw .py bytes
 // ARE valid JS for this slice — extracting straight from source, not a
 // generated HTML build, keeps the suite fast and dependency-free.
 
-const srcPath = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const srcPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 const src = fs.readFileSync(srcPath, 'utf8');
 
 function extractFunction(name) {

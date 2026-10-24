@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 // --- the sort the user sees, and what is remembered --------------------
 
@@ -22,18 +22,18 @@ function loadSortWiring(storage, boardState) {
     pick(/function setColumnSortField\([\s\S]*?\n\}/),
     pick(/function toggleColumnSortDirection\([\s\S]*?\n\}/),
   ].join('\n');
-  const cs = require('../web/column-sort');
+  const cs = require('../../plugin/skills/web/web/column-sort');
   const sandbox = {
     state: boardState,
     localStorage: { getItem: (k) => (k in storage ? storage[k] : null), setItem: (k, v) => { storage[k] = String(v); } },
-    storageKey: require('../web/column-state').storageKey,
+    storageKey: require('../../plugin/skills/web/web/column-state').storageKey,
     boardColumnIds: () => ['todo', 'doing', 'archive'],
     renderBoard: () => {},
     SORT_FIELDS: cs.SORT_FIELDS,
     DEFAULT_SORT_DIRECTION: cs.DEFAULT_SORT_DIRECTION,
     mergeSortState: cs.mergeSortState,
     readSortPicks: cs.readSortPicks,
-    hasNesting: require('../web/nesting').hasNesting,
+    hasNesting: require('../../plugin/skills/web/web/nesting').hasNesting,
   };
   vm.createContext(sandbox);
   vm.runInContext(src, sandbox);

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { parseSearchQuery, filterCards } = require('../../web/web/search');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // What the snapshot skill promises about its search box, pinned so the skill
 // keeps saying what the page does: it runs the web's own search module. The
@@ -10,7 +10,7 @@ const { parseSearchQuery, filterCards } = require('../../web/web/search');
 // cut the box does not make. The retired-word tests ban `.epic` and a backticked
 // `epic:` in the skill docs, so the examples cut by goal, strategy and objective.
 
-const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
 const section = /\nA search box under the header[\s\S]*?\n\n/.exec(skill);
 
 test('the skill\'s search section names the assignee scope and its a: alias', () => {
@@ -25,7 +25,7 @@ test('the skill\'s search section says the page runs the web\'s own search modul
 });
 
 test('the cross-harness note says the generator needs the search module, the slices module and the waiting rules beside it too', () => {
-  const note = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'cross-harness.md'), 'utf8').replace(/\s+/g, ' ');
+  const note = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'cross-harness.md'), 'utf8').replace(/\s+/g, ' ');
   assert.match(note, /skills\/web\/web\/search\.js/);
   assert.match(note, /skills\/web\/web\/explore-sets\.js/);
   assert.match(note, /skills\/web\/web\/slices\.js/);

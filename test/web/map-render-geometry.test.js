@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
@@ -20,7 +20,7 @@ function constant(name) {
 
 // Where rows and lines fall is tested on the pure module (map-geometry.test.js);
 // this file pins the markup the page makes from it.
-const { mapParentLinePaths } = require('../web/map-relations');
+const { mapParentLinePaths } = require('../../plugin/skills/web/web/map-relations');
 
 const GEOMETRY = ['MAP_NODE_W', 'MAP_NODE_H', 'MAP_GAP_X', 'MAP_GAP_Y', 'MAP_PAD', 'MAP_DIMS'];
 const W = 176;

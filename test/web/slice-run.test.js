@@ -3,12 +3,12 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { sliceCards, sliceDepths } = require('../web/slices');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const {
   sliceRunBounds, sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceRunCuts, sliceEntryName, sliceEntryKey,
   sliceKeyIsChord,
-} = require('../web/slice-run');
+} = require('../../plugin/skills/web/web/slice-run');
 
 // The slice section's run of slices, as pure arithmetic over the list the section
 // shows: the slices module's axis with the tiers no card is in left out. A run is
@@ -274,7 +274,7 @@ test('an entry\'s key is its own whatever the list holds, and the same after the
 // --- the module -----------------------------------------------------------------------------------
 
 test('the module requires only the id module, so the snapshot can embed its source, and in a page it adds only its own names', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'web', 'slice-run.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'slice-run.js'), 'utf8');
   assert.doesNotMatch(source, /\brequire\((?!'\.\/ids'\))/);
   const page = { window: {} };
   page.window = page;
@@ -299,7 +299,7 @@ test('Ctrl, Cmd and Alt held with a key make a chord, and AltGr, which the brows
 });
 
 test('the chord rule lives in the module the snapshot embeds, and the page script does not carry its own copy', () => {
-  const own = fs.readFileSync(path.join(__dirname, '..', 'web', 'search-slices.js'), 'utf8');
+  const own = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'search-slices.js'), 'utf8');
   assert.doesNotMatch(own, /function sliceKeyIsChord\(/);
   assert.match(own, /sliceKeyIsChord\(e\)/, 'and still reads it');
 });

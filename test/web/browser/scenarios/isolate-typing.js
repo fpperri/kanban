@@ -22,7 +22,7 @@
 // The zephyr cards are 1, 2, 7 and 11 of the fixture board's 18 live cards. Each step waits on the page, never
 // on a fixed sleep. Keys and clicks go through the runner's helpers, a real key press and a real mouse click.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // isolateNow, selectedIds.
 
 const CASES = {

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { parseDeepLink, DEEP_LINK_VIEWS } = require('../web/deep-link');
+const { parseDeepLink, DEEP_LINK_VIEWS } = require('../../plugin/skills/web/web/deep-link');
 
 // ?card=<id>&q=<search>&view=<board|map|gantt|calendar|graph> deep links. Pure
 // querystring parse only — app.js's DOMContentLoaded handler does the DOM part
@@ -135,7 +135,7 @@ test('non-string input never throws — resolves to null', () => {
 // The DOM half has no test of its own — this suite has no jsdom — so these pin
 // the wiring in app.js's source text, the same way the other cross-module
 // wiring tests here do. They are a smoke alarm, not a proof of behaviour.
-const APP = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+const APP = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
 const CONSUME = (() => {
   const from = APP.slice(APP.indexOf('function consumeDeepLink()'));
   return from.slice(0, from.indexOf('\nfunction ', 1));

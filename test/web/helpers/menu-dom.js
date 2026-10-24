@@ -6,7 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const HTML = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
+const HTML = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
 const VOID = new Set(['hr', 'input', 'br']);
 
 function menuMarkup() {

@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const lb = require('../scripts/logbook-store');
-const sp = require('../scripts/scratchpad-store');
-const td = require('../scripts/todo-store');
+const lb = require('../../plugin/skills/web/scripts/logbook-store');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
+const td = require('../../plugin/skills/web/scripts/todo-store');
 
 // The logbook, scratchpad and todos stores follow the `vars:` block and <repo> (docs/adr/0023).
 
@@ -65,7 +65,7 @@ test('the refusal for a repo-less path says it needs a git root, in each store',
 test('a folder made by a write is seen on the next read, inside and after a scoped read', () => {
   const { dir } = repoBoard('name: t\nscratchpad: pads/<card>\n');
   fs.writeFileSync(path.join(dir, '0007.a.card.md'), '---\nid: 7\nstatus: todo\n---\n# a\n');
-  const iter = require('../scripts/iteration-folders');
+  const iter = require('../../plugin/skills/web/scripts/iteration-folders');
   iter.scoped(() => assert.deepStrictEqual(sp.listTargets(dir), []));
   sp.writePad(dir, '7', 'x');
   assert.deepStrictEqual(sp.listTargets(dir), ['7']);
@@ -77,7 +77,7 @@ test('a folder made by a write is seen on the next read, inside and after a scop
 
 test('within one scope the same folders are listed once', () => {
   const { dir } = repoBoard('name: t\nscratchpad: pads/<card>\n');
-  const iter = require('../scripts/iteration-folders');
+  const iter = require('../../plugin/skills/web/scripts/iteration-folders');
   fs.mkdirSync(path.join(dir, 'pads', '0007.a'), { recursive: true });
   const real = fs.readdirSync;
   const reads = (fn) => {

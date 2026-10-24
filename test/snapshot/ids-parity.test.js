@@ -2,16 +2,16 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const cases = require('../../web/test/ids-cases.json');
-const webIds = require('../../web/web/ids');
+const cases = require('../web/ids-cases.json');
+const webIds = require('../../plugin/skills/web/web/ids');
 
 // The snapshot's Python copy of the id module (scripts/ids.py) runs the same table of
-// cases as the web module (skills/web/test/ids.test.js). The table is read here from
+// cases as the web module (test/web/ids.test.js). The table is read here from
 // the web suite's folder and handed to Python as it is, so the two copies are held to
 // one set of hand-written answers.
 
-const scripts = path.join(__dirname, '..', 'scripts');
-const tablePath = path.join(__dirname, '..', '..', 'web', 'test', 'ids-cases.json');
+const scripts = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts');
+const tablePath = path.join(__dirname, '..', 'web', 'ids-cases.json');
 
 // One Python run answers every case; the answers come back as JSON, in table order.
 const py = JSON.parse(execFileSync('python', ['-B', '-c', [

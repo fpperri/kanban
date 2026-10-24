@@ -5,13 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { readConfig } = require('../scripts/config-store');
-const { parseSearchQuery, filterCards, searchSetSlice } = require('../web/search');
-const { sliceCards, sliceDepths } = require('../web/slices');
-const { typeIconGlyph, typeIconOf } = require('../web/type-icons');
-const { panelChip } = require('../web/pills');
-const { sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceEntryKey, sliceEntryName } = require('../web/slice-run');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { parseSearchQuery, filterCards, searchSetSlice } = require('../../plugin/skills/web/web/search');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
+const { typeIconGlyph, typeIconOf } = require('../../plugin/skills/web/web/type-icons');
+const { panelChip } = require('../../plugin/skills/web/web/pills');
+const { sliceListOf, sliceRunOf, sliceRunClick, sliceRunKeep, sliceRunStep, sliceRunValue, sliceEntryKey, sliceEntryName } = require('../../plugin/skills/web/web/slice-run');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
 const section = require('./browser/scenarios/slice-section');
@@ -194,7 +194,7 @@ test('the malformed board lists each tier once, then the depths, with the counts
 // --- the page the scenario drives ---------------------------------------------------------------------
 
 test('the ids, classes and keys the scenario drives are in the page the section is drawn on', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const page = ['app.html', 'search-slices.js', 'app.css', 'slice-run.js', 'search-panel.js'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const name of ['search-slices', 'search-slices-fold', 'search-panel', 'search-panel-toggle', 'search-pills-fold', 'search-chip', 'prefs-slices-folded', 'slice-entry', 'slice-entry-label', 'slice-entry-count', 'slice-entry-icon', 'notif-btn', 'prefs-btn', 'notif-modal', 'detail-modal', 'context-menu', 'prefs-sheet']) {
     assert.ok(page.includes(name), `${name} is in the page`);

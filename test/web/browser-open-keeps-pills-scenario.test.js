@@ -5,8 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
 const scenarios = require('./browser/scenarios');
@@ -28,7 +28,7 @@ const planBoard = () => {
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'open-keeps-pills.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
 const shownBy = (b, query) => filterCards(b.all, parseSearchQuery(query, 'plan'), { board: 'plan' }).map((c) => c.id).filter((id) => b.byId.has(id)).map(Number).sort((a, c) => a - c);

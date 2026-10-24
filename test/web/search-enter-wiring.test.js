@@ -7,8 +7,8 @@ const path = require('node:path');
 // one (search-enter.js decides; app.js does the focus, scroll and pan). The page's behaviour is run
 // in the browser runner (scenarios/search-enter.js); this holds the wiring and the words.
 
-const WEB = path.join(__dirname, '..', 'web');
-const ROOT = path.join(__dirname, '..', '..', '..');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const flat = (f) => read(f).split(/\s+/).join(' ');
 const html = read(path.join(WEB, 'app.html'));
@@ -34,7 +34,7 @@ test('the search box title names Enter', () => {
 });
 
 test('the skill and the web doc say Enter goes to the first match and a second opens a lone one', () => {
-  for (const f of [path.join(ROOT, 'skills', 'web', 'SKILL.md'), path.join(ROOT, 'docs', 'web.md')]) {
+  for (const f of [path.join(ROOT, 'plugin', 'skills', 'web', 'SKILL.md'), path.join(ROOT, 'docs', 'web.md')]) {
     assert.match(flat(f), /Enter in the search box goes to the first match, and a second Enter opens it when it is the only one/, f);
   }
 });

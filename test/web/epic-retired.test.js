@@ -3,17 +3,17 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const cs = require('../scripts/card-store');
-const { createServer } = require('../scripts/server');
-const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
-const { buildDependencyGraph } = require('../web/dependency-graph');
-const SC = require('../web/status-colors');
-const { typeBadge } = require('../web/type-badge');
+const cs = require('../../plugin/skills/web/scripts/card-store');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
+const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
+const { buildDependencyGraph } = require('../../plugin/skills/web/web/dependency-graph');
+const SC = require('../../plugin/skills/web/web/status-colors');
+const { typeBadge } = require('../../plugin/skills/web/web/type-badge');
 
 // Not /epic/i: "datePicker" spells it.
 const EPIC_WORD = /\bepic|Epic|EPIC/;
 
-const web = (f) => fs.readFileSync(path.join(__dirname, '..', 'web', f), 'utf8').replace(/\r\n/g, '\n');
+const web = (f) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', f), 'utf8').replace(/\r\n/g, '\n');
 
 function board(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-epic-retired-'));

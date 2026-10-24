@@ -8,11 +8,11 @@ const path = require('node:path');
 // it draws, the strip, the arrows, what lights, and where the choice is kept. The words are the glossary's:
 // Flow, Frontier, Lane, dependency, slice, selection, status pill.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const flat = (text) => text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 const glossary = flat(fs.readFileSync(path.join(root, 'GLOSSARY.md'), 'utf8'));
 const webDoc = flat(fs.readFileSync(path.join(root, 'docs', 'web.md'), 'utf8'));
-const webSkill = flat(fs.readFileSync(path.join(root, 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n'));
+const webSkill = flat(fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n'));
 
 const entry = (term) => {
   const start = glossary.indexOf(`**${term}** (web only):`);
@@ -183,13 +183,13 @@ test('the web skill\'s Graph Flow says where the choice is kept, how the address
 });
 
 test('what the docs say of the keys and the options is what the page keeps', () => {
-  const view = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
+  const view = fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.ok(view.includes("storageKey(state.projectName, 'graph.deps')"));
   assert.ok(view.includes("storageKey(state.projectName, 'graph.lanes')"));
   assert.ok(view.includes("storageKey(state.projectName, 'graph.layout')"));
-  const flow = require('../web/graph-flow');
+  const flow = require('../../plugin/skills/web/web/graph-flow');
   assert.deepStrictEqual(flow.GRAPH_FLOW_DEPS, ['frontier', 'all']);
-  assert.deepStrictEqual(require('../web/graph-model').GRAPH_KINDS, ['hierarchy', 'flow']);
+  assert.deepStrictEqual(require('../../plugin/skills/web/web/graph-model').GRAPH_KINDS, ['hierarchy', 'flow']);
   assert.strictEqual(flow.GRAPH_FLOW_GEO.ROWS, 14, 'a column wraps past fourteen cards');
 });
 

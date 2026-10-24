@@ -17,10 +17,10 @@
 // (under 2) has a parent line to 2 and a dependency line to card 8, which also has the parent 2. The
 // Flow draws the dependency lines alone.
 //
-// skills/web/test/browser-line-hover-scenario.test.js holds these lists to the Graph model over the plan
+// test/web/browser-line-hover-scenario.test.js holds these lists to the Graph model over the plan
 // board's own cards, so a wrong expectation fails in the unit suite and not only in a browser.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): graphCur.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): graphCur.
 
 const CASES = {
   hierarchy: {

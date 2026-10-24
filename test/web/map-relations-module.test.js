@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const lf = (text) => text.replace(/\r\n/g, '\n');
 const source = lf(fs.readFileSync(path.join(WEB, 'map-relations.js'), 'utf8'));
 
@@ -39,6 +39,6 @@ test('app.html loads it before app.js, and the server serves it', async () => {
   const tag = '<script src="/map-relations.js"></script>';
   assert.ok(html.includes(tag), 'app.html carries the script tag');
   assert.ok(html.indexOf(tag) < html.indexOf('<script src="/app.js"></script>'), 'ahead of app.js');
-  const { pageFiles } = require('../scripts/server');
+  const { pageFiles } = require('../../plugin/skills/web/scripts/server');
   assert.ok(pageFiles(html).includes('map-relations.js'), 'the page names it, and the server serves what the page names');
 });

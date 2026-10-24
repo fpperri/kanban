@@ -1,9 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const ids = require('../web/ids');
+const ids = require('../../plugin/skills/web/web/ids');
 const cases = require('./ids-cases.json');
 
-// The id rule (ADR 0014) is one table of cases, skills/web/test/ids-cases.json. The
+// The id rule (ADR 0014) is one table of cases, test/web/ids-cases.json. The
 // snapshot's Python copy runs the same table, so the two cannot drift. Every
 // expected value in the table is written out by hand.
 
@@ -90,7 +90,7 @@ test('plain ids stay plain numbers in a mixed list: #9 comes before #10, #7 befo
 test('the module is a dual-environment pure module: a plain script sets window.kanbanIds', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'ids.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'ids.js'), 'utf8');
   const win = {};
   new Function('window', src)(win);
   assert.strictEqual(win.kanbanIds.idKey('G0003'), 'G3');

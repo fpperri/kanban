@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
 // The scratchpad through the server's HTTP API on a temporary board (docs/adr/0016): the board
 // payload names the targets that have a page, GET and PUT read and write one page, and the delete

@@ -182,7 +182,7 @@ test('the poll repaints the board without writing the box and tells no listener'
   assert.strictEqual(page.input.value, 'zephyr', 'the query survives the poll');
 });
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 
 test('no code outside the writer assigns the search box', () => {
   const read = (file) => fs.readFileSync(path.join(WEB, file), 'utf8').replace(/\r\n/g, '\n');

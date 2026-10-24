@@ -5,12 +5,12 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { parseConfig } = require('../scripts/config-store');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
-const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
-const { pillList, pillRows } = require('../web/pills');
+const { parseSearchQuery, filterCards, searchTermText } = require('../../plugin/skills/web/web/search');
+const { pillList, pillRows } = require('../../plugin/skills/web/web/pills');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/board-pills');
 
@@ -120,7 +120,7 @@ test('the scenario does not wait on a fixed sleep, and presses its Shift+click t
 });
 
 test('the ids and classes the scenario drives are in the page the panel is drawn on', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const page = ['app.html', 'search-panel.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const name of ['search-panel', 'search-panel-toggle', 'search-pills', 'query-pill', 'query-pill-label', 'query-pill-count', 'query-pill-more', 'project-name']) {
     assert.ok(page.includes(name) || fs.readFileSync(path.join(web, 'app.js'), 'utf8').includes(name), `${name} is in the page`);

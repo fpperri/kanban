@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const n = require('../web/notes');
+const n = require('../../plugin/skills/web/web/notes');
 
 const KNOWN = { board: 'plan', isTarget: (id) => ['7', '22', 'G3'].includes(id) };
 const IS = { today: '2026-10-16', isGroup: (id) => id === 'G3' };

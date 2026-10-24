@@ -13,8 +13,8 @@ const { execFileSync } = require('node:child_process');
 // Python "bn" field, goal 5) and its functions are extracted from the generated HTML or run in
 // the page harness.
 
-const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
-const skillSrc = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'build_editor.py'), 'utf8');
+const buildScript = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
+const skillSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'), 'utf8');
 
 let tmpDir, html, data;
 

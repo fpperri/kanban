@@ -10,7 +10,7 @@ const vm = require('node:vm');
 // real decision from selection.js. A double click is the second click of the card
 // click handler, not an event of its own (card-click-page.test.js drives it).
 
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
   const m = appSrc.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -21,10 +21,10 @@ function fn(name) {
 function gesturePage({ view = 'board', click = {}, dragging = {}, matched = null, surface = null } = {}) {
   const calls = { open: [] };
   const sandbox = {
-    ...require('../web/selection'),
+    ...require('../../plugin/skills/web/web/selection'),
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
-    ...require('../web/search-enter'),
+    ...require('../../plugin/skills/web/web/search-enter'),
     searchEnterMatchIds: () => matched,
     openCard: (id) => { calls.open.push(id); },
     document: {}, keyGuardSurface: () => surface,

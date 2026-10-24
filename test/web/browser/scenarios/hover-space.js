@@ -21,7 +21,7 @@
 // through the runner's helper, a real key press; the pointer is the mouseover or mouseout the page listens to and
 // the focus a focus() on the element.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, hoveredId, isolateNow, selectedIds, state, storageKey.
 
 const CASES = {

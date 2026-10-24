@@ -309,7 +309,7 @@ test('a card closed while Save waits on the board stays closed', async () => {
 });
 
 test('the details can take the focus the form hands back, and no rule hides its focus ring from the keyboard', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const html = fs.readFileSync(path.join(web, 'app.html'), 'utf8');
   const css = fs.readFileSync(path.join(web, 'app.css'), 'utf8');
   assert.match(html, /<div class="modal detail-modal" tabindex="-1">/);

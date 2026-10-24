@@ -4,16 +4,16 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { parseConfig } = require('../scripts/config-store');
-const sp = require('../scripts/scratchpad-store');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
 
 // The kanban skill documents the scratchpad file and the web skill and docs describe what the page
 // does with it. The example the kanban skill gives is held to the store, so a doc cannot promise
 // what the board does not read.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const kanban = read('skills', 'kanban', 'SKILL.md');
-const web = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const kanban = read('plugin', 'skills', 'kanban', 'SKILL.md');
+const web = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

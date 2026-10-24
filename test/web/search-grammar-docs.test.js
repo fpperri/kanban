@@ -3,15 +3,15 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // The web skill and the web docs describe the search grammar beyond plain
 // terms: `|` for or, round brackets, quotes and `waiting:`. Each form has one
 // example in both, and the examples are held to the search module so a doc
 // cannot promise what the box does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const searchBullet = skill.slice(skill.indexOf('- **Search**'), skill.indexOf('- **Create**')).replace(/\s+/g, ' ');
 const searchDocs = docs.slice(docs.indexOf('**Search**'), docs.indexOf('**Notifications inbox**')).replace(/\s+/g, ' ');

@@ -5,7 +5,7 @@ const {
   clampMapZoom, stepMapZoom, mapZoomPanOffset, fitMapZoom, mapDragExceededThreshold,
   normalizeWheelDeltaY, wheelZoomFactor, stepMapZoomByWheel,
   pinchDistance, pinchMidpoint, pinchFactor, pinchZoom, pinchFactorIsChange,
-} = require('../web/map-zoom');
+} = require('../../plugin/skills/web/web/map-zoom');
 
 // --- clampMapZoom ---------------------------------------------------------
 

@@ -12,7 +12,7 @@ const { assertKeepsSelection } = require('./helpers/markers');
 // on the whole resolved selection. Path and Tree add to the selection and leave
 // the search box alone. Bulk entries read their cards from the menu's subject.
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
 
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,

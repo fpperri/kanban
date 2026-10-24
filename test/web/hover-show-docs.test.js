@@ -7,11 +7,11 @@ const path = require('node:path');
 // view, kept per board and per kind of Graph. The docs that said a hover lights a card's relations say what it
 // lights now, and the words that stopped being true are banned.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 const webDoc = read('docs', 'web.md');
-const webSkill = read('skills', 'web', 'SKILL.md');
-const snapshotSkill = read('skills', 'snapshot', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
+const snapshotSkill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const glossary = read('GLOSSARY.md');
 
 test('docs/web.md says what the six checkboxes are, what a hover lights in every view, and what leaving does', () => {
@@ -74,7 +74,7 @@ test('the snapshot skill says it has no hover set, and the glossary names On hov
 });
 
 test('the search panel\'s markup has the section, the six boxes in the panel\'s order, and the note that names whose choice it is', () => {
-  const html = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   const section = html.slice(html.indexOf('<fieldset id="search-hover"'), html.indexOf('</fieldset>', html.indexOf('<fieldset id="search-hover"')));
   assert.ok(section.length > 0, 'the fieldset is there');
   assert.match(section, /<legend>For <span id="search-hover-for"[^>]*><\/span><\/legend>/);
@@ -106,7 +106,7 @@ test('the web skill\'s On hover show bullet names the Graph panel\'s section, it
 });
 
 test('the Graph\'s option panel builds the section from the pure module\'s six sets, last in the panel', () => {
-  const src = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
+  const src = fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
   assert.match(src, /function graphBuildHoverRow\(kind\)/);
   assert.match(src, /graphBuildSwitch\(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_GRID, /);
   assert.match(src, /panel\.appendChild\(graphBuildHoverRow\(kind\)\)/);

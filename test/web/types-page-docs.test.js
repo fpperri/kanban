@@ -8,15 +8,15 @@ const path = require('node:path');
 // Held to the code: a doc cannot promise a refusal the server no longer makes or a control the page no
 // longer draws.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const web = flat(read('skills', 'web', 'SKILL.md'));
+const web = flat(read('plugin', 'skills', 'web', 'SKILL.md'));
 const docs = flat(read('docs', 'web.md'));
 const readme = flat(read('README.md'));
-const kanbanRaw = read('skills', 'kanban', 'SKILL.md');
+const kanbanRaw = read('plugin', 'skills', 'kanban', 'SKILL.md');
 const kanban = flat(kanbanRaw);
-const header = read('skills', 'web', 'web', 'settings.js').split('\n').slice(0, 20).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
+const header = read('plugin', 'skills', 'web', 'web', 'settings.js').split('\n').slice(0, 20).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
 
 const gear = web.slice(web.indexOf('**This board** has the pages Logbook'), web.indexOf('- **Notes (logbook)**'));
 const board = docs.slice(docs.indexOf('*This board* has seven pages'), docs.indexOf('**Notes** —'));

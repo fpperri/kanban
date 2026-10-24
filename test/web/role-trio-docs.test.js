@@ -10,9 +10,9 @@ const path = require('node:path');
 // silently reintroduce a single-human example handle or drop the @hitl
 // "think twice" contract.
 
-const repoRoot = path.join(__dirname, '..', '..', '..');
-const kanbanSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'kanban', 'SKILL.md'), 'utf8');
-const webSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'web', 'SKILL.md'), 'utf8');
+const repoRoot = path.join(__dirname, '..', '..');
+const kanbanSkill = fs.readFileSync(path.join(repoRoot, 'plugin', 'skills', 'kanban', 'SKILL.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(repoRoot, 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
 
 test('skills/kanban/SKILL.md\'s config.yaml example shows the @human/@hitl/@afk trio, not a lone personal handle', () => {
   assert.ok(kanbanSkill.includes('handle: "@human"'));

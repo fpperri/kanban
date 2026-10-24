@@ -42,13 +42,13 @@
 // awaits review, and cards 4, 6 and 8 wait for a card that is not done. Card 12 is
 // done and carries no sticker, so the scenario gives it a review sticker through the
 // board's own API (each scenario starts from the board as it was): a done card that a
-// pill counts. CASES holds these sets, and skills/web/test/browser-search-panel-
+// pill counts. CASES holds these sets, and test/web/browser-search-panel-
 // scenario.test.js holds them to the search module and the pill list over the plan
 // board's own cards. Each step waits on the page, never on a fixed sleep; a "nothing
 // happened" check waits two animation frames. Keys go through the runner's key helper,
 // a real key press, and a Shift+click is a real click with the Shift modifier.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // isolateNow, selectedIds, autoRefreshTick.
 
 const { NOT_EMPTY } = require('./empty-space');

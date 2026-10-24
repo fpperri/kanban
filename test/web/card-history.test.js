@@ -2,8 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { cardIdFromSearch, nextCardHistorySearch, nextSearchAddress } = require('../web/card-history');
-const { parseDeepLink } = require('../web/deep-link');
+const { cardIdFromSearch, nextCardHistorySearch, nextSearchAddress } = require('../../plugin/skills/web/web/card-history');
+const { parseDeepLink } = require('../../plugin/skills/web/web/deep-link');
 
 // Pure decision logic for the card popup's browser-history wiring.
 // No DOM — app.js's click handlers and popstate listener
@@ -173,7 +173,7 @@ test('nextSearchAddress: non-string input never throws', () => {
 // --- wiring smoke tests: pins app.js's use of this module, the same way
 // deep-link.test.js pins consumeDeepLink's wiring (no jsdom in this suite) --
 
-const APP = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+const APP = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
 
 test('app.js registers a popstate listener that reads cardIdFromSearch off location.search', () => {
   assert.match(APP, /addEventListener\('popstate'/, 'no popstate listener wired');

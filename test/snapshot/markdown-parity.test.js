@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { mdToHtml } = require('../../web/web/markdown');
+const { mdToHtml } = require('../../plugin/skills/web/web/markdown');
 const { BOARD, lf, withSnapshot } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 const { FIXTURE } = require('./markdown-fixture');
@@ -12,7 +12,7 @@ const { nodesToHtml, webToHtml } = require('./markdown-html');
 // the same parse as an HTML string. Two drawing steps over one parse can still drift, so one body
 // with every construct goes through both and the results must be the same markup.
 
-const source = lf(fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'web', 'markdown.js'), 'utf8'));
+const source = lf(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'markdown.js'), 'utf8'));
 
 test('the built page carries the Markdown module byte for byte, once, ahead of the page script', () => {
   withSnapshot(BOARD, (html) => {

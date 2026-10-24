@@ -12,7 +12,7 @@ const path = require('node:path');
 // live only inside a media query. Same source-as-text technique
 // format-body.test.js and friends use (no build step, no DOM).
 
-const srcPath = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const srcPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 const src = fs.readFileSync(srcPath, 'utf8');
 
 function extractStyleBlock() {

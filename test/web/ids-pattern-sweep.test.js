@@ -2,12 +2,12 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const ids = require('../web/ids');
+const ids = require('../../plugin/skills/web/web/ids');
 
 // The id pattern lives in the id module (docs/adr/0014): the page, the server and the
 // snapshot take it from ids.js / ids.py rather than writing `_?[A-Z]*` again.
 
-const SKILLS = path.join(__dirname, '..', '..');
+const SKILLS = path.join(__dirname, '..', '..', 'plugin', 'skills');
 const read = (...parts) => fs.readFileSync(path.join(SKILLS, ...parts), 'utf8');
 const PREFIX_PATTERN = /_\?\[A-Z\]\*/;
 

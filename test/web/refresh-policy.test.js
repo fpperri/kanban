@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { shouldSkipAutoRefresh } = require('../web/refresh-policy');
+const { shouldSkipAutoRefresh } = require('../../plugin/skills/web/web/refresh-policy');
 
 test('shouldSkipAutoRefresh skips while any modal is open', () => {
   assert.strictEqual(shouldSkipAutoRefresh({ modalOpen: true, dragging: false, hidden: false }), true);

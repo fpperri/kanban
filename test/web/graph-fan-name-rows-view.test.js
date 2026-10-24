@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const { loadPage, control } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
-const { graphBuild, graphLayout, graphPlan } = require('../web/graph-model');
+const { graphBuild, graphLayout, graphPlan } = require('../../plugin/skills/web/web/graph-model');
 
 // The tier fan's names as the page paints them (helpers/page-vm.js runs every script the page
 // loads in one vm). Where a name goes is graph-names.js's (graph-fan-name-place.test.js); the
@@ -18,7 +18,7 @@ const { graphBuild, graphLayout, graphPlan } = require('../web/graph-model');
 // view a Fit of a real stage gives and paints again. The browser runner drives the same in
 // Chrome (scenarios/fan-name-rows.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const src = read('graph-view.js');
 const css = read('app.css');

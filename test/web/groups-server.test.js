@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
 // Groups (docs/adr/0015) through the server's HTTP API on a temporary board: the files a
 // person writes by hand are read, and a group made, changed or given members through the

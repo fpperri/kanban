@@ -1,8 +1,8 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { graphBuild, graphFanPlace } = require('../web/graph-model');
-const { sliceCards, sliceDepths } = require('../web/slices');
+const { graphBuild, graphFanPlace } = require('../../plugin/skills/web/web/graph-model');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
 const {
   STATUSES, HIERARCHY, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');

@@ -4,12 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived } = require('../scripts/card-store');
-const { readConfig, ICON_NAMES } = require('../scripts/config-store');
-const { listNotes } = require('../scripts/logbook-store');
-const { readPad, listTargets } = require('../scripts/scratchpad-store');
-const todoStore = require('../scripts/todo-store');
-const { readGroups } = require('../scripts/group-store');
+const { listActive, listArchived } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig, ICON_NAMES } = require('../../plugin/skills/web/scripts/config-store');
+const { listNotes } = require('../../plugin/skills/web/scripts/logbook-store');
+const { readPad, listTargets } = require('../../plugin/skills/web/scripts/scratchpad-store');
+const todoStore = require('../../plugin/skills/web/scripts/todo-store');
+const { readGroups } = require('../../plugin/skills/web/scripts/group-store');
 const { BOARDS, materialize } = require('./browser/boards');
 
 // The browser runner drives three boards. The scenarios assert against what is

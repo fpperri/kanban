@@ -4,15 +4,15 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const cs = require('../scripts/card-store');
-const cfg = require('../scripts/config-store');
-const ids = require('../web/ids');
-const nesting = require('../web/nesting');
-const { parseSearchQuery, filterCards } = require('../web/search');
-const { buildDependencyGraph, treeIds, pathIds } = require('../web/dependency-graph');
-const { sortCards } = require('../web/column-sort');
-const { graphBuild } = require('../web/graph-model');
-const { unresolvedWaits } = require('../web/waiting-blocked');
+const cs = require('../../plugin/skills/web/scripts/card-store');
+const cfg = require('../../plugin/skills/web/scripts/config-store');
+const ids = require('../../plugin/skills/web/web/ids');
+const nesting = require('../../plugin/skills/web/web/nesting');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { buildDependencyGraph, treeIds, pathIds } = require('../../plugin/skills/web/web/dependency-graph');
+const { sortCards } = require('../../plugin/skills/web/web/column-sort');
+const { graphBuild } = require('../../plugin/skills/web/web/graph-model');
+const { unresolvedWaits } = require('../../plugin/skills/web/web/waiting-blocked');
 const { materialize } = require('./browser/boards');
 const scenario = require('./browser/scenarios/ids');
 

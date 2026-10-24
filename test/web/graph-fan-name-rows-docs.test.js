@@ -13,9 +13,9 @@ const path = require('node:path');
 // for a pan or a poll that brings nothing new. The words are the glossary's: tier fan, Names
 // option, Unnested, leader.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
-const view = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
+const view = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);
@@ -87,7 +87,7 @@ test('the Names hint in the option row says where names sit, and no longer says 
 });
 
 test('the Graph code says where a name sits is graph-names.js\'s, not the stylesheet\'s', () => {
-  const model = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-model.js'), 'utf8');
+  const model = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-model.js'), 'utf8');
   assert.match(model, /where one sits is graph-names\.js's business/);
   assert.doesNotMatch(model, /where one sits is the stylesheet's/);
   assert.doesNotMatch(model, /carry their title beside the dot/);

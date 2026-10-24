@@ -7,7 +7,7 @@ const path = require('node:path');
 // button and for a long value, kept to the panel's marked block, tokens only, and no
 // inline style anywhere in the panel script (the page runs under a strict CSP).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const css = read('app.css');
 const panelSrc = read('search-panel.js');

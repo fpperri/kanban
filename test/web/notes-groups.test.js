@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const n = require('../web/notes');
+const n = require('../../plugin/skills/web/web/notes');
 
 // The notes palette's rules for a note on a group, and on several cards at once (the
 // question the right-click Add note... asks of a selection). The cards are 3, 7 and 15,

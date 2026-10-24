@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer, VENDORED, FRAME_FILES } = require('../scripts/server');
+const { createServer, VENDORED, FRAME_FILES } = require('../../plugin/skills/web/scripts/server');
 
 // The two vendored libraries and the diagram frame are served by name, from web/vendor and web/, and
 // nothing else under them is. The page's own CSP never gains an unsafe-inline; only the diagram
@@ -115,7 +115,7 @@ test('a stray file beside the frame is still not served', async () => {
 });
 
 test('the served list is the vendor folder, less its licences, and the frame files exist', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const found = [];
   for (const lib of fs.readdirSync(path.join(web, 'vendor'))) {
     for (const f of fs.readdirSync(path.join(web, 'vendor', lib))) if (f !== 'LICENSE') found.push(`${lib}/${f}`);
@@ -142,7 +142,7 @@ test('the vendored files are cached for good, since a version is a file and a ne
 });
 
 test('one function says which file a path names, for the check and the route alike', () => {
-  const { frameAssetFile } = require('../scripts/server');
+  const { frameAssetFile } = require('../../plugin/skills/web/scripts/server');
   const web = path.join('/w');
   assert.deepStrictEqual(frameAssetFile(web, '/vendor/mermaid/mermaid.min.js'), { file: path.join(web, 'vendor', 'mermaid', 'mermaid.min.js'), immutable: true });
   assert.deepStrictEqual(frameAssetFile(web, '/mermaid-frame.js'), { file: path.join(web, 'mermaid-frame.js'), immutable: false });

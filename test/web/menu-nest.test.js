@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const m = require('../web/menu-nest');
+const m = require('../../plugin/skills/web/web/menu-nest');
 
 // The rules of the nested card menu (menu-nest.js), apart from the DOM: which separators and groups
 // show, where a panel opens, what the arrow keys do, and the hover delays. menu-nest-ui.js draws

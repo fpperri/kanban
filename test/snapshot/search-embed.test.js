@@ -6,7 +6,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { BOARD, PAGE_SCRIPTS, buildScript, card, lf, withSnapshot, writeBoard } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
-const { topLevelDeclarations } = require('../../web/test/helpers/global-scope');
+const { topLevelDeclarations } = require('../web/helpers/global-scope');
 const { search, withPlanPage } = require('./search-table');
 
 // The snapshot carries the web's search module, the waiting rules it reads and the
@@ -14,7 +14,7 @@ const { search, withPlanPage } = require('./search-table');
 // a query finds is one copy of the rules. The search panel's pill list and run of
 // slices are the same source too.
 
-const webDir = path.join(__dirname, '..', '..', 'web', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const MODULES = [
   { file: 'slices.js', placeholder: '__SLICES_JS__', label: 'the slices module' },
   { file: 'waiting-blocked.js', placeholder: '__WAITING_BLOCKED_JS__', label: 'the waiting rules' },

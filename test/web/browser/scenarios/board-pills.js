@@ -18,12 +18,12 @@
 //
 // The plan board's live cards are 1 to 18 and 22 to 29, with the tags and assignees
 // its card files give. CASES holds what the panel lists and counts, and
-// skills/web/test/browser-board-pills-scenario.test.js holds them to the search module
+// test/web/browser-board-pills-scenario.test.js holds them to the search module
 // and the pill list over the board's own cards and config. Each step waits on the page,
 // never on a fixed sleep. Keys and clicks go through the runner's helpers, and a
 // Shift+click is a real click with the Shift modifier.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // autoRefreshTick, selectedIds.
 
 const BUILT_INS = ['blocked', 'review', 'waiting'];

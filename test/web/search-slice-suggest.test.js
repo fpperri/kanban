@@ -1,8 +1,8 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert');
 
-const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
-const { graphLayoutHierarchy, graphPlan } = require('../web/graph-model');
+const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
+const { graphLayoutHierarchy, graphPlan } = require('../../plugin/skills/web/web/graph-model');
 const { STATUSES, loadBoard, cleanUp, drawnModel } = require('./helpers/fan-boards');
 
 // The search box suggests what a slice: term can say. After `slice:` and after `..`

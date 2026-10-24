@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const html = read('app.html');
@@ -21,9 +21,9 @@ const card = (id, extra) => Object.assign({ id, title: `Card ${id}`, parent: nul
 
 function loadRelatives() {
   const sandbox = {
-    escapeHtml: require('../web/assignee-badge').escapeHtml,
-    cardTitleDisplay: require('../web/card-title').cardTitleDisplay,
-    ...require('../web/nesting'),
+    escapeHtml: require('../../plugin/skills/web/web/assignee-badge').escapeHtml,
+    cardTitleDisplay: require('../../plugin/skills/web/web/card-title').cardTitleDisplay,
+    ...require('../../plugin/skills/web/web/nesting'),
   };
   vm.createContext(sandbox);
   vm.runInContext([fn('relativeMentionHtml'), fn('archivedMarkHtml'), fn('threadEntryHtml'), fn('childEntryHtml'), fn('detailRelativesHtml')].join('\n'), sandbox);
@@ -186,7 +186,7 @@ test('the thread, its markers and the child list are styled with tokens, not hex
 });
 
 test('the web skill documents the thread, the children and the three terminal markers', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
   const start = skill.indexOf('- **Thread and children**');
   assert.ok(start !== -1, 'a Thread and children bullet');
   const bullet = skill.slice(start, skill.indexOf('\n- **', start + 4)).replace(/\s+/g, ' ');

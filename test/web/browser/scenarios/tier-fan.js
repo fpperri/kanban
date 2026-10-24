@@ -29,7 +29,7 @@
 // caption.
 //
 // What each board's cards are is written out by hand from the fixtures, and
-// skills/web/test/browser-tier-fan-scenario.test.js holds the lists to the real
+// test/web/browser-tier-fan-scenario.test.js holds the lists to the real
 // board readers and the Graph model over each board's own cards.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29, and 19 to 21 are
@@ -42,7 +42,7 @@
 // children. Card 26 is the one loose card with a tier. Card 1's type has the star
 // icon and card 14's type an icon name that is not one.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, graphLoadOptions, graphSetOption, autoRefreshTick.
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);

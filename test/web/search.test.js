@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, cardMatchesQuery, filterCards, searchSuggestionItems } = require('../web/search');
+const { parseSearchQuery, cardMatchesQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
 
 // --- parseSearchQuery: the search syntax table ----------------------------
 

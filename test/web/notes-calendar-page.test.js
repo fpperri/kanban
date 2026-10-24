@@ -157,7 +157,7 @@ test('the width has three states, named: not read yet, the default, or a number 
 test('a board change forgets what was read', async () => {
   const p = await weekPage({ stored: { [KEY]: '150' } });
   p.page.run('calendarNotesStrip()');
-  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.js'), 'utf8'), /calendarNotesWidth = CAL_NOTES_UNREAD; \/\/ calendar\.notesWidth too/);
+  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8'), /calendarNotesWidth = CAL_NOTES_UNREAD; \/\/ calendar\.notesWidth too/);
 });
 
 test('chips show 12 words by default and many more once a width is set', async () => {

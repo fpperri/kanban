@@ -11,7 +11,7 @@
 // The iterations board dates card 3 (in zephyr-2) and card 5 (in zephyr-1) in the same week, so the Gantt and
 // the Calendar have one card to draw for each pick.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, calendarAnchor, localTodayStr, renderBoard, writeSearch.
 
 const SEL = `document.getElementById('iter-select')`;

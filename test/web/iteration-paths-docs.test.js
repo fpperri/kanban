@@ -8,13 +8,13 @@ const path = require('node:path');
 // iteration-folders.js and are tested there; these tests pin that the places a person or an agent reads say
 // them, and agree.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
 const docs = flat(read('docs', 'web.md'));
-const webSkill = flat(read('skills', 'web', 'SKILL.md'));
-const kanbanSkill = flat(read('skills', 'kanban', 'SKILL.md'));
+const webSkill = flat(read('plugin', 'skills', 'web', 'SKILL.md'));
+const kanbanSkill = flat(read('plugin', 'skills', 'kanban', 'SKILL.md'));
 const readme = flat(read('README.md'));
 
 test('every doc names the placeholder and the group file name the folder takes', () => {

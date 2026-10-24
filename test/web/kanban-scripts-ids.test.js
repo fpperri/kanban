@@ -4,13 +4,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const ids = require('../web/ids');
+const ids = require('../../plugin/skills/web/web/ids');
 
 // The kanban skill's scripts read ids by the id rule (docs/adr/0014): the whole pair is the
 // identity, plain numbers sort first and then each prefix by its number, a `waiting_for`
 // entry names a card whatever its padding, and a file name takes the board's idDigits.
 
-const SCRIPTS = path.join(__dirname, '..', '..', 'kanban', 'scripts');
+const SCRIPTS = path.join(__dirname, '..', '..', 'plugin', 'skills', 'kanban', 'scripts');
 const bash = spawnSync('bash', ['--version']);
 const skip = bash.status === 0 ? false : 'bash is not available';
 

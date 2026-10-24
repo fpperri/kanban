@@ -16,7 +16,7 @@
 // cards back before the next scenario). Each step waits on the page, never on a
 // fixed sleep; the menu is opened by the runner's right-click helper.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, selectionState, state.
 
 const fs = require('fs');

@@ -1,13 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { addDays } = require('../web/calendar-model');
+const { addDays } = require('../../plugin/skills/web/web/calendar-model');
 const {
   GANTT_STATUS_ORDER, GANTT_MAX_DAYS, GANTT_DAY_PX,
   barSpan, ganttGroups, ganttArchiveGroup, appendArchiveGroup, rowWindowSpans, ganttWindow, isMonday, weekMarkLabel, dayMarkLabel,
   ganttBarClip,
   barShiftChanges, barResizeChanges, dueShiftChanges,
   GANTT_SUBVIEWS, mergeGanttSubview, ganttSubviewWindow, ganttDayPx,
-} = require('../web/gantt-model');
+} = require('../../plugin/skills/web/web/gantt-model');
 
 // --- constants ----------------------------------------------------
 

@@ -8,7 +8,7 @@
 // class, and a card is only clicked where its dot is the topmost thing, so two
 // dots drawn over one another cannot fail a check for the wrong reason.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, selectionState, autoRefreshTick.
 
 module.exports = {

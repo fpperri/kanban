@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS } = require('../web/selection');
-const { parseSearchQuery } = require('../web/search');
+const { boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS } = require('../../plugin/skills/web/web/selection');
+const { parseSearchQuery } = require('../../plugin/skills/web/web/search');
 
 // What the box does outside the Graph is isolate's to decide: with isolate off the box hides
 // only by the slice: terms that stand on their own and lights the cards its other terms match;

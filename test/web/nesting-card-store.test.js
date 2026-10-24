@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const cs = require('../scripts/card-store');
+const cs = require('../../plugin/skills/web/scripts/card-store');
 
 function board(cards) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-nest-'));

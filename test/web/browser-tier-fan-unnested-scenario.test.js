@@ -11,7 +11,7 @@ const tierFan = require('./browser/scenarios/tier-fan');
 const options = require('./browser/scenarios/tier-fan-options');
 const {
   graphBuild, graphUnnestedIds, graphLayout, graphPlan, graphFit, graphZoomAt, GRAPH_FAN_OPTION_VALUES,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const { loadBoard, cleanUp, captionRects } = require('./helpers/fan-boards');
 
 // The tier-fan-unnested scenario only runs in a browser (in CI). Here its lists are held to the

@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const cardStore = require('../../web/scripts/card-store');
-const { buildRelationsGraph } = require('../../web/web/dependency-graph');
-const { MAP_OPTION_DEFAULTS, mapShapeRelations } = require('../../web/web/map-relations');
+const cardStore = require('../../plugin/skills/web/scripts/card-store');
+const { buildRelationsGraph } = require('../../plugin/skills/web/web/dependency-graph');
+const { MAP_OPTION_DEFAULTS, mapShapeRelations } = require('../../plugin/skills/web/web/map-relations');
 const { card, withSnapshot } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 

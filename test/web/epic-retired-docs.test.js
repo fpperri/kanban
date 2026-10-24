@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
-const kanbanSkill = read('skills', 'kanban', 'SKILL.md');
+const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
+const kanbanSkill = read('plugin', 'skills', 'kanban', 'SKILL.md');
 
 const section = (text, heading) => {
   const start = text.indexOf(heading);
@@ -42,14 +42,14 @@ test('the kanban skill no longer describes epic as a card field: it names it onl
 });
 
 test('the web skill documents the epic flag only as retired: no checkbox, search term, chip or wash', () => {
-  const web = read('skills', 'web', 'SKILL.md');
+  const web = read('plugin', 'skills', 'web', 'SKILL.md');
   assert.doesNotMatch(web, /epic checkbox|EPIC_COLOR|epicColorSoft|--epic-wash|\.epic\b|f-epic/i);
   assert.doesNotMatch(web, /orange is reserved|Epic membership|`epic:` term/i);
   assert.match(web, /\*\*Epic flag \(retired\)\*\*/);
 });
 
 test('the snapshot skill and the human docs no longer offer an epic: search term or an Epics chip', () => {
-  for (const file of [['skills', 'snapshot', 'SKILL.md'], ['docs', 'web.md'], ['docs', 'snapshot.md'], ['README.md']]) {
+  for (const file of [['plugin', 'skills', 'snapshot', 'SKILL.md'], ['docs', 'web.md'], ['docs', 'snapshot.md'], ['README.md']]) {
     const text = read(...file);
     assert.doesNotMatch(text, /"Epics" chip|Epics chip|`epic:`|orange epic|epic dot/, file.join('/'));
   }

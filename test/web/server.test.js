@@ -7,7 +7,7 @@ const http = require('node:http');
 const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 const { assertKeepsSelection, assertHoldsPoll, assertLetsPollRun } = require('./helpers/markers');
-const { createServer, start, resolvePort, warnConfig, originAllowed, resolveDefaultBoardDir } = require('../scripts/server');
+const { createServer, start, resolvePort, warnConfig, originAllowed, resolveDefaultBoardDir } = require('../../plugin/skills/web/scripts/server');
 
 function tmpBoard() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-srv-'));
@@ -1154,12 +1154,12 @@ test('GET /api/board carries archivePackages — the archive popup completes aga
 });
 
 test('the archive popup sends the package and an empty box sends none (bulk Archive selected)', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function applyBulkArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'applyBulkArchive found in app.js');
   assert.match(fn[0], /api\('POST', `\/api\/cards\/\$\{id\}\/archive`, pkg \? \{ package: pkg \} : undefined\)/,
     'a blank package box must send no body at all — byte-identical to every package-less archive path');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   assert.match(html, /id="bulk-archive-input"/);
   assert.match(js, /attachCombobox\(\$\('#bulk-archive-input'\), \(\) => state\.archivePackages/,
     'the package box is a hand-rolled combobox over the board payload s existing folder names');
@@ -1694,7 +1694,7 @@ test('dense-surface guard: the dots precede the croppable title, and the truncat
     const render = js.match(/function renderGanttView\([\s\S]*?\n\}/);
     assert.match(render[0], /statusBadge\(bar\.card\)\}\$\{bar\.card\.archived \? archivedBadge\(\) : ''\} \` \+\s*\r?\n\s*`<span class="gantt-label-title[\s\S]*?escapeHtml\(titleDisplay\.text\)/,
       'gantt gutter label: statusBadge, then the conditional archived ball, then the title');
-    const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
     assert.match(css, /\.cal-chip\s*\{[^}]*white-space:\s*nowrap;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis/,
       '.cal-chip crops its tail (never the leading id+dots) — the mechanism the dense-surface guard relies on');
     assert.match(css, /\.gantt-label\s*\{[^}]*white-space:\s*nowrap;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis/,
@@ -2469,17 +2469,17 @@ test('CAL_HOUR_PX and the .cal-tg-col hour stripe agree — JS positions blocks 
   // Same JS/CSS sync-pinning as status-colors.test.js's palette checks: the
   // comment convention ("40px = CAL_HOUR_PX") enforced nothing — a one-sided
   // edit drifted every timed block off the drawn hour lines with the suite green.
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const m = js.match(/const CAL_HOUR_PX = (\d+);/);
   assert.ok(m, 'CAL_HOUR_PX declared in app.js');
   const px = Number(m[1]);
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.ok(css.includes(`repeating-linear-gradient(to bottom, transparent 0 ${px - 1}px, var(--line-soft) ${px - 1}px ${px}px)`),
     `.cal-tg-col hour stripe must be ${px}px to match CAL_HOUR_PX`);
 });
 
 test('Esc closes the open popup directly on the first press — no exit-fullscreen step, fullscreen state untouched', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   // The document-level Esc handler's first line is a bare `if (e.key !== 'Escape')
   // return;` — the date-picker's own Esc handler guards `|| !datePickerFor` on
   // that same line, and the combobox's (grown into a multi-key
@@ -2507,7 +2507,7 @@ test('Esc closes the open popup directly on the first press — no exit-fullscre
 });
 
 test('closeAnyBulkPopup closes whichever bulk popup is open, no confirm — the fix for the Esc-is-inert-on-bulk-popups bug', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/function closeAnyBulkPopup\([\s\S]*?\n\}/);
   assert.ok(fn, 'closeAnyBulkPopup found in app.js');
   assert.match(fn[0], /#bulk-single/);
@@ -2517,7 +2517,7 @@ test('closeAnyBulkPopup closes whichever bulk popup is open, no confirm — the 
 });
 
 test('isModalVisuallyFullscreen stays removed — dead code once Esc stopped calling it', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.doesNotMatch(js, /function isModalVisuallyFullscreen/);
   // openFullscreenModalType was ALSO removed as dead code, then
   // deliberately resurrected with a live caller (the Alt+Enter
@@ -2526,7 +2526,7 @@ test('isModalVisuallyFullscreen stays removed — dead code once Esc stopped cal
 });
 
 test('Alt+Enter toggles fullscreen on the open popup — keyboard twin of the toggle button', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   // The lookup helper: first visible fullscreen-capable backdrop wins.
   const fn = js.match(/function openFullscreenModalType\(\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'openFullscreenModalType found in app.js');
@@ -2552,7 +2552,7 @@ test('Alt+Enter toggles fullscreen on the open popup — keyboard twin of the to
 });
 
 test('attachCombobox keydown grammar: Up/Down move a highlight, Enter picks it, Esc still stops at the menu', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/function attachCombobox\([\s\S]*?\n\}/);
   assert.ok(fn, 'attachCombobox found in app.js');
   const body = fn[0];
@@ -2587,7 +2587,7 @@ test('attachCombobox keydown grammar: Up/Down move a highlight, Enter picks it, 
 });
 
 test('setHighlight scrolls the highlighted row into view — a menu taller than its 180px max-height must not hide the active row (regression)', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/const setHighlight = \(idx\) => \{[\s\S]*?\n  \};/);
   assert.ok(fn, 'setHighlight found in app.js');
   assert.match(fn[0], /scrollIntoView\(\{\s*block:\s*'nearest'\s*\}\)/,
@@ -2595,7 +2595,7 @@ test('setHighlight scrolls the highlighted row into view — a menu taller than 
 });
 
 test("combobox Up/Down highlight reuses the existing hover treatment, not a new color", () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.combobox-item:hover, \.combobox-item\.active \{ background: var\(--accent-wash\); \}/);
 });
 
@@ -2607,7 +2607,7 @@ test("combobox Up/Down highlight reuses the existing hover treatment, not a new 
 // whole suite silently.
 
 test('doArchive gates its confirm on archiveNeedsConfirm — the tile/detail Archive button surface (regression)', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function doArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'doArchive found in app.js');
   assert.match(fn[0], /archiveNeedsConfirm\(\[card\]\)/,
@@ -2617,7 +2617,7 @@ test('doArchive gates its confirm on archiveNeedsConfirm — the tile/detail Arc
 });
 
 test('bulkArchive gates its confirm on archiveNeedsConfirm — the bulk menu\'s Archive selected surface (regression)', () => {
-  const js = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function bulkArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'bulkArchive found in app.js');
   assert.match(fn[0], /if \(archiveNeedsConfirm\(toArchive\) && !confirm\(/,
@@ -3024,7 +3024,7 @@ test('XSS sweep: the detail popup\'s frontmatter table and "Last modified" line 
 // exact-match matching behavior itself.
 // =====================================================================
 
-const { parseAllowedOrigins, extractAllowOriginArgs } = require('../scripts/server');
+const { parseAllowedOrigins, extractAllowOriginArgs } = require('../../plugin/skills/web/scripts/server');
 
 test('extractAllowOriginArgs: no --allow-origin present leaves argv untouched', () => {
   const { origins, rest } = extractAllowOriginArgs(['.kanban', '7777']);
@@ -3388,7 +3388,7 @@ test('a busy pinned port really exits the process with code 1 — a spawned serv
     // console.error/process.exit-stubbing test above cannot prove: that the
     // process actually terminates, nonzero, instead of continuing past a
     // mock that returned.
-    const run = spawnSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir], { encoding: 'utf8', timeout: 30000 });
+    const run = spawnSync(process.execPath, [path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js'), dir], { encoding: 'utf8', timeout: 30000 });
     assert.strictEqual(run.status, 1, `expected exit 1; stderr: ${run.stderr}`);
     assert.match(run.stderr, /pinned by config\.yaml/i);
     assert.match(run.stderr, new RegExp(String(busyPort)), 'names the actual busy port');

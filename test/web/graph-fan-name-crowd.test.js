@@ -2,8 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { performance } = require('node:perf_hooks');
 
-const { graphLayoutHierarchy, graphPlan, graphFanNames } = require('../web/graph-model');
-const { graphNamesPlace, graphNameMeets, graphNameDiscHits } = require('../web/graph-names');
+const { graphLayoutHierarchy, graphPlan, graphFanNames } = require('../../plugin/skills/web/web/graph-model');
+const { graphNamesPlace, graphNameMeets, graphNameDiscHits } = require('../../plugin/skills/web/web/graph-names');
 const {
   STATUSES, buildOf, rootShapedCards, placeOn, pathPoints, drawnBox, within, leaderPieces, leaderCrossings,
 } = require('./helpers/fan-boards');

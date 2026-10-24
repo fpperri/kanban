@@ -10,8 +10,8 @@ const path = require('node:path');
 // docs test's (graph-fan-name-rows-docs.test.js). The words are the glossary's: altitude,
 // selection, pill, tier.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);

@@ -5,8 +5,8 @@ const { tagsOf, elementOf } = require('./helpers/markers');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const graphSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const graphSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
 
 function fn(name) {
   const start = appSrc.indexOf('function ' + name + '(');
@@ -66,7 +66,7 @@ test('every pill and fold handler runs through keepControlFocus', () => {
 });
 
 test('the pill and fold toggles are focusable controls the stylesheet rings', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   for (const cls of ['map-section-toggle']) {
     const rule = css.split('\n').find((l) => l.includes('.' + cls + ':focus-visible'));
     assert.ok(rule && rule.includes('outline: 2px solid var(--accent)'), cls + ' has no focus ring');
@@ -94,7 +94,7 @@ function stubUnseenSteps(sandbox, code) {
 }
 
 function pollSandbox(unseenStep) {
-  const policy = require('../web/refresh-policy.js');
+  const policy = require('../../plugin/skills/web/web/refresh-policy.js');
   const doc = { activeElement: null, current: null, visibilityState: 'visible' };
   const camel = (a) => a.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
   const matches = (el, sel) => sel.split(',').map((x) => x.trim()).some((x) => {
@@ -114,7 +114,7 @@ function pollSandbox(unseenStep) {
     return c && c.attached && sel === `.${c.classList[0]}[data-${key}="${c.dataset[key]}"]` ? c : null;
   };
   const sandbox = {
-    document: doc, kanbanIds: require('../web/ids'), boardTypeView: require('../web/type-badge').boardTypeView, state: {}, selectedIds: new Set(), hoveredId: null,
+    document: doc, kanbanIds: require('../../plugin/skills/web/web/ids'), boardTypeView: require('../../plugin/skills/web/web/type-badge').boardTypeView, state: {}, selectedIds: new Set(), hoveredId: null,
     applyProjectName() {}, applyHomeUrl() {}, applyStatuses() {}, applyAssignees() {}, applyLists() {}, applyNotifications() {},
     setHoveredId: (id) => id, renderBoard() {},
     shouldSkipAutoRefresh: policy.shouldSkipAutoRefresh, isDragging: false, pendingDrops: 0,
@@ -214,7 +214,7 @@ test('keepControlFocus refocuses without scrolling', () => {
 });
 
 test('an off pill shows a hollow dot: ring kept, fill gone', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.off > \.pill-dot \{ background: transparent; \}/);
   assert.match(css, /\.pill-dot \{[^}]*background: currentColor; border: 1px solid currentColor;/);
 });

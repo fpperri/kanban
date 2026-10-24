@@ -4,7 +4,7 @@
 // its class, so a later dot that is not a circle cannot fail a check for the
 // wrong reason.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, isDragging, hoveredId, graphCur, autoRefreshTick, renderGraphView.
 //
 // A click on the empty canvas leaves the selection and a double click on it clears it,
@@ -13,7 +13,7 @@
 
 // The query typed in the Graph, and the cards it lights on the fixture board: three
 // match by title and one by its title is done (card 12). Card 19 matches too and is
-// archived, so it is not drawn. skills/web/test/browser-graph-lights.test.js holds
+// archived, so it is not drawn. test/web/browser-graph-lights.test.js holds
 // the list to the search module over the board's own cards.
 const LIGHT = { query: 'renew | zephyr', lit: [1, 2, 7, 11, 12], done: 12 };
 

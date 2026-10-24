@@ -3,11 +3,11 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { graphLayoutHierarchy, graphPlan, graphFanNames } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphPlan, graphFanNames } = require('../../plugin/skills/web/web/graph-model');
 const {
   GRAPH_NAME_PAD, GRAPH_NAME_ROW, GRAPH_NAME_POLE, GRAPH_NAME_RAIL, GRAPH_NAME_MARK_PAD, GRAPH_NAME_DETOUR,
   graphNamesPlace, graphNamesKey, graphNamesRim, graphNameAssign, graphNameFit, graphNameFlatten, graphNameSegHits, graphNameDiscHits, graphNameMeets,
-} = require('../web/graph-names');
+} = require('../../plugin/skills/web/web/graph-names');
 const {
   STATUSES, loadBoard, cleanUp, drawnModel, nameMeasure, placeOn, captionRects, pathPoints, drawnBox, within, leaderPieces, leaderCrossings,
 } = require('./helpers/fan-boards');
@@ -218,7 +218,7 @@ test('a name that leads with its id keeps the id whole: the title is cut after i
 // --- one pure module ----------------------------------------------------------------------
 
 test('graph-names.js is pure: no page, no measuring in a browser, no clock, no chance', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-names.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-names.js'), 'utf8');
   const tail = src.indexOf("if (typeof module !== 'undefined' && module.exports)");
   assert.ok(tail > 0, 'the module ends in the dual-environment tail');
   const body = src.slice(0, tail);

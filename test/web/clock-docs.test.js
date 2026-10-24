@@ -6,14 +6,14 @@ const path = require('node:path');
 // docs/web.md says that an open page reads the clock when it writes and when it shows today. These tests
 // pin the sentences, so a change to the page that leaves the docs behind fails here.
 
-const docs = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\r\n/g, '\n');
+const docs = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const part = (from, to) => flat(docs.slice(docs.indexOf(from), docs.indexOf(to, docs.indexOf(from) + from.length)));
 
 const notes = part('**Notes** —', '**Text boxes** —');
 const clock = part('**The clock** —', '**Search** —');
 const calendar = part('## Calendar', '## More on the board');
-const skill = flat(fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8'));
+const skill = flat(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8'));
 
 test('the notes palette says Today and Now are worked out when Enter is pressed', () => {
   assert.match(notes, /A palette left open reads the clock when it writes, not when it opened/);

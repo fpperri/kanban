@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { threadOf } = require('../web/nesting');
+const { threadOf } = require('../../plugin/skills/web/web/nesting');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra) => Object.assign({ id, parent: null, rank: null, priority: 'Normal', status: 'todo', archived: false }, extra);
@@ -82,7 +82,7 @@ test('thread: the parent may come as the raw frontmatter string', () => {
 
 // --- children, as the detail lists them --------------------------------------
 
-const { childrenOf } = require('../web/nesting');
+const { childrenOf } = require('../../plugin/skills/web/web/nesting');
 const kids = (cards, id) => childrenOf(cards, id, CTX).map((c) => c.id);
 
 test('children: in rank order, unranked after by priority then id', () => {

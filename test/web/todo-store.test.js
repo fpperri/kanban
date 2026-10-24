@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const td = require('../scripts/todo-store');
-const sp = require('../scripts/scratchpad-store');
-const { StatusError } = require('../scripts/store-common');
+const td = require('../../plugin/skills/web/scripts/todo-store');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
+const { StatusError } = require('../../plugin/skills/web/scripts/store-common');
 
 // The todo store (docs/adr/0021): one `<padded id>.todo.md` per card or group in the folder `todos:`
 // names, a GitHub task list a person or an AI edits by hand. Reading is tolerant (a line that is not

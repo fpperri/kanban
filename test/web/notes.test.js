@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const n = require('../web/notes');
+const n = require('../../plugin/skills/web/web/notes');
 
 // The known targets of a fixture board: cards 7, 22 and G3; the board is called plan.
 const KNOWN = { board: 'plan', isTarget: (id) => ['7', '22', 'G3'].includes(id) };
@@ -378,7 +378,7 @@ test('any other key, a digit without Alt, or Alt with another modifier is no tab
 });
 
 test('a note about nothing has one name, in the palette and on the Calendar', () => {
-  const c = require('../web/notes-calendar');
+  const c = require('../../plugin/skills/web/web/notes-calendar');
   assert.strictEqual(n.NOTE_NO_CARD, 'no card');
   assert.deepStrictEqual(c.noteSlotTargets([{ target: '' }, { target: '7' }]), ['#7', n.NOTE_NO_CARD]);
   assert.strictEqual(c.noteUntimedTip([{ target: '', note: 'x' }]), `${n.NOTE_NO_CARD}: x`);

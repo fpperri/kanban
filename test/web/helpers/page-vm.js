@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', '..', 'web');
+const WEB = path.join(__dirname, '..', '..', '..', 'plugin', 'skills', 'web', 'web');
 
 function harmless(label) {
   return new Proxy(function () {}, {

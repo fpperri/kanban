@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const {
   graphBuild, graphNeighbours, graphVisibleIds, graphLayout, graphSignature, graphLayoutCacheClear,
   graphQueryEffect, graphLit, graphRestLit,
-} = require('../web/graph-model');
-const { parseSearchQuery, filterCards } = require('../web/search');
+} = require('../../plugin/skills/web/web/graph-model');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // What the Graph lights. A query typed in the Graph hides nothing: it is the
 // anchor of the selection, and its matches light while the rest dims. One pure

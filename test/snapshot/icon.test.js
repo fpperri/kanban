@@ -9,8 +9,8 @@ const { execFileSync } = require('node:child_process');
 // snapshot opened on its own shows it without fetching anything. The inlined
 // copy must stay identical to the canonical assets/icon.svg.
 
-const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
-const canonical = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'assets', 'icon.svg'), 'utf8').replace(/\r\n/g, '\n');
+const buildScript = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
+const canonical = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'assets', 'icon.svg'), 'utf8').replace(/\r\n/g, '\n');
 
 function buildHtml() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-snapshot-icon-'));

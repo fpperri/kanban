@@ -5,8 +5,8 @@ const path = require('node:path');
 const {
   SORT_FIELDS, SORT_FIELD_LABELS, DEFAULT_SORT_DIRECTION, DEFAULT_SORT,
   defaultSort, mergeSortState, readSortPicks, compareCards, sortCards, scheduleKey, scheduleLabel, scheduleRows,
-} = require('../web/column-sort');
-const { outlineOrder } = require('../web/nesting');
+} = require('../../plugin/skills/web/web/column-sort');
+const { outlineOrder } = require('../../plugin/skills/web/web/nesting');
 
 // --- constants --------------------------------------------------------
 
@@ -677,7 +677,7 @@ test('scheduleRows: a done card never flags its due row overdue (isOverdue\'s ow
 // DOM glue isn't require-able, jsdom isn't wired into this suite).
 
 test('cardEl and archiveCardEl both render the date stack via scheduleBlockHtml, which calls scheduleRows', () => {
-  const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.match(appJs, /function scheduleBlockHtml\(card\)/);
   assert.match(appJs, /scheduleRows\(card, localTodayStr\(\)\)/);
   const callSites = appJs.match(/const scheduleHtml = scheduleBlockHtml\(card\);/g) || [];
@@ -699,8 +699,8 @@ test('the date stack keeps the calendar/gantt day-prefix tolerance — a space-s
 });
 
 test('the glyph rides its own fixed-width box so the stacked dates line up', () => {
-  const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-  const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+  const appCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(appJs, /<span class="card-schedule-glyph">\$\{r\.glyph\}<\/span>/);
   assert.match(appCss, /\.card-schedule-glyph\s*\{[^}]*display:\s*inline-block[^}]*width:/);
   assert.match(appCss, /\.card-schedule-row\s*\{[^}]*line-height:/);

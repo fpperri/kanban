@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, setAnchor, addPart, selectionAfterEscape,
   selectionAfterClick, isTypedAnchor, pillQueriesDropped, isolateAfterWrite, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor,
-} = require('../web/selection');
-const { searchMirrorBox } = require('../web/search');
+} = require('../../plugin/skills/web/web/selection');
+const { searchMirrorBox } = require('../../plugin/skills/web/web/search');
 
 // Isolate in the selection module: Esc steps back in three stages (isolate off, then every
 // addition, then the anchor), a click on a card while isolated moves the anchor and leaves the

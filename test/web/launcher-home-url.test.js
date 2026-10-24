@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const launcher = require('../scripts/launcher');
+const launcher = require('../../plugin/skills/web/scripts/launcher');
 
 const san = (args, platform = 'win32') => launcher.sanitizeServerArgsForWrapper(args, platform);
 

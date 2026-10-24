@@ -10,7 +10,7 @@
 // view's title), never on a pause. The query is written the way a person types it:
 // the box gets its text and an input event.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // autoRefreshTick.
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

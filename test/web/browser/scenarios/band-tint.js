@@ -18,10 +18,10 @@
 // translate of their dots.
 //
 // What the plan board's tiers are is written out by hand from the fixture, and
-// skills/web/test/browser-band-tint-scenario.test.js holds the lists to the real board
+// test/web/browser-band-tint-scenario.test.js holds the lists to the real board
 // readers and the Graph model.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, selectedIds.
 
 const {

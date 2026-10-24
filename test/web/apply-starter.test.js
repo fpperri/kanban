@@ -4,11 +4,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseConfig, readConfig } = require('../scripts/config-store');
+const { parseConfig, readConfig } = require('../../plugin/skills/web/scripts/config-store');
 
-const root = path.join(__dirname, '..', '..', '..');
-const SCRIPT = path.join(root, 'skills', 'kanban', 'scripts', 'apply-starter.js');
-const STARTER = path.join(root, 'skills', 'kanban', 'starter-config.yaml');
+const root = path.join(__dirname, '..', '..');
+const SCRIPT = path.join(root, 'plugin', 'skills', 'kanban', 'scripts', 'apply-starter.js');
+const STARTER = path.join(root, 'plugin', 'skills', 'kanban', 'starter-config.yaml');
 const starter = parseConfig(fs.readFileSync(STARTER, 'utf8'));
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'starter-'));

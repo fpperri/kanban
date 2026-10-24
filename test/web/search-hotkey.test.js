@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { searchHotkeyPrefill, searchHashStrip } = require('../web/search-hotkey');
+const { searchHotkeyPrefill, searchHashStrip } = require('../../plugin/skills/web/web/search-hotkey');
 
 // Ctrl+F / Cmd+F focuses the search box instead of the
 // browser's own find bar, pre-filling "#" (caret right after) so digits

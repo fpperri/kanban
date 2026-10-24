@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const s = require('../web/settings');
+const s = require('../../plugin/skills/web/web/settings');
 
 // The rules of the gear's sheet apart from the DOM (settings.js): which layout a width gets, where
 // Esc steps, what a switch or a folder sends, and how a page's state reads in the menu.
@@ -229,11 +229,11 @@ test('a color the person types is a hex color, or nothing', () => {
 
 test('the swatches are the colors the starter config uses and the status palette, each once, as hex', () => {
   const swatches = s.SETTINGS_TYPE_SWATCHES;
-  const starter = require('../scripts/config-store').parseConfig(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'kanban', 'starter-config.yaml'), 'utf8'));
+  const starter = require('../../plugin/skills/web/scripts/config-store').parseConfig(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'kanban', 'starter-config.yaml'), 'utf8'));
   const starterColors = starter.types.map((t) => t.color).filter(Boolean);
   assert.ok(starterColors.length >= 5, 'sanity: the starter colors its types');
   for (const hex of starterColors) assert.ok(swatches.includes(hex.toLowerCase()), hex);
-  for (const hex of require('../web/status-colors').STATUS_PALETTE) assert.ok(swatches.includes(hex.toLowerCase()), hex);
+  for (const hex of require('../../plugin/skills/web/web/status-colors').STATUS_PALETTE) assert.ok(swatches.includes(hex.toLowerCase()), hex);
   assert.strictEqual(new Set(swatches).size, swatches.length);
   for (const hex of swatches) assert.strictEqual(s.settingsColorProblem(hex), '', hex);
 });

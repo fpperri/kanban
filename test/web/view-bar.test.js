@@ -5,8 +5,8 @@ const path = require('node:path');
 const { loadPage } = require('./helpers/page-vm');
 const { assertKeepsSelection, tagsOf } = require('./helpers/markers');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 const BOARD = { projectName: 'k', statuses: ['todo'], priorities: [], assignees: [], tags: [], types: [], active: [], archived: [] };
 const MODES = ['board', 'calendar', 'gantt', 'map', 'graph'];
 
@@ -45,7 +45,7 @@ test('setView assigns the view and never toggles it', async () => {
 });
 
 test('setView sits directly above toggleView', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.match(src, /function setView\(mode\) \{[\s\S]*?\n\}\n\n(?:\/\/[^\n]*\n)*function toggleView/);
 });
 

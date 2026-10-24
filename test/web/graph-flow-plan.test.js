@@ -4,8 +4,8 @@ const assert = require('node:assert');
 const {
   GRAPH_KINDS, mergeGraphLayout, graphBuild, graphLayout, graphLayoutFlow, graphSignature, graphLayoutCacheClear, graphPlan,
   graphNeighbours, graphRestLit, graphLinkPaths, graphRadius,
-} = require('../web/graph-model');
-const { graphFlowPath, graphFlowMarks } = require('../web/graph-flow');
+} = require('../../plugin/skills/web/web/graph-model');
+const { graphFlowPath, graphFlowMarks } = require('../../plugin/skills/web/web/graph-flow');
 
 // The Flow as the Graph model finishes and draws it: the layout kind, its cache and signature, the
 // bounds, the plan's dots, arrows and marks, and what the pointer or a lone card lights. The columns

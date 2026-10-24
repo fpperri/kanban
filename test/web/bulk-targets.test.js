@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const { installDelete } = require('./helpers/delete-popup');
 
 // A bulk action takes its list of target cards once, when it starts, from the
@@ -16,7 +16,7 @@ const { installDelete } = require('./helpers/delete-popup');
 // and then repaints, as a poll does, so the selection is worked out again after
 // each one.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
@@ -68,7 +68,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
     hideContextMenu() {}, applyModalFullscreen() {}, renderBoard() {},
     document: { querySelector: () => ({}), querySelectorAll: () => [], createElement: fakeBox },
     ...pageless,
-    ...require('../web/bulk-edit'),
+    ...require('../../plugin/skills/web/web/bulk-edit'),
   };
   const run = (code) => vm.runInContext(code, sandbox);
   const find = (id) => sandbox.state.active.concat(sandbox.state.archived).find((c) => c.id === String(id));

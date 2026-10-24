@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseConfig } = require('../../web/scripts/config-store');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
 const { BOARD, withSnapshot } = require('./nesting-fixture');
 
 // The snapshot reads the same config.yaml lists as kanban-web: the card types

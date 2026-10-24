@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const it = require('../web/iterations');
+const it = require('../../plugin/skills/web/web/iterations');
 
 const mk = (id, name, folder, start, end, cards = []) => ({ id, name, folder, start_date: start, end_date: end, auto_join: true, cards, extra: {}, file: '' });
 const I1 = mk('I1', 'zephyr-1', 'iteration', '2026-09-28', '2026-10-09', ['2', '5']);

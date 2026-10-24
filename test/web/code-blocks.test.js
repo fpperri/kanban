@@ -12,8 +12,8 @@ const { miniDocument } = require('./helpers/mini-dom');
 // the frame played by hand, so what is asserted is when a file is asked for, what is asked of it, and what
 // the block turns into.
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'code-blocks.js'), 'utf8').replace(/\r\n/g, '\n');
-const codeLibs = require('../web/code-libs');
+const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'code-blocks.js'), 'utf8').replace(/\r\n/g, '\n');
+const codeLibs = require('../../plugin/skills/web/web/code-libs');
 
 const WEB_CONFIG = {
   highlight: { src: '/vendor/highlight.js/highlight.min.js' },

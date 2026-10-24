@@ -7,7 +7,7 @@ const path = require('node:path');
 // text boxes do. These tests pin the sentences a reader relies on, so a change to the page that leaves the
 // docs behind (or a rewrite of the docs that drops a behaviour) fails here.
 
-const docs = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\r\n/g, '\n');
+const docs = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const part = (from, to) => flat(docs.slice(docs.indexOf(from), docs.indexOf(to, docs.indexOf(from) + from.length)));
 

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { HOTKEYS, hotkeyRows } = require('../web/hotkeys');
+const { HOTKEYS, hotkeyRows } = require('../../plugin/skills/web/web/hotkeys');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/hotkeys');
 
@@ -28,7 +28,7 @@ test('the states it expects after the keys are what the list reads for those sta
   const rows = hotkeyRows({ pills: ['blocked'], isolate: true, panelOnFocus: false });
   for (const [id, text] of Object.entries(CASES.afterKeys)) assert.strictEqual(stateOf(rows, id), text, id);
   assert.strictEqual(stateOf(hotkeyRows({ names: 'all' }), 'names'), CASES.names);
-  const { GRAPH_FAN_OPTION_VALUES } = require('../web/graph-model');
+  const { GRAPH_FAN_OPTION_VALUES } = require('../../plugin/skills/web/web/graph-model');
   const values = GRAPH_FAN_OPTION_VALUES.names;
   assert.strictEqual(values[1], 'all', 'relevant, then all');
 });
@@ -39,7 +39,7 @@ test('the scenario does not wait on a fixed sleep', () => {
 });
 
 test('the ids the scenario drives are in the page', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const page = ['app.html', 'hotkeys-sheet.js', 'app.css', 'app.js', 'search-panel.js', 'isolate.js'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const name of ['prefs-sheet', 'prefs-btn', 'hotkeys-list', 'hotkey-row', 'hotkey-key', 'hotkey-what', 'hotkey-state', 'prefs-hotkeys-title', 'prefs-panel-on-focus', 'search-panel-toggle', 'isolate-switch', 'graph-toggle-btn', 'notif-btn', 'search-input', 'search-clear-btn', 'detail-modal', 'context-menu', 'notif-modal']) {
     assert.ok(page.includes(name), `${name} is in the page`);

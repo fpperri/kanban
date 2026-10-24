@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
+const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', ...p), 'utf8').replace(/\r\n/g, '\n');
 const kanbanSkill = read('kanban', 'SKILL.md');
 const webSkill = read('web', 'SKILL.md');
 
@@ -50,14 +50,14 @@ test('the web skill documents the Outline sort, its default, and the Parent and 
 test('nothing says a parent closes only when its children do: its status is the human\'s call, and done with open leaves only warns', () => {
   const files = [
     ['docs', 'web.md'], ['docs', 'snapshot.md'], ['README.md'], ['GLOSSARY.md'],
-    ['skills', 'kanban', 'SKILL.md'], ['skills', 'web', 'SKILL.md'], ['skills', 'snapshot', 'SKILL.md'],
-    ['skills', 'web', 'web', 'dependency-graph.js'], ['skills', 'snapshot', 'scripts', 'build_editor.py'],
+    ['plugin', 'skills', 'kanban', 'SKILL.md'], ['plugin', 'skills', 'web', 'SKILL.md'], ['plugin', 'skills', 'snapshot', 'SKILL.md'],
+    ['plugin', 'skills', 'web', 'web', 'dependency-graph.js'], ['plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'],
   ];
   for (const file of files) {
-    const text = fs.readFileSync(path.join(__dirname, '..', '..', '..', ...file), 'utf8').replace(/\s+(\/\/\s+)?/g, ' ');
+    const text = fs.readFileSync(path.join(__dirname, '..', '..', ...file), 'utf8').replace(/\s+(\/\/\s+)?/g, ' ');
     assert.doesNotMatch(text, /closes only when|done only when its children|only when its children (close|are done)|only when they do/i, file.join('/'));
   }
-  const adr = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'adr', '0012-cards-nest-type-and-rank-replace-the-epic-flag.md'), 'utf8').replace(/\s+/g, ' ');
+  const adr = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'adr', '0012-cards-nest-type-and-rank-replace-the-epic-flag.md'), 'utf8').replace(/\s+/g, ' ');
   assert.match(adr, /status stays the human's call: marking a parent done while leaves below are open shows a warning, never a gate/);
 });
 
@@ -78,12 +78,12 @@ test('the web skill says a Parent or Rank that reads as nothing is refused on it
 });
 
 test('app.js does not call the combobox form fields three', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.doesNotMatch(app, /The three form fields/);
 });
 
 test('the human web doc says the Archive column keeps id order on a board that nests', () => {
-  const guide = read('..', 'docs', 'web.md').replace(/\s+/g, ' ');
+  const guide = read('..', '..', 'docs', 'web.md').replace(/\s+/g, ' ');
   assert.match(guide, /it is the default sort on a board where any card has a `rank` or a `parent`, except in the Archive column, which keeps id order/);
 });
 

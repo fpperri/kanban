@@ -4,12 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { readConfig } = require('../scripts/config-store');
-const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
-const { buildRelationsGraph } = require('../web/dependency-graph');
-const { mapShapeRelations } = require('../web/map-relations');
-const { ganttGroups, rowWindowSpans, ganttWindow, ganttBarClip, GANTT_MAX_DAYS } = require('../web/gantt-model');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
+const { buildRelationsGraph } = require('../../plugin/skills/web/web/dependency-graph');
+const { mapShapeRelations } = require('../../plugin/skills/web/web/map-relations');
+const { ganttGroups, rowWindowSpans, ganttWindow, ganttBarClip, GANTT_MAX_DAYS } = require('../../plugin/skills/web/web/gantt-model');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
 const sliceTerm = require('./browser/scenarios/slice-term');
@@ -111,7 +111,7 @@ test('on the malformed board a cut naming a tier written twice in mixed case kee
 });
 
 test('the selectors the scenario reads name classes and containers the page really draws', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const pageSource = ['app.js', 'app.html', 'graph-view.js'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   assert.deepStrictEqual(Object.keys(sliceTerm.SELECTORS), ['board', 'map', 'gantt', 'calendar', 'graph']);
   for (const [view, selector] of Object.entries(sliceTerm.SELECTORS)) {
@@ -149,7 +149,7 @@ const selectorMatches = (selector, element) => {
 const readBy = (selector, drawn) => [...new Set(drawn.filter(({ element }) => selectorMatches(selector, element)).map(({ id }) => Number(id)))].sort((a, b) => a - b);
 
 test('the classes the Map and the Gantt draw their elements with come from the page code', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const app = fs.readFileSync(path.join(web, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.ok(app.includes('const selectable = !n.ghost && !missing;'), 'a stub is not selectable');
   assert.ok(app.includes("map-node${n.ghost ? ' ghost' : ''}"), 'a node and a stub are both map-node, and a stub is also a ghost');

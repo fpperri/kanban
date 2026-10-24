@@ -2,15 +2,15 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { mdToHtml } = require('../web/markdown');
+const { mdToHtml } = require('../../plugin/skills/web/web/markdown');
 
 // docs/web.md says what the renderer draws and the web skill says how; the examples the docs give
 // are held to the renderer, so a doc cannot promise what the page does not draw.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const docs = read('docs', 'web.md');
-const skill = read('skills', 'web', 'SKILL.md');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const para = flat(docs.slice(docs.indexOf('**Markdown** —'), docs.indexOf('**Notes** —')));
 const bullet = flat(skill.slice(skill.indexOf('- **Markdown body** —'), skill.indexOf('- **Frontmatter marks** —')));
 
@@ -39,7 +39,7 @@ test('what the docs promise is what the renderer draws', () => {
 
 // --- the vendored libraries --------------------------------------------------------------
 
-const libs = require('../web/code-libs');
+const libs = require('../../plugin/skills/web/web/code-libs');
 const docsMd = flat(para + ' ' + docs.slice(docs.indexOf('Mermaid writes inline styles'), docs.indexOf('**Notes** —')));
 
 test('the docs name both libraries, their licences, the pinned versions and the sandboxed frame', () => {
@@ -62,7 +62,7 @@ test('the README, SECURITY.md and the web skill describe the libraries and the f
   assert.match(flat(read('SECURITY.md')), /Mermaid runs in a sandbox of its own[\s\S]*sandbox allow-scripts/);
   const wb = flat(skill);
   for (const part of ['createCodeBlocks(config)', 'code-blocks.js', 'code-libs.js', 'mermaid-frame.html', 'sandbox="allow-scripts"', 'VENDORED', 'Diagram error:', 'cdnjs', 'jsDelivr', 'integrity', 'immutable', 'ResizeObserver', 'loose']) assert.ok(wb.includes(part), part);
-  const snap = flat(read('skills', 'snapshot', 'SKILL.md'));
+  const snap = flat(read('plugin', 'skills', 'snapshot', 'SKILL.md'));
   for (const part of ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net', libs.MERMAID_VERSION, libs.HIGHLIGHT_VERSION, 'integrity', 'never run in the page', 'sandbox="allow-scripts"', 'srcdoc']) assert.ok(snap.includes(part), part);
 });
 

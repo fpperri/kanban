@@ -11,7 +11,7 @@ const { recordingDocument, recordingElement, byClass } = require('./helpers/reco
 // every tree while the fingers move, and settles the zoom once when they lift. The browser
 // runner drives a real pinch in Chrome (scenarios/phone-steps/map-pinch.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 
 const card = (id, over = {}) => ({

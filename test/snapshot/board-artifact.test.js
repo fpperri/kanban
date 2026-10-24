@@ -9,11 +9,11 @@ const path = require('node:path');
 // the reference procedure survive edits.
 
 const buildSrc = fs.readFileSync(
-  path.join(__dirname, '..', 'scripts', 'build_editor.py'),
+  path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'),
   'utf8'
 );
 const skillSrc = fs.readFileSync(
-  path.join(__dirname, '..', 'SKILL.md'),
+  path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'SKILL.md'),
   'utf8'
 );
 
@@ -77,7 +77,7 @@ test('the delivery step does not route to publishing merely because the tool exi
 // an ordinary doc slip, because a reader who believes bodies are stripped may
 // publish the file somewhere hosted. These pin the doc against the code.
 const buildSrcText = fs.readFileSync(
-  path.join(__dirname, '..', 'scripts', 'build_editor.py'), 'utf8');
+  path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'), 'utf8');
 
 test('the generator still caps rather than strips archived bodies', () => {
   assert.match(buildSrcText, /c\["body"\] = c\["body"\]\[:1500\]/,

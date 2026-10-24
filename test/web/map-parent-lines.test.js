@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { mapParentLineEnds } = require('../web/map-relations');
+const { mapParentLineEnds } = require('../../plugin/skills/web/web/map-relations');
 const { familyChainingToOneEnd, treeWithArchivedAndBacklogChildren } = require('./map-fixtures');
 
 // What the map hands the rule: every card whose parent is a card on the board.

@@ -2,17 +2,17 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { parseConfig } = require('../scripts/config-store');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
 
 // The starter file is the single source of what a board begins with. The README
 // section and the kanban skill's text say the same thing in prose, and the bundled
 // demo board carries it, so a change to the file that the words do not follow fails here.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 const flatten = (text) => text.replace(/\s+/g, ' ');
 
-const starterText = read('skills', 'kanban', 'starter-config.yaml');
+const starterText = read('plugin', 'skills', 'kanban', 'starter-config.yaml');
 const starter = parseConfig(starterText);
 
 const readme = read('README.md');
@@ -23,7 +23,7 @@ const readmeSection = (() => {
   return readme.slice(start, end);
 })();
 
-const skill = read('skills', 'kanban', 'SKILL.md');
+const skill = read('plugin', 'skills', 'kanban', 'SKILL.md');
 const skillConfig = (() => {
   const start = skill.indexOf('### `config.yaml`');
   const end = skill.indexOf('### `notifications.md`');
@@ -118,12 +118,12 @@ test('the skill says how to run the script on an existing board, dry first, and 
   assert.match(skillStarter, /apply-starter\.js <kanban-dir>\.\.\. --dry-run/);
   assert.match(skillStarter, /apply-starter\.js <kanban-dir>\.\.\. +# adds them/);
   assert.match(readmeSection, /apply-starter\.js \.kanban --dry-run/);
-  assert.ok(fs.existsSync(path.join(root, 'skills', 'kanban', 'scripts', 'apply-starter.js')));
+  assert.ok(fs.existsSync(path.join(root, 'plugin', 'skills', 'kanban', 'scripts', 'apply-starter.js')));
   assert.match(flatSkill, /write `name:` on line 1 and the starter file's content under it/);
 });
 
 test('no document still shows the hierarchy example with an initiative', () => {
-  for (const f of [['README.md'], ['skills', 'kanban', 'SKILL.md'], ['skills', 'web', 'SKILL.md']]) {
+  for (const f of [['README.md'], ['plugin', 'skills', 'kanban', 'SKILL.md'], ['plugin', 'skills', 'web', 'SKILL.md']]) {
     assert.doesNotMatch(read(...f), /hierarchy: \[[^\]]*initiative/, f.join('/'));
   }
   assert.match(skillConfig, /^hierarchy: \[goal, strategy, objective, epic\]/m);

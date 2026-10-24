@@ -7,10 +7,10 @@ const path = require('node:path');
 // box, Shift+Space adds them, and Ctrl+Space is the key that selects the focused card in the Graph. The docs say so,
 // and the words that said Space selects are banned.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 const webDoc = read('docs', 'web.md');
-const webSkill = read('skills', 'web', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const bullet = (text, start, end) => {
   const from = text.indexOf(start);
   assert.ok(from > -1, start);
@@ -69,11 +69,11 @@ test('the words that said Space selects a card are gone from the docs', () => {
 });
 
 test('the page wires the write: the listener is on the document, the reason is not an isolating one, and the Graph reads the select chord', () => {
-  const ui = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'hover-show-ui.js'), 'utf8');
+  const ui = fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'web', 'hover-show-ui.js'), 'utf8');
   assert.match(ui, /document\.addEventListener\('keydown', onHoverSpaceKey\)/);
   assert.match(ui, /writeSearch\(text, 'hover'\)/);
-  const graph = fs.readFileSync(path.join(root, 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
+  const graph = fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
   assert.match(graph, /hotkeySpace\(e\) === 'select'/);
-  const { writeEditsPills } = require('../web/selection');
+  const { writeEditsPills } = require('../../plugin/skills/web/web/selection');
   assert.strictEqual(writeEditsPills('hover'), true, 'a Space write replaces what the box held, so it takes a pill off');
 });

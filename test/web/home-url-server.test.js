@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { createServer, parseHomeUrl, extractHomeUrlArg } = require('../scripts/server');
+const { createServer, parseHomeUrl, extractHomeUrlArg } = require('../../plugin/skills/web/scripts/server');
 
-const SERVER = path.join(__dirname, '..', 'scripts', 'server.js');
+const SERVER = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js');
 
 function tmpBoard() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-home-'));

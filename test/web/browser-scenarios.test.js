@@ -167,7 +167,7 @@ test('the smoke scenario fails when the page is serving some other board', async
 });
 
 test('the selectors the smoke scenario waits on name classes the page really draws', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const pageSource = ['app.js', 'app.html', 'graph-view.js'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const { view, ready } of smoke.VIEWS) {
     for (const m of ready.matchAll(/[ '](?:\.|#)([a-z][\w-]*)/g)) {
@@ -397,7 +397,7 @@ test('the esc-steps scenario lets the suggestion menu take the first Esc in the 
   const cleared = at("check('the Esc after that empties the box and the selection with it'");
   assert.ok(opened > 0 && opened < closed && closed < cleared, 'open, then the first Esc closes it, then the next two turn isolate off and clear the box');
   const word = /insertText', \{ text: '([^']+)'/.exec(src)[1];
-  assert.ok(require('../web/search.js').searchSuggestionItems(word, word.length).length > 0, 'a caret after the typed word is where the box offers suggestions, so the menu is open on focus');
+  assert.ok(require('../../plugin/skills/web/web/search.js').searchSuggestionItems(word, word.length).length > 0, 'a caret after the typed word is where the box offers suggestions, so the menu is open on focus');
   const presses = (from, to) => src.slice(from, to).split('escape()').length - 1;
   assert.strictEqual(presses(opened, closed), 1, 'one Esc between the menu opening and its closing');
   assert.strictEqual(presses(closed, cleared), 2, 'one more Esc turns isolate off and one more empties the box and the selection');

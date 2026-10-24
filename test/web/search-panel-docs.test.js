@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { searchAddAlt, searchRemoveAlt } = require('../web/search');
-const { pillList } = require('../web/pills');
+const { searchAddAlt, searchRemoveAlt } = require('../../plugin/skills/web/web/search');
+const { pillList } = require('../../plugin/skills/web/web/pills');
 
 // The web skill and the web docs describe the search panel: how it opens (focusing the
 // box while the arrow's switch is on, which the arrow and the p key flip), the built-in
@@ -13,8 +13,8 @@ const { pillList } = require('../web/pills');
 // preference, and where Esc takes the panel. The one example of the box growing is
 // held to the search module so a doc cannot promise what the box does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 
 const flat = (text) => text.replace(/\s+/g, ' ');

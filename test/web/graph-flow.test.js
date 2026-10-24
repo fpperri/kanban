@@ -1,10 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { graphBuild } = require('../web/graph-model');
+const { graphBuild } = require('../../plugin/skills/web/web/graph-model');
 const {
   GRAPH_FLOW_GEO, graphFlowMergeDeps, graphFlowLink, graphFlowPlace, graphFlowPath, graphFlowMarks,
-} = require('../web/graph-flow');
+} = require('../../plugin/skills/web/web/graph-flow');
 
 // The Flow layout at its own seam: the columns of both Dependencies modes, the done and the loop
 // column, the strip of the cards with no dependency, the order within a column, and that a loop or a

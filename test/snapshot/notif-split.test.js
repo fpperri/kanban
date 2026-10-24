@@ -13,7 +13,7 @@ const { execFileSync } = require('node:child_process');
 // (non-raw) TEMPLATE string carries in source. See markdown-body.test.js
 // for the full rationale.
 
-const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const buildScript = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 
 let tmpDir, html;
 

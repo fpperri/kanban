@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
 // The board answer's three config keys: the hierarchy (the types that are the
 // levels of the plan, top first), the pills (each a label and a query) and a

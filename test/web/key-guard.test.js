@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff, keyGuardEscape } = require('../web/key-guard');
+const { KEY_GUARD_SURFACES, keyGuardTyping, keyGuardSurface, keyGuardOff, keyGuardEscape } = require('../../plugin/skills/web/web/key-guard');
 
 // The single-key shortcuts (`/` today; the slice keys and `n` later) share one
 // guard. It has two parts: a typing check for keys that would insert a
@@ -148,7 +148,7 @@ test('naming a popup that is not open changes nothing', () => {
 
 // --- the keys that act on the card details -----------------------------------------------------
 
-const { KEY_GUARD_DETAIL_SURFACES, keyGuardDetailOff } = require('../web/key-guard');
+const { KEY_GUARD_DETAIL_SURFACES, keyGuardDetailOff } = require('../../plugin/skills/web/web/key-guard');
 const OTHER_DIALOG = `.modal-backdrop:not(.hidden):not(${DETAIL})`;
 
 test('a key that acts on the details is off behind the notes palette, which sits above them; no other key is', () => {

@@ -1,10 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { graphBuild } = require('../web/graph-model');
+const { graphBuild } = require('../../plugin/skills/web/web/graph-model');
 const {
   GRAPH_FLOW_GEO, graphFlowPlace, graphFlowMarks, graphFlowLink, graphFlowSetParams, graphFlowDropParams, graphFlowLanesFromText, graphFlowLanesText,
-} = require('../web/graph-flow');
+} = require('../../plugin/skills/web/web/graph-flow');
 
 // The Flow's Lanes switch at its own seam: which lane a card is in, the header's facts, the order of
 // the lanes in both Dependencies modes, the fold of a lane with no open dependency into the strip,

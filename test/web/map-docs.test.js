@@ -3,11 +3,11 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const skill = flat(read('skills', 'web', 'SKILL.md'));
+const skill = flat(read('plugin', 'skills', 'web', 'SKILL.md'));
 const guide = flat(read('docs', 'web.md'));
-const { MAP_OPTION_VALUES } = require('../web/map-relations');
+const { MAP_OPTION_VALUES } = require('../../plugin/skills/web/web/map-relations');
 
 const section = skill.slice(skill.indexOf('**Dependency map**'), skill.indexOf('**Calendar view**'));
 

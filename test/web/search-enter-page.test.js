@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
-const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
+const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 
 // Enter in the search box, in the real page (helpers/page-vm.js runs every script app.html loads in one
 // vm): the first Enter goes to the first match, whether or not the suggestion list is open, unless a row

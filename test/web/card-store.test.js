@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const cs = require('../scripts/card-store');
+const cs = require('../../plugin/skills/web/scripts/card-store');
 
 const REAL_CARD = `---
 id: 1
@@ -1589,7 +1589,7 @@ test('updateCard on an archived card, in a package folder too, returns it as arc
 });
 
 test('every stamp reads the clock at its write: the dates of a move and the updated line', () => {
-  const days = require('../web/days');
+  const days = require('../../plugin/skills/web/web/days');
   const dir = tmpBoard(); // card 1 is done, card 2 is todo, no dates
   try {
     days.setClock(() => new Date(2026, 9, 16, 23, 58, 5));

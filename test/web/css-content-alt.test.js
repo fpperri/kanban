@@ -11,7 +11,7 @@ const path = require('node:path');
 // that pair is the one shape the scan accepts for a plain value. Empty content (`""`, `none`, `normal`)
 // draws nothing and a counter or a quote is a number or a mark of its own, so those need no alt.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 
 const EMPTY = new Set(['""', "''", 'none', 'normal']);
 const PURE = /^(?:(?:counters?\([^)]*\)|open-quote|close-quote|no-open-quote|no-close-quote)\s*)+$/;

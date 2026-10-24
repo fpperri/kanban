@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { isHoverHighlighted } = require('../web/selection');
+const { isHoverHighlighted } = require('../../plugin/skills/web/web/selection');
 
 // kanban.proj#261 — hovering (or keyboard-focusing) any piece of a card
 // lights every piece sharing its id: on the calendar a run cut at a week
@@ -38,9 +38,9 @@ test('isHoverHighlighted treats id 0 as a real id, and an empty set lights nothi
 // there's no jsdom in this suite to mount the real DOM and hold a pointer
 // still across a re-render.
 
-const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
-const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const appCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
 
 test('hoveredId is a single module-level id, never a Set — only one card is hovered/focused at a time; hoverLit is the Set of cards that take the look', () => {
   assert.match(appJs, /let hoveredId = null;/);

@@ -29,10 +29,10 @@
 // wait for nothing, 4, 6, 8 and 27 are chain 1. The other eighteen cards have no dependency either way. Card 3
 // has a parent (card 1), which the Hierarchy lights with it and the Flow does not.
 //
-// skills/web/test/browser-graph-flow-scenario.test.js holds these lists to the Flow layout over the plan
+// test/web/browser-graph-flow-scenario.test.js holds these lists to the Flow layout over the plan
 // board's own cards, so a wrong expectation fails in the unit suite and not only in a browser.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, selectedIds, autoRefreshTick.
 
 const CASES = {

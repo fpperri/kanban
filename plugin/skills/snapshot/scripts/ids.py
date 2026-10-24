@@ -2,7 +2,7 @@
 skills/web/web/ids.js: the one place that parses, compares and formats an id and owns
 the mention pattern. An id is a prefix (an optional `_` and uppercase letters) and a
 number, `656`, `G3`, `_12`; the whole pair is the identity, so `#7` and `#G7` are two
-things. Both copies run skills/web/test/ids-cases.json, so they cannot drift.
+things. Both copies run test/web/ids-cases.json, so they cannot drift.
 
 An id goes in as a string ('G3', '0003'), a plain int (7) or a parsed
 {"prefix", "number"} dict; whatever is not an id comes back None. Numbers stop at 15

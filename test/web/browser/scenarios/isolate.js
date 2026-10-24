@@ -38,14 +38,14 @@
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. CASES holds what the scenario relies on
 // (the path of card 4, the grill pill's cards, the cards the Gantt lists, the zephyr cards), and
-// skills/web/test/browser-isolate-scenario.test.js holds it to the search module over the board's
+// test/web/browser-isolate-scenario.test.js holds it to the search module over the board's
 // own cards and config. The cards the scenario clicks in the Graph are the first two of CASES.loose
 // that no other dot covers, so the expected set is worked out from them. Each step waits on the
 // page, never on a fixed sleep; a "nothing happened" check waits two animation frames. Keys and
 // clicks go through the runner's helpers, a real key press and a real mouse click (Shift is 8 and
 // Ctrl is 2).
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // autoRefreshTick, selectedIds, selectionState.
 
 const { SELECTORS } = require('./slice-term');

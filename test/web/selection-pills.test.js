@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, addPart, stepBack, resolveSelection,
   selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded,
-} = require('../web/selection');
-const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt } = require('../web/search');
+} = require('../../plugin/skills/web/web/selection');
+const { parseSearchQuery, filterCards, searchHasAlt, searchAddAlt, searchRemoveAlt } = require('../../plugin/skills/web/web/search');
 
 // What a click on a pill does to the selection and to the search box, as one
 // decision the page carries out. Pills follow the status pills' rules. A click

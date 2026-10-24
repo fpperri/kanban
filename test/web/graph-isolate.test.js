@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { graphQueryEffect, graphVisibleIds } = require('../web/graph-model');
-const { parseSearchQuery, filterCards, searchIsolateText } = require('../web/search');
+const { graphQueryEffect, graphVisibleIds } = require('../../plugin/skills/web/web/graph-model');
+const { parseSearchQuery, filterCards, searchIsolateText } = require('../../plugin/skills/web/web/search');
 
 // While isolated the Graph hides what the box does not match, where a typed query only lights
 // its matches. That is the one change to the Graph's pure hide-or-light decision

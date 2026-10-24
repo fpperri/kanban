@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const settings = require('../web/settings');
+const settings = require('../../plugin/skills/web/web/settings');
 
 // The gear's sheet as the page holds it (docs/adr/0017): the markup of the menu and its pages, the
 // scripts that draw and wire them, and the rules in the stylesheet. The rules themselves are
 // settings.js (settings.test.js), the server's are settings-store.js (settings-server.test.js), and
 // the real page runs all of it in the browser runner's settings scenario.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');

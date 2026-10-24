@@ -9,7 +9,7 @@ const path = require('node:path');
 // the shared key guard). The behaviour is hotkeys-sheet.test.js's, and the real page is the
 // browser runner's (scenarios/hotkeys.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');

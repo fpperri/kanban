@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { cardTitleDisplay } = require('../web/card-title');
+const { cardTitleDisplay } = require('../../plugin/skills/web/web/card-title');
 
 test('cardTitleDisplay returns the real title untouched when present, ignoring any prompt', () => {
   assert.deepStrictEqual(

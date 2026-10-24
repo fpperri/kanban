@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const c = require('../web/notes-calendar');
-const n = require('../web/notes');
+const c = require('../../plugin/skills/web/web/notes-calendar');
+const n = require('../../plugin/skills/web/web/notes');
 
 const note = (day, at, target, text, index = 0) => ({ day, at, target, note: text, by: '@human', index });
 

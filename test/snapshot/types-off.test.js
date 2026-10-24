@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseConfig } = require('../../web/scripts/config-store');
-const { boardTypeView } = require('../../web/web/type-badge');
-const { sliceCards, sliceDepths } = require('../../web/web/slices');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { boardTypeView } = require('../../plugin/skills/web/web/type-badge');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
 const { BOARD, withSnapshot } = require('./nesting-fixture');
 const { byClass } = require('./page-harness');
 const { open, sheet, tile, tiles } = require('./nesting-view');

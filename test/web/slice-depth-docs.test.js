@@ -3,19 +3,19 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { sliceCards, sliceDepths } = require('../web/slices');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
 
 // The glossary, the web and snapshot docs and both skills say what a depth slice counts: the
 // parents without a tier between a card and its nearest parent with one, so a card right
 // under an epic is depth 0. The example they give is held to the slices module.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const glossary = flat(read('GLOSSARY.md'));
 const webDocs = flat(read('docs', 'web.md'));
 const snapshotDocs = flat(read('docs', 'snapshot.md'));
-const webSkill = flat(read('skills', 'web', 'SKILL.md'));
-const snapshotSkill = flat(read('skills', 'snapshot', 'SKILL.md'));
+const webSkill = flat(read('plugin', 'skills', 'web', 'SKILL.md'));
+const snapshotSkill = flat(read('plugin', 'skills', 'snapshot', 'SKILL.md'));
 
 test('the glossary says a depth slice counts the parents without a tier below the nearest tier card, and Depth stays parents above', () => {
   assert.match(glossary, /A card without a tier is in the depth slice of how many parents without a tier sit between it and its nearest parent with a tier, or its root when none has one/);

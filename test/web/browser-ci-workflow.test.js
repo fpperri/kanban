@@ -8,7 +8,7 @@ const path = require('node:path');
 // Chrome problem never hides a unit failure. There is no YAML reader in this
 // repository, so the workflow is read as the text it is, one job at a time.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'test.yml'), 'utf8').replace(/\r\n/g, '\n');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
@@ -40,7 +40,7 @@ const UNIT_JOB = `    runs-on: ubuntu-latest
           python-version: '3.11'
       - run: npm test
       - if: \${{ !cancelled() }}
-        run: node skills/web/test/docs-pinned-check.js
+        run: node test/web/docs-pinned-check.js
 `;
 
 test('the workflow has a unit job and a browser job, side by side', () => {
@@ -50,7 +50,7 @@ test('the workflow has a unit job and a browser job, side by side', () => {
 test('the unit job is Node, Python, npm test and the docs check, and nothing about the browser', () => {
   assert.strictEqual(J.test.replace(/\n+$/, '\n'), UNIT_JOB);
   assert.ok(!/browser/.test(pkg.scripts.test), 'npm test must not run the browser runner');
-  assert.strictEqual(pkg.scripts['test:browser'], 'node skills/web/test/browser/run.js');
+  assert.strictEqual(pkg.scripts['test:browser'], 'node test/web/browser/run.js');
 });
 
 test('the two jobs do not wait on each other, so a Chrome problem never hides a unit failure', () => {
@@ -81,7 +81,7 @@ test('the browser job runs the scenarios, then in reverse order, then the smoke 
   assert.match(runs[0], /^npm run test:browser -- --shots \S+$/);
   assert.match(runs[1], /^npm run test:browser -- --reverse --shots \S+$/);
   assert.match(runs[2], /^npm run test:browser -- --only smoke --plugin older --shots \S+$/);
-  assert.strictEqual(runs[3], 'node skills/web/test/browser/fault-check.js');
+  assert.strictEqual(runs[3], 'node test/web/browser/fault-check.js');
   const folders = [runs[0], runs[1], runs[2]].map((r) => r.split('--shots ')[1]);
   assert.strictEqual(new Set(folders).size, 3, 'two runs share a screenshots folder');
 });

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { assigneeBadge, escapeHtml, resolveAssignees, DEFAULT_ASSIGNEES } = require('../web/assignee-badge');
-const { assigneeColorClass, assigneeColor } = require('../web/assignee-colors');
+const { assigneeBadge, escapeHtml, resolveAssignees, DEFAULT_ASSIGNEES } = require('../../plugin/skills/web/web/assignee-badge');
+const { assigneeColorClass, assigneeColor } = require('../../plugin/skills/web/web/assignee-colors');
 
 // --- the badge tints the handle text, no dot glyph ---------
 
@@ -89,6 +89,6 @@ test('resolveAssignees returns a configured registry untouched — registry wins
 test('app.js applyAssignees routes the registry through resolveAssignees', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.match(src, /state\.assignees = resolveAssignees\(list\)/);
 });

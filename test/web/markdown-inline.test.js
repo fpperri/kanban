@@ -2,12 +2,12 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { mdInlineToHtml: inline } = require('../web/markdown.js');
+const { mdInlineToHtml: inline } = require('../../plugin/skills/web/web/markdown.js');
 
 // One line as inline HTML with no block around it (a todo item's row): the inline marks of the one
 // renderer, and text where a block would start.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 
 test('the inline marks render, with no paragraph around them', () => {
   assert.strictEqual(inline('a **b** and *c* and `d`', { board: 'webapp' }), 'a <strong>b</strong> and <em>c</em> and <code>d</code>');

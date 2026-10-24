@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, setAnchor, addPart, selectionWithoutCard, pruneSelectionParts,
   typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, selectionAfterClick,
-} = require('../web/selection');
-const { parseSearchQuery, filterCards } = require('../web/search');
+} = require('../../plugin/skills/web/web/selection');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // A search typed in the Graph is the anchor of the selection, and the anchor keeps
 // where it came from: a typed query is the one anchor that stops being one when

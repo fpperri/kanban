@@ -9,11 +9,11 @@ const path = require('node:path');
 // (markdown-edit.test.js) and the layer is markdown-edit-ui.js's (markdown-edit-page.test.js); the real
 // page runs it in the browser runner's markdown-edit scenario.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
-const html = read('skills', 'web', 'web', 'app.html');
-const css = read('skills', 'web', 'web', 'app.css');
-const web = read('skills', 'web', 'SKILL.md');
+const html = read('plugin', 'skills', 'web', 'web', 'app.html');
+const css = read('plugin', 'skills', 'web', 'web', 'app.css');
+const web = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

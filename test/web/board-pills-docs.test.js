@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
-const { pillList, pillRows, PILLS_SHOWN } = require('../web/pills');
+const { parseSearchQuery, filterCards, searchTermText } = require('../../plugin/skills/web/web/search');
+const { pillList, pillRows, PILLS_SHOWN } = require('../../plugin/skills/web/web/pills');
 
 // Where the board's own pills are written down: the kanban skill's config contract
 // says how a `field:*` entry expands and how many values show, the web skill and the
@@ -13,13 +13,13 @@ const { pillList, pillRows, PILLS_SHOWN } = require('../web/pills');
 // defines, not one the plugin has. What they promise is held to the pill list and the
 // search module, so a doc cannot promise what the page does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
-const kanbanSkill = read('skills', 'kanban', 'SKILL.md');
+const kanbanSkill = read('plugin', 'skills', 'kanban', 'SKILL.md');
 const configSection = kanbanSkill.slice(kanbanSkill.indexOf('### `config.yaml`'), kanbanSkill.indexOf('### `notifications.md`'));
 const pillsParagraph = flat(configSection.slice(configSection.indexOf('**`pills`'), configSection.indexOf('**`icon`')));
-const skill = read('skills', 'web', 'SKILL.md');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const readme = read('README.md');
 

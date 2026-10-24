@@ -15,7 +15,7 @@
 // A press is a real click at the centre of the element, as a person makes it, and every wait is
 // on the page, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur.
 
 const NARROW = 400;

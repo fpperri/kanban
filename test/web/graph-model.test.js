@@ -7,8 +7,8 @@ const {
   graphLayout, graphSignature, graphLayoutCacheClear, graphFit,
   graphVisibleIds, graphZoomAt, graphPlan,
   graphLinkPaths,
-} = require('../web/graph-model');
-const { sliceCards, sliceDepths } = require('../web/slices');
+} = require('../../plugin/skills/web/web/graph-model');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra = {}) => ({

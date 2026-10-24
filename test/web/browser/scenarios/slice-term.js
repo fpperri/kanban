@@ -10,7 +10,7 @@
 // board's cuts.
 //
 // What each cut shows is written down in CASES, and
-// skills/web/test/browser-slice-term.test.js holds those lists to the search module
+// test/web/browser-slice-term.test.js holds those lists to the search module
 // over each board's own cards, so a wrong expectation fails in the unit suite and
 // not only in a browser.
 //

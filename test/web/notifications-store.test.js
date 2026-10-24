@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const ns = require('../scripts/notifications-store');
+const ns = require('../../plugin/skills/web/scripts/notifications-store');
 
 function tmpBoard() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-notif-'));

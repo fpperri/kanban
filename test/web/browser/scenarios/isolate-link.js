@@ -32,13 +32,13 @@
 // the isolate parameter and no query opens with isolate off.
 //
 // The plan board's live cards are 1 to 18 and 22 to 29. CASES holds what the scenario relies on, and
-// skills/web/test/browser-isolate-link-scenario.test.js holds it to the search module over the
+// test/web/browser-isolate-link-scenario.test.js holds it to the search module over the
 // board's own cards. Each step waits on the page, never on a fixed sleep. Keys and clicks go through
 // the runner's helpers, a real key press and a real mouse click (Ctrl is 2); a right-click is the
 // runner's synthetic contextmenu event, or, on empty canvas, one dispatched at the point so that it can
 // be asked whether the page kept the browser's own menu from opening.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): selectedIds.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): selectedIds.
 
 const { SELECTORS } = require('./slice-term');
 

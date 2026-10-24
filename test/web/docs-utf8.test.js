@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 
 const markdownIn = (dir) => {
   const abs = path.join(root, dir);
@@ -15,7 +15,7 @@ const markdownIn = (dir) => {
   });
 };
 
-const docs = ['README.md', 'GLOSSARY.md', ...markdownIn('docs'), ...markdownIn('skills')].filter((f) => fs.existsSync(path.join(root, f)));
+const docs = ['README.md', 'GLOSSARY.md', ...markdownIn('docs'), ...markdownIn('plugin')].filter((f) => fs.existsSync(path.join(root, f)));
 
 test('every doc decodes as strict UTF-8', () => {
   assert.ok(docs.some((f) => f.endsWith('SKILL.md')), 'the skill docs are covered');

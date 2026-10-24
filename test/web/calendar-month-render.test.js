@@ -14,8 +14,8 @@ const path = require('node:path');
 // output — one chip per week-row entry, placed by an explicit column span —
 // rather than quietly falling back to a per-day loop.
 
-const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const appCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 const renderFn = appJs.match(/function renderCalendarMonthGrid\([\s\S]*?\n\}/)[0];
 
 test('renderCalendarMonthGrid drives its chips from monthChipLayout, not a per-day chipPositionForDay loop', () => {

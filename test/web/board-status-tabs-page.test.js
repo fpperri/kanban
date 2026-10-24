@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const { loadPage, harmless, control } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
-const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
+const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 
 // The Board on a phone, in the real page (helpers/page-vm.js): under the phone width line the
 // status tabs fill the tab strip and only the chosen status's column renders, expanded whatever
@@ -150,14 +150,14 @@ test('while a search narrows the board the tab counts read shown/total', async (
 });
 
 test('the tab strip host is markup between the toast and main#board, with no style attribute', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   const m = /<div id="toast"[^>]*><\/div>\s*(<nav id="board-tabs"[^>]*>)<\/nav>\s*<main id="board">/.exec(html);
   assert.ok(m, 'the strip host sits between the toast and main#board');
   assert.ok(!/style=/.test(m[1]));
 });
 
 test('the strip, the hidden column header row and the Board phone height sit in one phone block after the column rules, coloured with the status tokens', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   const start = css.indexOf('.column-cards {');
   const block = /@media \(max-width: 759\.98px\) \{\n([^@]*?)\n\}/.exec(css.slice(start, css.indexOf('\n.card {', start)));
   assert.ok(block, 'one phone block between the column rules and .card');
@@ -240,12 +240,12 @@ test('New card at phone width presets the active status; on the desktop it prese
 });
 
 test('the Board swipe listeners are passive, and the cards take pan-y pinch-zoom in a rule after .card.archived-card', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const body = app.slice(app.indexOf('function wireBoardSwipe'), app.indexOf('function toggleColumn'));
   for (const type of ['touchstart', 'touchend', 'touchcancel']) assert.ok(body.includes(`addEventListener('${type}'`), `${type} is listened for`);
   assert.strictEqual((body.match(/\{ passive: true \}\)/g) || []).length, 3, 'each listener is passive');
   assert.ok(!/preventDefault/.test(body));
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   const after = css.slice(css.indexOf('.card.archived-card {'));
   assert.match(after, /\.card\s*\{[^}]*touch-action: pan-y pinch-zoom/);
   assert.ok(!/touch-action: pan-y;/.test(css.slice(css.indexOf('.card.archived-card {'), css.indexOf('.card.archived-card {') + 600)), "never 'pan-y' alone");
@@ -272,7 +272,7 @@ test('a redraw keeps the strip where it was scrolled, and a changed status bring
 });
 
 test('the status tabs are a tablist of tabs, so a screen reader says which status is shown', async () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   assert.match(html, /<nav id="board-tabs"[^>]*role="tablist"/);
   const s = await open();
   assert.ok(s.tabs().every((t) => t.getAttribute('role') === 'tab'));

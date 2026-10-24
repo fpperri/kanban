@@ -8,7 +8,7 @@ const {
   mapFilterColumn, mapFilterVisibleIds, ganttFilterVisibleIds, intersectVisibleIds,
   soloStatusFilter,
   MAP_SECTIONS, DEFAULT_MAP_SECTIONS_COLLAPSED, mergeMapSectionsCollapsed,
-  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, swipeDirection, neighbourPhoneColumn } = require('../web/column-state');
+  ROLLUP_BAR_MODES, mergeRollupBar, nextRollupBar, swipeDirection, neighbourPhoneColumn } = require('../../plugin/skills/web/web/column-state');
 
 test('DEFAULT_COLLAPSED has the four live columns expanded and Archive collapsed', () => {
   assert.deepStrictEqual(DEFAULT_COLLAPSED, {
@@ -453,7 +453,7 @@ test('nextRollupBar flips between open and collapsed, and an unreadable value co
 
 // --- the phone Board: status tabs, one status at a time ------------------------------------
 
-const { activePhoneColumn, phoneTabs } = require('../web/column-state');
+const { activePhoneColumn, phoneTabs } = require('../../plugin/skills/web/web/column-state');
 
 test('the active phone column is the remembered one while its status exists', () => {
   assert.strictEqual(activePhoneColumn('doing', ['backlog', 'todo', 'doing', 'done']), 'doing');
@@ -519,7 +519,7 @@ test('the step to a neighbour status stops at both ends and Archive is the last'
 });
 
 test('a per-board preference is read and written as text under the board\'s own key, and a storage that fails is no preference', () => {
-  const { boardPrefLoad, boardPrefSave } = require('../web/column-state');
+  const { boardPrefLoad, boardPrefSave } = require('../../plugin/skills/web/web/column-state');
   const store = new Map();
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
   assert.strictEqual(boardPrefLoad(storage, 'plan', 'notes.layout'), null);

@@ -6,7 +6,7 @@ const path = require('node:path');
 // The web skill's multi-select section says how a selection grows, in the words
 // of the glossary and of ADR 0006's 2026-10-14 amendment.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);
@@ -104,6 +104,6 @@ test('the docs say Path and Tree show on every card\'s menu, whatever the subjec
   assert.match(webSkill.replace(/\s+/g, ' '), /Path and Tree show on every card's menu, whatever the subject/);
   assert.doesNotMatch(webSkill.replace(/\s+/g, ' '), /show only when the subject is one card/);
   assert.match(webSkill.replace(/\s+/g, ' '), /The empty Graph or Map canvas's menu is still Isolate alone/);
-  const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8').replace(/\s+/g, ' ');
+  const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8').replace(/\s+/g, ' ');
   assert.match(webDoc, /search the path or the tree of the card you right-clicked, by its hierarchy or by its dependencies \(on every card's menu, whatever the selection\)/);
 });

@@ -9,7 +9,7 @@ const scenarios = require('./browser/scenarios');
 const tierFan = require('./browser/scenarios/tier-fan');
 const {
   graphLayout, graphPlan, graphFit,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const {
   STATUSES, loadBoard, cleanUp, drawnModel,
 } = require('./helpers/fan-boards');
@@ -24,7 +24,7 @@ const {
 
 after(cleanUp);
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 const RULE = /\n\.graph-tint \{([^}]*)\}/.exec(css)[1];
 const OPACITY = Number(/fill-opacity: ([\d.]+);/.exec(RULE)[1]);
 const EVENTS = /pointer-events: (\w+);/.exec(RULE)[1];

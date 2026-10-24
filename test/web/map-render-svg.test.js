@@ -4,12 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
-const { buildRelationsGraph, layerNodes, treeIds } = require('../web/dependency-graph');
-const relations = require('../web/map-relations');
+const { buildRelationsGraph, layerNodes, treeIds } = require('../../plugin/skills/web/web/dependency-graph');
+const relations = require('../../plugin/skills/web/web/map-relations');
 const { MAP_OPTION_DEFAULTS, mapShapeRelations } = relations;
-const { rollupIndex } = require('../web/nesting');
+const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
 const { card, familyChainingToOneEnd, treeWithArchivedAndBacklogChildren } = require('./map-fixtures');
 
 function fn(name) {
@@ -29,13 +29,13 @@ const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 // The real drawing functions with a stand-in for the few browser calls they make:
 // what is under test is the markup a graph turns into.
 function drawing(cards, { mode = 'collapsed' } = {}) {
-  const priority = require('../web/priority-badge');
-  const colors = require('../web/status-colors');
-  const badges = require('../web/assignee-badge');
-  const cardTitle = require('../web/card-title');
-  const rollups = require('../web/rollup-bar');
-  const typeBadge = require('../web/type-badge');
-  const colState = require('../web/column-state');
+  const priority = require('../../plugin/skills/web/web/priority-badge');
+  const colors = require('../../plugin/skills/web/web/status-colors');
+  const badges = require('../../plugin/skills/web/web/assignee-badge');
+  const cardTitle = require('../../plugin/skills/web/web/card-title');
+  const rollups = require('../../plugin/skills/web/web/rollup-bar');
+  const typeBadge = require('../../plugin/skills/web/web/type-badge');
+  const colState = require('../../plugin/skills/web/web/column-state');
   const created = [];
   const sandbox = {
     document: {
@@ -45,7 +45,7 @@ function drawing(cards, { mode = 'collapsed' } = {}) {
         return el;
       },
     },
-    kanbanIds: require('../web/ids'),
+    kanbanIds: require('../../plugin/skills/web/web/ids'),
     escapeHtml: badges.escapeHtml,
     cardTitleDisplay: cardTitle.cardTitleDisplay,
     priorityBadge: priority.priorityBadge,

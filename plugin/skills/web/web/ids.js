@@ -5,7 +5,7 @@
 // identity, so `#7` and `#G7` are two things. Same dual-environment pattern as
 // prose.js/nesting.js: loaded as a plain <script> in the browser (one global,
 // window.kanbanIds) AND required directly by node --test. The snapshot's Python
-// copy is skills/snapshot/scripts/ids.py; both run skills/web/test/ids-cases.json.
+// copy is skills/snapshot/scripts/ids.py; both run test/web/ids-cases.json.
 //
 // Anything a caller holds as an id goes in as a string (`'G3'`, `'0003'`), a
 // plain number (`7`) or a parsed `{ prefix, number }`; whatever is not an id

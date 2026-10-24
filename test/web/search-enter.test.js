@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { searchEnterKeyGoes, searchEnterTarget, searchEnterOpens, searchEnterPan } = require('../web/search-enter');
+const { searchEnterKeyGoes, searchEnterTarget, searchEnterOpens, searchEnterPan } = require('../../plugin/skills/web/web/search-enter');
 
 // Enter in the search box goes to the first match; a second Enter on that card opens it when it
 // was the only match. The decisions are here; app.js does the focus, the scroll and the pan.

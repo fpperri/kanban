@@ -5,8 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {
   TYPE_ICON_NAMES, typeIconGlyph, typeIconOutline, typeIconReach, typeIconOf,
-} = require('../web/type-icons');
-const { ICON_NAMES } = require('../scripts/config-store');
+} = require('../../plugin/skills/web/web/type-icons');
+const { ICON_NAMES } = require('../../plugin/skills/web/scripts/config-store');
 const { topLevelDeclarations, collisions } = require('./helpers/global-scope');
 
 const NAMES = ['circle', 'square', 'diamond', 'triangle', 'hexagon', 'star'];
@@ -126,7 +126,7 @@ test('typeIconOf takes the first entry of a name, as the chip colour does, and n
 });
 
 test('the module has no dependencies: it loads in a page scope with no require and puts its functions on window', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'type-icons.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'type-icons.js'), 'utf8');
   assert.doesNotMatch(src.replace(/\/\/.*$/gm, ''), /\brequire\s*\(/);
   const window = {};
   vm.runInNewContext(src, { window });
@@ -138,7 +138,7 @@ test('the module has no dependencies: it loads in a page scope with no require a
 });
 
 test('the module shares no top-level name with any other page script, and declares only type-icon names', () => {
-  const webDir = path.join(__dirname, '..', 'web');
+  const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const sources = fs.readdirSync(webDir).filter((f) => f.endsWith('.js')).map((f) => ({ label: f, source: fs.readFileSync(path.join(webDir, f), 'utf8') }));
   const mine = sources.find((s) => s.label === 'type-icons.js');
   assert.ok(mine, 'type-icons.js is one of the page scripts');

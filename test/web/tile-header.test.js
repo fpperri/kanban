@@ -6,7 +6,7 @@ const path = require('node:path');
 // A tile's head row carries the id (with its priority label), the status dot,
 // the assignee and up to two stickers, beside a date stack. Without wrapping,
 // a full head overflowed the text column and ran under the dates.
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 const rule = (sel) => {
   const at = css.indexOf('\n' + sel + ' {');
   assert.ok(at !== -1, `rule not found: ${sel}`);

@@ -3,12 +3,12 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control } = require('./helpers/page-vm');
-const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
+const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 
 // Fixes from the final review of the phone layout. Each test drives the page's own seam
 // (helpers/page-vm.js) or reads the stylesheet, and fails on the code it replaces.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 const BOARD = { projectName: 'k', statuses: ['backlog', 'todo', 'doing', 'done'], priorities: [], assignees: [], tags: [], types: [], active: [], archived: [] };
 const phoneMedia = (phone) => (q) => ({ matches: q === PHONE_WIDTH_QUERY && phone, addEventListener() {} });

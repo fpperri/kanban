@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { searchSetSlice } = require('../web/search');
-const { sliceCards } = require('../web/slices');
-const { sliceListOf, sliceRunValue } = require('../web/slice-run');
+const { searchSetSlice } = require('../../plugin/skills/web/web/search');
+const { sliceCards } = require('../../plugin/skills/web/web/slices');
+const { sliceListOf, sliceRunValue } = require('../../plugin/skills/web/web/slice-run');
 
 // The web skill and the web docs describe the search panel's slice section: what it lists
 // and counts, what a click, a right-click and the context-menu key do, what the term in the
@@ -13,8 +13,8 @@ const { sliceListOf, sliceRunValue } = require('../web/slice-run');
 // set on a query that holds | is held to the search module, and the term a run writes to the
 // slice list, so a doc cannot promise what the box does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

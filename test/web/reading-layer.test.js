@@ -6,7 +6,7 @@ const path = require('node:path');
 // The reading layer is a set of rules, not only a set of tokens: the tokens'
 // contrast lives in theme-contrast.test.js, and this pins which role paints
 // with which token, so a card body cannot drift back to one flat lightness.
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 
 function rule(selector) {
   const re = new RegExp('(^|\\n)' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}');
@@ -51,7 +51,7 @@ test('a notification leads with its TLDR in the strongest ink and the rest in pr
 });
 
 test('every card mention chip paints --mention on --mention-bg, and a same-board one keeps its line and focus ring in that ink', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   const chips = [...css.matchAll(/^([^{}\n]*code\.mention)\s*\{([^}]*)\}/gm)];
   assert.ok(chips.length >= 4, 'the four rules that draw a chip');
   for (const [, sel, body] of chips) {

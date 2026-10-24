@@ -8,8 +8,8 @@ const scenarios = require('./browser/scenarios');
 const { DOT_SHAPES } = require('./browser/scenarios/type-icons');
 const {
   graphBuild, graphFanPlace, graphLayout, graphPlan, graphFit, graphZoomAt, graphTipAt,
-} = require('./../web/graph-model');
-const { parseSearchQuery, filterCards } = require('./../web/search');
+} = require('../../plugin/skills/web/web/graph-model');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const { loadBoard, cleanUp, captionRects } = require('./helpers/fan-boards');
 
 // The tier-fan scenario only runs in a browser (in CI). Here its lists are held

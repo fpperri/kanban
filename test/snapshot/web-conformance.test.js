@@ -8,10 +8,10 @@ const path = require('node:path');
 // values. This keeps the copy honest. Every token both surfaces declare holds
 // the same value in each of the three theme blocks, and the status and
 // identity tokens are the ones status-colors.js owns.
-const py = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'build_editor.py'), 'utf8');
+const py = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'), 'utf8');
 const snapCss = py.slice(py.indexOf('<style>') + '<style>'.length, py.indexOf('</style>'));
-const webCss = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'web', 'app.css'), 'utf8');
-const { themeColorTokens } = require('../../web/web/status-colors');
+const webCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+const { themeColorTokens } = require('../../plugin/skills/web/web/status-colors');
 
 function blockAt(css, openIdx) {
   let depth = 0;

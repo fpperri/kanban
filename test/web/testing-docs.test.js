@@ -6,7 +6,7 @@ const path = require('node:path');
 // docs/testing.md names the npm scripts and the files a test author is sent to. The scripts
 // it lists are package.json's, and the files it names exist.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const doc = fs.readFileSync(path.join(ROOT, 'docs', 'testing.md'), 'utf8').replace(/\r\n/g, '\n');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
@@ -20,27 +20,27 @@ test('the testing doc names every npm test script, and only scripts that exist',
 
 test('test:unit leaves the launcher test out and test:launcher runs it alone', () => {
   assert.match(pkg.scripts['test:unit'], /!\(launcher\)/);
-  assert.match(pkg.scripts['test:unit'], /skills\/snapshot\/test/);
-  assert.strictEqual(pkg.scripts['test:launcher'], 'node --test skills/web/test/launcher.test.js');
+  assert.match(pkg.scripts['test:unit'], /test\/snapshot/);
+  assert.strictEqual(pkg.scripts['test:launcher'], 'node --test test/web/launcher.test.js');
 });
 
 test('test:ci runs what the workflow runs, in order', () => {
   const steps = pkg.scripts['test:ci'].split(' && ');
   assert.deepStrictEqual(steps, [
     'npm test', 'npm run test:browser', 'npm run test:browser -- --reverse',
-    'npm run test:browser -- --only smoke --plugin older', 'node skills/web/test/browser/fault-check.js',
+    'npm run test:browser -- --only smoke --plugin older', 'node test/web/browser/fault-check.js',
   ]);
 });
 
 test('every file the testing doc points at exists', () => {
-  const paths = [...doc.matchAll(/`((?:skills|docs)\/[\w./<>-]+\.(?:js|md|py))`/g)].map((m) => m[1]).filter((p) => !p.includes('<'));
+  const paths = [...doc.matchAll(/`((?:plugin\/skills|test|docs)\/[\w./<>-]+\.(?:js|md|py))`/g)].map((m) => m[1]).filter((p) => !p.includes('<'));
   assert.ok(paths.length >= 8, 'the doc points at files');
   for (const p of paths) assert.ok(fs.existsSync(path.join(ROOT, p)), `${p} exists`);
 });
 
 test('the testing doc states the docs rule, the CI step that holds it and the escape hatch', () => {
   assert.match(doc, /## A docs change brings its docs test/);
-  for (const name of ['`skills/web/test/docs-pinned-check.js`', '`docs/*.md`', '`SKILL.md`', '`README.md`', '`GLOSSARY.md`', '`skills/**/references/*.md`', '`skills/**/test/*-docs.test.js`', '`docs-agree.test.js`', 'Docs-test: none, <reason>']) {
+  for (const name of ['`test/web/docs-pinned-check.js`', '`docs/*.md`', '`SKILL.md`', '`README.md`', '`GLOSSARY.md`', '`plugin/skills/**/references/*.md`', '`test/**/*-docs.test.js`', '`docs-agree.test.js`', 'Docs-test: none, <reason>']) {
     assert.ok(doc.includes(name), `${name} is in the testing doc`);
   }
   assert.match(doc, /push to `main`[^.]*does nothing/);
@@ -48,7 +48,7 @@ test('the testing doc states the docs rule, the CI step that holds it and the es
 });
 
 test('the testing doc says how to add a step to the phone and phone-flip scenarios', () => {
-  for (const name of ['phone-steps/', 'phone-flip-steps/', '`run(page)`', 'skills/web/test/browser/steps.js', '`tap`', '`swipe`', '`pinch`', 'PAGE_GLOBALS']) {
+  for (const name of ['phone-steps/', 'phone-flip-steps/', '`run(page)`', 'test/web/browser/steps.js', '`tap`', '`swipe`', '`pinch`', 'PAGE_GLOBALS']) {
     assert.ok(doc.includes(name), `${name} is in the testing doc`);
   }
   assert.match(doc, /clean page/);

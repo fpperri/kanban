@@ -398,7 +398,7 @@ test('the cards a selection can reach in the Calendar and the Gantt are the date
 // --- the web skill mentions the jump ---------------------------------------------------------------
 
 test('SKILL.md describes the jump in the Calendar section and in the Gantt section', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
   const calendar = skill.match(/- \*\*Calendar view\*\*[\s\S]*?\n- \*\*Gantt view\*\*/);
   assert.ok(calendar, 'the Calendar view bullet is present');
   assert.match(calendar[0], /nearest match/);

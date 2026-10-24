@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { topLevelDeclarations, pageScopeCollisions } = require('../../web/test/helpers/global-scope');
+const { topLevelDeclarations, pageScopeCollisions } = require('../web/helpers/global-scope');
 const { BOARD, buildScript, card, lf, withSnapshot, writeBoard } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 const { withPlanPage } = require('./search-table');
@@ -14,7 +14,7 @@ const { withPlanPage } = require('./search-table');
 // assignee badge module and has a two-argument type colour function that would
 // silently replace the page's own one-argument one.
 
-const webDir = path.join(__dirname, '..', '..', 'web', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const source = (file) => lf(fs.readFileSync(path.join(webDir, file), 'utf8'));
 const MODULE = 'type-icons.js';
 const PLACEHOLDER = '__TYPE_ICONS_JS__';

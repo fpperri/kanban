@@ -803,7 +803,7 @@ test('a lighting dims the canvas and marks exactly its cards and the lines betwe
 
 test('there is one dimming mechanism: the hover, the lone card and the selection all go through the same lighting', async () => {
   const s = await open();
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
   const body = (name) => (src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`)) || [''])[0];
   for (const name of ['graphSetFocus', 'graphRestFocus']) assert.match(body(name), /graphLightCards\(/, name);
   assert.strictEqual((src.match(/classList\.add\('graph-dim'\)/g) || []).length, 1, 'graph-dim is set in one place');

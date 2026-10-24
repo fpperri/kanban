@@ -7,12 +7,12 @@ const path = require('node:path');
 // web skill and the snapshot skill do not name a Force or a Status layout, and say a dot is never dragged.
 // The fan's own Order option, "by status", is a different thing and stays.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const flat = (text) => text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 const glossary = flat(fs.readFileSync(path.join(root, 'GLOSSARY.md'), 'utf8'));
 const webDoc = flat(fs.readFileSync(path.join(root, 'docs', 'web.md'), 'utf8'));
-const webSkill = flat(fs.readFileSync(path.join(root, 'skills', 'web', 'SKILL.md'), 'utf8'));
-const snapshotSkill = flat(fs.readFileSync(path.join(root, 'skills', 'snapshot', 'SKILL.md'), 'utf8'));
+const webSkill = flat(fs.readFileSync(path.join(root, 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8'));
+const snapshotSkill = flat(fs.readFileSync(path.join(root, 'plugin', 'skills', 'snapshot', 'SKILL.md'), 'utf8'));
 
 const GONE = /\*\*Force\*\*|\*\*Status\*\* (?:makes|draws)|Force and Status|Force or Status|the Force layout|the Status layout|Force layout|Status layout|force or status/;
 

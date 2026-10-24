@@ -3,16 +3,16 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { HOTKEYS } = require('../web/hotkeys');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 
 // The edit form opened from a card's details gives the card back when it is saved or left. The docs say
 // what returns, which keys leave, when the form asks first, that the address and the details agree, and
 // what a form opened any other way does (edit-returns-to-details.test.js proves each on the real page).
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const flat = (s) => s.replace(/\s+/g, ' ');
 const docs = flat(fs.readFileSync(path.join(root, 'docs', 'web.md'), 'utf8'));
-const skill = flat(fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8'));
+const skill = flat(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8'));
 
 const start = docs.indexOf("A form opened from a card's details gives the card back.");
 const paragraph = docs.slice(start, start + 1500);

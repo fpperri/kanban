@@ -235,8 +235,8 @@ describe('roll-ups on parent cards', () => {
   });
 
   test('the counts are the ones kanban-web reports for the same board', () => {
-    const cardStore = require('../../web/scripts/card-store');
-    const { rollupIndex } = require('../../web/web/nesting');
+    const cardStore = require('../../plugin/skills/web/scripts/card-store');
+    const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
     open(BOARD, (page, dir) => {
       const webCards = cardStore.listActive(dir).concat(cardStore.listArchived(dir)).map(cardStore.toJSON);
       const web = rollupIndex(webCards, { board: 'fixture', priorities: [] });
@@ -433,8 +433,8 @@ describe('roll-up counts and the status as written', () => {
   }));
 
   test('a leaf whose status is written in another case counts as its own status, the same as in kanban-web', () => {
-    const cardStore = require('../../web/scripts/card-store');
-    const { rollupIndex } = require('../../web/web/nesting');
+    const cardStore = require('../../plugin/skills/web/scripts/card-store');
+    const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
     const rows = board('', [[1, 'todo', 'A'], [2, 'Done', 'B', { parent: 1 }], [3, 'done', 'C', { parent: 1 }]]);
     open(rows, (page, dir) => {
       const web = rollupIndex(cardStore.listActive(dir).map(cardStore.toJSON), { board: 'order', priorities: [] });

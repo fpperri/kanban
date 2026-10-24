@@ -3,15 +3,15 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { nextSearchAddress } = require('../web/card-history');
-const { parseDeepLink } = require('../web/deep-link');
+const { nextSearchAddress } = require('../../plugin/skills/web/web/card-history');
+const { parseDeepLink } = require('../../plugin/skills/web/web/deep-link');
 
 // The web skill and the web docs say that the link carries isolate and list the Isolate entries of
 // the menus. The one example address is held to the address function, so a doc cannot promise an
 // address the page does not write.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

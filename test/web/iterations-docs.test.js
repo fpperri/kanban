@@ -3,15 +3,15 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseConfig } = require('../scripts/config-store');
-const it = require('../web/iterations');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
+const it = require('../../plugin/skills/web/web/iterations');
 
 // The kanban skill documents the `iterations:` key and the web skill and docs describe the dropdown.
 // The example they give is held to the code, so a doc cannot promise what the page does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const kanban = read('skills', 'kanban', 'SKILL.md');
-const web = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const kanban = read('plugin', 'skills', 'kanban', 'SKILL.md');
+const web = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

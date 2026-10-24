@@ -2,9 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { VIEW_ICON_NAMES, viewIconSvg } = require('../web/view-icons');
+const { VIEW_ICON_NAMES, viewIconSvg } = require('../../plugin/skills/web/web/view-icons');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const NAMES = ['board', 'calendar', 'gantt', 'map', 'graph', 'refresh', 'new'];
 
 test('the module holds the Board, Calendar, Gantt, Map, Graph, Refresh and New card shapes', () => {

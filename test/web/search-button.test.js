@@ -11,7 +11,7 @@ const { loadPage, control } = require('./helpers/page-vm');
 // The stylesheet shows the button and hides the bar only under the line; the view bar hides while the
 // input has focus. The real layout is looked at in the browser runner (phone-steps/search.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');

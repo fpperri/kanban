@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { searchOtherBoardMentions, parseSearchQuery } = require('../web/search');
+const { searchOtherBoardMentions, parseSearchQuery } = require('../../plugin/skills/web/web/search');
 const { loadPage, control } = require('./helpers/page-vm');
 
 const mentions = (text, board = 'alpha') => searchOtherBoardMentions(text, board);
@@ -60,7 +60,7 @@ test('empty input and no board name give nothing', () => {
   assert.deepStrictEqual(searchOtherBoardMentions('beta#1', ''), [{ board: 'beta', id: '1' }]);
 });
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 
 test('the panel opens with the note: first in the panel, a status region, hidden to start', () => {
@@ -116,8 +116,8 @@ test('two mentions give one sentence each', async () => {
 });
 
 test('the web skill and the web docs say another board\'s mention is text and the panel names the board', () => {
-  const doc = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
-  for (const [name, text] of [['the web skill', doc('skills', 'web', 'SKILL.md')], ['the web docs', doc('docs', 'web.md')]]) {
+  const doc = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
+  for (const [name, text] of [['the web skill', doc('plugin', 'skills', 'web', 'SKILL.md')], ['the web docs', doc('docs', 'web.md')]]) {
     assert.match(text, /another board's mention is searched as text and the panel says which board holds the card/i, name);
   }
 });

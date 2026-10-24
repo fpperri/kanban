@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { topLevelDeclarations, pageScopeCollisions } = require('../../web/test/helpers/global-scope');
+const { topLevelDeclarations, pageScopeCollisions } = require('../web/helpers/global-scope');
 const { BOARD, withSnapshot } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');
 

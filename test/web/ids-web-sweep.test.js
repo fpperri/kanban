@@ -8,7 +8,7 @@ const path = require('node:path');
 // parses, compares and formats an id. A notification's id is a plain counter, not a card id,
 // and is the one reader left alone.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const files = fs.readdirSync(WEB).filter((f) => f.endsWith('.js') && f !== 'ids.js').sort();
 
 // The code of a file with its comments and its string and template contents blanked out

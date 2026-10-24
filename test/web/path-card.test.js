@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const lb = require('../scripts/logbook-store');
-const sp = require('../scripts/scratchpad-store');
-const td = require('../scripts/todo-store');
+const lb = require('../../plugin/skills/web/scripts/logbook-store');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
+const td = require('../../plugin/skills/web/scripts/todo-store');
 
 // The path of the logbook, scratchpad or todos may hold <card> (docs/adr/0023): the target's file
 // name without its extension, matched to its target by the id at the front of the folder's name.

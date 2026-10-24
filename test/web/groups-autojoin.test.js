@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
-const gs = require('../scripts/group-store');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
+const gs = require('../../plugin/skills/web/scripts/group-store');
 
 // Auto-join (GLOSSARY.md "Ids, groups and the logbook"): a group with both dates and
 // `auto_join: true` is running from its start to its end, both days included, by the local

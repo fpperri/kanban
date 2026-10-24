@@ -275,7 +275,7 @@ test('a status switched off in the view shows on the chip after a reload, and th
 
 const fs = require('node:fs');
 const path = require('node:path');
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const stripComments = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 
@@ -290,7 +290,7 @@ test('the renderer is a page script after status-filters.js, ahead of app.js, an
   const tag = (s) => html.indexOf(`<script src="/${s}"></script>`);
   assert.ok(tag('status-filters.js') > -1 && tag('search-statuses.js') > tag('status-filters.js'));
   assert.ok(tag('search-statuses.js') < tag('app.js'));
-  const { pageFiles } = require('../scripts/server');
+  const { pageFiles } = require('../../plugin/skills/web/scripts/server');
   assert.ok(pageFiles(html).includes('search-statuses.js'));
 });
 

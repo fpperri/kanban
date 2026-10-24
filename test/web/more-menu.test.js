@@ -9,11 +9,11 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 // beside them. The items model is pure; the menu itself is static markup that the module shows and
 // hides; the rules of the row are one block in app.css.
 
-const webDir = path.join(__dirname, '..', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(webDir, f), 'utf8');
 const html = read('app.html');
 const css = read('app.css');
-const { moreMenuItems } = require('../web/more-menu');
+const { moreMenuItems } = require('../../plugin/skills/web/web/more-menu');
 
 test('the items model always lists Preferences, Refresh and Copy board path', () => {
   assert.deepStrictEqual(moreMenuItems({ home: false, iterations: false }), ['prefs', 'refresh', 'copy']);

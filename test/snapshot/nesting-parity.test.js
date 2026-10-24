@@ -1,10 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseConfig } = require('../../web/scripts/config-store');
-const cardStore = require('../../web/scripts/card-store');
-const { typeColor } = require('../../web/web/type-badge');
-const { rollupSegments, rollupBar, rollupScopeLine } = require('../../web/web/rollup-bar');
-const { rollupIndex } = require('../../web/web/nesting');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
+const cardStore = require('../../plugin/skills/web/scripts/card-store');
+const { typeColor } = require('../../plugin/skills/web/web/type-badge');
+const { rollupSegments, rollupBar, rollupScopeLine } = require('../../plugin/skills/web/web/rollup-bar');
+const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
 const { BOARD } = require('./nesting-fixture');
 const { byClass } = require('./page-harness');
 const { open, sheet } = require('./nesting-view');

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
@@ -21,9 +21,9 @@ function constant(name) {
 // --- the section header and each graph's heading ------------------------------------
 
 function headingSandbox() {
-  const { escapeHtml } = require('../web/assignee-badge');
-  const { cardTitleDisplay } = require('../web/card-title');
-  const sandbox = { escapeHtml, cardTitleDisplay, ...require('../web/map-relations') };
+  const { escapeHtml } = require('../../plugin/skills/web/web/assignee-badge');
+  const { cardTitleDisplay } = require('../../plugin/skills/web/web/card-title');
+  const sandbox = { escapeHtml, cardTitleDisplay, ...require('../../plugin/skills/web/web/map-relations') };
   vm.createContext(sandbox);
   vm.runInContext([fn('truncateLabel'), fn('mapGraphSectionLabel'), fn('mapGraphHeadingHtml')].join('\n'), sandbox);
   return sandbox;
@@ -68,11 +68,11 @@ test('a heading shortens a long title and escapes whatever a title holds', () =>
 // --- rich cards ---------------------------------------------------------------------
 
 function richSandbox({ index, mode = 'collapsed', types = [], archivedDone = true } = {}) {
-  const { typeBadge } = require('../web/type-badge');
-  const { altitudeBadge, rollupBar } = require('../web/rollup-bar');
-  const { ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED } = require('../web/column-state');
+  const { typeBadge } = require('../../plugin/skills/web/web/type-badge');
+  const { altitudeBadge, rollupBar } = require('../../plugin/skills/web/web/rollup-bar');
+  const { ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED } = require('../../plugin/skills/web/web/column-state');
   const sandbox = {
-    typeBadge, altitudeBadge, rollupBar, ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED, mapRichBox: require('../web/map-relations').mapRichBox,
+    typeBadge, altitudeBadge, rollupBar, ROLLUP_BAR_OPEN, ROLLUP_BAR_COLLAPSED, mapRichBox: require('../../plugin/skills/web/web/map-relations').mapRichBox,
     state: { types },
     nestingIndex: index || { altitudeOf: () => 0, rollup: () => ({ total: 0, counts: {} }) },
     loadRollupBarMode: () => mode,

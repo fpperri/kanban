@@ -237,22 +237,22 @@ test('the panel button and the sheet\'s close button are refocused after a redra
 });
 
 test('crossing 760 px draws the view again, which the page asks the browser to tell it of', async () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /window\.matchMedia\(PHONE_WIDTH_QUERY\)/);
   assert.match(src, /phoneWidthMedia\(\);\s+if \(!list\) return;\s+list\.addEventListener\('change'/);
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(css, /@media \(max-width: 759\.98px\) \{\n  \.view-panel \{ position: absolute;/, 'the sheet starts where the width default stops');
 });
 
 test('app.html loads view-panel.js after column-state.js, which it reads, and before app.js', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   const at = (name) => html.indexOf(`<script src="/${name}"></script>`);
   assert.ok(at('column-state.js') > -1 && at('column-state.js') < at('view-panel.js'));
   assert.ok(at('view-panel.js') < at('app.js'));
 });
 
 test('the panel\'s rules use tokens and no hex, and the sheet adds no width of its own to the page', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   const rules = css.split('\n').filter((l) => /^\.view-(panel|bar)|^\.graph-controls \.view-panel/.test(l));
   assert.ok(rules.length >= 8);
   for (const l of rules) assert.doesNotMatch(l, /#[0-9a-fA-F]{3,8}\b/, l);

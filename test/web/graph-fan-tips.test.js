@@ -3,9 +3,9 @@ const assert = require('node:assert');
 
 const {
   graphBuild, graphLayoutHierarchy, graphPlan, graphFanPlace, graphVisibleIds, graphTipAt,
-} = require('../web/graph-model');
-const { parseSearchQuery, filterCards } = require('../web/search');
-const { sliceListOf } = require('../web/slice-run');
+} = require('../../plugin/skills/web/web/graph-model');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { sliceListOf } = require('../../plugin/skills/web/web/slice-run');
 const {
   STATUSES, loadBoard, cleanUp, card, drawnModel, buildOf,
 } = require('./helpers/fan-boards');

@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const cs = require('../scripts/card-store');
-const cfg = require('../scripts/config-store');
-const { createServer } = require('../scripts/server');
+const cs = require('../../plugin/skills/web/scripts/card-store');
+const cfg = require('../../plugin/skills/web/scripts/config-store');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
 // A card takes the prefix its type declares in `prefixes:`, when it is made, and keeps it
 // for life. Each prefix has its own counter on the one `counters:` line, plain cards keep
@@ -154,7 +154,7 @@ test('POST /api/cards gives a goal G1 then G2, and the board lists both under th
 });
 
 test('a card counter sees the groups that hold its prefix, and a group counter sees the cards', () => {
-  const gs = require('../scripts/group-store');
+  const gs = require('../../plugin/skills/web/scripts/group-store');
   const config = 'groups: .groups\nprefixes:\n  G: goal\n  I: .groups/iteration\n';
   const dir = board(config, {
     '.groups/G0005.hand-written.md': '---\nid: G5\nname: hand written\ncards: []\n---\n',

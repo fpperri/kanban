@@ -5,13 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, toJSON } = require('../scripts/card-store');
-const { parseConfig } = require('../scripts/config-store');
+const { listActive, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
-const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../web/search');
-const { pillList, pillRows } = require('../web/pills');
-const { NO_SELECTION, cardPart, typedQueryPart, queryPart, addPart, resolveSelection } = require('../web/selection');
+const { parseSearchQuery, filterCards, searchTermText, searchIsolateText } = require('../../plugin/skills/web/web/search');
+const { pillList, pillRows } = require('../../plugin/skills/web/web/pills');
+const { NO_SELECTION, cardPart, typedQueryPart, queryPart, addPart, resolveSelection } = require('../../plugin/skills/web/web/selection');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate');
 
@@ -134,7 +134,7 @@ test('the scenario does not wait on a fixed sleep', () => {
 });
 
 test('the ids and classes the scenario drives are in the page', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const page = ['app.html', 'app.js', 'search-panel.js', 'isolate.js', 'graph-view.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const name of ['isolate-switch', 'search-panel', 'search-chip', 'search-pills', 'query-pill', 'search-input', 'search-clear-btn', 'context-menu', 'ctx-dpath', 'graph-canvas', 'graph-node', 'graph-dot', 'cal-title']) {
     assert.ok(page.includes(name), `${name} is in the page`);

@@ -55,7 +55,7 @@ test('waiting_for ids read as whole ids, a padded or prefixed one the same as th
 test('the apply protocol says an op names the whole id, prefix included, and how the card file is found', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const protocol = fs.readFileSync(path.join(__dirname, '..', 'references', 'apply-protocol.md'), 'utf8').replace(/\r\n/g, '\n');
+  const protocol = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'references', 'apply-protocol.md'), 'utf8').replace(/\r\n/g, '\n');
   assert.ok(protocol.includes('"id":"G3"'), 'a prefixed id is shown as the string it is');
   assert.match(protocol, /whole id/i);
   assert.match(protocol, /`#7` and `#G7` are two cards/);
@@ -191,7 +191,7 @@ test('tree:, path: and waiting: follow prefixed ids', () => {
 test('the page carries the web\'s id module as shipped, first, ahead of every module that reads an id', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'web', 'ids.js'), 'utf8').replace(/\r\n/g, '\n');
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'ids.js'), 'utf8').replace(/\r\n/g, '\n');
   withSnapshot(MIXED, (html) => {
     const at = html.indexOf(source);
     assert.ok(at !== -1, 'the module source is in the page verbatim');

@@ -1,7 +1,7 @@
 'use strict';
 // The browser runner's harness: everything a scenario stands on, kept apart
 // from the scenarios so it can be unit tested without a browser (see the
-// skills/web/test/browser-*.test.js files that require it, browser-harness.test.js
+// test/web/browser-*.test.js files that require it, browser-harness.test.js
 // first).
 //
 //   command line     parseArgs, selectScenarios, withFault
@@ -67,10 +67,14 @@ function parseArgs(argv) {
 
 // The server that serves the boards: this checkout's, or with --plugin the one of another
 // checkout of the plugin (an older one, to prove a board written for this plugin opens on it).
+// A checkout from before the plugin folder keeps its skills at the top.
 function serverScriptOf(pluginDir) {
-  const script = path.join(pluginDir || path.join(__dirname, '..', '..', '..', '..'), 'skills', 'web', 'scripts', 'server.js');
-  if (!fs.existsSync(script)) throw new Error(`no server at ${script}`);
-  return script;
+  const root = pluginDir || path.join(__dirname, '..', '..', '..');
+  const script = path.join(root, 'plugin', 'skills', 'web', 'scripts', 'server.js');
+  if (fs.existsSync(script)) return script;
+  const before = path.join(root, 'skills', 'web', 'scripts', 'server.js');
+  if (pluginDir && fs.existsSync(before)) return before;
+  throw new Error(`no server at ${script}`);
 }
 
 // The scenarios to run, in the registry's order (last to first with --reverse).

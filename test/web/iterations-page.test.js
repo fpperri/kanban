@@ -186,7 +186,7 @@ test('the Calendar moves to the picked iteration\'s first day when the person pi
 test('the dropdown is a header control that keeps the selection and holds the refresh while it is focused', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   const tag = html.match(/<select id="iter-select"[^>]*>/)[0];
   assert.match(tag, /data-keeps-selection/);
   assert.match(tag, /data-holds-poll/);

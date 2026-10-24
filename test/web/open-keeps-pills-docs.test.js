@@ -8,10 +8,10 @@ const path = require('node:path');
 // shows as they were, and so does closing the card; a click that only selects a card still
 // takes the selection's pills out of the box.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const webSkill = read('skills', 'web', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webDoc = flat(read('docs', 'web.md'));
 
 function bullet(text, marker) {

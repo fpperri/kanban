@@ -1,6 +1,6 @@
 # Security
 
-`kanban-web` (the Node server + browser SPA at `skills/web/`) is a **local,
+`kanban-web` (the Node server + browser SPA at `plugin/skills/web/`) is a **local,
 single-user desktop tool** — see [ADR 0002](docs/adr/0002-kanban-app-local-server-spa.md).
 This doc is the threat model behind that design and what it does and doesn't
 protect against.
@@ -30,7 +30,7 @@ access of their own:
 
 - **Loopback-only bind.** The server binds `127.0.0.1` explicitly (never
   `0.0.0.0` or a bare port), so no other device on your LAN can reach it —
-  pinned by a regression test (`skills/web/test/server.test.js`).
+  pinned by a regression test (`test/web/server.test.js`).
 - **Origin/Referer + Host allowlist on every request, reads included.** Any
   request — a read (`GET /api/board`, card detail, …) or a write
   (create/update/archive/restore/delete) alike — is refused with `403` if it
@@ -49,7 +49,7 @@ access of their own:
   extra origins — `--allow-origin <origin>` (repeatable) or
   `KANBAN_WEB_ALLOWED_ORIGINS` (comma-separated), for a case like a VS Code
   Remote Tunnel where the browser's real origin is neither `localhost` nor
-  `127.0.0.1` (see `skills/web/SKILL.md`). Default empty, so behavior is
+  `127.0.0.1` (see `plugin/skills/web/SKILL.md`). Default empty, so behavior is
   unchanged unless you configure it; each entry is normalized and compared
   by exact string equality — no wildcards or suffix matching, so a subdomain
   or superstring of an allowed origin never matches. Only `http(s)` origins
@@ -98,7 +98,7 @@ directly."
 - **`npm audit` / dependency scanning** — the server is Node **standard
   library only**: no `node_modules`, nothing installed, no package dependency in
   `package.json`. The plugin does ship two third-party browser libraries,
-  vendored under `skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT)
+  vendored under `plugin/skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT)
   and **highlight.js** 11.12.0 (BSD-3). They were checked to be byte for byte the
   files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
   `@highlightjs/cdn-assets@11.12.0`) and the copies cdnjs and jsDelivr serve.

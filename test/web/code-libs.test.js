@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const libs = require('../web/code-libs');
+const libs = require('../../plugin/skills/web/web/code-libs');
 
 // code-libs.js decides, from the languages a rendered body's fences name, which library the page
 // has to load: highlight.js for a language it knows, mermaid for a ```mermaid block, and nothing at
 // all otherwise. The page and the snapshot each bring their own loader; this holds the decision, the
 // language names and the pinned versions they share.
 
-const vendor = (...parts) => path.join(__dirname, '..', 'web', 'vendor', ...parts);
+const vendor = (...parts) => path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'vendor', ...parts);
 
 // --- the language aliases ----------------------------------------------------------------------
 
@@ -124,12 +124,12 @@ test('each library has its licence beside it', () => {
 });
 
 test('the frame page asks for the vendored mermaid by its version, so the server may cache it for good', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'mermaid-frame.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'mermaid-frame.html'), 'utf8');
   assert.ok(html.includes(`<script src="/vendor/mermaid/mermaid.min.js?v=${libs.MERMAID_VERSION}"></script>`));
 });
 
 test('the module is written to be embedded: no require, no other module\'s names', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'code-libs.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'code-libs.js'), 'utf8');
   assert.doesNotMatch(src.replace(/\/\/.*$/gm, '').replace(/typeof module[^\n]*\n[^\n]*\n/, ''), /\brequire\(/);
   assert.doesNotMatch(src, /<\/script/i);
   assert.doesNotMatch(src, /__[A-Z_]+__/);

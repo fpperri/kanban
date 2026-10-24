@@ -5,9 +5,9 @@ const path = require('node:path');
 
 // The web skill and the web docs describe the gear, the sheet and each setting.
 
-const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
+const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const webSkill = read('skills', 'web', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webDoc = read('docs', 'web.md');
 
 const skillBullet = () => {

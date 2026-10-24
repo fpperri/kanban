@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { cardMenuFor, canvasMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../web/selection');
+const { cardMenuFor, canvasMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../../plugin/skills/web/web/selection');
 
 // --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
@@ -237,7 +237,7 @@ test('archiveNeedsConfirm on a single done card is false (tile Archive button, o
 // --- what a click on a card does: one pure decision beside the selection
 // helpers, with each view's plain-click behaviour passed in from a lookup.
 
-const { plainClickBehaviour, cardClickAction } = require('../web/selection');
+const { plainClickBehaviour, cardClickAction } = require('../../plugin/skills/web/web/selection');
 
 test('the plain-click lookup answers "selects" for the Graph and "opens" for the Board, Map, Gantt and Calendar', () => {
   assert.strictEqual(plainClickBehaviour('graph'), 'selects');
@@ -344,7 +344,7 @@ test('a cue, Shift, Ctrl or Cmd wins over the second click of a double click', (
 
 // --- Enter on a focused card opens it where a plain click only selects.
 
-const { cardOpenAction } = require('../web/selection');
+const { cardOpenAction } = require('../../plugin/skills/web/web/selection');
 const open = (extra, plainClick) => cardOpenAction({ shiftKey: false, ctrlKey: false, metaKey: false, plainClick, ...extra });
 
 test('Enter opens the card in a view whose plain click selects', () => {

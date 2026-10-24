@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const lb = require('../scripts/logbook-store');
-const gs = require('../scripts/group-store');
+const lb = require('../../plugin/skills/web/scripts/logbook-store');
+const gs = require('../../plugin/skills/web/scripts/group-store');
 
 // A board whose logbook: names <iteration> (docs/adr/0019), with its groups under .groups.
 function tmpBoard(config = 'name: t\nlogbook: sprints/<iteration>/.logbook\ngroups: .groups\n') {

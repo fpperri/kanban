@@ -11,7 +11,7 @@ const path = require('node:path');
 // expressions from build_editor.py by marker + first-match scan and assert
 // on their text, rather than executing the inline script.
 
-const srcPath = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const srcPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 const src = fs.readFileSync(srcPath, 'utf8');
 
 function sliceFrom(startMarker, endMarker) {

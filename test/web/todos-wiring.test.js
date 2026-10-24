@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const settings = require('../web/settings');
+const settings = require('../../plugin/skills/web/web/settings');
 
 // The todo lists as the page holds them (docs/adr/0021): the script that draws the palette's tab and
 // registers the gear's page, how the other scripts reach it, and the stylesheet rules it needs. The
 // rules are todo-store.js, notes.js (noteTabs), settings.js and delete-plan.js, each tested apart; the
 // tab itself is driven in todos-page.test.js and in the browser runner's todos scenario.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');

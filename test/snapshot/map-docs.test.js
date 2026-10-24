@@ -6,10 +6,10 @@ const path = require('node:path');
 // What the snapshot's docs promise about its Map, pinned so the skill, the human guide and
 // the cross-harness note keep saying what the page draws.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const skill = read('skills', 'snapshot', 'SKILL.md');
+const skill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const guide = flat(read('docs', 'snapshot.md'));
 const found = /\n## The Map\n([\s\S]*?)\n## /.exec(skill);
 const section = found ? flat(found[1]) : '';
@@ -20,10 +20,10 @@ test('the skill has a Map section that follows Nested cards', () => {
 
 test('the Map section says the page embeds the map module as is, and where the two copies of the builder are pinned', () => {
   assert.ok(section.includes('skills/web/web/map-relations.js'));
-  assert.ok(section.includes('test/map-embed.test.js'));
+  assert.ok(section.includes('test/snapshot/map-embed.test.js'));
   assert.ok(section.includes('buildRelGraph'));
   assert.ok(section.includes('buildRelationsGraph'));
-  assert.ok(section.includes('test/map-parity.test.js'));
+  assert.ok(section.includes('test/snapshot/map-parity.test.js'));
 });
 
 test('the Map section describes the defaults it draws, one by one', () => {

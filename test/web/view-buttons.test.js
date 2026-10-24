@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage } = require('./helpers/page-vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
 const MODES = ['board', 'calendar', 'gantt', 'map', 'graph'];
 const IDLE = { calendar: 'Calendar', gantt: 'Gantt', map: 'Map view', graph: 'Graph' };
 const BOARD = { projectName: 'k', statuses: ['todo'], priorities: [], assignees: [], tags: [], types: [], active: [], archived: [] };

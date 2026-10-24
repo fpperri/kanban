@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { priorityBadge } = require('../web/priority-badge');
+const { priorityBadge } = require('../../plugin/skills/web/web/priority-badge');
 
 // emphasis comes from the card's rank in the configured priorities
 // list — no hardcoded 'High' string checks. First = hot, last (of a 3+ list)

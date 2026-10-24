@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { typingIsolatesDefaults, mergeTypingIsolates, typingIsolatesWith } = require('../web/typing-isolates');
-const { VIEW_MODES } = require('../web/calendar-model');
+const { typingIsolatesDefaults, mergeTypingIsolates, typingIsolatesWith } = require('../../plugin/skills/web/web/typing-isolates');
+const { VIEW_MODES } = require('../../plugin/skills/web/web/calendar-model');
 
 // Typing isolates is one flag per view, kept per board in the browser under its own key
 // (isolate.js carries the storage out; helpers/page-vm.js runs it in the real page in isolate.test.js).

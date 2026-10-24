@@ -6,10 +6,10 @@ const path = require('node:path');
 // The web docs and the kanban skill say that a folder two placeholders of a path both name is
 // read once, as the kind its id says; path-one-reading.test.js holds the behaviour.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const webDocs = flat(read('docs', 'web.md'));
-const kanbanSkill = flat(read('skills', 'kanban', 'SKILL.md'));
+const kanbanSkill = flat(read('plugin', 'skills', 'kanban', 'SKILL.md'));
 
 test('the web docs say a folder both placeholders could name is read once, as the kind its id says', () => {
   assert.match(webDocs, /With `<iteration>` and `<card>` side by side, a folder both could name \(`work\/0007\.fix-login`, a card's folder with no iteration\) is read once, as the kind its id says: an iteration's id makes it the iteration's, a card's or a group's makes it the card's\./);

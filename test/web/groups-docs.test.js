@@ -3,18 +3,18 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseConfig, groupFolderOf, prefixForGroupFolder } = require('../scripts/config-store');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseConfig, groupFolderOf, prefixForGroupFolder } = require('../../plugin/skills/web/scripts/config-store');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // The kanban skill documents the group file and the web skill and docs describe what the page
 // does with groups. The examples they give are held to the code, so a doc cannot promise what
 // the board does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const kanban = read('skills', 'kanban', 'SKILL.md');
-const web = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const kanban = read('plugin', 'skills', 'kanban', 'SKILL.md');
+const web = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
-const snapshot = read('skills', 'snapshot', 'SKILL.md');
+const snapshot = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
 const groupsSection = flat(kanban.slice(kanban.indexOf('### Groups: files that list their cards'), kanban.indexOf('### Migrating `epic: true`')));

@@ -27,10 +27,10 @@
 // to 18 are its unnested cards; the malformed board's card 4 is its one. The fixture board has
 // no hierarchy, so its rings follow depth and the ring of unnested cards comes after them.
 //
-// skills/web/test/browser-tier-fan-unnested-scenario.test.js holds these lists to the Graph
+// test/web/browser-tier-fan-unnested-scenario.test.js holds these lists to the Graph
 // model over each board's own cards, and runs the scenario against a stand-in page.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, selectedIds.
 
 const {

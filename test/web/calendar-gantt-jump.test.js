@@ -2,8 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   nearestMatchDay, viewShownCards, calendarVisibleRange, monthGrid,
-} = require('../web/calendar-model');
-const { ganttNearestMatchDay, ganttSubviewWindow, GANTT_SUBVIEWS } = require('../web/gantt-model');
+} = require('../../plugin/skills/web/web/calendar-model');
+const { ganttNearestMatchDay, ganttSubviewWindow, GANTT_SUBVIEWS } = require('../../plugin/skills/web/web/gantt-model');
 
 // When a change to the search box leaves no shown match inside the Calendar's
 // or the Gantt's visible range, the view moves to the match nearest that range.

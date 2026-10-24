@@ -28,7 +28,7 @@ The card's H1, the only stored name, and what a mention carries. It must identif
 _Avoid_: a prompt as a title, a verb-only fragment ("fix", "follow-up"), a second short-title or identifier field.
 
 **Narrative Entry Shape**:
-The scan-optimized format for every bullet in a card's `## Narrative` section: a **bold, verb-first TL;DR** (≤10 words, ends with a period), 1–2 plain supporting sentences, every identifier backticked (card ids, commits, filenames, branches), one event per bullet, and no sub-bullets or wrapped continuation lines. Card ids inside a bullet follow the **Card mention** rule. It exists because readers scan rather than read, and the web renderer flattens nested bullets to siblings and breaks on continuation lines — the shape is a rendering constraint, not just a style preference. Entries are forward-only: never rewritten to match. Full rules in `skills/kanban/SKILL.md`'s "Narrative Record" section.
+The scan-optimized format for every bullet in a card's `## Narrative` section: a **bold, verb-first TL;DR** (≤10 words, ends with a period), 1–2 plain supporting sentences, every identifier backticked (card ids, commits, filenames, branches), one event per bullet, and no sub-bullets or wrapped continuation lines. Card ids inside a bullet follow the **Card mention** rule. It exists because readers scan rather than read, and the web renderer flattens nested bullets to siblings and breaks on continuation lines — the shape is a rendering constraint, not just a style preference. Entries are forward-only: never rewritten to match. Full rules in `plugin/skills/kanban/SKILL.md`'s "Narrative Record" section.
 _Avoid_: fusing multiple events into one bullet, sub-bullets or nested lists, rewriting old entries to the new shape.
 
 **Status** (a.k.a. **Column**):
@@ -335,7 +335,7 @@ the `kanban` skill. Web carries the full operation set (CRUD, multi-select
 bulk actions with per-card skips, speedbumps on every destructive action,
 notifications inbox, dependency/gantt/calendar/graph views); the snapshot carries
 the same board contracts through a tap UI whose changes Claude applies, and
-names its own deliberate gaps in `skills/snapshot/SKILL.md`'s "What the
+names its own deliberate gaps in `plugin/skills/snapshot/SKILL.md`'s "What the
 editor deliberately does not do". A feature added to one editor lands in the
 other (or gets a line in that surface's own skill doc saying why not).
 Retired skills are deleted outright.

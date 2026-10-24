@@ -7,8 +7,8 @@ const vm = require('node:vm');
 // The Copy button of a typed code block copies the block's text, not its label, through one
 // delegated listener, so it works wherever the renderer is used. This runs the real functions
 // from markdown-ui.js against a stand-in button, clipboard and document.
-const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'markdown-ui.js'), 'utf8').replace(/\r\n/g, '\n');
-const { mdToHtml } = require('../web/markdown.js');
+const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'markdown-ui.js'), 'utf8').replace(/\r\n/g, '\n');
+const { mdToHtml } = require('../../plugin/skills/web/web/markdown.js');
 
 function buttonFor(codeText) {
   const classes = new Set();

@@ -2,9 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { STATUS_PALETTE, statusHash } = require('../web/status-colors');
-const { assigneeColor, assigneeColorClass, assigneeColorVar, findAssigneeEntry } = require('../web/assignee-colors');
-const { HASH_SLOTS } = require('../web/status-colors');
+const { STATUS_PALETTE, statusHash } = require('../../plugin/skills/web/web/status-colors');
+const { assigneeColor, assigneeColorClass, assigneeColorVar, findAssigneeEntry } = require('../../plugin/skills/web/web/assignee-colors');
+const { HASH_SLOTS } = require('../../plugin/skills/web/web/status-colors');
 
 // --- assignee colors mirror status-colors.js's contract ------------
 
@@ -83,7 +83,7 @@ test('assigneeColorClass is deterministic and pure, same contract as statusColor
 // --- doc pin: SKILL.md documents the Assignee text color ---
 
 test('SKILL.md documents the Assignee text color and the reserved/hashed contract', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   const bullet = skill.match(/- \*\*Assignee text color\*\*[\s\S]*?(?=\n- \*\*|\n## )/);
   assert.ok(bullet, 'the Assignee text color bullet exists');
   assert.match(bullet[0], /assigneeBadge\(\)/, 'names the helper');
@@ -95,7 +95,7 @@ test('SKILL.md documents the Assignee text color and the reserved/hashed contrac
 });
 
 test('SKILL.md documents the OPTIONAL assignees[].color config field', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   assert.match(skill, /\*\*`assignees\[\]\.color`\*\* \(OPTIONAL\)/);
   assert.match(skill, /color: "#58a6ff"\s+# OPTIONAL/, 'the config.yaml example shows the field');
 });

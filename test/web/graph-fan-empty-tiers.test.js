@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { graphLayoutHierarchy, graphPlan } = require('../web/graph-model');
+const { graphLayoutHierarchy, graphPlan } = require('../../plugin/skills/web/web/graph-model');
 const { STATUSES, HIERARCHY, card, buildOf } = require('./helpers/fan-boards');
 
 // A ring and a name belong to a slice only when a drawn card sits on it: a tier nobody
@@ -87,10 +87,10 @@ test('empty tiers: the rings keep their order, tier 1 nearest the centre and the
 test('empty tiers: the Hierarchy hint, the web skill and the web doc say a tier with no drawn card has no ring', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8').replace(/\s+/g, ' ');
+  const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', ...p), 'utf8').replace(/\s+/g, ' ');
   assert.match(/hierarchy: '(Hierarchy: [^']*)'/.exec(read('web', 'graph-view.js'))[1], /a tier or a depth with no drawn card has no ring/);
   assert.match(read('SKILL.md'), /neither has a tier with no drawn card: its band, arc and caption are not drawn and the rings left close up, with Types on or off/);
-  assert.match(read('..', '..', 'docs', 'web.md'), /a tier or a depth with no drawn card has no ring, no arc and no name, and the rings left close up/);
+  assert.match(read('..', '..', '..', 'docs', 'web.md'), /a tier or a depth with no drawn card has no ring, no arc and no name, and the rings left close up/);
 });
 
 // --- a slice cut that leaves out the top tiers: the fan closes in on what is left ----------------

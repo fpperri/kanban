@@ -228,7 +228,7 @@ test('the palette\'s note box starts one line high and has no resize grip', asyn
   assert.strictEqual(p.ui().input.rows, 1);
   typeInto(p.ui().input, '');
   assert.strictEqual(p.ui().input.style.height, '34px');
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   const rule = (sel) => css.match(new RegExp(`^${sel.replace('.', '\\.')} \\{[^}]*\\}`, 'm'))[0];
   assert.match(rule('.np-input'), /resize: none/);
   assert.match(rule('.np-edit-text'), /resize: none/);
@@ -416,7 +416,7 @@ test('the palette hands every key to the Scratchpad preview key, from the box or
 });
 
 test('the one popup the notes keys work over is named once, and every notes key reads it through the key guard', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'notes-palette.js'), 'utf8');
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'notes-palette.js'), 'utf8');
   assert.match(src, /const NOTES_DETAIL = '#detail-modal';/);
   assert.strictEqual((src.match(/'#detail-modal'/g) || []).length, 1, 'named once');
   assert.strictEqual((src.match(/keyGuard(?:Off|Surface)\(document, NOTES_DETAIL\)/g) || []).length, 4, 'n, Alt+digit, Esc and the fullscreen key');
@@ -437,7 +437,7 @@ test('each tab shows its key as a muted hint and in its title', async () => {
   const tabs = p.all('.np-tab');
   assert.deepStrictEqual(tabs.map((t) => t.dataset.key), ['Alt+1', 'Alt+2']);
   assert.deepStrictEqual(tabs.map((t) => p.text(t)), ['Notes', 'Scratchpad'], 'the hint is drawn by the stylesheet: the text of a tab is still its name');
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.np-tab::after \{ content: attr\(data-key\);/);
   assert.deepStrictEqual(tabs.map((t) => t.title), ['Notes (Alt+1)', 'Scratchpad (Alt+2)']);
   assert.deepStrictEqual(tabs.map((t) => t.dataset.tab), ['notes', 'scratch']);

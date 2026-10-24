@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { isDirty, isMinimalCreate } = require('../web/form-guard');
+const { isDirty, isMinimalCreate } = require('../../plugin/skills/web/web/form-guard');
 
 test('identical snapshots are not dirty', () => {
   assert.strictEqual(isDirty({ title: 'a', body: 'b' }, { title: 'a', body: 'b' }), false);

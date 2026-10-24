@@ -64,7 +64,7 @@ test('both cycle buttons keep the selection and hold the poll', () => {
 });
 
 test('each cycle button has its own class, shows the current span and names the next span to a screen reader, and the span buttons stay', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const sites = src.split('\n').filter((l) => l.includes('cal-span-cycle cal-nav'));
   assert.strictEqual(sites.length, 2);
   for (const l of sites) {
@@ -76,7 +76,7 @@ test('each cycle button has its own class, shows the current span and names the 
 });
 
 test('one phone block hides the span switch and shows the cycle button, and the reverse applies from 760 px', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.cal-span-cycle \{ display: none;/);
   const block = css.match(/@media \(max-width: 759\.98px\) \{\s*\.cal-subview-switch \{ display: none; \}\s*\.cal-span-cycle \{ display: inline-block; \}\s*\}/);
   assert.ok(block, 'the 760 px block');

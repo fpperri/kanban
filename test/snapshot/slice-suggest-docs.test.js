@@ -2,12 +2,12 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { searchSuggestionItems } = require('../../web/web/search');
+const { searchSuggestionItems } = require('../../plugin/skills/web/web/search');
 
 // The snapshot skill says its search box suggests slices as the web's does, from the same
 // module, and the examples it gives are held to that module.
 
-const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
 const section = /\nA search box under the header[\s\S]*?\n\n/.exec(skill);
 const flat = section && section[0].replace(/\s+/g, ' ');
 

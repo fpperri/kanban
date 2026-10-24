@@ -12,7 +12,7 @@
 // delete popup offers the list unticked: ticked it goes and the scratchpad stays. Each step waits on
 // the page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): state, hoveredId,
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, hoveredId,
 // autoRefreshTick, todosUi.
 
 const fs = require('fs');

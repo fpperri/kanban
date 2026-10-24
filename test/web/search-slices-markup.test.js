@@ -8,7 +8,7 @@ const path = require('node:path');
 // the section behaves is search-slices.test.js; the real page is looked at in the browser
 // runner (scenarios/slice-section.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');
@@ -74,7 +74,7 @@ test('the run arithmetic loads after the slices it works on, and the section\'s 
   assert.ok(tag('search-panel.js') < tag('search-slices.js'));
   assert.ok(tag('slice-run.js') < tag('search-slices.js'));
   assert.ok(tag('search-slices.js') < tag('graph-view.js') && tag('graph-view.js') < tag('app.js'));
-  const { pageFiles } = require('../scripts/server');
+  const { pageFiles } = require('../../plugin/skills/web/scripts/server');
   const served = pageFiles(fs.readFileSync(path.join(WEB, 'app.html'), 'utf8'));
   assert.ok(served.includes('slice-run.js') && served.includes('search-slices.js'));
 });

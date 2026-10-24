@@ -8,11 +8,11 @@ const path = require('node:path');
 // (Isolate, the selection, the Graph), and the two agree: a pill is an affordance that
 // edits the box in place, so the gap the skill names for the badges is about the badges.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
-const skill = read('skills', 'snapshot', 'SKILL.md');
+const skill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const docs = read('docs', 'snapshot.md');
 
 const gaps = flat(skill.slice(skill.indexOf('## What the editor deliberately does not do')));

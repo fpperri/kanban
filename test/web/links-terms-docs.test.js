@@ -6,11 +6,11 @@ const path = require('node:path');
 // dlinks: and hlinks: name a card's direct neighbours, beside the four Explore sets. The docs that name the
 // search terms say what each is, that they are typed (no Explore item), and the snapshot knows them.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 const webDoc = read('docs', 'web.md');
-const webSkill = read('skills', 'web', 'SKILL.md');
-const snapshotSkill = read('skills', 'snapshot', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
+const snapshotSkill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const crossHarness = read('docs', 'cross-harness.md');
 const glossary = read('GLOSSARY.md');
 

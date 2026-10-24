@@ -13,9 +13,9 @@ const path = require('node:path');
 // straight from the .py source text (no python build needed), same
 // technique format-body.test.js uses for fmtBodySegs.
 
-const srcPath = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const srcPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 const src = fs.readFileSync(srcPath, 'utf8');
-const statusColorsPath = path.join(__dirname, '..', '..', 'web', 'web', 'status-colors.js');
+const statusColorsPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'status-colors.js');
 const { statusHash } = require(statusColorsPath);
 
 function extractFunction(name) {

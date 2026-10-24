@@ -14,7 +14,7 @@ const { execFileSync } = require('node:child_process');
 // a fixture board through build_editor.py rather than asserting on source
 // text alone.
 
-const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
+const buildScript = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
 
 function buildBoard(withLauncherFiles) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-snapshot-launcher-files-'));

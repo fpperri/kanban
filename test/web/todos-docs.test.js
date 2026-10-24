@@ -4,20 +4,20 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { parseConfig } = require('../scripts/config-store');
-const td = require('../scripts/todo-store');
-const { HOTKEYS } = require('../web/hotkeys');
+const { parseConfig } = require('../../plugin/skills/web/scripts/config-store');
+const td = require('../../plugin/skills/web/scripts/todo-store');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 
 // The kanban skill documents the todo list file in one short paragraph, and the web skill and docs
 // describe what the page does with it (docs/adr/0021). The kanban skill's example is held to the
 // store, so a doc cannot promise what the board does not read.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const kanban = read('skills', 'kanban', 'SKILL.md');
-const web = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const kanban = read('plugin', 'skills', 'kanban', 'SKILL.md');
+const web = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const readme = read('README.md');
-const snapshotSkill = read('skills', 'snapshot', 'SKILL.md');
+const snapshotSkill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const snapshotDocs = read('docs', 'snapshot.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

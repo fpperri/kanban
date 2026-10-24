@@ -15,7 +15,7 @@
 // and clicked only where it is the topmost thing, and a Board card at a point
 // that is not a cue, a button or a bar.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // isolateNow, selectedIds, selectionState.
 
 module.exports = {

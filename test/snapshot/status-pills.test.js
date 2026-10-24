@@ -8,7 +8,7 @@ const { byClass, loadPage } = require('./page-harness');
 
 const withMouse = (b, fn) => withSnapshot(b, (html) => fn(loadPage(html, { matchMedia: (q) => q.includes('min-width:900px') || q.includes('pointer: fine') })));
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'build_editor.py'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'), 'utf8');
 const css = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
 
 function decls(selector) {

@@ -11,7 +11,7 @@
 // No dependencies; needs Node >= 22 (global fetch and WebSocket).
 //
 // Run:    npm run test:browser
-//         node skills/web/test/browser/run.js [--only <name>[,<name>]] [--reverse]
+//         node test/web/browser/run.js [--only <name>[,<name>]] [--reverse]
 //                                             [--shots <dir>] [--list] [--plugin <dir>]
 // Chrome: found automatically; set CHROME_PATH to override or to point at a
 //         browser in a non-standard place. Chrome keeps its sandbox; set
@@ -38,7 +38,7 @@
 //         3 harness error.
 //
 // Deliberately NOT part of `npm test`: it needs a real browser and takes a
-// while, so it lives outside the skills/web/test/*.test.js glob. Its parts that
+// while, so it lives outside the test/web/*.test.js glob. Its parts that
 // need no browser are tested there (browser-*.test.js).
 
 const fs = require('fs');

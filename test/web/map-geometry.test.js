@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   mapRowPositions, mapParentLinePaths, mapRichBox, mapPlural, mapGraphCounts, mapGraphsLabel, mapRootsText,
-} = require('../web/map-relations');
+} = require('../../plugin/skills/web/web/map-relations');
 
 const W = 176;
 const H = 58;

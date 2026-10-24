@@ -218,7 +218,7 @@ test('a window that crosses the width with the palette open follows at once, to 
 
 // --- the registry and the sources --------------------------------------------------------------------
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', ...parts), 'utf8').split(String.fromCharCode(13)).join('');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', ...parts), 'utf8').split(String.fromCharCode(13)).join('');
 const appJs = read('web', 'app.js');
 const paletteJs = read('web', 'notes-palette.js');
 const css = read('web', 'app.css');

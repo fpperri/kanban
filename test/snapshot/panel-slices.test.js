@@ -1,8 +1,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { sliceCards, sliceDepths } = require('../../web/web/slices');
-const { parseSearchQuery, searchSetSlice } = require('../../web/web/search');
-const { sliceListOf, sliceRunClick, sliceRunKeep, sliceRunOf, sliceRunValue } = require('../../web/web/slice-run');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
+const { parseSearchQuery, searchSetSlice } = require('../../plugin/skills/web/web/search');
+const { sliceListOf, sliceRunClick, sliceRunKeep, sliceRunOf, sliceRunValue } = require('../../plugin/skills/web/web/slice-run');
 const { byClass } = require('./page-harness');
 const { board: smallBoard, open, tile } = require('./nesting-view');
 const { planCards, shownIds, webContext, withBuiltBoard } = require('./search-table');

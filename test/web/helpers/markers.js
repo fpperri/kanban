@@ -16,7 +16,7 @@ const vm = require('node:vm');
 const KEEPS = 'data-keeps-selection';
 const HOLDS = 'data-holds-poll';
 
-const WEB = path.join(__dirname, '..', '..', 'web');
+const WEB = path.join(__dirname, '..', '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const graphSrc = read('graph-view.js');
@@ -91,7 +91,7 @@ function optionsRowHtml() {
 
 // The fold toggle of each of the Map's collapsible sections, folded and open.
 function sectionToggleTags() {
-  const { escapeHtml } = require('../../web/assignee-badge');
+  const { escapeHtml } = require('../../../plugin/skills/web/web/assignee-badge');
   const sandbox = { document: { createElement: fakeNode }, escapeHtml, CHEVRON_LEFT_ICON: '<svg></svg>', CHEVRON_RIGHT_ICON: '<svg></svg>' };
   vm.runInNewContext(fn('buildMapSectionHeader'), sandbox);
   return ['graph', 'isolated'].flatMap((section) => [true, false].flatMap((folded) => tagsIn(sandbox.buildMapSectionHeader(section, 'Label', folded).innerHTML, 'map-section-toggle')));
@@ -108,7 +108,7 @@ function panelButtonTags() {
 const tagsIn = (markup, cls) => (markup.match(new RegExp(`<[a-z]+[^>]*class="[^"]*${classToken(cls)}[^"]*"[^>]*>`, 'g')) || []);
 
 function rollupTags() {
-  const { rollupBar } = require('../../web/rollup-bar');
+  const { rollupBar } = require('../../../plugin/skills/web/web/rollup-bar');
   const rollup = { total: 3, counts: { todo: 1, done: 2 }, scope: { board: 'shop' } };
   return ['open', 'collapsed'].flatMap((mode) => tagsIn(rollupBar(rollup, mode, ['todo', 'done']), 'rollup'));
 }

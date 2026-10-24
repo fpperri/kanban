@@ -7,13 +7,13 @@ const path = require('node:path');
 // todos paths. The rules live in path-vars.js and iteration-folders.js and are tested there; these tests pin
 // that the places a person or an agent reads say them.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
 const docs = flat(read('docs', 'web.md'));
-const webSkill = flat(read('skills', 'web', 'SKILL.md'));
-const kanbanText = read('skills', 'kanban', 'SKILL.md');
+const webSkill = flat(read('plugin', 'skills', 'web', 'SKILL.md'));
+const kanbanText = read('plugin', 'skills', 'kanban', 'SKILL.md');
 const kanbanSkill = flat(kanbanText);
 const readme = flat(read('README.md'));
 

@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { assertKeepsSelection } = require('./helpers/markers');
 const { selectionGlobals } = require('./helpers/selection-globals');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const html = read('app.html');
@@ -52,7 +52,7 @@ const prefsState = () => {
 };
 
 function detailSandbox({ mode, detailId = null, archivedKey, archivedDone, archivedLeaves = [] } = {}) {
-  const colState = require('../web/column-state');
+  const colState = require('../../plugin/skills/web/web/column-state');
   const stored = {};
   const writes = {};
   if (mode) stored['kanban.kanban.rollup.bar'] = mode;
@@ -67,9 +67,9 @@ function detailSandbox({ mode, detailId = null, archivedKey, archivedDone, archi
     $: (sel) => { assert.strictEqual(sel, '#detail-rollup'); return box; },
     renderBoard: () => { calls.renderBoard++; },
     box, calls, writes,
-    ...require('../web/prefs'),
-    ...require('../web/nesting'),
-    ...require('../web/rollup-bar'),
+    ...require('../../plugin/skills/web/web/prefs'),
+    ...require('../../plugin/skills/web/web/nesting'),
+    ...require('../../plugin/skills/web/web/rollup-bar'),
   };
   vm.createContext(sandbox);
   vm.runInContext([...rollupState(), ...prefsState(), `let currentDetailId = ${detailId};`,

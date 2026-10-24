@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const n = require('../web/notes');
+const n = require('../../plugin/skills/web/web/notes');
 
 // The rules of the palette's date, card picker and date range (notes.js), apart from the DOM. Week
 // starts are the Calendar's (calendar-model.js: Monday). 2026-10-21 is a Wednesday.

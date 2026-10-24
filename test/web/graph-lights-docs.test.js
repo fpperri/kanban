@@ -7,8 +7,8 @@ const path = require('node:path');
 // card with its relations, a selection, and a search typed there, which is the
 // anchor of the selection and stays in the Graph. The words are the glossary's.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);

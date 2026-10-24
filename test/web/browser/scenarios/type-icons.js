@@ -12,13 +12,13 @@
 // for a triangle, four for a square or a diamond, and a diamond has a corner on
 // an axis). The chips are read from the page's own tiles and rows.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // none.
 
 const GLYPH = { circle: '\u25cf', square: '\u25a0', diamond: '\u25c6', triangle: '\u25b2', hexagon: '\u2b22', star: '\u2605' };
 
 // What each board's config.yaml and cards say, written out by hand from the
-// fixtures (skills/web/test/browser-fixtures.test.js pins them). `chips` are
+// fixtures (test/web/browser-fixtures.test.js pins them). `chips` are
 // the glyph the chip of that card starts with, '' for none; `dots` the shape of
 // that card's Graph dot; `map` and `detail` the cards read in those views.
 const EXPECTED = {

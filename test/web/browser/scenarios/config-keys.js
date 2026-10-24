@@ -10,13 +10,13 @@
 // The poll check blanks the three values first, so a page that only kept what
 // the load gave it fails: the poll has to put them back.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, autoRefreshTick.
 
 const BOARD_NAMES = { plan: 'plan', malformed: 'malformed' };
 
 // What each board's config.yaml holds, written out by hand from the fixture
-// (skills/web/test/browser-fixtures.test.js pins the fixture).
+// (test/web/browser-fixtures.test.js pins the fixture).
 const EXPECTED = {
   plan: {
     hierarchy: ['goal', 'strategy', 'objective', 'epic'],

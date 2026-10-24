@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { HOTKEYS } = require('../web/hotkeys');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 
 // The web skill and the web docs describe the Hotkeys section of the preferences sheet and the ?
 // key: what the list holds (every key of hotkeys.js, named as the list labels it), the states
 // that show, when the state is read, how ? opens the sheet at the section and when it does nothing.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

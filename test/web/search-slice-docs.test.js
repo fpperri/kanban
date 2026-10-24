@@ -3,15 +3,15 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // The web skill and the web docs describe the slice: term, with examples. The
 // examples are held to the search module, so a doc cannot promise a cut the box
 // does not make. The retired-word tests ban `.epic` and a backticked `epic:` in
 // these files, so the examples cut by goal, strategy and objective.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const searchBullet = skill.slice(skill.indexOf('- **Search**'), skill.indexOf('- **Create**')).replace(/\s+/g, ' ');
 const searchDocs = docs.slice(docs.indexOf('**Search**'), docs.indexOf('**Notifications inbox**')).replace(/\s+/g, ' ');
@@ -82,7 +82,7 @@ test('the skill and the docs count the same extra forms, one bullet each in the 
 });
 
 test('the search box tooltip names slice: with an example', () => {
-  const html = read('skills', 'web', 'web', 'app.html');
+  const html = read('plugin', 'skills', 'web', 'web', 'app.html');
   const tip = /<input[^>]*id="search-input"[^>]*>/.exec(html)[0].replace(/\s+/g, ' ');
   assert.ok(tip.includes('slice:objective..2'), 'the tooltip carries the example');
 });

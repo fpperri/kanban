@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const td = require('../scripts/todo-store');
+const td = require('../../plugin/skills/web/scripts/todo-store');
 
 // The todos path may hold <iteration> (docs/adr/0019, docs/adr/0021): a list goes to the iteration its
 // card or group is a member of, else the one holding the day it is first written, else the segment is

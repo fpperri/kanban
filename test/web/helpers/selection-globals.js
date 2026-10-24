@@ -8,8 +8,8 @@
 // card parts resolves to those cards, and isolate is off (isolateNow, isolateTurnOff) and stays off:
 // no view has Typing isolates on (typingIsolatesIn), so a write to the box turns nothing on. Not a
 // test file (the suite runs *.test.js only).
-const selection = require('../../web/selection');
-const { searchRemoveAlt, searchRemoveGrownAlt, searchSplitSlice, searchMirrorBox } = require('../../web/search');
+const selection = require('../../../plugin/skills/web/web/selection');
+const { searchRemoveAlt, searchRemoveGrownAlt, searchSplitSlice, searchMirrorBox } = require('../../../plugin/skills/web/web/search');
 
 // A selection of exactly these cards: the first is the anchor, the rest are additions.
 const cardsSelection = (ids) => ids.reduce((next, id) => selection.addPart(next, selection.cardPart(id)), selection.NO_SELECTION);

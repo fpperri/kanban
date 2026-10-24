@@ -10,7 +10,7 @@ const path = require('node:path');
 // used to route the human to it no longer do. docs/adr/ is excluded on
 // purpose: an ADR records what was decided under the names of the time.
 
-const repoRoot = path.join(__dirname, '..', '..', '..');
+const repoRoot = path.join(__dirname, '..', '..');
 
 // Walked, not listed. The first version of this guard was a hand-maintained
 // array of .md paths, and a live reference survived retirement in
@@ -35,7 +35,7 @@ function walk(dir, out) {
 const SELF = path.join(__dirname, 'cli-skill-retired.test.js');
 
 test('skills/cli/ and docs/cli.md are gone from the repo', () => {
-  assert.ok(!fs.existsSync(path.join(repoRoot, 'skills', 'cli')));
+  assert.ok(!fs.existsSync(path.join(repoRoot, 'plugin', 'skills', 'cli')));
   assert.ok(!fs.existsSync(path.join(repoRoot, 'docs', 'cli.md')));
 });
 
@@ -57,7 +57,7 @@ test('nothing anywhere in the repo still names the retired surface', () => {
 });
 
 test('both plugin manifests describe three surfaces, not four', () => {
-  for (const rel of [path.join('.claude-plugin', 'plugin.json'),
+  for (const rel of [path.join('plugin', '.claude-plugin', 'plugin.json'),
                      path.join('.claude-plugin', 'marketplace.json')]) {
     const text = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
     assert.ok(text.includes('three surfaces'), `${rel} still claims four surfaces`);

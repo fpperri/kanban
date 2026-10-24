@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { depthOf, depthMap } = require('../web/nesting');
-const { sliceCards, sliceDepths } = require('../web/slices');
+const { depthOf, depthMap } = require('../../plugin/skills/web/web/nesting');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra) => Object.assign({ id: String(id), parent: null, rank: null, priority: 'Normal', status: 'todo', archived: false }, extra);
@@ -313,7 +313,7 @@ test('a card the depth map does not know is read as a root, and a damaged depth 
 
 // The snapshot embeds both files as they are, into a page where no other module
 // is loaded and a build step rewrites __NAME__ tokens.
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const sourceOf = (file) => fs.readFileSync(path.join(WEB, file), 'utf8').split('\r\n').join('\n');
 
 test('the slice module needs no module but the id and nesting modules, cannot close the script element it is embedded in, and holds no build placeholder', () => {

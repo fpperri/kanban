@@ -9,10 +9,10 @@ const path = require('node:path');
 // takes the anchor's text out of the box; a double click that already means
 // something stays what it is; Esc is the step-by-step way back.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
-const webSkill = read('skills', 'web', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webDoc = flat(read('docs', 'web.md'));
 const adr = flat(read('docs', 'adr', '0006-one-interaction-grammar.md'));
 

@@ -11,7 +11,7 @@
 // Copy button; the Logbook page of this board, switched off, shows none. Each step waits on the
 // page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): settingsBoardPages, state, settingsUi.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): settingsBoardPages, state, settingsUi.
 
 const fs = require('fs');
 const path = require('path');

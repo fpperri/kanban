@@ -18,7 +18,7 @@ const path = require('node:path');
 
 const { blankNonCode, topLevelDeclarations, collisions } = require('./helpers/global-scope');
 
-const webDir = path.join(__dirname, '..', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const webFiles = fs.readdirSync(webDir).filter((f) => f.endsWith('.js')).sort();
 const readWeb = (f) => fs.readFileSync(path.join(webDir, f), 'utf8');
 

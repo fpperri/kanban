@@ -1,7 +1,7 @@
 'use strict';
 // The search grammar on the Board, on the plan board: an or between sticker
 // scopes, a tag cue click inside it, a quoted tag and `waiting:`. What each
-// query shows is written down in CASES, and skills/web/test/browser-search-grammar.test.js
+// query shows is written down in CASES, and test/web/browser-search-grammar.test.js
 // holds those lists to the search module over the plan board's own cards, so a
 // wrong expectation fails in the unit suite and not only in a browser.
 //

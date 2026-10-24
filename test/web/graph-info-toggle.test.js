@@ -100,14 +100,14 @@ test('the empty state still shows the floating buttons', async () => {
 });
 
 test('the (i) is in REFOCUS_SELECTOR and refocusSelector finds it again', async () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.match(app.match(/const REFOCUS_SELECTOR = [^\n]*/)[0], /\.graph-info-toggle/);
   const s = await open();
   assert.strictEqual(s.page.run('refocusSelector(document.querySelector ? {dataset:{graphInfo:""},classList:["graph-info-toggle"]} : null)'), '.graph-info-toggle');
 });
 
 test('app.css floats the Graph\'s controls and the Map\'s bar top-right on an opaque --paper ground, with top padding on .map-main', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   const rule = (sel) => { const m = css.match(new RegExp(`^${sel.replace(/[.]/g, '\\.')} \{([^}]*)\}`, 'm')); assert.ok(m, `${sel} has a rule`); return m[1]; };
   const controls = rule('.graph-controls');
   assert.match(controls, /position: absolute/);
@@ -126,7 +126,7 @@ test('app.css floats the Graph\'s controls and the Map\'s bar top-right on an op
 });
 
 test('docs/web.md and SKILL.md say the count and the key sit behind (i)', () => {
-  for (const f of [path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), path.join(__dirname, '..', 'SKILL.md')]) {
+  for (const f of [path.join(__dirname, '..', '..', 'docs', 'web.md'), path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md')]) {
     assert.match(fs.readFileSync(f, 'utf8'), /(count and (the )?key|key and (the )?(card )?count)[^.]*\(i\)|\(i\)[^.]*(count and (the )?key|card count and key)/i, f);
   }
 });

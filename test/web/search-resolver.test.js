@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards, resolveTerms } = require('../web/search');
+const { parseSearchQuery, filterCards, resolveTerms } = require('../../plugin/skills/web/web/search');
 
 // Card 2 waits for card 1, so the default dependency graph puts 1 and 2 in one
 // tree and in one path; card 3 stands alone.

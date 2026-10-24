@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const settings = require('../web/settings');
+const settings = require('../../plugin/skills/web/web/settings');
 
 // The scratchpad as the page holds it (docs/adr/0016): the script that draws the palette's tab and
 // registers the gear's page, how the other scripts reach it, and the stylesheet rules it needs. The
 // rules are notes.js (noteTabs), settings.js and delete-plan.js, each tested apart; the real page runs
 // all of it in the browser runner's scratchpad scenario.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');

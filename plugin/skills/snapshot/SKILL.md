@@ -12,7 +12,7 @@ is the human's second surface: `kanban-web` (desktop editor) and
 Claude is the write path).
 
 The page carries the plugin's icon (`assets/icon.svg`) inline as its tab icon, so it shows
-without fetching anything; `test/icon.test.js` keeps the inlined copy identical.
+without fetching anything; `test/snapshot/icon.test.js` keeps the inlined copy identical.
 
 The editor is read-write but indirect: nothing touches disk until the human
 pastes the payload back to Claude. Claude is the write path and enforces the
@@ -183,13 +183,13 @@ on and a run that cuts, and its accessible name says which (`2 on: review, slice
 with nothing on there is no chip. Tab reaches the arrow, both fold controls, every slice entry and
 every pill, and Enter and Space act as a click. The pill list and the run of slices are kanban-web's
 own `skills/web/web/pills.js` and `skills/web/web/slice-run.js`, embedded as they are
-(`test/pills-embed.test.js` and `test/slice-run-embed.test.js` pin them to those files), and so are the
+(`test/snapshot/pills-embed.test.js` and `test/snapshot/slice-run-embed.test.js` pin them to those files), and so are the
 key guard's check for a field with focus (`skills/web/web/key-guard.js`), the rule for a chord (in
 `slice-run.js`) and the suggestion list's step (`skills/web/web/combobox.js`); the drawing
-and the gestures are the page's own, and `test/panel-pills.test.js` and `test/panel-slices.test.js`
+and the gestures are the page's own, and `test/snapshot/panel-pills.test.js` and `test/snapshot/panel-slices.test.js`
 hold its counts and its terms to the web's. The hint texts on the pills, the slice entries and the
 panel's arrow are strings of kanban-web's page scripts, which need a DOM and are not embedded, so
-`test/panel-copies.test.js` holds the page's copy of each to the web's source.
+`test/snapshot/panel-copies.test.js` holds the page's copy of each to the web's source.
 
 Every view carries a status-pill row (each pill a button with `aria-pressed`; a tap toggles
 one, a right-click solos it and a right-click on the soloed pill turns all back on; an off
@@ -297,7 +297,7 @@ search term uses).
 
 The page embeds `skills/web/web/nesting.js` as is, so which card sits under which,
 outline order, the thread and the roll-up counts are kanban-web's own rules, with
-nothing to sync by hand; `test/nesting-embed.test.js` pins the embedded source to
+nothing to sync by hand; `test/snapshot/nesting-embed.test.js` pins the embedded source to
 that file, and the build refuses a module that could close its own script element.
 The build reads that file from the kanban-web skill installed beside this one, so
 install the two together: a snapshot-only install exits with a message naming the
@@ -308,7 +308,7 @@ written twice, each beside a twin in kanban-web: `typeColor` (the type color mat
 `typeColor` in `type-badge.js`), `rollupSegs` (the order of a roll-up bar's segments;
 `rollupSegments` in `rollup-bar.js`) and `rollupBlock` (the sheet's counts and scope
 line; `rollupBar` and `rollupScopeLine` in `rollup-bar.js`). Change one and change
-its twin; `test/nesting-parity.test.js` fails when they stop giving the same answers.
+its twin; `test/snapshot/nesting-parity.test.js` fails when they stop giving the same answers.
 
 - **Type chips.** A card with a `type` wears a chip, in the color its `config.yaml`
   `types:` entry gives it (the names match without regard to case) and neutral when
@@ -317,18 +317,18 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
   case) starts its chip with that glyph, in the chip's own color, wherever the page
   draws the chip; a type with no icon, or an unknown icon name, draws the plain chip:
   its name alone. The glyphs are kanban-web's own `skills/web/web/type-icons.js`,
-  embedded as is (`test/type-icons-embed.test.js` pins it to that file), and never
+  embedded as is (`test/snapshot/type-icons-embed.test.js` pins it to that file), and never
   the web's type chip module, whose two-argument color function would replace the
   page's own. The page also holds the board's `pills:` entries, a label and a query
   each, in config order. The readers of `icon:` and `pills:` are written twice, here
-  and in kanban-web's `config-store.js`, and `test/nesting-config.test.js` fails when
+  and in kanban-web's `config-store.js`, and `test/snapshot/nesting-config.test.js` fails when
   they stop reading the same entries alike. The list only suggests: any word is a type.
 - **Types off.** With `typesOn: false` in `config.yaml` the builder embeds no `types:` and no
   `hierarchy:` and a flag the page reads (`TYPES_ON`), as kanban-web's `boardTypeView` does:
   no type chip, color or icon on a tile or a Map node, no type pill in a card's sheet and no
   `type` field in All fields (so the editor queues no change to a card's `type:` line), and the
   slices are the depths. The cards and the lists stay as written, and a line absent or not
-  `false` means on. `test/types-off.test.js` pins the reading to kanban-web's.
+  `false` means on. `test/snapshot/types-off.test.js` pins the reading to kanban-web's.
 - **Outline order.** On a board where any card has a `rank` or a `parent`, every
   status section lists its cards in outline order: parents before their children,
   siblings by rank, then by priority (the `priorities:` order), then by id. A board
@@ -356,13 +356,13 @@ its twin; `test/nesting-parity.test.js` fails when they stop giving the same ans
 The page embeds `skills/web/web/map-relations.js` as is, beside `nesting.js`, so which
 parent lines the Map draws, which cards share a graph, how a row reads, which cards
 have no relation at all and where cards and lines fall are kanban-web's own rules;
-`test/map-embed.test.js` pins the embedded source to that file, under the same build
+`test/snapshot/map-embed.test.js` pins the embedded source to that file, under the same build
 guards as the nesting module. The build reads it from the kanban-web skill installed
 beside this one, like `nesting.js`.
 
 The page keeps only the drawing of those results as SVG, and the relations it hands the
 rules are built twice: `buildRelGraph` here, `buildRelationsGraph` in `dependency-graph.js`
-there. `test/map-parity.test.js` runs both over a board with every kind of relation,
+there. `test/snapshot/map-parity.test.js` runs both over a board with every kind of relation,
 whole and filtered, and fails when they stop giving the same graphs. The Map shows the
 board as embedded, like the Gantt and the Calendar: a queued edit does not move it.
 

@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const {
   graphBuild, graphUnnestedIds, graphFanPlace, graphLayoutHierarchy, graphLayout, graphSignature, graphLayoutCacheClear, graphRadius, graphPlan, graphFit,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const {
   STATUSES, HIERARCHY, CTX, loadBoard, cleanUp, card, drawnModel, rootShapedCards, captionRects, clashes,
 } = require('./helpers/fan-boards');

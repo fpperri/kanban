@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const lb = require('../scripts/logbook-store');
+const lb = require('../../plugin/skills/web/scripts/logbook-store');
 
 function tmpBoard(config = 'name: t\nlogbook: logbook\n') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-logbook-'));

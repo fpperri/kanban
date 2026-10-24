@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { parseSearchQuery, filterCards, searchTermText } = require('../web/search');
-const { pillList, pillEntries, pillIsOn, pillsOn, pillStep, panelChip } = require('../web/pills');
-const { NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, addPart } = require('../web/selection');
+const { parseSearchQuery, filterCards, searchTermText } = require('../../plugin/skills/web/web/search');
+const { pillList, pillEntries, pillIsOn, pillsOn, pillStep, panelChip } = require('../../plugin/skills/web/web/pills');
+const { NO_SELECTION, cardPart, pathPart, queryPart, typedQueryPart, addPart } = require('../../plugin/skills/web/web/selection');
 
 // The pills the search panel lists: blocked, review and waiting, in that order,
 // each with the number of the cards given that its query matches. The search
@@ -222,7 +222,7 @@ test('with nothing on there is no chip', () => {
 
 // The snapshot embeds this file as it is, into a page where no other module is
 // loaded and a build step rewrites __NAME__ tokens.
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const source = fs.readFileSync(path.join(WEB, 'pills.js'), 'utf8').split('\r\n').join('\n');
 
 test('the pill-list module needs no other module, cannot close the script element it is embedded in, and holds no build placeholder', () => {

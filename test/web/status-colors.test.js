@@ -6,7 +6,7 @@ const path = require('node:path');
 const {
   BUILTIN_STATUS_COLORS, STATUS_PALETTE, ARCHIVE_COLOR, isBuiltinStatus, statusColor, statusColorClass, statusColorSoft, statusBadge, archivedBadge,
   LIGHT_STATUS_COLORS, LIGHT_ARCHIVE_COLOR, HASH_SLOTS, themeColorTokens, statusColorVar,
-} = require('../web/status-colors');
+} = require('../../plugin/skills/web/web/status-colors');
 
 // --- deterministic status coloring for dynamic columns -------------
 
@@ -119,7 +119,7 @@ test('no hashable palette slot is near-grey or the archive grey — grey means a
 });
 
 test('the map node border is one neutral weight for every status — status moved to its own dot', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.map-node rect\s*\{[^}]*stroke:\s*var\(--line\)/, 'one neutral stroke color, not per-status');
   for (const status of ['backlog', 'todo', 'doing', 'done', 'unknown']) {
     assert.ok(!css.includes(`.map-node.status-${status} rect`), `no more per-status rect stroke rule: ${status}`);
@@ -141,7 +141,7 @@ test('the map node border is one neutral weight for every status — status move
 // in status-pill-docs.test.js, specifically to catch silent drift;
 // this bullet is pinned the same way.
 test('SKILL.md documents the map node\'s priority/waiting border', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   const bullet = skill.match(/\*\*Node treatments:\*\*[\s\S]*?(?=\n  \*\*Status-filter row\*\*)/);
   assert.ok(bullet, 'the Node treatments block exists in the Dependency map section');
   assert.match(bullet[0], /#f85149/, 'names the red high-priority color');
@@ -153,7 +153,7 @@ test('SKILL.md documents the map node\'s priority/waiting border', () => {
 });
 
 test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exactly', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.card\.high\s*\{[^}]*border-left:\s*3px solid var\(--id-high\)/, 'board tile high-priority red (reference)');
   assert.match(css, /\.card\.waiting\s*\{[^}]*border-left:\s*3px solid var\(--id-waiting\)/, 'board tile waiting amber');
   assert.match(css, /\.map-node\.high rect\s*\{[^}]*stroke:\s*var\(--id-high\)/, 'map node reuses the same red for high priority');
@@ -169,7 +169,7 @@ test('.map-node.high/.waiting rect strokes match the board tile\'s red/amber exa
 });
 
 test('the blocked sticker\'s red pill is styled on both surfaces it shows (tiles + map), on its own ground and ink', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.blocked-pill\s*\{[^}]*background:\s*var\(--blocked-bg\)/, 'board tile pill — its own red ground, never a tint of its ink');
   assert.match(css, /\.blocked-pill\s*\{[^}]*color:\s*var\(--blocked-ink\)/, 'board tile pill — red text');
   assert.match(css, /\.map-blocked-pill rect\s*\{[^}]*fill:\s*var\(--blocked-bg\);[^}]*stroke:\s*var\(--blocked-ink\)/, 'map SVG pill twin — same ground and red');
@@ -248,7 +248,7 @@ test('the map SVG dot carries NO archived-mute CSS override — every built-in s
   // higher-specificity `.map-node.archived .map-status-dot` rule to mute that
   // dot grey; that rule is gone entirely so the per-status fill
   // always wins, on every surface, with no specificity contest left to referee.
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.ok(!css.includes('.map-node.archived .map-status-dot'), 'the archived status-dot mute rule is gone — status dots never mute');
   for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
     const statusSelector = `.map-status-dot.status-${status}`;
@@ -265,7 +265,7 @@ test('statusBadge tolerates a missing/null status without throwing', () => {
 });
 
 test('app.css paints a shape-only .status-dot rule, plus one .status-dot--* color rule per statusColorClass() outcome — no inline style', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.status-dot\s*\{[^}]*width:\s*8px;[^}]*height:\s*8px;[^}]*border-radius:\s*50%/,
     'same 8px dot shape .archived-dot carries');
   for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
@@ -292,20 +292,20 @@ test('archivedBadge is the shared HTML glyph — a grey dot with an "Archived" t
 });
 
 test('app.css paints the archived-dot glyph in ARCHIVE_COLOR, same 8px shape, plus its map SVG twin', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.archived-dot\s*\{[^}]*width:\s*8px;[^}]*height:\s*8px;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--st-archive\)/,
     'the shared HTML dot is the same 8px shape as the status dot, carrying ARCHIVE_COLOR');
   assert.ok(css.includes('.map-archived-dot { fill: var(--st-archive);'), 'the map node has its own SVG twin, same grey');
 });
 
 test('a status dot immediately followed by an archived dot gets a gap', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.status-dot \+ \.archived-dot\s*\{[^}]*margin-left:\s*4px/,
     'archived always follows statusBadge() directly (status, archived order) — needs the same adjacent-sibling gap');
 });
 
 test('SKILL.md documents the archived ball as its own bullet', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   const bullet = skill.match(/- \*\*Archived ball\*\*[\s\S]*?(?=\n- \*\*)/);
   assert.ok(bullet, 'the Archived ball bullet exists');
   assert.match(bullet[0], /archivedBadge\(\)/, 'names the helper');
@@ -322,12 +322,12 @@ test('SKILL.md documents the archived ball as its own bullet', () => {
 });
 
 test('SKILL.md\'s Dependency map section points from the status-dot narrative to the archived ball closing the loop', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   assert.match(skill, /the grey \*\*Archived ball\*\* \(above\) joins the dot column/, 'the status-dot narrative points to the archived ball closing the loop');
 });
 
 test('app.css agrees with the JS palette on every status-colored surface', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   for (const status of Object.keys(BUILTIN_STATUS_COLORS)) {
     assert.ok(css.includes(`.col-${status} .column-header { color: var(--st-${status});`), `column header: ${status}`);
     assert.ok(css.includes(`.map-status-dot.status-${status} { fill: var(--st-${status});`), `map status dot: ${status}`); // moved off the rect stroke
@@ -350,14 +350,14 @@ test('app.css agrees with the JS palette on every status-colored surface', () =>
 // future edit can't quietly reintroduce an inline style attribute here.
 
 test('neither status-colors.js nor app.js emits a literal style="..." HTML attribute anywhere (regression)', () => {
-  const statusColorsSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'status-colors.js'), 'utf8');
-  const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const statusColorsSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'status-colors.js'), 'utf8');
+  const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.doesNotMatch(statusColorsSrc, /style="/, 'status-colors.js must never build an inline style="" attribute string — CSP style-src has no unsafe-inline');
   assert.doesNotMatch(appSrc, /style="/, 'app.js must never build an inline style="" attribute string — CSP style-src has no unsafe-inline (CSSOM .style.x assignments are fine, they do not match this pattern)');
 });
 
 test('statusColorClass covers the exact same value space as statusColor — every hashed slot has a matching CSS class both for .status-dot-- and .map-status-dot.status- (regression)', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   STATUS_PALETTE.forEach((hex, i) => {
     assert.ok(css.includes(`.map-status-dot.status-palette-${i} { fill: var(--hash-${HASH_SLOTS[i]});`), `map-status-dot palette rule present: palette-${i}`);
   });
@@ -372,7 +372,7 @@ test('statusColorClass covers the exact same value space as statusColor — ever
 // The identities are tokens with one value per theme. status-colors.js owns
 // the values; app.css cannot import JS, so it carries them literally and these
 // tests pin the two together, block by block.
-const cssText = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const cssText = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 function braceBlock(src, openIdx) {
   let depth = 0;
   for (let i = openIdx; i < src.length; i++) {
@@ -472,11 +472,11 @@ test('the five status colours stay apart under protanopia and deuteranopia, in b
 // Every colour app.js paints inline goes through the var() twins, so it
 // follows the theme; a bare hex write would paint the dark value in light mode.
 test('app.js paints status and assignee colours only through the theme-following var() twins', () => {
-  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   assert.doesNotMatch(app, /\bstatusColor\(/, 'statusColor() returns the dark hex: paint with statusColorVar()');
   assert.doesNotMatch(app, /\bassigneeColor\(/, 'assigneeColor() returns the dark hex: paint with assigneeColorVar()');
   assert.match(app, /\.column-header'\)\.style\.color = statusColorVar\(col\)/, 'custom column headers');
-  const statuses = fs.readFileSync(path.join(__dirname, '..', 'web', 'search-statuses.js'), 'utf8');
+  const statuses = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'search-statuses.js'), 'utf8');
   assert.match(statuses, /dot\.style\.color = statusColorVar\(col\)/, 'status pill dots, in the Statuses section');
   assert.match(app, /glabel\.style\.color = statusColorVar\(group\.status\)/, 'gantt group labels');
   assert.match(app, /input\.style\.color = handle \? \(assigneeColorVar\(/, 'the assignee input');

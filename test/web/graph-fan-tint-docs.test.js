@@ -7,8 +7,8 @@ const path = require('node:path');
 // that holds a card in its type's colour: the hierarchy reads as coloured areas. The
 // words are the glossary's: hierarchy, tier, slice, band, status pill, isolate.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);

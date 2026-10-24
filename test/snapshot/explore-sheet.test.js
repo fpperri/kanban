@@ -62,7 +62,7 @@ test('a card queued to be created has no id yet, so its sheet has none of the fo
 
 test('the page\'s four sets match kanban-web\'s for every card of a board with a loop, a self-link, a missing card, another board\'s parent and an archived child', () => {
   const { board, open } = require('./nesting-view');
-  const web = require('../../web/web/explore-sets');
+  const web = require('../../plugin/skills/web/web/explore-sets');
   const live = [
     [1, 'todo', 'Root'], [2, 'todo', 'Under 1', { parent: 1 }], [3, 'todo', 'Under 1, waits for 2', { parent: 1, waiting_for: '[2]' }],
     [4, 'todo', 'Under 3', { parent: 3 }], [5, 'todo', 'Waits for 4 and a missing card', { waiting_for: '[4, 99]' }],
@@ -107,7 +107,7 @@ test('the right-click menu lists the four after Delete in the sheet\'s order, ea
 });
 
 test('the sheet and the menu draw from one label table whose kinds are the web\'s EXPLORE_KINDS', () => {
-  const { EXPLORE_KINDS } = require('../../web/web/explore-sets');
+  const { EXPLORE_KINDS } = require('../../plugin/skills/web/web/explore-sets');
   withBuiltBoard('plan', (page) => {
     assert.deepStrictEqual(page.plain(page.run('Object.keys(EXPLORE_LABELS).sort()')), [...EXPLORE_KINDS].sort());
   });

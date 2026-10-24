@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { graphLayout, graphPlan } = require('../web/graph-model');
+const { graphLayout, graphPlan } = require('../../plugin/skills/web/web/graph-model');
 const {
   STATUSES, loadBoard, cleanUp, drawnModel, buildOf, card,
 } = require('./helpers/fan-boards');
@@ -16,7 +16,7 @@ const {
 
 after(cleanUp);
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const src = read('graph-view.js');
 const css = read('app.css');

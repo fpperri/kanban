@@ -10,7 +10,7 @@
 // among the children of G3. The board's config declares prefixes G for goal and DW for
 // deep-work, a counter for each, and idDigits 4.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds.
 
 // The live cards in the order of the id rule: plain numbers, then each prefix by its number.

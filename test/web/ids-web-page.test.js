@@ -1,12 +1,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { loadPage, control, harmless } = require('./helpers/page-vm');
-const { parseSearchQuery, filterCards, searchIsolateText } = require('../web/search');
-const { cardPart, pathPart, treePart } = require('../web/selection');
-const { buildDependencyGraph, treeIds, pathIds } = require('../web/dependency-graph');
-const { sortCards } = require('../web/column-sort');
-const { graphBuild } = require('../web/graph-model');
-const { unresolvedWaits } = require('../web/waiting-blocked');
+const { parseSearchQuery, filterCards, searchIsolateText } = require('../../plugin/skills/web/web/search');
+const { cardPart, pathPart, treePart } = require('../../plugin/skills/web/web/selection');
+const { buildDependencyGraph, treeIds, pathIds } = require('../../plugin/skills/web/web/dependency-graph');
+const { sortCards } = require('../../plugin/skills/web/web/column-sort');
+const { graphBuild } = require('../../plugin/skills/web/web/graph-model');
+const { unresolvedWaits } = require('../../plugin/skills/web/web/waiting-blocked');
 
 // A board holding #7 and #G7: two cards, not one. The server may still send a plain id as a
 // number, so the board here does (7), and the group card as its string (G7). Selecting,
@@ -134,8 +134,8 @@ test('a list sorts plain ids first, then by prefix, and #9 before #10', () => {
 });
 
 test('bars and lanes that tie sort plain ids first, and #9 before #10', () => {
-  const { ganttGroups } = require('../web/gantt-model');
-  const { assignLanes } = require('../web/calendar-model');
+  const { ganttGroups } = require('../../plugin/skills/web/web/gantt-model');
+  const { assignLanes } = require('../../plugin/skills/web/web/calendar-model');
   const dated = ['G10', '10', 'G7', '9', '7'].map((id) => ({ id, status: 'todo', title: `c${id}`, due_date: '2026-07-09', start_date: '2026-07-03', end_date: '2026-07-06' }));
   assert.deepStrictEqual(ganttGroups(dated)[0].bars.map((b) => b.card.id), ['7', '9', '10', 'G7', 'G10']);
   const blocks = ['G7', '10', '7', '9'].map((id) => ({ card: { id }, startMin: 540, endMin: 600 }));

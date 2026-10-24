@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const script = path.join(__dirname, '..', '..', 'kanban', 'scripts', 'migrate_epic_to_type.sh');
+const script = path.join(__dirname, '..', '..', 'plugin', 'skills', 'kanban', 'scripts', 'migrate_epic_to_type.sh');
 
 // A bare `bash` is the WSL stub when the suite runs from PowerShell: it cannot
 // open this script, so every test below would fail with the same cryptic error.
@@ -245,7 +245,7 @@ test('a missing directory is an error', () => {
   assert.throws(() => run(path.join(os.tmpdir(), 'kanban-epic-does-not-exist')), /Command failed|status 1/);
 });
 
-const demo = path.join(__dirname, '..', '..', '..', 'examples', 'demo-board');
+const demo = path.join(__dirname, '..', '..', 'examples', 'demo-board');
 
 test('the demo board has already been migrated: no epic: line, its launch card is type: epic, and a rerun finds nothing', () => {
   const cards = [];

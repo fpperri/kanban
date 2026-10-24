@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
   const m = appSrc.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -15,8 +15,8 @@ function fn(name) {
 // The real functions against a fake localStorage: what a board's options do
 // across a reload, a poll tick and a second board is what is under test.
 function optionsSandbox({ stored = {}, throws = false, board = 'shop' } = {}) {
-  const { storageKey } = require('../web/column-state');
-  const { mergeMapOptions, MAP_OPTION_VALUES } = require('../web/map-relations');
+  const { storageKey } = require('../../plugin/skills/web/web/column-state');
+  const { mergeMapOptions, MAP_OPTION_VALUES } = require('../../plugin/skills/web/web/map-relations');
   const writes = {};
   const sandbox = {
     state: { projectName: board },
@@ -80,7 +80,7 @@ test('a change is saved whole, shows at once, and is what the next page load rea
 });
 
 test('each of the eight options survives a reload on its own', () => {
-  const { MAP_OPTION_VALUES } = require('../web/map-relations');
+  const { MAP_OPTION_VALUES } = require('../../plugin/skills/web/web/map-relations');
   for (const [key, values] of Object.entries(MAP_OPTION_VALUES)) {
     const other = values[values.length - 1];
     const first = optionsSandbox();
@@ -123,7 +123,7 @@ test('the poll\'s redraw leaves the remembered options alone', () => {
 // --- the retired fold: the options row has no section of its own any more ---
 
 function sectionsSandbox({ stored = {}, throws = false, board = 'shop' } = {}) {
-  const { storageKey, mergeMapSectionsCollapsed } = require('../web/column-state');
+  const { storageKey, mergeMapSectionsCollapsed } = require('../../plugin/skills/web/web/column-state');
   const writes = {};
   const sandbox = {
     state: { projectName: board },

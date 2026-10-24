@@ -8,7 +8,7 @@
 // and the focus a focus() on it, which are the events the page's hover listens to; a checkbox is pressed with
 // click(), which toggles it and fires the change the page listens to.
 //
-// What each choice lights is written down in CASES, and skills/web/test/browser-hover-show-scenario.test.js holds
+// What each choice lights is written down in CASES, and test/web/browser-hover-show-scenario.test.js holds
 // those lists to the sets over the plan board's own cards, so a wrong expectation fails in the unit suite and not
 // only in a browser.
 //
@@ -22,7 +22,7 @@
 // show the kept choice, three presses while the dot is hovered light the union of dtree and hpath at once, the search
 // panel's boxes show the same two, and Space writes them in the panel's order; the Flow's toggles show the Flow's own.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // hoveredId, graphCur.
 
 const CASES = {

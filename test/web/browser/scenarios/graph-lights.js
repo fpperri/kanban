@@ -10,7 +10,7 @@
 // fail a check for the wrong reason.
 //
 // What each query lights, and the relations of the cards the scenario clicks,
-// are written down in CASES and LONE, and skills/web/test/browser-graph-lights.test.js
+// are written down in CASES and LONE, and test/web/browser-graph-lights.test.js
 // holds those lists to the search module and the Graph model over the plan
 // board's own cards, so a wrong expectation fails in the unit suite and not only
 // in a browser.
@@ -22,7 +22,7 @@
 // cards, so slice:goal..objective is those five, and card 7 is the one among them
 // that carries the security tag.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // hoveredId, isolateNow, selectedIds.
 
 const CASES = {

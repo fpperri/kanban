@@ -4,7 +4,7 @@ const {
   isBlockedValue, blockedReason, blockedLabel,
   isReviewValue, reviewReason, reviewLabel,
   unresolvedWaits,
-} = require('../web/waiting-blocked');
+} = require('../../plugin/skills/web/web/waiting-blocked');
 
 // the ONE shared home of both doing-gate predicates.
 // card-store.js (the store) and app.js/dependency-graph.js (the UI) all call

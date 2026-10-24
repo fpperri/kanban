@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { PREFS_FEATURE, MD_COLOUR_KEY, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs, loadMdColour, saveMdColour } = require('../web/prefs');
+const { PREFS_FEATURE, MD_COLOUR_KEY, prefsDefaults, mergePrefs, prefsWith, loadPrefs, savePrefs, loadMdColour, saveMdColour } = require('../../plugin/skills/web/web/prefs');
 
 // The preferences kept in the browser per board: what a plain click on a card
 // does in each view, whether archived leaves count as done, whether the

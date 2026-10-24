@@ -6,8 +6,8 @@ const path = require('node:path');
 // Helpers the stores share are written once: the day reader, the status error, the atomic
 // write, the posix path. Each store takes them from the one place; nothing declares its own copy.
 
-const SCRIPTS = path.join(__dirname, '..', 'scripts');
-const WEB = path.join(__dirname, '..', 'web');
+const SCRIPTS = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (dir, file) => fs.readFileSync(path.join(dir, file), 'utf8');
 
 test('the group and logbook stores and the iteration rules read a day through days.js, not their own date math', () => {
@@ -17,7 +17,7 @@ test('the group and logbook stores and the iteration rules read a day through da
 });
 
 test('the group, logbook, scratchpad, todo and settings stores refuse with the one status error', () => {
-  const { StatusError } = require('../scripts/store-common');
+  const { StatusError } = require('../../plugin/skills/web/scripts/store-common');
   const server = read(SCRIPTS, 'server.js');
   for (const file of ['group-store.js', 'logbook-store.js', 'scratchpad-store.js', 'todo-store.js', 'settings-store.js']) {
     assert.ok(!/class \w+Error/.test(read(SCRIPTS, file)), `${file} declares no error class of its own`);
@@ -25,7 +25,7 @@ test('the group, logbook, scratchpad, todo and settings stores refuse with the o
   assert.ok(!/(?:GroupError|LogbookError|ScratchpadError|SettingsError)/.test(server), 'the server names none of them');
   const e = new StatusError('nope', 404);
   assert.deepStrictEqual([e instanceof Error, e.message, e.status], [true, 'nope', 404]);
-  const gs = require('../scripts/group-store');
+  const gs = require('../../plugin/skills/web/scripts/group-store');
   const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'kanban-status-'));
   assert.throws(() => gs.updateGroup(dir, 'I1', {}), (err) => err instanceof StatusError && err.status === 404);
 });
@@ -35,7 +35,7 @@ test('the stores write through card-store\'s writeAtomic and name no tmp file of
     assert.ok(!/\.tmp`/.test(read(SCRIPTS, file)), `${file} has no tmp-and-rename of its own`);
     assert.match(read(SCRIPTS, file), /writeAtomic/, `${file} writes through writeAtomic`);
   }
-  assert.strictEqual(typeof require('../scripts/card-store').writeAtomic, 'function');
+  assert.strictEqual(typeof require('../../plugin/skills/web/scripts/card-store').writeAtomic, 'function');
 });
 
 test('posix is one helper, and the scratchpad store\'s listing no longer shares a name with the server\'s served files', () => {

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { tagUnion, addTagChanges, removeTagsChanges, scheduleChanges, scheduleSummary } = require('../web/bulk-edit');
+const { tagUnion, addTagChanges, removeTagsChanges, scheduleChanges, scheduleSummary } = require('../../plugin/skills/web/web/bulk-edit');
 
 // pure rules behind the bulk Edit-tags popup.
 

@@ -1,8 +1,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const { sliceCards, sliceDepths } = require('../../web/web/slices');
-const { readConfig } = require('../../web/scripts/config-store');
-const { listActive, listArchived, toJSON } = require('../../web/scripts/card-store');
+const { sliceCards, sliceDepths } = require('../../plugin/skills/web/web/slices');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
 const { board: smallBoard } = require('./nesting-view');
 const { withSnapshot } = require('./nesting-fixture');
 const { loadPage } = require('./page-harness');

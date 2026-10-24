@@ -9,7 +9,7 @@
 // all share, or offers to make one, or to write the note on each card. group:, group:<id or name>
 // and -group: narrow the board. Each step waits on the page, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, selectedIds, toast (the page's #toast element, by its id), writeSearch.
 
 const PAL = `document.getElementById('notes-palette')`;

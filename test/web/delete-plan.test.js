@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { deletePlan, deleteBody, DELETE_EXTRAS } = require('../web/delete-plan');
+const { deletePlan, deleteBody, DELETE_EXTRAS } = require('../../plugin/skills/web/web/delete-plan');
 
 // What the delete popup says and offers, apart from the DOM: the cards are 3, 7 and 15 (2 is
 // archived), the groups I1 lists 3 and 7, I2 lists 7 and 15, and the board keeps a logbook with
@@ -144,7 +144,7 @@ test('the request carries the todo list box when it is ticked', () => {
 });
 
 test('the toast names the todo lists that went with a card or a group', () => {
-  const { deleteSummary } = require('../web/delete-plan');
+  const { deleteSummary } = require('../../plugin/skills/web/web/delete-plan');
   assert.strictEqual(deleteSummary('card', ['7'], [{ groups: [], swept: { scratchpad: 1, todos: 1 } }], []), 'Deleted #7; deleted 1 scratchpad; deleted 1 todo list.');
   assert.strictEqual(deleteSummary('card', ['3', '7'], [{ groups: [], swept: { todos: 1 } }, { groups: [], swept: { todos: 1 } }], []), 'Deleted 2 cards; deleted 2 todo lists.');
   assert.strictEqual(deleteSummary('group', ['I1'], [{ deleted: ['7'], kept: [], swept: { todos: 1 }, membersSwept: { todos: 2 } }], []), 'Deleted group #I1; deleted 1 member card (#7); deleted its todo list; deleted their 2 todo lists.');
@@ -165,27 +165,27 @@ test('an extra added later joins the popup: it is one entry in the registry', ()
 });
 
 test('the toast says what went: the card, the groups it left, the logbook files', () => {
-  const { deleteSummary } = require('../web/delete-plan');
+  const { deleteSummary } = require('../../plugin/skills/web/web/delete-plan');
   assert.strictEqual(deleteSummary('card', ['7'], [{ groups: ['I1', 'I2'], swept: { logbook: 2 } }], []), 'Deleted #7; out of #I1, #I2; deleted 2 logbook files.');
   assert.strictEqual(deleteSummary('card', ['3'], [{ groups: [], swept: {} }], []), 'Deleted #3.');
   assert.strictEqual(deleteSummary('card', ['3', '7', '15'], [{ groups: ['I1'], swept: {} }, { groups: ['I1', 'I2'], swept: {} }], ['#15 (boom)']), 'Deleted 2 cards; out of #I1, #I2; failed: #15 (boom)');
 });
 
 test('the toast names the scratchpads that went with a card or a group', () => {
-  const { deleteSummary } = require('../web/delete-plan');
+  const { deleteSummary } = require('../../plugin/skills/web/web/delete-plan');
   assert.strictEqual(deleteSummary('card', ['7'], [{ groups: [], swept: { logbook: 1, scratchpad: 1 } }], []), 'Deleted #7; deleted 1 logbook file; deleted 1 scratchpad.');
   assert.strictEqual(deleteSummary('card', ['3', '7'], [{ groups: [], swept: { scratchpad: 1 } }, { groups: [], swept: { scratchpad: 1 } }], []), 'Deleted 2 cards; deleted 2 scratchpads.');
   assert.strictEqual(deleteSummary('group', ['I1'], [{ deleted: [], kept: [], swept: { scratchpad: 1 } }], []), 'Deleted group #I1; deleted its scratchpad.');
 });
 
 test('the toast for a group names the member files that went with the cards', () => {
-  const { deleteSummary } = require('../web/delete-plan');
+  const { deleteSummary } = require('../../plugin/skills/web/web/delete-plan');
   const r = { deleted: ['15'], kept: [], swept: {}, membersSwept: { logbook: 2, scratchpad: 1 } };
   assert.strictEqual(deleteSummary('group', ['I2'], [r], []), 'Deleted group #I2; deleted 1 member card (#15); deleted their 2 logbook files; deleted their 1 scratchpad.');
 });
 
 test('the toast for a group names the members it deleted and the ones it kept', () => {
-  const { deleteSummary } = require('../web/delete-plan');
+  const { deleteSummary } = require('../../plugin/skills/web/web/delete-plan');
   const r = { deleted: ['3', '15'], kept: [{ id: '7', groups: ['I1'] }], swept: { logbook: 1 } };
   assert.strictEqual(deleteSummary('group', ['I2'], [r], []), 'Deleted group #I2; deleted 2 member cards (#3, #15); kept #7 (also in #I1); deleted its 1 logbook file.');
   assert.strictEqual(deleteSummary('group', ['I2'], [{ deleted: [], kept: [], swept: {} }], []), 'Deleted group #I2.');

@@ -13,8 +13,8 @@ const {
   minutesToTime, CALENDAR_DRAG_SNAP_MIN,
   rescheduleRangeAtTime, rescheduleDueAtTime, resizeRangeAtTime,
   calendarCreateStart, nextSubview,
-} = require('../web/calendar-model');
-const { GANTT_SUBVIEWS } = require('../web/gantt-model');
+} = require('../../plugin/skills/web/web/calendar-model');
+const { GANTT_SUBVIEWS } = require('../../plugin/skills/web/web/gantt-model');
 
 // --- view mode (board / map / calendar / gantt / graph) ------
 

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { EXPLORE_KINDS, LINK_KINDS, hpathIds, htreeIds, dpathIds, dtreeIds, dlinksIds, hlinksIds } = require('../web/explore-sets');
+const { EXPLORE_KINDS, LINK_KINDS, hpathIds, htreeIds, dpathIds, dtreeIds, dlinksIds, hlinksIds } = require('../../plugin/skills/web/web/explore-sets');
 
 const set = (ids) => new Set(ids);
 

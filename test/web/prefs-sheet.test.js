@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const guard = require('../web/key-guard');
+const guard = require('../../plugin/skills/web/web/key-guard');
 
 // The gear in the header and the preferences sheet it opens from the right: the
 // markup, the markers that keep a selection and hold the poll, and the page
@@ -12,7 +12,7 @@ const guard = require('../web/key-guard');
 // the bar mode's is column-state.js's; the real page runs all of it in the
 // browser runner's preferences scenario.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const html = read('app.html');
@@ -158,7 +158,7 @@ function fakeEl(id, classes = []) {
 // A page with the sheet's elements, a store for the choices and the pieces of
 // app.js the sheet's code calls, so each function runs as the page defines it.
 function sheetPage({ stored = {}, detailOpen = false } = {}) {
-  const colState = require('../web/column-state');
+  const colState = require('../../plugin/skills/web/web/column-state');
   const writes = {};
   const log = { colour: [], renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], typingFolds: [], hoverFolds: [], switches: [], focused: null, shown: [], went: [] };
   const sheet = fakeEl('prefs-sheet', ['modal-backdrop', 'hidden']);
@@ -193,7 +193,7 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   const sandbox = {
     state: { projectName: 'shop' },
     ...colState,
-    ...require('../web/prefs'),
+    ...require('../../plugin/skills/web/web/prefs'),
     localStorage: {
       getItem: (k) => (Object.prototype.hasOwnProperty.call(stored, k) ? stored[k] : null),
       setItem: (k, v) => { writes[k] = v; stored[k] = v; },
@@ -631,7 +631,7 @@ test('an open sheet stops the 5s poll, because it sits on the modal backdrop the
   vm.createContext(sandbox);
   vm.runInContext(fn('anyModalOpen'), sandbox);
   assert.strictEqual(sandbox.anyModalOpen(), true);
-  const { shouldSkipAutoRefresh } = require('../web/refresh-policy');
+  const { shouldSkipAutoRefresh } = require('../../plugin/skills/web/web/refresh-policy');
   assert.strictEqual(shouldSkipAutoRefresh({ modalOpen: sandbox.anyModalOpen(), dragging: false, hidden: false, boardControlFocused: false }), true);
 });
 

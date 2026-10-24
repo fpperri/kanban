@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { isOverdue } = require('../web/column-sort');
+const { isOverdue } = require('../../plugin/skills/web/web/column-sort');
 
 // kanban.proj#258 — a card is overdue when due_date's day part (before any
 // 'T') is strictly earlier than today, the card isn't done, and it isn't
@@ -64,8 +64,8 @@ test('an unparseable due_date never flags overdue — fails safe rather than mis
 // same convention as assignee-badge.test.js's applyAssignees pin: app.js DOM
 // glue isn't require-able, jsdom isn't wired into this suite). ------------
 
-const appJs = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const appCss = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const appJs = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const appCss = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 
 test('board tile: scheduleBlockHtml adds .overdue to the due row alone, with a "Past due" tooltip (kanban.proj#260)', () => {
   assert.match(appJs, /card-schedule-row\$\{r\.overdue \? ' overdue' : ''\}/);
@@ -102,7 +102,7 @@ test('gantt: app.css styles .gantt-due-marker.overdue in the same danger red', (
 // --- doc pin: SKILL.md documents the overdue cue ---
 
 test('SKILL.md documents the overdue cue on all three surfaces that draw a deadline', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   const start = skill.indexOf('- **Overdue cue**');
   assert.ok(start > -1, 'the Overdue cue bullet exists');
   const bullet = skill.slice(start, skill.indexOf('- **Assignee text color**', start));
@@ -115,7 +115,7 @@ test('SKILL.md documents the overdue cue on all three surfaces that draw a deadl
 });
 
 test('SKILL.md no longer calls the calendar/gantt deadline cue unconditionally amber', () => {
-  const skill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
   assert.match(skill, /deadline chip \(amber border \+ ⚑ flag, red once \*\*overdue\*\*\)/);
   assert.match(skill, /amber diamond marker \(red once \*\*overdue\*\*;/);
 });

@@ -8,12 +8,12 @@ const path = require('node:path');
 // look: the kanban skill's config section is the contract, the web skill and
 // the README name what the board answer carries.
 
-const repoRoot = path.join(__dirname, '..', '..', '..');
+const repoRoot = path.join(__dirname, '..', '..');
 const read = (...p) => fs.readFileSync(path.join(repoRoot, ...p), 'utf8').replace(/\r\n/g, '\n');
 const flatten = (text) => text.replace(/\s+/g, ' ');
 
-const kanbanSkill = read('skills', 'kanban', 'SKILL.md');
-const webSkill = read('skills', 'web', 'SKILL.md');
+const kanbanSkill = read('plugin', 'skills', 'kanban', 'SKILL.md');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const readme = read('README.md');
 
 const configSection = (() => {

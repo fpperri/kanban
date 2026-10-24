@@ -7,7 +7,7 @@ const path = require('node:path');
 // been a small hand-rolled one and tables were simply not in its set, so a table's rows
 // fell through to the paragraph collector and came out as one run-on line. These run the
 // real renderer, so a regression shows up as wrong HTML rather than as a missing string.
-const { mdToHtml: render } = require('../web/markdown.js');
+const { mdToHtml: render } = require('../../plugin/skills/web/web/markdown.js');
 const mdToHtml = (md) => render(md, { board: 'webapp' });
 
 const LADDER = [
@@ -29,7 +29,7 @@ test('a pipe table renders as a real table, not a run-on paragraph', () => {
 
 test('the table scrolls in its own container, so a wide table never scrolls the popup', () => {
   assert.ok(mdToHtml(LADDER).includes('<div class="md-table">'), 'the table is wrapped in its scroller');
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.match(css, /\.detail-body \.md-table \{[^}]*overflow-x: auto/, 'the wrapper is the scroller');
 });
 
@@ -47,7 +47,7 @@ test('alignment colons are honoured per column, through classes rather than inli
   assert.ok(html.includes('<th class="ta-center">mid</th>'), 'both colons centre');
   assert.ok(html.includes('<td class="ta-right">c</td>'), 'alignment reaches body cells too');
   assert.ok(!html.includes('style='), 'no inline style attribute — the CSP would drop it');
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   for (const a of ['left', 'center', 'right']) {
     assert.match(css, new RegExp(`\\.md-table \\.ta-${a} \\{ text-align: ${a};`), `.ta-${a} has a rule`);
   }

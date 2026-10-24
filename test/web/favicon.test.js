@@ -4,14 +4,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const { createServer } = require('../scripts/server');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const svg = fs.readFileSync(path.join(WEB, 'favicon.svg'), 'utf8');
 const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');
 
 test('the tab icon is the plugin\'s official icon, assets/icon.svg, byte for byte (line endings aside)', () => {
-  const canonical = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'assets', 'icon.svg'), 'utf8');
+  const canonical = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'assets', 'icon.svg'), 'utf8');
   assert.strictEqual(svg.replace(/\r\n/g, '\n'), canonical.replace(/\r\n/g, '\n'));
 });
 
@@ -27,7 +27,7 @@ test('the page links the tab icon as an SVG served from the board server', () =>
 });
 
 test('the four streams fade into the board\'s status colors, backlog to done, left to right', () => {
-  const { BUILTIN_STATUS_COLORS } = require('../web/status-colors.js');
+  const { BUILTIN_STATUS_COLORS } = require('../../plugin/skills/web/web/status-colors.js');
   const streams = [...svg.matchAll(/<rect class="stream" x="([\d.]+)"[^>]*fill="url\(#(\w+)\)"/g)];
   assert.deepStrictEqual(streams.map((m) => m[2]), ['backlog', 'todo', 'doing', 'done']);
   const xs = streams.map((m) => Number(m[1]));

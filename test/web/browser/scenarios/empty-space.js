@@ -17,7 +17,7 @@
 // Gantt draw them as well (the runner puts the board's cards back before the next
 // scenario). Card 10 awaits review, so the review pill is on one card.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, selectionState.
 
 const VIEWS = ['board', 'map', 'gantt', 'calendar', 'graph'];

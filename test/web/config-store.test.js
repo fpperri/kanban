@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const cfg = require('../scripts/config-store');
+const cfg = require('../../plugin/skills/web/scripts/config-store');
 
 function tmpBoard() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-config-'));

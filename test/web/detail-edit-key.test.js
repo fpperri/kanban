@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const guard = require('../web/key-guard');
+const guard = require('../../plugin/skills/web/web/key-guard');
 
 // e on the card details opens the card's edit form, as the details' Edit button does. It reads the key
 // guard the way n does, through the details' own guard (keyGuardDetailOff): off in a field and behind any
 // popup but the details (NOTES_DETAIL), and off behind the notes palette, which is above them. The handler
 // runs here in a vm against a stand-in page, with the page's own notesDetailId.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8');
 const paletteSrc = fs.readFileSync(path.join(WEB, 'notes-palette.js'), 'utf8');
 const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');

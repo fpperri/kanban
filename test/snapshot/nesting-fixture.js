@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const buildScript = path.join(__dirname, '..', 'scripts', 'build_editor.py');
-const nestingPath = path.join(__dirname, '..', '..', 'web', 'web', 'nesting.js');
-const mapRelationsPath = path.join(__dirname, '..', '..', 'web', 'web', 'map-relations.js');
+const buildScript = path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py');
+const nestingPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'nesting.js');
+const mapRelationsPath = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'map-relations.js');
 
 const lf = (text) => text.replace(/\r\n/g, '\n');
 

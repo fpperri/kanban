@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 const ID19 = [{ field: 'id', value: '19' }];
 
@@ -43,7 +43,7 @@ test('other terms still AND with the board-id term and filtering shows only that
 });
 
 test('the live search box hands the board name to the parser', () => {
-  const js = require('node:fs').readFileSync(require('node:path').join(__dirname, '../web/app.js'), 'utf8');
+  const js = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/function currentSearchTerms\([\s\S]*?\n\}/)[0];
   assert.match(fn, /parseSearchQuery\([^)]*state\.projectName\)/);
 });

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards, resolveTerms, cardMatchesQuery, searchIsolateText, searchIsolateBox } = require('../web/search');
-const { NO_SELECTION, cardPart, pathPart, typedQueryPart, addPart, resolveSelection, partsOf } = require('../web/selection');
+const { parseSearchQuery, filterCards, resolveTerms, cardMatchesQuery, searchIsolateText, searchIsolateBox } = require('../../plugin/skills/web/web/search');
+const { NO_SELECTION, cardPart, pathPart, typedQueryPart, addPart, resolveSelection, partsOf } = require('../../plugin/skills/web/web/selection');
 
 // 1 is the root; 2 and 3 are under 1; 4 is under 3 and waits for 2; 5 waits for 4; 6 is an archived child of 2;
 // 7 is a stranger; 8 has a parent on another board; 9 and 10 are each other's parent.
@@ -105,7 +105,7 @@ test('what the isolate text of a typed search matches is what the search matched
 });
 
 test('a Shift pick joins alternatives with the search module own join: one term as it is, a longer one in brackets, a slice run after', () => {
-  const { searchAddAlt } = require('../web/search');
+  const { searchAddAlt } = require('../../plugin/skills/web/web/search');
   assert.strictEqual(searchAddAlt('', 'dpath:2'), 'dpath:2');
   assert.strictEqual(searchAddAlt('htree:40', 'dpath:185'), 'htree:40 | dpath:185');
   assert.strictEqual(searchAddAlt('htree:40 | dpath:185', 'dpath:185'), 'htree:40 | dpath:185');
@@ -147,7 +147,7 @@ test('the resolver hands dlinks: and hlinks: to the context\'s graph functions, 
 });
 
 test('a Shift pick and an isolate keep dlinks: and hlinks: as typed', () => {
-  const { searchAddAlt } = require('../web/search');
+  const { searchAddAlt } = require('../../plugin/skills/web/web/search');
   assert.strictEqual(searchAddAlt('hlinks:40', 'dlinks:185'), 'hlinks:40 | dlinks:185');
   assert.strictEqual(searchIsolateText([typedQueryPart('hlinks:3 | dlinks:5')]), '(hlinks:3 | dlinks:5)');
 });

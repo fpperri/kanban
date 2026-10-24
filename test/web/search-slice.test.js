@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {
   parseSearchQuery, cardMatchesQuery, filterCards, searchTermText, searchAddTerm,
-} = require('../web/search');
+} = require('../../plugin/skills/web/web/search');
 
 // The slice: term, driven through the search module's own seam: a query string
 // and a board context in, the cards it matches out. The axis it cuts is the
@@ -237,7 +237,7 @@ test('a page that has not loaded the slices module cuts nothing and does not thr
   const page = vm.createContext({});
   page.window = page;
   for (const file of ['ids.js', 'dependency-graph.js', 'waiting-blocked.js', 'nesting.js', 'explore-sets.js', 'search.js']) {
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'web', file), 'utf8'), page, { filename: file });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', file), 'utf8'), page, { filename: file });
   }
   assert.strictEqual(typeof page.sliceCards, 'undefined', 'the stand-in page has no slices module');
   const found = page.filterCards(fixture(), page.parseSearchQuery('slice:goal'), CTX).map((c) => c.id);

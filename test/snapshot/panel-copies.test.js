@@ -2,9 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { nextHighlightIndex } = require('../../web/web/combobox');
-const { keyGuardTyping } = require('../../web/web/key-guard');
-const { sliceKeyIsChord } = require('../../web/web/slice-run');
+const { nextHighlightIndex } = require('../../plugin/skills/web/web/combobox');
+const { keyGuardTyping } = require('../../plugin/skills/web/web/key-guard');
+const { sliceKeyIsChord } = require('../../plugin/skills/web/web/slice-run');
 const { withBuiltBoard } = require('./search-table');
 const { openPanel } = require('./panel-table');
 
@@ -14,7 +14,7 @@ const { openPanel } = require('./panel-table');
 // (search-embed.test.js holds that); the hint texts are strings of the web's page scripts, which
 // need a DOM and are not embedded, so the page's copy of each is read against the source.
 
-const web = (file) => fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'web', file), 'utf8').replace(/\r\n/g, '\n');
+const web = (file) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', file), 'utf8').replace(/\r\n/g, '\n');
 const constant = (source, name) => {
   const m = new RegExp(`const ${name} = '([^']*)';`).exec(source);
   assert.ok(m, `${name} is a string constant in the web source`);

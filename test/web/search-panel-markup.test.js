@@ -11,7 +11,7 @@ const vm = require('node:vm');
 // behave is search-panel.test.js and search-panel-dom.test.js; the real page is looked
 // at in the browser runner (scenarios/search-panel.js).
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 const css = read('app.css');
@@ -176,7 +176,7 @@ test('the pill list and the panel are page scripts, the list first, both ahead o
   assert.ok(tag('pills.js') < tag('search-panel.js'));
   assert.ok(tag('search-panel.js') < tag('graph-view.js') && tag('graph-view.js') < tag('app.js'));
   assert.ok(tag('selection.js') < tag('search-panel.js'), 'the selection functions load before the panel that calls them');
-  const { pageFiles } = require('../scripts/server');
+  const { pageFiles } = require('../../plugin/skills/web/scripts/server');
   const served = pageFiles(fs.readFileSync(path.join(WEB, 'app.html'), 'utf8'));
   assert.ok(served.includes('pills.js') && served.includes('search-panel.js'));
 });
@@ -246,7 +246,7 @@ test('the Esc handler gains one line for the panel, after the popups and before 
 });
 
 test('the panel is not a surface the key guard names: the slice keys and the rest work while it is open', () => {
-  const guard = require('../web/key-guard');
+  const guard = require('../../plugin/skills/web/web/key-guard');
   assert.ok(!guard.KEY_GUARD_SURFACES.some((s) => /search|panel/i.test(s.name + s.selector)));
 });
 

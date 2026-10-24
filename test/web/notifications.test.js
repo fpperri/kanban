@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { sortNotificationsDesc, unreadCount, unseenUnread, splitTldr, splitNotification, notificationLevel } = require('../web/notifications');
+const { sortNotificationsDesc, unreadCount, unseenUnread, splitTldr, splitNotification, notificationLevel } = require('../../plugin/skills/web/web/notifications');
 
 const LIST = [
   { id: 1, at: '2026-07-08T23:40:00', from: 'a', message: 'oldest', read: false },
@@ -76,7 +76,7 @@ test('notificationLevel defaults absent/unknown/nullish to info (back-compat)', 
 // <strong> node via textContent, and no notification field rides innerHTML.
 
 test('app.js renders the tray via splitNotification + createElement/textContent, with level classes — no innerHTML for entry text', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = src.match(/function renderNotifList\(\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'renderNotifList found');
   assert.match(fn[0], /splitNotification\(/);

@@ -6,12 +6,12 @@ const path = require('node:path');
 // The phone layout and its words, pinned in the docs: docs/web.md and GLOSSARY.md say them
 // in the glossary's words, and SKILL.md says which desktop controls the phone leaves out.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const flat = (s) => s.replace(/\s+/g, ' ');
 const docs = flat(fs.readFileSync(path.join(root, 'docs', 'web.md'), 'utf8'));
 const glossary = flat(fs.readFileSync(path.join(root, 'GLOSSARY.md'), 'utf8'));
-const skill = flat(fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8'));
-const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+const skill = flat(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8'));
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
 
 const TERMS = ['phone layout', 'status tabs', 'view bar', 'Statuses section', 'bottom sheet', 'span cycle button', 'header date'];
 
@@ -60,7 +60,7 @@ test('the docs name the header buttons by the words the header shows', () => {
 test('every repository path docs/web.md names exists', () => {
   const raw = fs.readFileSync(path.join(root, 'docs', 'web.md'), 'utf8');
   const paths = new Set();
-  for (const m of raw.matchAll(/`((?:skills|docs|examples)\/[A-Za-z0-9_./-]+)`/g)) paths.add(m[1]);
+  for (const m of raw.matchAll(/`((?:plugin\/skills|docs|examples)\/[A-Za-z0-9_./-]+)`/g)) paths.add(m[1]);
   for (const m of raw.matchAll(/\]\((?!https?:|#)([^)#\s]+)/g)) paths.add(path.posix.join('docs', m[1]));
   assert.ok(paths.size > 0);
   for (const p of paths) assert.ok(fs.existsSync(path.join(root, p)), `${p} exists`);

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { typeBadge, typeColor } = require('../web/type-badge');
+const { typeBadge, typeColor } = require('../../plugin/skills/web/web/type-badge');
 
 const TYPES = [
   { name: 'objective', color: '#a371f7' },

@@ -10,7 +10,7 @@
 // Cards 1 and 2 are parents: card 2 has leaves 7 and 8 and the archived, done
 // leaf 19, so with archived leaves counted it totals 3 and card 1 totals 7.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, autoRefreshTick.
 
 const fs = require('fs');

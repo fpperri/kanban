@@ -4,11 +4,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
-const { createServer } = require('../scripts/server');
-const { comboboxSuggestions } = require('../web/combobox');
-const { isDirty } = require('../web/form-guard');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
+const { comboboxSuggestions } = require('../../plugin/skills/web/web/combobox');
+const { isDirty } = require('../../plugin/skills/web/web/form-guard');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 

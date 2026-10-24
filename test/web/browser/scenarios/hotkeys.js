@@ -14,17 +14,17 @@
 // widening it, one key element for each key label.
 //
 // The rows and their states the sheet should draw are read from hotkeys.js; CASES holds the states the
-// keys leave behind, and skills/web/test/browser-hotkeys-scenario.test.js holds those to hotkeys.js, so a
+// keys leave behind, and test/web/browser-hotkeys-scenario.test.js holds those to hotkeys.js, so a
 // wrong expectation fails in the unit suite and not only in a browser. Each step waits on the
 // page, never on a fixed sleep; a "nothing happened" check waits two animation frames. Keys go
 // through the runner's key helper, a real key press (? is Shift with the slash key, as a US
 // keyboard types it), and each key is also logged as the window saw it, after the page's own
 // handlers, so "does nothing" means the page read the key and let it be.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphLoadOptions.
 
-const { HOTKEYS, hotkeyRows } = require('../../../web/hotkeys');
+const { HOTKEYS, hotkeyRows } = require('../../../../plugin/skills/web/web/hotkeys');
 
 // What each key that has a state reads before anything is changed comes from the list in hotkeys.js, so a
 // new key is checked without an edit here; hotkeys-sheet.test.js and hotkeys-docs.test.js pin the texts.

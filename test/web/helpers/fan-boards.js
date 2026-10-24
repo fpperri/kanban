@@ -7,12 +7,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived, toJSON } = require('../../scripts/card-store');
-const { readConfig } = require('../../scripts/config-store');
+const { listActive, listArchived, toJSON } = require('../../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../../plugin/skills/web/scripts/config-store');
 const { materialize } = require('../browser/boards');
-const { graphBuild, graphFit, graphFanNames } = require('../../web/graph-model');
-const { GRAPH_NAME_ROW, graphNamesPlace, graphNamesRim } = require('../../web/graph-names');
-const { idKey } = require('../../web/ids');
+const { graphBuild, graphFit, graphFanNames } = require('../../../plugin/skills/web/web/graph-model');
+const { GRAPH_NAME_ROW, graphNamesPlace, graphNamesRim } = require('../../../plugin/skills/web/web/graph-names');
+const { idKey } = require('../../../plugin/skills/web/web/ids');
 
 const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 const HIERARCHY = ['goal', 'strategy', 'objective', 'epic'];

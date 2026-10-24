@@ -9,7 +9,7 @@
 // written by hand outside the board shows locked with its controls standing still. Each step waits
 // on the page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): settingsBoardPages, settingsRenderBoard, settingsUi, state.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): settingsBoardPages, settingsRenderBoard, settingsUi, state.
 
 const fs = require('fs');
 const path = require('path');

@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { parseSearchQuery, filterCards, searchTermText, searchAddAlt, searchRemoveAlt } = require('../web/search');
-const { pillList, pillEntries, pillRows, pillIsOn, pillsOn } = require('../web/pills');
-const { NO_SELECTION, queryPart, addPart } = require('../web/selection');
+const { parseSearchQuery, filterCards, searchTermText, searchAddAlt, searchRemoveAlt } = require('../../plugin/skills/web/web/search');
+const { pillList, pillEntries, pillRows, pillIsOn, pillsOn } = require('../../plugin/skills/web/web/pills');
+const { NO_SELECTION, queryPart, addPart } = require('../../plugin/skills/web/web/selection');
 
 // A board's own pills, after the three built-ins: each entry of its `pills:` is a
 // query (shown as its query) or a label and a query (shown as its label), and a
@@ -358,7 +358,7 @@ test('each call hands out a fresh list: changing one pill never changes the next
 
 // --- loading -----------------------------------------------------------------------------------------------------
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const source = fs.readFileSync(path.join(WEB, 'pills.js'), 'utf8').split('\r\n').join('\n');
 
 test('the pill-list module still needs no other module, so a snapshot can embed it', () => {

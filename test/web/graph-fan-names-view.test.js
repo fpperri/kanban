@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
-const { KEY_GUARD_SURFACES } = require('../web/key-guard');
+const { KEY_GUARD_SURFACES } = require('../../plugin/skills/web/web/key-guard');
 
 // The tier fan's Names option and the l key in the real page (helpers/page-vm.js runs every
 // script the page loads in one vm, with elements a test can read back). Names is a fourth
@@ -322,7 +322,7 @@ test('in Flow, and outside the Graph, l does nothing', async () => {
 });
 
 test('n gets no key guard of its own: it reads keyGuardOff as p, m and i do', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const body = src.match(/function onGraphNamesKey\([\s\S]*?\n\}/)[0];
   assert.match(body, /keyGuardOff\(document\)/);
   assert.doesNotMatch(body, /activeElement|searchPanel|querySelector|tagName/, 'no special case for the box, the panel or a surface');
@@ -330,7 +330,7 @@ test('n gets no key guard of its own: it reads keyGuardOff as p, m and i do', ()
 });
 
 test('n keeps focus on an option that had it: the step is made through keepControlFocus, the hand-back every press of the row uses', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8').replace(/\r\n/g, '\n');
   const body = src.match(/function onGraphNamesKey\([\s\S]*?\n\}/)[0];
   assert.match(body, /focusedRebuiltControl\(\)/);
   assert.match(body, /keepControlFocus\(/);
@@ -361,7 +361,7 @@ test('n with focus on an option hands focus back to that same option in the rebu
 // --- the stylesheet --------------------------------------------------------------------------------------------------
 
 test('the stylesheet shows a name for a named node with room only, in a size that holds at any zoom, with tokens and no hex colour', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
   const rule = (sel) => {
     const at = css.indexOf(`${sel} {`);
     assert.ok(at !== -1, `a rule for ${sel}`);
@@ -379,7 +379,7 @@ test('the stylesheet shows a name for a named node with room only, in a size tha
 });
 
 test('the plan and the view emit only classes the stylesheet has a rule for', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   for (const cls of ['graph-named', 'graph-node-name']) assert.ok(new RegExp(`\\.${cls}(?![\\w-])`).test(css), cls);
 });
 

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 
 function fn(name) {
   const m = appSrc.match(new RegExp(`(?:async )?function ${name}\\([\\s\\S]*?\\n\\}`));
@@ -35,9 +35,9 @@ function fakeEl(tag) {
 // The real row builders against a fake localStorage and a fake document: what
 // the Map's options row shows for a given stored choice is what is under test.
 function optionsRowSandbox({ stored = {}, throws = false, board = 'shop' } = {}) {
-  const { storageKey, mergeMapSectionsCollapsed } = require('../../web/column-state');
-  const { MAP_OPTION_VALUES, mergeMapOptions } = require('../../web/map-relations');
-  const { escapeHtml } = require('../../web/assignee-badge');
+  const { storageKey, mergeMapSectionsCollapsed } = require('../../../plugin/skills/web/web/column-state');
+  const { MAP_OPTION_VALUES, mergeMapOptions } = require('../../../plugin/skills/web/web/map-relations');
+  const { escapeHtml } = require('../../../plugin/skills/web/web/assignee-badge');
   const writes = {};
   const sandbox = {
     state: { projectName: board },

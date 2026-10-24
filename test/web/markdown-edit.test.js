@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { markdownEditSpans, MARKDOWN_EDIT_KINDS, MARKDOWN_EDIT_MAX_CHARS } = require('../web/markdown-edit.js');
+const { markdownEditSpans, MARKDOWN_EDIT_KINDS, MARKDOWN_EDIT_MAX_CHARS } = require('../../plugin/skills/web/web/markdown-edit.js');
 
 // The tokenizer behind the colours in the description box and the Scratchpad's Edit box: text in, a
 // sorted list of { from, to, kind } out, covering what the renderer would turn into a heading, bold,

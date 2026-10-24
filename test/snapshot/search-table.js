@@ -6,10 +6,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const cardStore = require('../../web/scripts/card-store');
-const { readConfig } = require('../../web/scripts/config-store');
-const { parseSearchQuery, filterCards } = require('../../web/web/search');
-const { materialize } = require('../../web/test/browser/boards');
+const cardStore = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { materialize } = require('../web/browser/boards');
 const { buildScript } = require('./nesting-fixture');
 const { byClass, loadPage } = require('./page-harness');
 

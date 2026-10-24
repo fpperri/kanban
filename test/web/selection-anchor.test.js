@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, resolveSelection, selectionWithoutCard, stepBack, pruneSelectionParts,
   cardClickAction, shiftAddsRange, selectionAfterClick, typedQueryPart,
-} = require('../web/selection');
-const { parseSearchQuery, filterCards } = require('../web/search');
+} = require('../../plugin/skills/web/web/selection');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // The selection grows from an anchor (one card or one query) by an ordered list
 // of additions (cards, paths, trees, queries). These are the pure operations on

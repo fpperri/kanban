@@ -4,14 +4,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { recordingDocument, byClass } = require('./helpers/recording-dom');
-const { mdToHtml } = require('../web/markdown');
+const { mdToHtml } = require('../../plugin/skills/web/web/markdown');
 
 // The Scratchpad tab's Edit | Preview switch: Edit is the box as it always was and the default;
 // Preview draws the box's text, saved or not, as Markdown with the same renderer the card body
 // uses. The panel runs here in a vm against a stand-in page (recording elements, a fake api), the
 // way the other page scripts' panels are read back.
 
-const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'web', f), 'utf8').replace(/\r\n/g, '\n');
+const read = (f) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', f), 'utf8').replace(/\r\n/g, '\n');
 
 function panel({ body = '', refs = [], navigator = {} } = {}) {
   const saved = [];

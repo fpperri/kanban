@@ -11,7 +11,7 @@ const { installDelete } = require('./helpers/delete-popup');
 // marker on the controls that must not clear the selection, and one Esc step.
 // Behaviour is what it was before; this file pins where it now lives.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const SCRIPTS = fs.readdirSync(WEB).filter((f) => f.endsWith('.js'));
@@ -152,7 +152,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     openCard: (id) => { calls.open.push(Number(id)); },
     renderBoard: () => { calls.render++; },
     addSearchTerm: (term) => { calls.terms.push(term); },
-    searchTermText: require('../web/search').searchTermText,
+    searchTermText: require('../../plugin/skills/web/web/search').searchTermText,
     toggleRollupBar() {},
     calls,
   };
@@ -463,7 +463,7 @@ function escapeSandbox({ value = '', selected = [], active = 'body', open = [], 
     renderBoard: () => { calls.render++; },
     document: { activeElement: focus[active], querySelector: (sel) => (open.includes(sel) ? { id: 'open' } : null) },
     calls, input, focus,
-    ...selectionGlobals(), ...require('../web/key-guard'),
+    ...selectionGlobals(), ...require('../../plugin/skills/web/web/key-guard'),
   };
   vm.createContext(sandbox);
   vm.runInContext([
@@ -606,7 +606,7 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
     loadBoard: async () => { calls.loads++; },
     hideContextMenu() {}, applyModalFullscreen() {}, renderBoard() {},
     document: { querySelector: () => ({}), querySelectorAll: () => [], createElement: fakeBox },
-    ...selectionGlobals(), ...require('../web/bulk-edit'),
+    ...selectionGlobals(), ...require('../../plugin/skills/web/web/bulk-edit'),
   };
   vm.createContext(sandbox);
   installDelete(sandbox, calls);
@@ -757,7 +757,7 @@ test('a popup applies to the targets it captured: the apply steps read the captu
 });
 
 test('the menu subject before any menu has opened carries every key a menu subject has, the card menu\'s and the canvas menu\'s', () => {
-  const { cardMenuFor, canvasMenuFor } = require('../web/selection');
+  const { cardMenuFor, canvasMenuFor } = require('../../plugin/skills/web/web/selection');
   const sandbox = vm.createContext({});
   const initial = vm.runInContext(`${declaration('menuSubject')}; menuSubject`, sandbox);
   const keys = new Set([...Object.keys(cardMenuFor(new Set(), 1)), ...Object.keys(canvasMenuFor())]);

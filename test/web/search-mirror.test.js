@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { searchMirrorBox, searchIsolateText } = require('../web/search');
-const { cardPart, pathPart, queryPart, typedQueryPart } = require('../web/selection');
+const { searchMirrorBox, searchIsolateText } = require('../../plugin/skills/web/web/search');
+const { cardPart, pathPart, queryPart, typedQueryPart } = require('../../plugin/skills/web/web/selection');
 
 // A click on a card writes the selection into the box with isolate off (searchMirrorBox): the isolate
 // text of its parts, the box's run of slices kept, and a part that is one query written as it was typed.
@@ -56,7 +56,7 @@ test('the same selection written twice gives the same text, so a repeat click le
   assert.strictEqual(searchMirrorBox(once, parts), once);
 });
 
-const { searchBoxSaying, searchIsolateBox } = require('../web/search');
+const { searchBoxSaying, searchIsolateBox } = require('../../plugin/skills/web/web/search');
 
 test('the box says its text with the run of slices it held after it, and the isolate text and the mirror both write it that way', () => {
   assert.strictEqual(searchBoxSaying('foo slice:epic..2', '#34', []), '#34 slice:epic..2');

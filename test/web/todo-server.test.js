@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer } = require('../scripts/server');
+const { createServer } = require('../../plugin/skills/web/scripts/server');
 
 // The todo lists through the server's HTTP API on a temporary board (docs/adr/0021): the board payload
 // names the folder, the targets that have a list and their counts; GET reads a list; POST adds, PATCH

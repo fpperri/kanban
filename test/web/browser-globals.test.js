@@ -44,7 +44,7 @@ const PAGE_GLOBALS = [
   'writeSearch',
 ];
 
-const webDir = path.join(__dirname, '..', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const browserDir = path.join(__dirname, 'browser');
 
 // Every runner file: the entry, the harness modules, the scenarios, the step files of the phone scenarios, the checks.

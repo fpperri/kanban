@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { comboboxSuggestions, applyChoice, nextHighlightIndex } = require('../web/combobox');
+const { comboboxSuggestions, applyChoice, nextHighlightIndex } = require('../../plugin/skills/web/web/combobox');
 
 // native <datalist> misrenders inside VSCode's Simple
 // Browser (popup at wrong coordinates, filter-by-current-value hides all),

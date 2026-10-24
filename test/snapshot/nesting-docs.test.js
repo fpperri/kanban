@@ -6,10 +6,10 @@ const path = require('node:path');
 // What the snapshot's docs promise about nested cards, pinned so the skill, the
 // apply protocol and the human docs keep saying the same thing the page does.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'snapshot', 'SKILL.md');
-const protocol = read('skills', 'snapshot', 'references', 'apply-protocol.md');
+const skill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
+const protocol = read('plugin', 'skills', 'snapshot', 'references', 'apply-protocol.md');
 const guide = read('docs', 'snapshot.md');
 
 test('the skill lists type: among the scoped search terms', () => {

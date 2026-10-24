@@ -5,11 +5,11 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, toJSON } = require('../scripts/card-store');
+const { listActive, toJSON } = require('../../plugin/skills/web/scripts/card-store');
 const { materialize } = require('./browser/boards');
-const { parseSearchQuery, filterCards } = require('../web/search');
-const { typingIsolatesDefaults } = require('../web/typing-isolates');
-const { VIEW_MODES } = require('../web/calendar-model');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { typingIsolatesDefaults } = require('../../plugin/skills/web/web/typing-isolates');
+const { VIEW_MODES } = require('../../plugin/skills/web/web/calendar-model');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate-typing');
 
@@ -28,7 +28,7 @@ const fixtureBoard = () => {
 };
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const source = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'isolate-typing.js'), 'utf8');
 const code = source.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
 const { CASES } = scenario;

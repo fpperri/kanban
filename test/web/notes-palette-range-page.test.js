@@ -9,7 +9,7 @@ const { control } = require('./helpers/page-vm');
 // The rules are notes.js, tested apart (notes-range.test.js); the browser runner drives the same in
 // Chrome (scenarios/notes.js, scenarios/notes-calendar.js). 2026-10-21 is a Wednesday.
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
 const NOTES = [

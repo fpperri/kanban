@@ -13,7 +13,7 @@ const path = require('node:path');
 // layout — see the spec at kanban.proj#255 phase 3 for the full mapping
 // (transfers-wholesale / transfers-adapted / must-stay-different tables).
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 
 const SANS = 'ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
 const MONO = 'ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace';

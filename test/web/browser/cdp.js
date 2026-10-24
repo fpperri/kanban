@@ -2,7 +2,7 @@
 // The browser runner's side of Chrome: a DevTools-protocol connection, the page
 // a scenario drives, and the environment the scenario loop (harness.js) runs
 // scenarios in. All of it takes the connection and the clock as arguments, so
-// skills/web/test/browser-cdp.test.js drives it with stand-ins.
+// test/web/browser-cdp.test.js drives it with stand-ins.
 
 const fs = require('fs');
 const path = require('path');

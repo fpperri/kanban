@@ -6,9 +6,9 @@ const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const { execFileSync, spawn } = require('child_process');
-const launcher = require('../scripts/launcher');
+const launcher = require('../../plugin/skills/web/scripts/launcher');
 
-const LAUNCHER_PATH = path.join(__dirname, '..', 'scripts', 'launcher.js');
+const LAUNCHER_PATH = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'launcher.js');
 
 function tmpDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -1395,7 +1395,7 @@ test('writeLauncher MIGRATION: old-location files are removed even when the old 
   // launcher — only .kanban-app.pid exists so far.
   let serverProc = null;
   try {
-    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
     await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
 
     // An old-location wrapper+pid for this board, left by a launcher whose
@@ -1438,7 +1438,7 @@ test('writeLauncher MIGRATION: old-location files are removed even when the old 
 // --- integration: readers never trip over the launcher's own files ----------
 
 test('card-store readers ignore kanban_web.cmd/.pid/.lock/.lock.*.tmp sitting in the board directory — only *.card.md is a card', () => {
-  const cs = require('../scripts/card-store');
+  const cs = require('../../plugin/skills/web/scripts/card-store');
   const dir = tmpDir('kanban-launcher-readers-');
   try {
     fs.writeFileSync(path.join(dir, '0001.first.card.md'), '---\nid: 1\nstatus: todo\n---\n# First\nbody\n');
@@ -1472,7 +1472,7 @@ test('web /api/board loads exactly the same cards whether or not the launcher\'s
 
   let serverProc = null;
   try {
-    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
     const appPidPath = path.join(dir, '.kanban-app.pid');
     await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
 
@@ -1607,7 +1607,7 @@ test('run: a stale paired pid naming a live-but-unrelated pid on the wrong port 
   try {
     // The board is already running the SKILL's way — server.js started
     // directly, never through the launcher — so only .kanban-app.pid exists.
-    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir], { stdio: 'ignore' });
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js'), dir], { stdio: 'ignore' });
     await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
     const appInfo = launcher.parsePidFileText(fs.readFileSync(appPidPath, 'utf8'));
     assert.strictEqual(appInfo.port, port);
@@ -1980,7 +1980,7 @@ test('run: the running check finds a board already served on its CLI port — no
     // Started the documented way — `server.js <dir> <port>`, never through
     // the launcher — so only .kanban-app.pid exists at first; nothing has
     // EVER written a paired kanban_web.pid for this board.
-    serverProc = spawn(process.execPath, [path.join(__dirname, '..', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
+    serverProc = spawn(process.execPath, [path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js'), dir, String(port)], { stdio: 'ignore' });
     await waitFor(() => fs.existsSync(appPidPath) && fs.readFileSync(appPidPath, 'utf8').trim() !== '');
 
     // The server itself keeps serving — only its pid FILE is removed — so

@@ -14,7 +14,7 @@
 // pointer on a day's column on that day. The plan board draws no switch and no note. Each step waits on the page; the one fixed pause proves
 // that the palette did NOT open.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, calendarAnchor, renderCalendarView.
 
 const PAL = `document.getElementById('notes-palette')`;

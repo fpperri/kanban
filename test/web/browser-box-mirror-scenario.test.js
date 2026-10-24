@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { readConfig } = require('../scripts/config-store');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/box-mirror');
@@ -55,9 +55,9 @@ test('the search it types in the Graph lights the cards it says, and the card it
 });
 
 test('the ids and controls the scenario drives are in the page', () => {
-  const page = ['app.html', 'search-panel.js', 'graph-view.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'web', f), 'utf8')).join('\n');
+  const page = ['app.html', 'search-panel.js', 'graph-view.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', f), 'utf8')).join('\n');
   for (const name of ['search-input', 'search-clear-btn', 'search-panel-toggle', 'graph-toggle-btn', 'ctx-add', 'graph-dot', 'graph-near']) {
-    assert.ok(page.includes(name) || fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-model.js'), 'utf8').includes(name), `${name} is in the page`);
+    assert.ok(page.includes(name) || fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-model.js'), 'utf8').includes(name), `${name} is in the page`);
     assert.ok(code.includes(name), `${name} is driven by the scenario`);
   }
 });

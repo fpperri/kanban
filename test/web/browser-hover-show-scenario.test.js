@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { listActive, listArchived, toJSON } = require('../scripts/card-store');
-const { readConfig } = require('../scripts/config-store');
-const { hoverShowIds, hoverShowTiles, hoverShowDefaults, hoverShowTerms, HOVER_SHOW_KINDS, HOVER_SHOW_GRID } = require('../web/hover-show');
-const { graphBuild, graphNeighbours } = require('../web/graph-model');
+const { listActive, listArchived, toJSON } = require('../../plugin/skills/web/scripts/card-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
+const { hoverShowIds, hoverShowTiles, hoverShowDefaults, hoverShowTerms, HOVER_SHOW_KINDS, HOVER_SHOW_GRID } = require('../../plugin/skills/web/web/hover-show');
+const { graphBuild, graphNeighbours } = require('../../plugin/skills/web/web/graph-model');
 const { materialize } = require('./browser/boards');
 const scenarios = require('./browser/scenarios');
 const hover = require('./browser/scenarios/hover-show');

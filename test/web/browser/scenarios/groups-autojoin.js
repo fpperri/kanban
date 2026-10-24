@@ -4,7 +4,7 @@
 // the auto-join group only and the flash names it. Each step waits on the page,
 // never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, toast (the page's #toast element, by its id).
 
 const GROUPS = `state.groups.list`;

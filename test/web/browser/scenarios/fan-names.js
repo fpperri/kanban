@@ -26,10 +26,10 @@
 // nothing, is waited for by 6 and 27; card 3 is a child of card 1 that is waited for by 4 and 6.
 // The fixture board has no hierarchy and 18 live cards, a fan at or below the small size, where
 // relevant names every card; the malformed board has four.
-// skills/web/test/browser-fan-names-scenario.test.js holds these lists to the real board readers
+// test/web/browser-fan-names-scenario.test.js holds these lists to the real board readers
 // and the Graph model over each board's own cards.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, graphFanNames, graphLoadOptions, selectedIds.
 
 const { DRAWN, TIERS_PRESSED, BLUR, ZOOM_IN, pickLayout, layoutIs, hasDot } = require('./tier-fan');

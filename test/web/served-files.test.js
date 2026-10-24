@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createServer, pageFiles, FRAME_FILES } = require('../scripts/server');
+const { createServer, pageFiles, FRAME_FILES } = require('../../plugin/skills/web/scripts/server');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const lf = (text) => text.replace(/\r\n/g, '\n');
 
 // The page names every file it loads; the server serves those files and no

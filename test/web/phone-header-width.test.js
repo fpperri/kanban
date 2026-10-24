@@ -7,7 +7,7 @@ const path = require('node:path');
 // (the card detail, the Gantt, the Board's status tabs) past the screen. The header's action buttons
 // are the widest unwrapped content, so under the phone width line they wrap.
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
 test('under 760 px the header action buttons wrap and may shrink, so the header cannot widen the layout viewport', () => {
   const blocks = [...css.matchAll(/@media \(max-width: 759\.98px\) \{([\s\S]*?)\n\}/g)].map((m) => m[1]);

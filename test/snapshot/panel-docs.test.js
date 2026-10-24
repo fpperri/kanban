@@ -10,9 +10,9 @@ const { boxText, openPanel, pill } = require('./panel-table');
 // term it writes out as an example, and to the files it names; the retired-word tests ban
 // `.epic` and a backticked `epic:` in the skill docs, so the examples use goal and strategy.
 
-const root = path.join(__dirname, '..', '..', '..');
+const root = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'snapshot', 'SKILL.md');
+const skill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 const panel = /\nThe search box has a panel[\s\S]*?\n\nEvery view carries a status-pill row/.exec(skill);
 const limits = /\n## What the editor deliberately does not do\n[\s\S]*$/.exec(skill);
@@ -83,7 +83,7 @@ test('the panel text says what the counts are taken over, and describes the chip
 
 test('the panel text names the web modules it embeds and the tests that hold them', () => {
   const text = flat(panel[0]);
-  for (const file of ['skills/web/web/pills.js', 'skills/web/web/slice-run.js', 'test/pills-embed.test.js', 'test/slice-run-embed.test.js']) {
+  for (const file of ['skills/web/web/pills.js', 'skills/web/web/slice-run.js', 'test/snapshot/pills-embed.test.js', 'test/snapshot/slice-run-embed.test.js']) {
     assert.ok(text.includes(`\`${file}\``), file);
   }
 });
@@ -120,7 +120,7 @@ test('the skill says which pieces of the panel are the web\'s source and which t
   const text = flat(skill);
   assert.match(text, /key guard's check for a field with focus \(`skills\/web\/web\/key-guard\.js`\)/);
   assert.match(text, /`skills\/web\/web\/combobox\.js`/);
-  assert.match(text, /`test\/panel-copies\.test\.js` holds the page's copy of each to the web's source/);
+  assert.match(text, /`test\/snapshot\/panel-copies\.test\.js` holds the page's copy of each to the web's source/);
 });
 
 test('the one term the skill writes out for a pill is the term the page writes for it', () => {

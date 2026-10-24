@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { reorderPlan, reorderWrites, dropNeighbours, dropSlot, outlineOrder } = require('../web/nesting');
+const { reorderPlan, reorderWrites, dropNeighbours, dropSlot, outlineOrder } = require('../../plugin/skills/web/web/nesting');
 
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const card = (id, extra) => Object.assign({ id, parent: null, rank: null, priority: 'Normal', status: 'todo', archived: false }, extra);

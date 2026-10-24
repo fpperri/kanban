@@ -3,16 +3,16 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { searchIsolateText } = require('../web/search');
-const { cardPart, pathPart, queryPart } = require('../web/selection');
+const { searchIsolateText } = require('../../plugin/skills/web/web/search');
+const { cardPart, pathPart, queryPart } = require('../../plugin/skills/web/web/selection');
 
 // The web skill and the web docs describe Isolate: the switch just right of the search box and
 // the i key, what it writes into the box, what every view shows while it is on, what a click does,
 // the chip, how it goes off, and Esc's three stages. The one example of the text it writes is held
 // to the search module, so a doc cannot promise what the box does not get.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 

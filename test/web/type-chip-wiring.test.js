@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
@@ -22,11 +22,11 @@ function loadFrontmatterValueHtml(types) {
     fn('frontmatterValueHtml'),
   ].join('\n');
   const sandbox = {
-    escapeHtml: require('../web/assignee-badge').escapeHtml,
-    ...require('../web/waiting-blocked'),
-    statusColorClass: require('../web/status-colors').statusColorClass,
-    assigneeBadge: require('../web/assignee-badge').assigneeBadge,
-    typeBadge: require('../web/type-badge').typeBadge,
+    escapeHtml: require('../../plugin/skills/web/web/assignee-badge').escapeHtml,
+    ...require('../../plugin/skills/web/web/waiting-blocked'),
+    statusColorClass: require('../../plugin/skills/web/web/status-colors').statusColorClass,
+    assigneeBadge: require('../../plugin/skills/web/web/assignee-badge').assigneeBadge,
+    typeBadge: require('../../plugin/skills/web/web/type-badge').typeBadge,
     state: { projectName: 'board', assignees: [], types },
   };
   vm.createContext(sandbox);

@@ -3,11 +3,11 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const src = read('graph-view.js');
 const css = read('app.css');
-const { graphBuild, graphLayout, graphPlan, GRAPH_KINDS } = require('../web/graph-model');
+const { graphBuild, graphLayout, graphPlan, GRAPH_KINDS } = require('../../plugin/skills/web/web/graph-model');
 
 function fn(name) {
   const m = src.match(new RegExp(`function ${name}\\([\\s\\S]*?\\n\\}`));

@@ -11,8 +11,8 @@ const tierFan = require('./browser/scenarios/tier-fan');
 const options = require('./browser/scenarios/tier-fan-options');
 const {
   graphBuild, graphLayout, graphPlan, graphFit, graphFanNames, graphZoomAt,
-} = require('../web/graph-model');
-const { graphNamesPlace, graphNamesKey, graphNamesRim } = require('../web/graph-names');
+} = require('../../plugin/skills/web/web/graph-model');
+const { graphNamesPlace, graphNamesKey, graphNamesRim } = require('../../plugin/skills/web/web/graph-names');
 const { loadBoard, cleanUp, nameMeasure } = require('./helpers/fan-boards');
 
 // The fan-name-rows scenario only runs in a browser (in CI). Here its lists are held to the real

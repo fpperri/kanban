@@ -5,11 +5,11 @@ const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { listActive, toJSON } = require('../scripts/card-store');
+const { listActive, toJSON } = require('../../plugin/skills/web/scripts/card-store');
 const { materialize } = require('./browser/boards');
 const { idMap } = require('./helpers/id-map');
-const { parseSearchQuery, filterCards, searchIsolateText } = require('../web/search');
-const { cardPart } = require('../web/selection');
+const { parseSearchQuery, filterCards, searchIsolateText } = require('../../plugin/skills/web/web/search');
+const { cardPart } = require('../../plugin/skills/web/web/selection');
 const scenarios = require('./browser/scenarios');
 const scenario = require('./browser/scenarios/isolate-link');
 
@@ -75,7 +75,7 @@ test('the scenario does not wait on a fixed sleep', () => {
 });
 
 test('the ids and classes the scenario drives are in the page', () => {
-  const web = path.join(__dirname, '..', 'web');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const page = ['app.html', 'app.js', 'isolate.js', 'graph-view.js', 'search-panel.js', 'app.css'].map((f) => fs.readFileSync(path.join(web, f), 'utf8')).join('\n');
   for (const name of ['ctx-isolate', 'canvas-menu', 'isolate-switch', 'search-chip', 'search-input', 'context-menu', 'graph-canvas', 'map-canvas', 'graph-node', 'graph-dim', 'map-node', 'graph-toggle-btn', 'map-toggle-btn']) {
     assert.ok(page.includes(name), `${name} is in the page`);

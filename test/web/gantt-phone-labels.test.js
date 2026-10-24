@@ -7,7 +7,7 @@ const path = require('node:path');
 // needs (64 to 96 px), status headings reading in full over the timeline. CSS only, in the one phone
 // block beside the Gantt label rules; the label builder and the base rules are what the desktop keeps.
 
-const webDir = path.join(__dirname, '..', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const css = fs.readFileSync(path.join(webDir, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 const app = fs.readFileSync(path.join(webDir, 'app.js'), 'utf8');
 

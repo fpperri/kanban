@@ -10,7 +10,7 @@
 // the tab opening on Edit; a text over the size cap is refused; a card with no list starts Edit empty and
 // Save makes the file. Each step waits on the page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): state, todosUi.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, todosUi.
 
 const fs = require('fs');
 const path = require('path');

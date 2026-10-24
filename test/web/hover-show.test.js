@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms,
-} = require('../web/hover-show');
+} = require('../../plugin/skills/web/web/hover-show');
 
 const set = (ids) => new Set(ids);
 

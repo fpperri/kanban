@@ -3,10 +3,10 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const guard = require('../web/key-guard');
-const hotkey = require('../web/search-hotkey');
+const guard = require('../../plugin/skills/web/web/key-guard');
+const hotkey = require('../../plugin/skills/web/web/search-hotkey');
 
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
 
 function fn(name) {
   const start = appSrc.indexOf('function ' + name + '(');

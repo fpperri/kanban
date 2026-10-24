@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const {
   graphLayout, graphLayoutHierarchy, graphPlan, graphLit, graphRestLit, graphFanLines, graphFanBus, graphFanMarks, graphRadius,
   GRAPH_FAN_REACH, GRAPH_FAN_BUS_BESIDE, GRAPH_FAN_STEM_MARGIN,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const { card, buildOf } = require('./helpers/fan-boards');
 
 // What the plan draws of the fan's lines: the lines graphFanLines lists, each with its
@@ -467,7 +467,7 @@ test('a bracket of two children is the hooked stroke and the stem, with no tick 
 test('the counted line is styled apart from the ring guides: a token in both themes, a thicker and brighter stroke', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.strictEqual(css.split('--graph-bracket:').length - 1, 3, 'light, dark by preference and dark by choice');
   const rule = /\.graph-link-counted \{([^}]*)\}/.exec(css)[1];
   const guide = /\.graph-guide \{([^}]*)\}/.exec(css)[1];

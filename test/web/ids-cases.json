@@ -1,5 +1,5 @@
 {
-  "note": "The one table of id cases. skills/web/test/ids.test.js runs it against web/ids.js and skills/snapshot/test/ids-parity.test.js against scripts/ids.py, so the two copies cannot drift. Expected values are written out by hand.",
+  "note": "The one table of id cases. test/web/ids.test.js runs it against web/ids.js and test/snapshot/ids-parity.test.js against scripts/ids.py, so the two copies cannot drift. Expected values are written out by hand.",
   "parse": [
     { "in": "7", "id": { "prefix": "", "number": 7 } },
     { "in": "0007", "id": { "prefix": "", "number": 7 } },

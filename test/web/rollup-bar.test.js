@@ -2,9 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { altitudeBadge, rollupSegments, rollupBar, rollupScopeLine, rollupDetailHtml, openLeavesWarning } = require('../web/rollup-bar');
-const { rollupIndex } = require('../web/nesting');
-const { statusColorClass, BUILTIN_STATUS_COLORS, STATUS_PALETTE } = require('../web/status-colors');
+const { altitudeBadge, rollupSegments, rollupBar, rollupScopeLine, rollupDetailHtml, openLeavesWarning } = require('../../plugin/skills/web/web/rollup-bar');
+const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
+const { statusColorClass, BUILTIN_STATUS_COLORS, STATUS_PALETTE } = require('../../plugin/skills/web/web/status-colors');
 
 const ORDER = ['backlog', 'todo', 'doing', 'done'];
 const roll = (counts, board = 'kanban') => {
@@ -169,10 +169,10 @@ test('openLeavesWarning: parents with nothing open are left out, and nothing ope
 
 // --- the stylesheet ---------------------------------------------------------
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 
 test('app.css paints one .rollup-seg-- and one .rollup-count-- rule per statusColorClass outcome, tokens only', () => {
-  const tokenFor = (cls) => (cls.startsWith('palette-') ? `--hash-${require('../web/status-colors').HASH_SLOTS[Number(cls.slice(8))]}` : `--st-${cls}`);
+  const tokenFor = (cls) => (cls.startsWith('palette-') ? `--hash-${require('../../plugin/skills/web/web/status-colors').HASH_SLOTS[Number(cls.slice(8))]}` : `--st-${cls}`);
   const classes = [...Object.keys(BUILTIN_STATUS_COLORS), 'archive', ...STATUS_PALETTE.map((_, i) => `palette-${i}`)];
   for (const cls of classes) {
     assert.ok(css.includes(`.rollup-seg--${cls} { background: var(${tokenFor(cls)});`), `segment rule: ${cls}`);
@@ -192,10 +192,10 @@ test('app.css gives the bar its shape: 8px open, 4px thin, weighted by flex-grow
 });
 
 test('the bar modes are named once, in column-state.js, and rollup-bar.js uses those names', () => {
-  const columnState = require('../web/column-state');
+  const columnState = require('../../plugin/skills/web/web/column-state');
   assert.deepStrictEqual([columnState.ROLLUP_BAR_OPEN, columnState.ROLLUP_BAR_COLLAPSED], ['open', 'collapsed']);
   assert.deepStrictEqual(columnState.ROLLUP_BAR_MODES, ['open', 'collapsed']);
-  const code = fs.readFileSync(path.join(__dirname, '..', 'web', 'rollup-bar.js'), 'utf8')
+  const code = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'rollup-bar.js'), 'utf8')
     .split('\n').filter((line) => !/^\s*\/\//.test(line)).join('\n');
   assert.doesNotMatch(code, /'open'|'collapsed'|'off'/);
   assert.match(code, /ROLLUP_COLUMN_STATE\.ROLLUP_BAR_OPEN/);

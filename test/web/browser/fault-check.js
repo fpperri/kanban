@@ -12,7 +12,7 @@
 // whatever is left in that folder, or running on it, is the runner's doing.
 // Needs the same Chrome run.js needs; CI runs it after the scenarios.
 //
-//   node skills/web/test/browser/fault-check.js
+//   node test/web/browser/fault-check.js
 //
 // Exit: 0 both paths behave, 1 one does not.
 

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { saveHotkeyTarget, SAVE_ORDER } = require('../web/save-hotkey');
+const { saveHotkeyTarget, SAVE_ORDER } = require('../../plugin/skills/web/web/save-hotkey');
 
 // Ctrl+S / Cmd+S saves the open popup instead of triggering the
 // browser's save-page dialog. Pure chord + target-resolution logic; the DOM

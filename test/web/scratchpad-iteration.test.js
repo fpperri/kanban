@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const sp = require('../scripts/scratchpad-store');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
 
 // The scratchpad path may hold <iteration> (docs/adr/0019): a page goes to the iteration its card or
 // group is a member of, else the one holding the day it is first written, else the segment is dropped;

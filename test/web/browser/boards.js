@@ -23,7 +23,7 @@
 //              iteration that auto-joins), the scratchpad, the iteration dropdown, and a goal with a prefixed
 //              id (G11, beside the plain card 11) in the running iteration
 //
-// skills/web/test/browser-fixtures.test.js pins what is on each board.
+// test/web/browser-fixtures.test.js pins what is on each board.
 
 const fs = require('fs');
 const path = require('path');

@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const ss = require('../scripts/settings-store');
+const ss = require('../../plugin/skills/web/scripts/settings-store');
 
 // The gear never writes `vars:` and keeps the block byte for byte through every write it does
 // (docs/adr/0023).

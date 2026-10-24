@@ -3,10 +3,10 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const nesting = require('../web/nesting');
-const { columnForStatus } = require('../web/column-state');
+const nesting = require('../../plugin/skills/web/web/nesting');
+const { columnForStatus } = require('../../plugin/skills/web/web/column-state');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const appSrc = fs.readFileSync(path.join(WEB, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
 const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8').replace(/\r\n/g, '\n');
 

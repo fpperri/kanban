@@ -3,7 +3,7 @@
 // sorted and the web's numeric tick entities as the glyphs the snapshot writes; a card mention's
 // click hook is the one place the two differ on purpose (the web's data-card-id, the snapshot's
 // data-mapnode). Not a test file (the suite runs *.test.js only).
-const { escapeHtml } = require('../../web/web/assignee-badge');
+const { escapeHtml } = require('../../plugin/skills/web/web/assignee-badge');
 
 const VOID = new Set(['br', 'hr', 'img', 'input']);
 const REFLECTED = ['href', 'target', 'rel', 'type'];

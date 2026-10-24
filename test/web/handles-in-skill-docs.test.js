@@ -25,7 +25,7 @@ const path = require('node:path');
 // from expansion. It is untested upstream, and writing a rule that assumes
 // quoting is safe would be inventing a guarantee nobody has measured.
 
-const skillsDir = path.join(__dirname, '..', '..');
+const skillsDir = path.join(__dirname, '..', '..', 'plugin', 'skills');
 const SKILL_DOCS = fs.readdirSync(skillsDir, { withFileTypes: true })
   .filter((e) => e.isDirectory())
   .map((e) => path.join(skillsDir, e.name, 'SKILL.md'))

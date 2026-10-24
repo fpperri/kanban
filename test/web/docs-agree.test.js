@@ -10,11 +10,11 @@ const path = require('node:path');
 // config carries, a key the guard covers is named with the others, a doc that lists the
 // keys of a type lists its icon.
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const ROOT = path.join(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
-const skill = read('skills', 'web', 'SKILL.md');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const glossary = read('GLOSSARY.md');
 const adr = flat(read('docs', 'adr', '0006-one-interaction-grammar.md'));
@@ -86,7 +86,7 @@ test('the Graph entry gives no stale reason for the swallowed click that ends a 
 });
 
 test('the kanban skill says a type may carry an icon where it lists the types, and the field:* expansion reaches the snapshot', () => {
-  const kanban = read('skills', 'kanban', 'SKILL.md');
+  const kanban = read('plugin', 'skills', 'kanban', 'SKILL.md');
   const config = flat(kanban.slice(kanban.indexOf('### `config.yaml`'), kanban.indexOf('### `notifications.md`')));
   assert.match(config, /Entries give a `type:` word a chip color and, optionally, an icon \(see `icon` below\)/);
   assert.match(config, /expands in the web app's search panel \(and the snapshot's\) to one pill per distinct value/);
@@ -151,7 +151,7 @@ test('the README counts the architecture decision records it links, and says wha
 });
 
 test('no doc mentions the header\'s Bar select or a header archived-leaves checkbox', () => {
-  const files = [['README.md'], ['GLOSSARY.md'], ['docs', 'web.md'], ['docs', 'snapshot.md'], ['skills', 'web', 'SKILL.md'], ['skills', 'snapshot', 'SKILL.md'], ['skills', 'kanban', 'SKILL.md']];
+  const files = [['README.md'], ['GLOSSARY.md'], ['docs', 'web.md'], ['docs', 'snapshot.md'], ['plugin', 'skills', 'web', 'SKILL.md'], ['plugin', 'skills', 'snapshot', 'SKILL.md'], ['plugin', 'skills', 'kanban', 'SKILL.md']];
   for (const file of files) {
     const text = flat(read(...file));
     assert.doesNotMatch(text, /Bar select|\*\*Bar\*\* select|Archived checkbox|Archived box/i, file.join('/'));

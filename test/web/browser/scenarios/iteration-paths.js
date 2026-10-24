@@ -8,7 +8,7 @@
 // it. The gear's path for the logbook is the path as written. Each step waits on the page or on the
 // file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js): state.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state.
 
 const fs = require('fs');
 const path = require('path');

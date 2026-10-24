@@ -6,8 +6,8 @@ const path = require('node:path');
 // The web skill says where a type's icon is drawn: on the type chip wherever a
 // chip is drawn, and as the outline of the card's dot in the Graph.
 
-const repoRoot = path.join(__dirname, '..', '..', '..');
-const webSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+const repoRoot = path.join(__dirname, '..', '..');
+const webSkill = fs.readFileSync(path.join(repoRoot, 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
 const flat = webSkill.replace(/\s+/g, ' ');
 
 const bullet = (start) => {

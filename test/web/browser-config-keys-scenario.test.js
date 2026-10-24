@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const scenario = require('./browser/scenarios/config-keys');
 const scenarios = require('./browser/scenarios');
 const { materialize } = require('./browser/boards');
-const { readConfig } = require('../scripts/config-store');
+const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
 
 // The config-keys scenario only runs in a browser (in CI). Here its logic runs
 // against a stand-in page: a vm that holds `state` the way the real page does,

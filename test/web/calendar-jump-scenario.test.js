@@ -104,8 +104,8 @@ test('the scenario asks the page for the month it opens on: the stand-in\'s Dece
 // starts on the page's own today, so this holds on any date. It is what the
 // scenario expects of the browser, minus the drawing.
 test('on the plan board\'s own cards the page does what the scenario expects, from the page\'s own today', async () => {
-  const cs = require('../scripts/card-store');
-  const { readConfig } = require('../scripts/config-store');
+  const cs = require('../../plugin/skills/web/scripts/card-store');
+  const { readConfig } = require('../../plugin/skills/web/scripts/config-store');
   const { materialize } = require('./browser/boards');
   const { loadPage } = require('./helpers/page-vm');
   const root = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'kanban-jump-'));

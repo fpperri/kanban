@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
-const webSkill = read('skills', 'web', 'SKILL.md');
+const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8').replace(/\r\n/g, '\n');
+const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webDoc = read('docs', 'web.md');
 
 const bullet = () => {

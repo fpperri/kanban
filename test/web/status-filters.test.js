@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { STATUS_FILTERS, statusFilterTitle } = require('../web/status-filters');
+const { STATUS_FILTERS, statusFilterTitle } = require('../../plugin/skills/web/web/status-filters');
 const { loadPage } = require('./helpers/page-vm');
 
 // The status-filter registry: one entry per view that has status pills (the Map, the Gantt, the
@@ -94,14 +94,14 @@ for (const [view, load] of [
 }
 
 test('status-filters.js loads from one script tag right after search-panel.js', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
   const tags = [...html.matchAll(/<script src="\/([^"]+)"/g)].map((m) => m[1]);
   assert.strictEqual(tags.filter((t) => t === 'status-filters.js').length, 1);
   assert.strictEqual(tags[tags.indexOf('search-panel.js') + 1], 'status-filters.js');
 });
 
 test('the Statuses section takes its titles from the registry; no view builds a status row', () => {
-  const web = (f) => fs.readFileSync(path.join(__dirname, '..', 'web', f), 'utf8');
+  const web = (f) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', f), 'utf8');
   assert.ok(!web('graph-view.js').includes('statusFilterTitle('), 'the Graph builds no titled pill any more');
   assert.ok(web('search-statuses.js').includes('statusFilterTitle(view, col'));
   assert.doesNotMatch(web('app.js'), /buildMapFilterRow|buildGanttFilterRow|buildCalendarFilterRow/);

@@ -38,17 +38,25 @@ test('--plugin names another checkout of the plugin, whose server serves the boa
   assert.throws(() => parseArgs(['--plugin']), /--plugin needs a plugin checkout/);
 });
 
-test('the server script is the one of this checkout unless --plugin names another, and one with no server is refused', () => {
-  const here = path.join(__dirname, '..', 'scripts', 'server.js');
+test('the server script is the one of this checkout unless --plugin names another (one from before the plugin folder too), and one with no server is refused', () => {
+  const here = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'server.js');
   assert.strictEqual(serverScriptOf(null), here);
   const fs = require('node:fs');
   const os = require('node:os');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-plugin-'));
   try {
     assert.throws(() => serverScriptOf(dir), /no server at .*server\.js/);
-    fs.mkdirSync(path.join(dir, 'skills', 'web', 'scripts'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'skills', 'web', 'scripts', 'server.js'), '');
-    assert.strictEqual(serverScriptOf(dir), path.join(dir, 'skills', 'web', 'scripts', 'server.js'));
+    fs.mkdirSync(path.join(dir, 'plugin', 'skills', 'web', 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'plugin', 'skills', 'web', 'scripts', 'server.js'), '');
+    assert.strictEqual(serverScriptOf(dir), path.join(dir, 'plugin', 'skills', 'web', 'scripts', 'server.js'));
+    const older = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-plugin-'));
+    try {
+      fs.mkdirSync(path.join(older, 'skills', 'web', 'scripts'), { recursive: true });
+      fs.writeFileSync(path.join(older, 'skills', 'web', 'scripts', 'server.js'), '');
+      assert.strictEqual(serverScriptOf(older), path.join(older, 'skills', 'web', 'scripts', 'server.js'));
+    } finally {
+      fs.rmSync(older, { recursive: true, force: true });
+    }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

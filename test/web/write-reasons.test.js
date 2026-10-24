@@ -4,7 +4,7 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 const {
   ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills,
   writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, typingTurnsIsolateOn,
-} = require('../web/selection');
+} = require('../../plugin/skills/web/web/selection');
 
 // Why the box was written decides what each listener does with the write, and each rule has one named
 // predicate in selection.js. The predicates are pinned here, and the page is shown to follow them:

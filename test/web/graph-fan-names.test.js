@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const {
   graphFanNames, graphFanNextNames, GRAPH_FAN_NAMES_CAP, GRAPH_FAN_NAMES_SMALL, GRAPH_FAN_OPTION_VALUES,
   graphLayout, graphSignature, graphPlan,
-} = require('../web/graph-model');
+} = require('../../plugin/skills/web/web/graph-model');
 const { loadBoard, cleanUp, drawnModel, card, buildOf } = require('./helpers/fan-boards');
 
 // The tier fan's Names option: which cards carry their title. One pure
@@ -92,7 +92,7 @@ test('a parent whose children are not drawn still stands as high as the board ma
 });
 
 test('the altitude the Names option reads is the nesting module\'s, the one the tiles\' badge shows, whatever is drawn', () => {
-  const { rollupIndex } = require('../web/nesting');
+  const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
   const cards = [card(1), card(2, { parent: 1 }), card(3, { parent: 2 }), card(4, { parent: 1 }), card(5), card(6, { parent: 5 })];
   const index = rollupIndex(cards, undefined);
   for (const drawn of [cards.map((c) => c.id), [1, 3, 5], [1, 4, 6]]) {

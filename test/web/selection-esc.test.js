@@ -2,8 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
   NO_SELECTION, cardPart, pathPart, queryPart, setAnchor, addPart, resolveSelection, selectionAfterEscape, escapeStage,
-} = require('../web/selection');
-const { parseSearchQuery, filterCards } = require('../web/search');
+} = require('../../plugin/skills/web/web/selection');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 
 // Esc steps the selection back one stage at a time: the first Esc drops every
 // addition at once and leaves the anchor, the next drops the anchor. A bulk

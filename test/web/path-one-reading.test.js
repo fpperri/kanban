@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const lb = require('../scripts/logbook-store');
-const sp = require('../scripts/scratchpad-store');
-const td = require('../scripts/todo-store');
+const lb = require('../../plugin/skills/web/scripts/logbook-store');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
+const td = require('../../plugin/skills/web/scripts/todo-store');
 
 // With <iteration> and <card> side by side, one folder can be named two ways: `work/0007.a` is an
 // iteration's folder with the card dropped, or a card's folder with the iteration dropped. It is read

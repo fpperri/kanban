@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { cardMention, firstSentenceEnd, splitClauses, inlineTokens } = require('../web/prose');
-const { escapeHtml } = require('../web/assignee-badge.js');
+const { cardMention, firstSentenceEnd, splitClauses, inlineTokens } = require('../../plugin/skills/web/web/prose');
+const { escapeHtml } = require('../../plugin/skills/web/web/assignee-badge.js');
 
 // --- card mentions ---------------------------------------------------------
 test('cardMention reads the board and id a mention code span opens with', () => {
@@ -46,8 +46,8 @@ test('inlineTokens finds code spans and bold, and nothing else', () => {
 });
 
 // --- the card body renderer ---------------------------------------------------
-const appSrc = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
-const { mdToHtml } = require('../web/markdown');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+const { mdToHtml } = require('../../plugin/skills/web/web/markdown');
 const loadMd = (projectName) => (text) => mdToHtml(text, { board: projectName });
 
 test('a mention code span renders as a chip; one on this board carries its id for the click', () => {
@@ -82,10 +82,10 @@ function loadFrontmatter(projectName, assignees, ids = [], archivedIds = []) {
   ].join('\n');
   const sandbox = {
     escapeHtml,
-    ...require('../web/waiting-blocked'),
-    statusColorClass: require('../web/status-colors').statusColorClass,
-    assigneeBadge: require('../web/assignee-badge').assigneeBadge,
-    parseParent: require('../web/nesting').parseParent,
+    ...require('../../plugin/skills/web/web/waiting-blocked'),
+    statusColorClass: require('../../plugin/skills/web/web/status-colors').statusColorClass,
+    assigneeBadge: require('../../plugin/skills/web/web/assignee-badge').assigneeBadge,
+    parseParent: require('../../plugin/skills/web/web/nesting').parseParent,
     state: { projectName, assignees, active: ids.map((id) => ({ id: String(id) })), archived: archivedIds.map((id) => ({ id: String(id) })) },
   };
   vm.createContext(sandbox);

@@ -3,14 +3,14 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control } = require('./helpers/page-vm');
-const { PHONE_WIDTH_QUERY } = require('../web/phone-width');
+const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 
 // On a phone the Calendar's and the Gantt's date range sits in the header beside the board's name, and the
 // view bar's own title (.cal-title) steps aside. The Web keeps .cal-title at every width; the header slot
 // is shown under the width line only, and only while it holds text.
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.html'), 'utf8');
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 const BOARD = {
   projectName: 'kanban',
   statuses: ['backlog', 'todo', 'doing', 'done'],

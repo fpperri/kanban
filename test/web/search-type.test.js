@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../web/search');
+const { parseSearchQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
 
 const CARDS = [
   { id: 1, title: 'Ship it', body: '', status: 'todo', priority: 'Normal', tags: [], type: 'objective' },

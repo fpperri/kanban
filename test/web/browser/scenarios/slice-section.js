@@ -19,7 +19,7 @@
 // error (the harness closes the scenario with that check).
 //
 // What each step shows is written down in CASES, and
-// skills/web/test/browser-slice-section.test.js holds those lists to the slices module, the
+// test/web/browser-slice-section.test.js holds those lists to the slices module, the
 // search module and the run arithmetic over each board's own cards, so a wrong expectation
 // fails in the unit suite and not only in a browser.
 //

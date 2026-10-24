@@ -13,7 +13,7 @@ const path = require('node:path');
 // an unstyled box, not a themed one — so this file pins the shape itself,
 // not just today's values.
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
 
 function block(source, startIdx) {
   // startIdx points at the '{' that opens the block; returns the substring

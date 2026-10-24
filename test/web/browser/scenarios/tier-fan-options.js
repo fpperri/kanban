@@ -36,7 +36,7 @@
 // chain with brackets seven, two brackets reading 2 and 2, chain with lines nine and all with lines
 // thirteen.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // graphCur, graphFanLines, graphLoadOptions, selectedIds, isDragging, boardControlFocused,
 // autoRefreshTick.
 

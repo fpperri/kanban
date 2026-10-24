@@ -15,9 +15,9 @@ const path = require('node:path');
 // The second doc used to be skills/cli/SKILL.md's "Parity with kanban-web"
 // section; the cli surface was retired and that file deleted.
 
-const repoRoot = path.join(__dirname, '..', '..', '..');
+const repoRoot = path.join(__dirname, '..', '..');
 const contextDoc = fs.readFileSync(path.join(repoRoot, 'GLOSSARY.md'), 'utf8');
-const webSkill = fs.readFileSync(path.join(repoRoot, 'skills', 'web', 'SKILL.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(repoRoot, 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
 const stalePendingSnapshot = /(not yet mirrored|still pending)[^.]*snapshot|snapshot[^.]*(not yet mirrored|still pending)/i;
 
 test('GLOSSARY.md parity table notes tree:/path: mirrored in the snapshot, not pending', () => {

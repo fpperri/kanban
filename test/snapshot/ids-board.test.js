@@ -1,9 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, filterCards } = require('../../web/web/search');
-const { sortIds } = require('../../web/web/ids');
+const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
+const { sortIds } = require('../../plugin/skills/web/web/ids');
 const { planCards, webContext, withBoardPage } = require('./search-table');
-const scenario = require('../../web/test/browser/scenarios/ids');
+const scenario = require('../web/browser/scenarios/ids');
 
 // The browser runner's ids board holds plain cards (3, 7, 9, 10), goals (G3, G4, G10; G2
 // archived), a two-letter prefix (DW845) and the loose prefix (_12): card 3 and goal G3 share

@@ -8,8 +8,8 @@ const path = require('node:path');
 // without a tier, a sector per tree, and an Unnested block. The words are the
 // glossary's: hierarchy, tier, slice, depth.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);
@@ -105,7 +105,7 @@ test('the Graph section no longer describes the old full-circle Tiers', () => {
 });
 
 test('the Hierarchy button\'s title says the fan goes all the way round the centre', () => {
-  const view = fs.readFileSync(path.join(__dirname, '..', 'web', 'graph-view.js'), 'utf8');
+  const view = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'graph-view.js'), 'utf8');
   const title = /hierarchy: '(Hierarchy: [^']*)'/.exec(view);
   assert.ok(title, 'the Hierarchy title is in graph-view.js');
   assert.match(title[1], /all the way round the centre/);

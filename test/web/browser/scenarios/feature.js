@@ -9,7 +9,7 @@
 // logbook and scratchpad, both ticked, taking the card, its notes, its page and its place in the iteration
 // together. Each step waits on the page or on the file, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in skills/web/test/browser-globals.test.js):
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, settingsBoardPages, calendarAnchor, localTodayStr, renderBoard, renderCalendarView, autoRefreshTick, writeSearch.
 
 const fs = require('fs');

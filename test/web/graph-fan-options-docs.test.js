@@ -7,8 +7,8 @@ const path = require('node:path');
 // it holds, what each value draws, that it starts folded, and where its choices are kept.
 // The words are the glossary's: tier, slice, selection, status pill.
 
-const webSkill = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
-const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'web.md'), 'utf8');
+const webSkill = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'SKILL.md'), 'utf8');
+const webDoc = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'web.md'), 'utf8');
 
 function bullet(marker) {
   const start = webSkill.indexOf(marker);
@@ -41,7 +41,7 @@ test('the Graph section says what Lines gives a line to and what Group does with
 test('the Graph section says where a bracket\'s stem meets its arc: in a gap between two children, clear of every other mark', () => {
   assert.match(graph(), /A bracket's stem is one straight line from the parent to the middle of a gap between two neighbouring children, never to a child's angle: it takes the gap nearest the parent's angle whose line keeps clear of every other card's mark, the next nearest when a mark is in the way, and the count sits in the free gap nearest the stem, beside the stem's end when no other gap is wide enough/);
   assert.match(docGraph(), /A bracket's line up to the parent meets the arc in a gap between two children, never at a child's angle, the gap nearest the parent whose line keeps clear of every other card's mark, and the count sits in the free gap nearest it/);
-  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /The stem is one straight line that meets the arc in the middle of a gap between two neighbouring children, never at a child's angle/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'GLOSSARY.md'), 'utf8'), /The stem is one straight line that meets the arc in the middle of a gap between two neighbouring children, never at a child's angle/);
 });
 
 test('the Graph section says what hovering a line lights, the hit stroke, and that a line has no click or focus', () => {
@@ -53,7 +53,7 @@ test('the Graph section says what hovering a line lights, the hit stroke, and th
 test('the Graph section says how a bracket looks: heavier than the ring guides, hooked at both ends, alternating insets along a ring', () => {
   const text = graph();
   assert.match(text, /A bracket is drawn heavier and brighter than the ring guides, its arc hooks out to its first and last child, and brackets side by side on one ring alternate between two insets so neighbours never meet/);
-  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'GLOSSARY.md'), 'utf8'), /hooks out to its first and last child, and turns at one of two insets from the ring in turn, so two brackets side by side never meet/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'GLOSSARY.md'), 'utf8'), /hooks out to its first and last child, and turns at one of two insets from the ring in turn, so two brackets side by side never meet/);
 });
 
 test('the Graph section no longer has a folded value, and the brackets sentence does not read the chain ends', () => {

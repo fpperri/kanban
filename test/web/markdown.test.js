@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { mdToHtml: render, parseMarkdown, parseInline, codeLang } = require('../web/markdown.js');
+const { mdToHtml: render, parseMarkdown, parseInline, codeLang } = require('../../plugin/skills/web/web/markdown.js');
 
 // The one Markdown renderer: card bodies, notes and scratchpad previews all go through
 // it, and the snapshot embeds its parser. These run the real functions, so a regression
@@ -355,7 +355,7 @@ test('a task item in a loose list keeps its tick on the same line as its text', 
 // --- unknown nodes -------------------------------------------------------------------------------
 
 test('a tree node of a kind the renderer does not know is drawn as its text, escaped', () => {
-  const { renderBlocks } = require('../web/markdown.js');
+  const { renderBlocks } = require('../../plugin/skills/web/web/markdown.js');
   assert.strictEqual(renderBlocks([{ t: 'mystery', text: '<img src=x>' }]), '&lt;img src=x&gt;');
   assert.strictEqual(renderBlocks([{ t: 'p', inline: [{ t: 'mystery', v: '<b>' }, { t: 'text', v: 'ok' }] }]), '<p>&lt;b&gt;ok</p>');
   assert.strictEqual(renderBlocks([{ t: 'mystery' }]), '');

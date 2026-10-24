@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace } = require('../web/hotkeys');
+const { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace } = require('../../plugin/skills/web/web/hotkeys');
 
 // The list the preferences sheet's Hotkeys section shows (hotkeys.js): every key the page
 // answers, what it does, and the state of the ones that have one. Pure, so it is driven

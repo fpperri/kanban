@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const sp = require('../scripts/scratchpad-store');
-const { StatusError } = require('../scripts/store-common');
+const sp = require('../../plugin/skills/web/scripts/scratchpad-store');
+const { StatusError } = require('../../plugin/skills/web/scripts/store-common');
 
 // The scratchpad store (docs/adr/0016): one `<padded id>.scratchpad.md` per card or group in the
 // folder `scratchpad:` names, optional `refs:` in the frontmatter and a free body. Reading is

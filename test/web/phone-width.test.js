@@ -3,13 +3,13 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { PHONE_WIDTH_LINE_PX, PHONE_WIDTH_QUERY, isPhoneWidth } = require('../web/phone-width');
-const { VIEW_PANEL_WIDE_PX } = require('../web/view-panel');
+const { PHONE_WIDTH_LINE_PX, PHONE_WIDTH_QUERY, isPhoneWidth } = require('../../plugin/skills/web/web/phone-width');
+const { VIEW_PANEL_WIDE_PX } = require('../../plugin/skills/web/web/view-panel');
 
 // One width line for the Web: under 760 px the layout is the phone's. The stylesheet and the page
 // script both read it from here, so the two never disagree about which side of the line a window is on.
 
-const webDir = path.join(__dirname, '..', 'web');
+const webDir = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(webDir, f), 'utf8');
 
 test('759 px is a phone and 760 px is not, and the line is the option panel\'s', () => {

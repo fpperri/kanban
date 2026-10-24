@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { typingIsolatesDefaults } = require('../web/typing-isolates');
-const { VIEW_MODES } = require('../web/calendar-model');
-const { ISOLATING_REASONS } = require('../web/selection');
+const { typingIsolatesDefaults } = require('../../plugin/skills/web/web/typing-isolates');
+const { VIEW_MODES } = require('../../plugin/skills/web/web/calendar-model');
+const { ISOLATING_REASONS } = require('../../plugin/skills/web/web/selection');
 
 // The web skill, the web docs and the glossary say that outside the Graph the search box hides what
 // it does not match only while Isolate is on, and lights its matches otherwise; that typing, a pill,
@@ -16,8 +16,8 @@ const { ISOLATING_REASONS } = require('../web/selection');
 // choices is held to the preferences and the writer's reasons, so a doc cannot promise what the page
 // does not do.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const glossary = read('GLOSSARY.md');
 const flat = (text) => text.replace(/\s+/g, ' ');

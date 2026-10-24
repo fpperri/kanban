@@ -6,17 +6,17 @@ const { decide, run, isDoc, isDocsTest, baseRef } = require('./docs-pinned-check
 // docs-pinned-check.js on a pull request; this file holds its decision to fixtures, with no git.
 
 test('the docs are docs/*.md, every SKILL.md and the README, and nothing deeper or looser', () => {
-  for (const f of ['docs/web.md', 'docs/testing.md', 'docs/snapshot.md', 'skills/web/SKILL.md', 'skills/snapshot/SKILL.md', 'skills/a/b/SKILL.md', 'README.md', 'GLOSSARY.md', 'skills/web/references/apply-protocol.md', 'skills/snapshot/references/x.md']) assert.ok(isDoc(f), f);
-  for (const f of ['docs/agents/x.md', 'docs/img/a.png', 'skills/web/README.md', 'skills/web/web/app.js', 'notes/README.md', 'skills/web/references/deep/x.md', 'skills/web/references/x.txt', 'references/x.md', 'skills/web/test/foo-docs.test.js']) assert.ok(!isDoc(f), f);
+  for (const f of ['docs/web.md', 'docs/testing.md', 'docs/snapshot.md', 'plugin/skills/web/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'plugin/skills/a/b/SKILL.md', 'README.md', 'GLOSSARY.md', 'plugin/skills/web/references/apply-protocol.md', 'plugin/skills/snapshot/references/x.md']) assert.ok(isDoc(f), f);
+  for (const f of ['docs/agents/x.md', 'docs/img/a.png', 'plugin/skills/web/README.md', 'plugin/skills/web/web/app.js', 'notes/README.md', 'plugin/skills/web/references/deep/x.md', 'plugin/skills/web/references/x.txt', 'references/x.md', 'test/web/foo-docs.test.js']) assert.ok(!isDoc(f), f);
 });
 
-test('the docs tests are skills/**/test/*-docs.test.js and docs-agree.test.js', () => {
-  for (const f of ['skills/web/test/groups-docs.test.js', 'skills/snapshot/test/x-docs.test.js', 'skills/web/test/docs-agree.test.js', 'skills/snapshot/test/docs-agree.test.js']) assert.ok(isDocsTest(f), f);
-  for (const f of ['skills/web/test/groups.test.js', 'skills/web/test/docs-utf8.test.js', 'skills/web/test/browser/x-docs.test.js', 'docs/x-docs.test.js', 'skills/web/test/groups-docs.js']) assert.ok(!isDocsTest(f), f);
+test('the docs tests are test/**/*-docs.test.js and docs-agree.test.js', () => {
+  for (const f of ['test/web/groups-docs.test.js', 'test/snapshot/x-docs.test.js', 'test/web/docs-agree.test.js', 'test/snapshot/docs-agree.test.js']) assert.ok(isDocsTest(f), f);
+  for (const f of ['test/web/groups.test.js', 'test/web/docs-utf8.test.js', 'test/web/browser/x-docs.test.js', 'docs/x-docs.test.js', 'test/web/groups-docs.js']) assert.ok(!isDocsTest(f), f);
 });
 
 test('a changed doc with no docs test changed fails and names the doc', () => {
-  const r = decide({ changed: ['docs/web.md', 'skills/web/web/app.js'], messages: ['web: a thing'] });
+  const r = decide({ changed: ['docs/web.md', 'plugin/skills/web/web/app.js'], messages: ['web: a thing'] });
   assert.strictEqual(r.ok, false);
   assert.deepStrictEqual(r.docs, ['docs/web.md']);
   assert.match(r.message, /docs\/web\.md/);
@@ -26,16 +26,16 @@ test('a changed doc with no docs test changed fails and names the doc', () => {
 });
 
 test('every kind of doc is held to it, and the message names each changed doc', () => {
-  for (const doc of ['docs/web.md', 'docs/snapshot.md', 'skills/web/SKILL.md', 'skills/snapshot/SKILL.md', 'README.md']) {
+  for (const doc of ['docs/web.md', 'docs/snapshot.md', 'plugin/skills/web/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'README.md']) {
     assert.strictEqual(decide({ changed: [doc], messages: [] }).ok, false, doc);
   }
-  const r = decide({ changed: ['README.md', 'docs/web.md', 'skills/kanban/SKILL.md'], messages: [] });
-  assert.deepStrictEqual(r.docs, ['README.md', 'docs/web.md', 'skills/kanban/SKILL.md']);
+  const r = decide({ changed: ['README.md', 'docs/web.md', 'plugin/skills/kanban/SKILL.md'], messages: [] });
+  assert.deepStrictEqual(r.docs, ['README.md', 'docs/web.md', 'plugin/skills/kanban/SKILL.md']);
   for (const d of r.docs) assert.ok(r.message.includes(d), d);
 });
 
 test('the glossary and the skills references are held to it too', () => {
-  for (const doc of ['GLOSSARY.md', 'skills/snapshot/references/apply-protocol.md']) {
+  for (const doc of ['GLOSSARY.md', 'plugin/skills/snapshot/references/apply-protocol.md']) {
     const r = decide({ changed: [doc], messages: [] });
     assert.strictEqual(r.ok, false, doc);
     assert.ok(r.message.includes(doc), doc);
@@ -43,21 +43,21 @@ test('the glossary and the skills references are held to it too', () => {
 });
 
 test('a docs test changed in the same range lets it through', () => {
-  for (const test of ['skills/web/test/groups-docs.test.js', 'skills/web/test/docs-agree.test.js', 'skills/snapshot/test/docs-agree.test.js']) {
+  for (const test of ['test/web/groups-docs.test.js', 'test/web/docs-agree.test.js', 'test/snapshot/docs-agree.test.js']) {
     const r = decide({ changed: ['docs/web.md', test], messages: [] });
     assert.strictEqual(r.ok, true, test);
   }
 });
 
 test('a change that touches no doc has nothing to check, whatever else it changes', () => {
-  const r = decide({ changed: ['skills/web/web/app.js', 'skills/web/test/foo.test.js', 'docs/img/a.png', 'docs/agents/x.md'], messages: [] });
+  const r = decide({ changed: ['plugin/skills/web/web/app.js', 'test/web/foo.test.js', 'docs/img/a.png', 'docs/agents/x.md'], messages: [] });
   assert.strictEqual(r.ok, true);
   assert.deepStrictEqual(r.docs, []);
   assert.strictEqual(decide({ changed: [], messages: [] }).ok, true);
 });
 
 test('a docs test that is not a docs test does not count', () => {
-  const r = decide({ changed: ['docs/web.md', 'skills/web/test/groups.test.js', 'skills/web/test/docs-utf8.test.js'], messages: [] });
+  const r = decide({ changed: ['docs/web.md', 'test/web/groups.test.js', 'test/web/docs-utf8.test.js'], messages: [] });
   assert.strictEqual(r.ok, false);
 });
 
@@ -122,7 +122,7 @@ test('on a pull request it reads git diff --name-only <base>...HEAD and git log 
 });
 
 test('on a pull request it exits 1 with the message when a doc changed alone', () => {
-  const { git } = fakeGit(['README.md', 'skills/web/web/app.js'], ['web: a thing']);
+  const { git } = fakeGit(['README.md', 'plugin/skills/web/web/app.js'], ['web: a thing']);
   const r = run({ env: { GITHUB_BASE_REF: 'main' }, args: [], git });
   assert.strictEqual(r.code, 1);
   assert.match(r.message, /README\.md/);

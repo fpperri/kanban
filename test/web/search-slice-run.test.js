@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const {
   parseSearchQuery, filterCards, searchSetSlice, searchSplitSlice, searchJoinSlice, searchCutOnly,
   searchHasAlt, searchAddAlt, searchRemoveAlt,
-} = require('../web/search');
+} = require('../../plugin/skills/web/web/search');
 
 // The slice section writes its run into the box as a slice: term at the top level of
 // the query, ANDed over the whole of it. The search module's term interface does the

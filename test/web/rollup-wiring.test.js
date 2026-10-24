@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { assertKeepsSelection } = require('./helpers/markers');
 
-const WEB = path.join(__dirname, '..', 'web');
+const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const appSrc = read('app.js');
 const html = read('app.html');
@@ -30,7 +30,7 @@ const prefsState = () => {
 // A sandbox with just what the pref helpers touch: a state, a storage that can
 // be made to throw, and the real merge/key functions.
 function prefSandbox({ stored = {}, throws = false } = {}) {
-  const colState = require('../web/column-state');
+  const colState = require('../../plugin/skills/web/web/column-state');
   const writes = {};
   const sandbox = {
     state: { projectName: 'shop' },
@@ -190,8 +190,8 @@ test('the warning never blocks: each caller moves first and only then toasts', (
 });
 
 function noteSandbox(cards) {
-  const { rollupIndex } = require('../web/nesting');
-  const { openLeavesWarning } = require('../web/rollup-bar');
+  const { rollupIndex } = require('../../plugin/skills/web/web/nesting');
+  const { openLeavesWarning } = require('../../plugin/skills/web/web/rollup-bar');
   const sandbox = {
     state: { active: cards, archived: [], projectName: 'kanban', priorities: [] },
     rollupIndex, openLeavesWarning,
@@ -236,7 +236,7 @@ test('the bar and badge builders never write a style attribute in app.js', () =>
 // --- a tile, end to end through the real helpers ---------------------------------
 
 function tileSandbox(cards, { mode, archivedKey, archivedDone } = {}) {
-  const colState = require('../web/column-state');
+  const colState = require('../../plugin/skills/web/web/column-state');
   const stored = {};
   if (mode) stored['kanban.kanban.rollup.bar'] = mode;
   if (archivedKey !== undefined) stored['kanban.kanban.rollup.archived'] = archivedKey;
@@ -245,9 +245,9 @@ function tileSandbox(cards, { mode, archivedKey, archivedDone } = {}) {
     state: { active: cards.filter((c) => !c.archived), archived: cards.filter((c) => c.archived), projectName: 'kanban', priorities: [], statuses: [] },
     ...colState,
     localStorage: { getItem: (k) => (k in stored ? stored[k] : null), setItem() {} },
-    ...require('../web/prefs'),
-    ...require('../web/nesting'),
-    ...require('../web/rollup-bar'),
+    ...require('../../plugin/skills/web/web/prefs'),
+    ...require('../../plugin/skills/web/web/nesting'),
+    ...require('../../plugin/skills/web/web/rollup-bar'),
   };
   vm.createContext(sandbox);
   vm.runInContext([...rollupState(), ...prefsState(), 'let nestingIndex = null;',

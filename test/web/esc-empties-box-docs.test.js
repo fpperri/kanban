@@ -2,13 +2,13 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { HOTKEYS } = require('../web/hotkeys');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 
 // Repeated Esc ends on an empty search box, the `slice:` run included. The web skill, the web docs
 // and the Hotkeys list say so, and none still says that Esc away from the box leaves the box alone.
 
-const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
-const skill = read('skills', 'web', 'SKILL.md');
+const read = (...parts) => fs.readFileSync(path.join(__dirname, '..', '..', ...parts), 'utf8').replace(/\r\n/g, '\n');
+const skill = read('plugin', 'skills', 'web', 'SKILL.md');
 const docs = read('docs', 'web.md');
 const flat = (text) => text.replace(/\s+/g, ' ');
 
