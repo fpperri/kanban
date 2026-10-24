@@ -60,7 +60,7 @@ A "finished — approve me" sticker: `review: <text>`, the text saying what to c
 _Avoid_: column, lane (it is a sticker, not a status); approved, done (a review card is not done yet).
 
 **Web** (skill `kanban-web`):
-The human's live editor — localhost Node server + browser SPA, desktop only. "App" and "dashboard" in older writing both refer to this skill (the static `kanban-dashboard` skill is deleted).
+The human's live editor — localhost Node server + browser SPA, reached from a phone through a VS Code tunnel. "App" and "dashboard" in older writing both refer to this skill (the static `kanban-dashboard` skill is deleted).
 _Avoid_: app, dashboard (in new writing).
 
 **Snapshot** (skill `kanban-snapshot`):
@@ -190,7 +190,7 @@ A group of the Flow's cards when its Lanes switch is on: the cards with a depend
 _Avoid_: swimlane, row, band (how the Graph draws a tier).
 
 **Unnested**:
-A card with no parent and no children. It may still wait for a card or be waited for.
+A card with no parent, no children and no tier. It may still wait for a card or be waited for.
 _Avoid_: orphan, isolated (that is what an isolate does to a view).
 
 ## Ids, groups and the logbook
@@ -335,8 +335,8 @@ the `kanban` skill. Web carries the full operation set (CRUD, multi-select
 bulk actions with per-card skips, speedbumps on every destructive action,
 notifications inbox, dependency/gantt/calendar/graph views); the snapshot carries
 the same board contracts through a tap UI whose changes Claude applies, and
-names its own deliberate gaps in `plugin/skills/snapshot/SKILL.md`'s "What the
-editor deliberately does not do". A feature added to one editor lands in the
+names its own deliberate gaps in `plugin/skills/snapshot/references/gaps.md`
+("What the snapshot deliberately does not do"). A feature added to one editor lands in the
 other (or gets a line in that surface's own skill doc saying why not).
 Retired skills are deleted outright.
 The Graph view is web-only: the snapshot does not draw it.

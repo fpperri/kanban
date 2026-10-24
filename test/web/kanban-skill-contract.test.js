@@ -9,8 +9,8 @@ const { toJSON, readCardFile } = require('../../plugin/skills/web/scripts/card-s
 const { parseNotifications } = require('../../plugin/skills/web/scripts/notifications-store');
 const { parseParent } = require('../../plugin/skills/web/web/nesting');
 
-// What an agent or a person copies from the kanban skill, the README's config section and the web
-// skill's config example: the config.yaml they show, the card frontmatter, the notifications entry,
+// What an agent or a person copies from the kanban skill, the README's config section and the config
+// example of docs/web.md: the config.yaml they show, the card frontmatter, the notifications entry,
 // the starter, the commands. Each is read by the real module, and what the module reads is where the
 // expectation comes from, so a doc is held to the file formats and not to its own sentences.
 
@@ -19,13 +19,12 @@ const configSection = section(skill, '### `config.yaml`', '### `notifications.md
 const readme = read('README.md');
 const readmeConfig = section(readme, '## config.yaml', '## Starter config');
 const readmeStarter = section(readme, '## Starter config', '## More docs');
-const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
-const webConfig = section(webSkill, '## Board config: `config.yaml`', '\n## ');
+const webConfig = section(read('docs', 'web.md'), '**Board config: `config.yaml`**');
 
 const EXAMPLES = [
   ['the kanban skill', fenced(configSection, 'yaml')[0]],
   ['the README', fenced(readmeConfig, 'yaml')[0]],
-  ['the web skill', fenced(webConfig, 'yaml')[0]],
+  ['docs/web.md', fenced(webConfig, 'yaml')[0]],
 ];
 
 const KNOWN_TO_THE_READER = new Set(Object.keys(parseConfig('')));

@@ -11,7 +11,6 @@ const { iterationNextDraft } = require('../../plugin/skills/web/web/iterations')
 // search module must do with it what the docs say. The expectation is the module's answer on a board
 // this file builds, not a sentence of the docs.
 
-const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
 const webDocs = read('docs', 'web.md');
 const snapshotSkill = read('plugin', 'skills', 'snapshot', 'SKILL.md');
 
@@ -30,7 +29,7 @@ const CARDS = [
 const CTX = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
 const ids = (term, cards = CARDS, ctx = CTX) => filterCards(cards, parseSearchQuery(term, 'kanban'), ctx).map((c) => c.id);
 
-const WEB = [['the web skill', webSkill], ['docs/web.md', webDocs]];
+const WEB = [['docs/web.md', webDocs]];
 const ALL = [...WEB, ['the snapshot skill', snapshotSkill]];
 
 const GRAMMAR = [
@@ -82,9 +81,9 @@ test('the slice terms the search box suggests after slice: and after .. are the 
   assert.ok(searchSuggestionItems('slice:"big goal..', undefined, spaced, { board: 'kanban', hierarchy: ['big goal'] }).map((i) => i.value).includes(quoted));
 });
 
-test('the address the web skill gives for an isolated search is the one the page writes, and the deep-link reader reads it back', () => {
-  const [, address] = /`(\?q=[^`]*&isolate=1)`/.exec(webSkill) || [];
-  assert.ok(address, 'the web skill shows an address that carries isolate');
+test('the address docs/web.md gives for an isolated search is the one the page writes, and the deep-link reader reads it back', () => {
+  const [, address] = /`(\?q=[^`]*&isolate=1)`/.exec(webDocs) || [];
+  assert.ok(address, 'docs/web.md shows an address that carries isolate');
   const q = new URLSearchParams(address).get('q');
   assert.strictEqual(nextSearchAddress('', q, true), address);
   const read = parseDeepLink(address);
@@ -102,8 +101,8 @@ test('the group terms the web docs show find the group\'s cards by id, by name, 
   }
 });
 
-test('the iteration the web skill follows through, zephyr-2 then zephyr-3, is the draft the dropdown offers', () => {
-  assert.ok(webSkill.includes('zephyr-2') && webSkill.includes('zephyr-3'));
+test('the iteration docs/web.md follows through, zephyr-2 then zephyr-3, is the draft the dropdown offers', () => {
+  assert.ok(webDocs.includes('zephyr-2') && webDocs.includes('zephyr-3'));
   const groups = [{ id: 'I2', name: 'zephyr-2', folder: 'iteration', start_date: '2026-10-12', end_date: '2026-10-23', auto_join: true, cards: [] }];
   assert.strictEqual(iterationNextDraft(groups, '2026-10-15').name, 'zephyr-3');
 });
