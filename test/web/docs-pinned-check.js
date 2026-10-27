@@ -2,8 +2,8 @@
 // CI step for a pull request: a change to a contract doc brings the test that pins it.
 //
 // docs/testing.md gives a doc a pinning test only for what a person, a tool or an agent copies, runs
-// or parses. The docs that carry such facts are the contract docs: the kanban skill's SKILL.md (card
-// and config file formats, commands), the snapshot's references/apply-protocol.md (the payload),
+// or parses. The docs that carry such facts are the contract docs: the kanban skill's SKILL.md and the
+// references/*.md beside it (card and config file formats, the notes kit, commands), the snapshot's references/apply-protocol.md (the payload),
 // docs/cross-harness.md (the modules the generator needs) and the README's config.yaml and Starter
 // config sections. A pull request that changes one of them and changes no docs test fails here. A
 // typo fix says so with a line in one of its commit messages:
@@ -22,7 +22,7 @@
 // the change passes or there is nothing to check, 1 when a contract doc changed alone, 2 when git
 // cannot answer (a shallow clone: check out with fetch-depth: 0).
 
-const CONTRACT_DOCS = [/^plugin\/skills\/kanban\/SKILL\.md$/, /^plugin\/skills\/snapshot\/references\/apply-protocol\.md$/, /^docs\/cross-harness\.md$/];
+const CONTRACT_DOCS = [/^plugin\/skills\/kanban\/(?:SKILL\.md|references\/[^/]+\.md)$/, /^plugin\/skills\/snapshot\/references\/apply-protocol\.md$/, /^docs\/cross-harness\.md$/];
 const README = 'README.md';
 const README_SECTIONS = ['## config.yaml', '## Starter config'];
 const DOCS_TESTS = [
