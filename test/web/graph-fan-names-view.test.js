@@ -6,6 +6,7 @@ const path = require('node:path');
 const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
 const { KEY_GUARD_SURFACES } = require('../../plugin/skills/web/web/key-guard');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 
 // The tier fan's Names option and the l key in the real page (helpers/page-vm.js runs every
 // script the page loads in one vm, with elements a test can read back). Names is a fourth
@@ -102,7 +103,7 @@ test('the row holds Names, with relevant, all and none, and relevant pressed by 
   assert.deepStrictEqual(names.buttons.map((b) => [b.key, b.val, b.text]), [['names', 'relevant', 'relevant'], ['names', 'all', 'all'], ['names', 'none', 'none']]);
   assert.deepStrictEqual(pressedNames(s), ['relevant']);
   assert.ok(names.buttons[0].active && !names.buttons[1].active && !names.buttons[2].active, 'the active class follows the pressed value');
-  assert.ok(names.title.length > 20 && /\bn\b/.test(names.title), 'it explains itself in a tooltip and says which key steps it');
+  assert.ok(names.title.length > 20 && names.title.includes(`Press ${HOTKEYS.find((h) => h.id === 'names').keys[0]} to step`), 'it explains itself in a tooltip and says which key steps it');
   assert.deepStrictEqual(groups(s.row()).map((g) => g.label), ['Lines', 'Group', 'Dependencies', 'Order', 'Names', 'Unnested'], 'it follows the four that were there, and Unnested follows it');
   for (const b of names.buttons) {
     assert.strictEqual(b.el.dataset.keepsSelection, '', `${b.val} keeps the selection`);

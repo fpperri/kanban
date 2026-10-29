@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { loadPage, control, harmless } = require('./helpers/page-vm');
+const { HOTKEYS } = require('../../plugin/skills/web/web/hotkeys');
 const { recordingDocument, recordingElement, byClass } = require('./helpers/recording-dom');
 
 // The tier fan's option row in the real page (helpers/page-vm.js runs every script the
@@ -400,6 +401,8 @@ test('every option the model offers has a label and a hint in the row, so the ro
   for (const meta of Object.values(sandbox.labels)) assert.ok(meta.label && meta.hint.length > 20);
   assert.ok(sandbox.labels.names.hint.includes(`up to ${GRAPH_FAN_NAMES_CAP} names`), 'the hint says the cap the model holds');
   assert.ok(sandbox.labels.names.hint.includes(`a fan of ${GRAPH_FAN_NAMES_SMALL} cards or fewer`), 'and the size of a fan that names every card');
+  const namesKey = HOTKEYS.find((h) => h.id === 'names').keys[0];
+  assert.ok(sandbox.labels.names.hint.includes(`Press ${namesKey} to step`), 'and the key the hotkeys list gives for stepping the names');
 });
 
 // --- the Unnested option --------------------------------------------------------------------------------

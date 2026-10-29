@@ -44,7 +44,7 @@ Prose about what the app does gets no docs test. The behaviour tests and the bro
 
 The docs tests, and what each holds to the code:
 
-- `test/web/kanban-skill-contract.test.js`: the `config.yaml` examples of the kanban skill, the web skill and the README (read by `parseConfig`), the card fields, the card and notification examples, the forms of a parent, the starter against its file, and the commands against the scripts and flags they run.
+- `test/web/kanban-skill-contract.test.js`: the `config.yaml` examples of the kanban skill, `docs/web.md` and the README (read by `parseConfig`), the card fields, the card and notification examples, the forms of a parent, the starter against its file, and the commands against the scripts and flags they run.
 - `test/web/notes-kit-contract.test.js`: the logbook, scratchpad, todo and group examples of the kanban skill, read by their stores, the file names the skill gives, and the placeholders `path-vars.js` fills.
 - `test/web/doc-examples.test.js`: the search terms and the address the docs show, run through the search module.
 - `test/snapshot/snapshot-contract.test.js`: the ops and `fm` shapes of `apply-protocol.md` against the payload the editor makes, and the web modules `docs/cross-harness.md` names against the generator's embed table.

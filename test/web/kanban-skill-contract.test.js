@@ -21,13 +21,12 @@ const nesting = read('plugin', 'skills', 'kanban', 'references', 'nesting.md');
 const readme = read('README.md');
 const readmeConfig = section(readme, '## config.yaml', '## Starter config');
 const readmeStarter = section(readme, '## Starter config', '## More docs');
-const webSkill = read('plugin', 'skills', 'web', 'SKILL.md');
-const webConfig = section(webSkill, '## Board config: `config.yaml`', '\n## ');
+const webConfig = section(read('docs', 'web.md'), '**Board config: `config.yaml`**');
 
 const EXAMPLES = [
   ['the kanban skill\'s config reference', fenced(configSection, 'yaml')[0]],
   ['the README', fenced(readmeConfig, 'yaml')[0]],
-  ['the web skill', fenced(webConfig, 'yaml')[0]],
+  ['docs/web.md', fenced(webConfig, 'yaml')[0]],
 ];
 
 const KNOWN_TO_THE_READER = new Set(Object.keys(parseConfig('')));
