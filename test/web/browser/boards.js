@@ -16,6 +16,7 @@
 //   scratchonly the groups board with the logbook line taken out and a scratchpad: line put in (scratchpads on, notes off)
 //   todos      the scratchpad board with a todos: line naming the scratchpad's own folder, a todo list for card 7 beside its page and one for group I2
 //   markdown   the fixture board plus card 22, whose body holds the rich Markdown the detail popup draws
+//   images     the fixture board plus card 25, whose body holds a picture that can be sent, an svg, a missing file and a remote address
 //   calnotes   the notes board with two more notes, so one half hour holds two and one day holds two untimed
 //   iterations the groups board with iterations: true, so the header has the iteration dropdown
 //   iterlog    the groups board whose logbook: and scratchpad: paths name the <iteration> folder (docs/adr/0019)
@@ -42,6 +43,7 @@ const BOARDS = {
   todos: { name: 'todos', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-scratchpad', 'fixture-todos'] },
   feature: { name: 'feature', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-scratchpad', 'fixture-feature'] },
   markdown: { name: 'markdown', layers: ['fixture', 'fixture-markdown'] },
+  images: { name: 'images', layers: ['fixture', 'fixture-images'] },
   iterlog: { name: 'iterlog', layers: ['fixture', 'fixture-plan', 'fixture-groups', 'fixture-iterlog'] },
   calnotes: { name: 'notes', layers: ['fixture', 'fixture-plan', 'fixture-notes', 'fixture-notes-calendar'] },
 };

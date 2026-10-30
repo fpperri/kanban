@@ -204,6 +204,12 @@ settingsAddBoardPage({
 }, 'logbook');
 
 window.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('click', (e) => {
+    const icon = e.target.closest && e.target.closest('.card-scratch');
+    if (!icon) return;
+    e.preventDefault();
+    openNotes({ kind: 'scratchpad', target: icon.dataset.scratchTarget });
+  });
   $('#ctx-scratch').addEventListener('click', () => {
     hideContextMenu();
     if (menuSubject.ids.length === 1) openNotes({ kind: 'scratchpad', target: menuSubject.ids[0] });

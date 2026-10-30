@@ -51,6 +51,11 @@ const markdownModule = (() => {
   const SAFE_HREF_RE = /^(https?:|mailto:|#|\/)/i;
   const safeHref = (url) => (SAFE_HREF_RE.test(url.trim()) ? url : '#');
 
+  // An image address names a file near the board only when it carries no scheme (two or more
+  // letters before the colon, so a drive letter still counts as a path) and is not protocol-relative
+  // or a fragment; the rest stays a link.
+  const isLocalPath = (url) => { const u = url.trim(); return u !== '' && !/^[A-Za-z][A-Za-z0-9+.-]+:/.test(u) && !/^(\/\/|\\|#)/.test(u); };
+
   const isAlnum = (c) => c !== undefined && /[A-Za-z0-9]/.test(c);
   const isSpace = (c) => c === undefined || /\s/.test(c);
 
@@ -168,7 +173,7 @@ const markdownModule = (() => {
   }
 
   // Inline marks over raw text, left to right: a mark opens only where its closing partner exists, so
-  // an unmatched marker is plain text. Tokens: text, code, strong, em, del, u, link (kids), br.
+  // an unmatched marker is plain text. Tokens: text, code, strong, em, del, u, link (kids), img (alt, path), br.
   // Underline is the one tag let through: `<u>` and `</u>` exactly, as a pair on one line.
   // ctx.noLinks is set inside link text, where another link cannot sit; ctx.depth counts the marks
   // nested so far, and past MAX_INLINE_DEPTH what is left is plain text.
@@ -237,6 +242,16 @@ const markdownModule = (() => {
         if (address) {
           flush();
           out.push({ t: 'link', href: safeHref(address.url), kids: parseInline(s.slice(i + 1, bc), { noLinks: true, depth: depth + 1 }) });
+          i = address.end;
+          continue;
+        }
+      }
+      if (c === '!' && s[i + 1] === '[' && !noLinks) {
+        const bc = bracketClose(s, i + 1, scan);
+        const address = bc === -1 ? null : linkAddress(s, bc, scan);
+        if (address && isLocalPath(address.url)) {
+          flush();
+          out.push({ t: 'img', alt: s.slice(i + 2, bc).replace(/\s+/g, ' '), path: address.url.trim() });
           i = address.end;
           continue;
         }
@@ -488,19 +503,32 @@ const markdownModule = (() => {
 
   // A code span holding a card mention renders as a chip; one on this board carries its id so a click
   // opens it.
-  function codeHtml(v, board) {
+  function codeHtml(v, ctx) {
     const m = mdMention(v);
     const text = mdEscape(v);
     if (!m) return `<code>${text}</code>`;
-    return m.board === board
+    return m.board === (ctx && ctx.board)
       ? `<code class="mention same" data-card-id="${mdEscape(m.id)}" tabindex="0" role="link">${text}</code>`
       : `<code class="mention">${text}</code>`;
+  }
+
+  // A picture is drawn only where the caller hands in opts.imageSrc, which turns the body's path into
+  // the address of a route that sends the file (the web's, by card): the src is never the body's own
+  // text. Without it (the snapshot, which has no server, or a preview with no card) the alt text, or
+  // the path when there is none, is a plain label; the page swaps a picture the server refused or could
+  // not find for the same label.
+  function imgHtml(t, ctx) {
+    const label = t.alt || t.path;
+    const src = ctx && typeof ctx.imageSrc === 'function' ? ctx.imageSrc(t.path) : '';
+    if (!src) return `<span class="md-img-alt">${mdEscape(label)}</span>`;
+    return `<a class="md-img" href="${mdEscape(src)}" target="_blank" rel="noopener noreferrer"><img class="md-img-pic" src="${mdEscape(src)}" alt="${mdEscape(label)}" loading="lazy"></a>`;
   }
 
   const wrapped = (tag) => (t, board) => `<${tag}>${inlineHtml(t.kids, board)}</${tag}>`;
   const INLINE_HTML = new Map([
     ['text', (t) => mdEscape(t.v)],
     ['code', (t, board) => codeHtml(t.v, board)],
+    ['img', (t, board) => imgHtml(t, board)],
     ['br', () => '<br>'],
     ['strong', wrapped('strong')],
     ['em', wrapped('em')],
@@ -564,15 +592,16 @@ const markdownModule = (() => {
     return blocks.map((b) => (BLOCK_HTML.has(b.t) ? BLOCK_HTML.get(b.t)(b, board) : unknownHtml(b))).join('');
   }
 
-  // opts.board is the board's own name: a mention of a card on it opens the card.
+  // opts.board is the board's own name: a mention of a card on it opens the card. opts.imageSrc, when given, maps an image's path
+  // to the address of the picture (see imgHtml).
   function mdToHtml(md, opts) {
-    return renderBlocks(parseMarkdown(md), opts && opts.board);
+    return renderBlocks(parseMarkdown(md), { board: opts && opts.board, imageSrc: opts && opts.imageSrc });
   }
 
   // One line of text as inline HTML with no block around it, for a row that holds a single line (a todo
   // item): a leading # or - stays text, and a line break is a space.
   function mdInlineToHtml(md, opts) {
-    return inlineHtml(parseInline(String(md == null ? '' : md).replace(/\s*[\r\n]+\s*/g, ' ')), opts && opts.board);
+    return inlineHtml(parseInline(String(md == null ? '' : md).replace(/\s*[\r\n]+\s*/g, ' ')), { board: opts && opts.board, imageSrc: opts && opts.imageSrc });
   }
 
   return { parseMarkdown, parseInline, mdToHtml, mdInlineToHtml, renderBlocks, codeLang, splitRow, isTableDelimiter };

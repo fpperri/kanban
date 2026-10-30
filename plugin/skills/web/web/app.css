@@ -1034,6 +1034,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    own overflow the whole popup would scroll sideways and take the prose with it.
    Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
 .detail-body .md-table { overflow-x: auto; margin: 1em 0; }
+/* A card's Markdown image: the picture at most the body's width, its link opening it full size; a
+   picture the server refused or could not find becomes the alt text, plain (markdown-images.js). */
+.md-img { display: inline-block; max-width: 100%; vertical-align: top; }
+.detail-body a.md-img, .detail-body a.md-img:hover { border-bottom: 0; padding-bottom: 0; }
+.md-img-pic { display: block; max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--line); }
+.md-img-alt { color: var(--mut); font-style: italic; }
 .detail-body .md-table table { border-collapse: collapse; font-size: 0.9em; line-height: 1.5; }
 .detail-body .md-table th, .detail-body .md-table td { border-bottom: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
 /* Quiet + tracked like the shop status page's th, but NOT uppercase — unlike
@@ -2181,9 +2187,16 @@ button.np-note-card:hover { color: var(--accent); }
 @media (hover: none) { .td-acts { visibility: visible; } }
 .td-plain { padding: 2px 4px; overflow-wrap: anywhere; white-space: pre-wrap; }
 .card-todos { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; padding: 0 5px; border: 1px solid transparent; border-radius: .15rem; background: transparent; color: var(--mut); font-size: 0.72em; line-height: 1.6; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; cursor: pointer; }
-.card-todos::before { content: "\2610"; content: "\2610" / ""; }
-.card-todos.all-done::before { content: "\2611"; content: "\2611" / ""; }
-.card-notes + .card-todos { margin-left: 0; }
+.card-scratch { display: inline-flex; align-items: center; margin-left: auto; font-size: 0.72em; padding: 0 5px; border: 1px solid transparent; border-radius: .15rem; background: transparent; color: var(--mut); line-height: 1.6; cursor: pointer; }
+.card-scratch:hover, .card-scratch:focus-visible { border-color: var(--line-strong); color: var(--accent); }
+.card-scratch svg { width: 11px; height: 11px; }
+.card-notes + .card-todos, .card-notes + .card-scratch, .card-todos + .card-scratch { margin-left: 0; }
+.card-todos svg { width: 11px; height: 11px; }
+.card-todos.all-done { color: var(--ok); }
+.card-groups .card-scratch, .card-groups .card-notes { margin-left: 0; padding: 0 3px; }
+.detail-kit { display: flex; gap: 4px; margin-top: 4px; }
+.detail-kit:empty { display: none; }
+.detail-kit .card-notes, .detail-kit .card-todos, .detail-kit .card-scratch { margin-left: 0; font-size: 0.85em; }
 .card-todos:hover, .card-todos:focus-visible { border-color: var(--line-strong); color: var(--accent); }
 .card-groups .card-todos { margin-left: 0; padding: 0 3px; }
 .group-modal { max-width: 460px; }

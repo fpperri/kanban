@@ -6,6 +6,7 @@ const cs = require('./card-store');
 const ns = require('./notifications-store');
 const lb = require('./logbook-store');
 const iter = require('./iteration-folders');
+const { cardImage } = require('./card-images');
 const sp = require('./scratchpad-store');
 const td = require('./todo-store');
 const gs = require('./group-store');
@@ -425,10 +426,19 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
           throw e;
         }
       }
-      const m = p.match(new RegExp(`^/api/cards/(${ids.ID_SOURCE})(/archive|/restore|/detail|/reorder)?$`));
+      const m = p.match(new RegExp(`^/api/cards/(${ids.ID_SOURCE})(/archive|/restore|/detail|/reorder|/image)?$`));
       if (m) {
         const id = ids.idKey(m[1]); // the whole id; null when the digits run past what an id holds
         if (id === null || !cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${m[1]}` });
+        // A Markdown image of the card's body: the file is found and judged by card-images.js and streamed as is.
+        if (req.method === 'GET' && m[2] === '/image') {
+          const { file, type, size } = cardImage(dir, id, url.searchParams.get('path'));
+          res.writeHead(200, { 'content-type': type, 'content-length': size, 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' });
+          const stream = fs.createReadStream(file);
+          stream.on('error', () => res.destroy());
+          stream.pipe(res);
+          return;
+        }
         if (req.method === 'GET' && m[2] === '/detail') {
           const detail = cs.cardDetail(dir, id);
           // file mtime for the popup's "Last modified" fallback when

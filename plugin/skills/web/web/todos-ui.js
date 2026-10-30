@@ -86,6 +86,7 @@ function todoCountButton(id) {
   if (!count) return null;
   const b = todoEl('button', `card-todos np-trigger${count.open === 0 ? ' all-done' : ''}`, `${count.open}/${count.total}`);
   b.type = 'button';
+  b.prepend(notesIcon(count.open === 0 ? 'M2.5 2.5h11v11h-11z M5 8.2l2.2 2.2L11.2 5.8' : 'M2.5 2.5h11v11h-11z'));
   b.dataset.todoTarget = id;
   b.title = `${count.open} of ${count.total} todo${count.total === 1 ? '' : 's'} open; open the list`;
   b.setAttribute('aria-label', `${notesLabel(id)}: ${b.title}`); // names the card or group the count is of
