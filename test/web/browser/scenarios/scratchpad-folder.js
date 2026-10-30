@@ -6,11 +6,13 @@
 // each file keeping its own unsaved text while the selection moves between them; a .md has Preview and
 // the others Edit only; a picture shows in the editor's place and a binary file shows its name, size and
 // Copy path; Rename or move and Delete (after "Sure?") act on the selected file and are off for the page;
-// New file opens the new file ready to type; a save over a file changed on disk is a conflict with Reload;
+// New file opens the new file ready to type; unsaved text follows a rename and leaves with a delete; a save
+// over a file changed on disk is a conflict with Reload, kept on that file when it arrives after the
+// selection moved on;
 // under 600px of tab width the list sits above the editor. Each step waits on the page or on the file,
 // never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, scratchUi.
 
 const fs = require('fs');
 const path = require('path');
@@ -102,6 +104,58 @@ module.exports = {
     check('scratchpad-folder: a picture has Copy path and no Delete', await ev(`!!${VIEWER}.querySelector('.spf-copy')&&document.querySelector('#notes-palette .spf-delete').disabled`));
     check('scratchpad-folder: a binary file shows its name, size and Copy path, and no box', await select('blob.bin') && await ev(`${VIEWER}.querySelector('.spf-file-name').textContent==='blob.bin'&&/B$/.test(${VIEWER}.querySelector('.np-muted').textContent)&&!!${VIEWER}.querySelector('.spf-copy')&&!${VIEWER}.querySelector('img')&&document.querySelector('#notes-palette .md-edit').hidden`));
     await shot('scratchpad-folder-binary');
+
+    // --- unsaved text follows a rename and leaves with a delete -----------------------------------------------------------------
+    const newFile = async (name) => {
+      await press('#notes-palette .spf-new-file');
+      await typeInto('#notes-palette .spf-ask-input', name);
+      await press('#notes-palette .spf-ask-go');
+      return waitFor(`${PATH}==='${name}.md'&&${READY}&&document.activeElement===${BOX}`, 6000);
+    };
+    const removeSelected = async (names) => {
+      await press('#notes-palette .spf-delete');
+      await press('#notes-palette .spf-delete');
+      return waitFor(`${PATH}.endsWith(${JSON.stringify(PAGE)})&&${READY}&&!${NAMES}.includes(${JSON.stringify(names)})`, 6000);
+    };
+    check('scratchpad-folder: a new a.md opens', await newFile('a'));
+    await typeInto('#notes-palette .sp-text', 'draft for a');
+    await typeInto('#notes-palette .spf-move-input', 'b.md');
+    await press('#notes-palette .spf-move-go');
+    check('scratchpad-folder: renamed to b.md, the file shows b.md with the unsaved text carried to it', await waitFor(`${PATH}==='b.md'&&${SELECTED}==='b.md'&&${BOX}.value==='draft for a'`, 6000) && fs.existsSync(path.join(folder, 'b.md')) && !fs.existsSync(path.join(folder, 'a.md')));
+    check('scratchpad-folder: a new a.md then opens empty, with no draft of the old a.md', await newFile('a') && await ev(`${BOX}.value===''`));
+    await select('b.md');
+    check('scratchpad-folder: b.md still holds its draft after the switch', await ev(`${BOX}.value==='draft for a'`));
+
+    // --- a conflict that arrives after the selection moved on stays with its file --------------------------------------------
+    await select('a.md');
+    fs.writeFileSync(path.join(folder, 'a.md'), 'disk change\n');
+    await typeInto('#notes-palette .sp-text', 'mine for a');
+    await ev(`(()=>{window.__done=false;window.__held=new Promise((r)=>{window.__release=r});window.__fetch=window.fetch;const f=window.fetch;window.fetch=(u,o)=>(o&&o.method==='PUT'&&String(u).includes('/file')?window.__held.then(()=>f(u,o)).then((r)=>{window.__done=true;return r}):f(u,o));return true})()`);
+    await key('Enter', { ctrl: true });
+    check('scratchpad-folder: the save is on its way', await waitFor(`scratchUi.saving===true`, 3000));
+    check('scratchpad-folder: the selection moves to notes.txt while it is', await select('notes.txt'));
+    await ev(`(()=>{window.__release();window.fetch=window.__fetch;return true})()`);
+    check('scratchpad-folder: the conflict arrives', await waitFor(`window.__done===true&&scratchUi.saving===false`, 6000));
+    check('scratchpad-folder: notes.txt shows no Reload and no conflict', await ev(`document.querySelector('#notes-palette .sp-reload').hidden&&${STATUS}===''`));
+    await select('a.md');
+    check('scratchpad-folder: a.md, selected again, shows the conflict, its Reload and its unsaved text', await ev(`!document.querySelector('#notes-palette .sp-reload').hidden&&/changed on disk/i.test(${STATUS})&&${BOX}.value==='mine for a'`));
+    check('scratchpad-folder: the file on disk is still the other session text', onDisk('a.md') === 'disk change\n');
+    await press('#notes-palette .sp-reload');
+    check('scratchpad-folder: Reload shows a.md as it is on disk', await waitFor(`${BOX}.value==='disk change\\n'&&document.querySelector('#notes-palette .sp-reload').hidden`, 4000));
+
+    // --- Rename and Delete wait for a file that is loading -------------------------------------------------------------------------
+    await ev(`(()=>{window.__gate=new Promise((r)=>{window.__open=r});window.__fetch2=window.fetch;const f=window.fetch;window.fetch=(u,o)=>(!(o&&o.method)&&/\\/file\\?path=/.test(String(u))?window.__gate.then(()=>f(u,o)):f(u,o));return true})()`);
+    await press(row('b.md'));
+    check('scratchpad-folder: while b.md loads, Delete and Rename or move are off', await ev(`document.querySelector('#notes-palette .spf-delete').disabled&&document.querySelector('#notes-palette .spf-move-go').disabled&&document.querySelector('#notes-palette .spf-move-input').disabled`));
+    await ev(`(()=>{window.__open();window.fetch=window.__fetch2;return true})()`);
+    check('scratchpad-folder: once b.md has loaded they are on', await waitFor(`${PATH}==='b.md'&&${READY}&&!document.querySelector('#notes-palette .spf-delete').disabled`, 6000));
+
+    // --- the drafts leave with a delete, and the test files go -------------------------------------------------------------------
+    check('scratchpad-folder: deleting b.md goes back to the page', await removeSelected('b.md'));
+    check('scratchpad-folder: a new b.md opens empty: the old draft went with the delete', await newFile('b') && await ev(`${BOX}.value===''`));
+    check('scratchpad-folder: b.md is deleted again', await removeSelected('b.md'));
+    await select('a.md');
+    check('scratchpad-folder: a.md is deleted', await removeSelected('a.md'));
 
     // --- a new file opens ready to type; a change on disk is a conflict --------------------------------------------------------
     await press('#notes-palette .spf-new-file');

@@ -31,9 +31,11 @@ function spfButton(label, className, title) {
 // The list for one card id. `hooks` is the editor's side:
 //   select({ path, page, edit })  a row was chosen (a file's path, or the page), or a file was just made (edit);
 //   selection()                   { path, version } of the selected file, or null when it is the page or none;
-//   gone()                        the selected file was deleted: show the page.
-// Returns { el, refresh(), mark(path|null) }: refresh reads the folder again (a size and a date moved);
-// mark(path) highlights the selected row, null for the page.
+//   renamed(from, to)             the selected file moved: its unsaved text moves with it;
+//   gone(path)                    the selected file was deleted: drop its unsaved text, show the page.
+// Returns { el, refresh(), mark(path|null), acts() }: refresh reads the folder again (a size and a date
+// moved); mark(path) highlights the selected row, null for the page; acts() repaints Rename and Delete
+// from selection() (off while the selected file is still loading).
 function scratchFolderPanel(target, hooks) {
   const pf = kanbanPadFiles;
   const base = `/api/scratchpad/${encodeURIComponent(target)}`;
@@ -144,7 +146,7 @@ function scratchFolderPanel(target, hooks) {
       await api('DELETE', `${base}/file`, { path: sel.path, version: sel.version });
       selected = null;
       await go(cwd);
-      hooks.gone();
+      hooks.gone(sel.path);
     } catch (e) {
       toast(e.message);
       paintActs();
@@ -158,6 +160,7 @@ function scratchFolderPanel(target, hooks) {
     try {
       const moved = await api('POST', `${base}/move`, { from: sel.path, to });
       await go(pf.parentPath(moved.file.path));
+      hooks.renamed(sel.path, moved.file.path);
       hooks.select({ path: moved.file.path });
     } catch (err) {
       toast(err.message);
@@ -231,6 +234,7 @@ function scratchFolderPanel(target, hooks) {
   return {
     el: wrap,
     refresh: () => go(cwd),
+    acts: paintActs,
     mark(path) { selected = path; paintMarks(); paintActs(); },
   };
 }

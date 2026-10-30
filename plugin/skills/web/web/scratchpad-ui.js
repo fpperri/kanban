@@ -1,24 +1,31 @@
 'use strict';
-// The scratchpad on the page (docs/adr/0016; with <card> in the path the folder's list stands beside the editor, scratchpad-folder-ui.js): a disposable page for a card or a group, a free
+// The scratchpad on the page (docs/adr/0016): a disposable page for a card or a group, a free
 // Markdown file in the folder `scratchpad:` names in config.yaml. Nothing here shows without that
 // line: state.scratchpad is null then. Three entry points, all in the notes palette's frame:
 // the palette's Scratchpad tab (a card's or a group's), the Group tab's Scratchpad button, and the
 // card menu's Scratchpad... entry. The gear gains a Scratchpad page beside the Logbook's.
 //
-// The tab shows the page's file, its refs (the notes, files and folders it points at, read from the
-// page's frontmatter and edited in the file), and a multi-line box with an Edit | Preview switch
-// over it: Edit is the box, the default; Preview draws the box's text as Markdown (markdownInto,
-// the renderer the card body uses), saved or not. Ctrl+Enter or Save writes the
-// body; the server keeps the frontmatter. Unsaved text survives a tab switch or a closed palette in
-// this page's memory until the page is reloaded. The page itself is read when the tab opens: the
-// board payload only says which targets have one (state.scratchpad.targets), which the delete popup
-// reads. Nothing here deletes a page; only the delete popup's "Its scratchpad" box does.
+// The tab is one editor: a title, the selected file's path, and a multi-line box with an Edit | Preview
+// switch over it. Edit is the box, the default; Preview draws the box's text as Markdown (markdownInto,
+// the renderer the card body uses), saved or not. Ctrl+Enter or Save writes it. What the editor holds is
+// the page, selected when the tab opens, whose refs (the notes, files and folders it points at, read from
+// its frontmatter and edited in the file) show only while it is selected and whose frontmatter the server
+// keeps. With <card> in the `scratchpad:` path (a card, not a group) the folder's list
+// (scratchpad-folder-ui.js) stands beside it and any file that reads as text opens in the same editor in
+// the page's place: a .md has Preview, the others Edit only; a picture, or a file that is not text, shows
+// in its place. A file is saved under the version it read, so a change on disk is a conflict kept on that
+// file, with Reload. Unsaved text survives a tab switch or a closed palette in this page's memory until
+// the page is reloaded, one draft per file, and follows a file through a rename and leaves with a delete.
+// The page itself is read when the tab opens: the board payload only says which targets have one
+// (state.scratchpad.targets), which the delete popup reads. Nothing here deletes a page; only the
+// delete popup's "Its scratchpad" box does.
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads, except settingsAddBoardPage which it calls at load: $, state, api, toast, loadBoard,
 // menuSubject, hideContextMenu, openNotes, notesLabel, notesTextNodes, markdownInto,
 // settingsFeatureNodes, settingsAddBoardPage.
 
+const CHANGED_ON_DISK = 'Changed on disk since you opened it.';
 const scratchUi = { drafts: new Map(), saving: false, toggle: null };
 
 // The key as this platform names it: Cmd on a Mac, Ctrl elsewhere. Both are read by scratchPreviewKey.
@@ -105,6 +112,8 @@ function scratchPanel(target) {
   let pad = null; // the page as the server last gave it
   let cur = { page: true }; // what the editor holds: the page, or { file } (a text file, or a picture or a binary one the viewer shows)
   let loadSeq = 0;
+  let loading = false; // a file is being read: nothing acts on the file shown until it is
+  const conflicts = new Map(); // key -> the version a save was refused under, for each file found changed on disk: it keeps that version until Reload, so a Save cannot overwrite what changed
   const keyOf = (c) => (c.page ? target : `${target}\u0000${c.file.path}`);
   const baseText = () => (cur.page ? (pad ? pad.body : null) : cur.file.text);
   const previewOpts = () => (cur.page ? undefined : { card: target, imageBase: cur.file.base });
@@ -158,8 +167,18 @@ function scratchPanel(target) {
   if (folderOn) {
     folder = scratchFolderPanel(target, {
       select: (entry) => (entry.page ? selectPage() : selectFile(entry.path, !!entry.edit)),
-      selection: () => (cur.page || !cur.file.version ? null : { path: cur.file.path, version: cur.file.version }),
-      gone: () => { selectPage(); },
+      selection: () => (loading || cur.page || !cur.file.version ? null : { path: cur.file.path, version: cur.file.version }),
+      renamed: (from, to) => {
+        const old = `${target}\u0000${from}`;
+        const next = `${target}\u0000${to}`;
+        if (scratchUi.drafts.has(old)) { scratchUi.drafts.set(next, scratchUi.drafts.get(old)); scratchUi.drafts.delete(old); }
+        if (conflicts.has(old)) { conflicts.set(next, conflicts.get(old)); conflicts.delete(old); }
+      },
+      gone: (from) => {
+        scratchUi.drafts.delete(`${target}\u0000${from}`);
+        conflicts.delete(`${target}\u0000${from}`);
+        selectPage();
+      },
     });
     const cq = scratchEl('div', 'sp-cq');
     const split = scratchEl('div', 'sp-split');
@@ -196,8 +215,10 @@ function scratchPanel(target) {
     text.placeholder = 'Anything: a checklist, a paste, a half-formed plan';
     save.disabled = false;
     preview.disabled = !isMarkdown;
-    reload.hidden = true;
-    status.textContent = '';
+    const clash = conflicts.has(keyOf(cur));
+    if (clash && !cur.page) cur.file = { ...cur.file, version: conflicts.get(keyOf(cur)) };
+    reload.hidden = !clash;
+    status.textContent = clash ? CHANGED_ON_DISK : '';
     showPreview(false);
     if (cur.page) paintPad();
     else { path.textContent = cur.file.path; refs.hidden = true; }
@@ -232,6 +253,7 @@ function scratchPanel(target) {
   const selectPage = () => {
     if (!pad) return;
     loadSeq++;
+    loading = false;
     enterText({ page: true }, pad.body, true);
     if (folder) folder.mark(null);
     if (!text.disabled && wrap.isConnected) text.focus({ preventScroll: true });
@@ -239,11 +261,14 @@ function scratchPanel(target) {
 
   async function selectFile(rel, focus) {
     const mine = ++loadSeq;
+    loading = true;
     text.disabled = true;
     save.disabled = true;
+    folder.acts();
     try {
       const answer = await api('GET', `${url}/file?path=${encodeURIComponent(rel)}`);
       if (mine !== loadSeq) return;
+      loading = false;
       const file = answer.file;
       if (file.kind === 'markdown' || file.kind === 'text') enterText({ file }, file.text, file.kind === 'markdown');
       else enterViewer(file);
@@ -263,42 +288,54 @@ function scratchPanel(target) {
     if (base !== null && text.value === base) scratchUi.drafts.delete(keyOf(cur));
     else scratchUi.drafts.set(keyOf(cur), text.value);
   });
+  // A save's answer lands on the file it was for: shown as it comes if that file is still the one in the
+  // editor, kept (a conflict) for when it is selected again if not.
   const write = async () => {
     if (text.disabled || scratchUi.saving) return;
     scratchUi.saving = true;
     save.disabled = true;
     const was = cur;
+    const k = keyOf(was);
+    const still = () => keyOf(cur) === k;
     try {
       if (was.page) {
         const answer = await api('PUT', url, { body: text.value });
         pad = answer.pad;
         scratchUi.drafts.delete(target);
-        if (cur === was) paintPad();
+        if (still()) paintPad();
       } else {
         const answer = await api('PUT', `${url}/file`, { path: was.file.path, text: text.value, version: was.file.version });
-        scratchUi.drafts.delete(keyOf(was));
-        was.file = answer.file;
+        scratchUi.drafts.delete(k);
+        conflicts.delete(k);
+        if (still()) cur.file = answer.file;
       }
-      if (!view.hidden) drawPreview();
-      status.textContent = 'Saved';
+      if (still()) {
+        if (!view.hidden) drawPreview();
+        reload.hidden = true;
+        status.textContent = 'Saved';
+      }
       if (was.page) await loadBoard();
       if (folder) folder.refresh();
     } catch (e) {
       if (!was.page && e.status === 409) {
-        status.textContent = 'Changed on disk since you opened it.';
-        reload.hidden = false;
+        conflicts.set(k, was.file.version);
+        if (still()) {
+          status.textContent = CHANGED_ON_DISK;
+          reload.hidden = false;
+        }
       } else {
         toast(e.message);
       }
     } finally {
       scratchUi.saving = false;
-      save.disabled = false;
+      save.disabled = text.disabled;
     }
   };
   save.addEventListener('click', write);
   reload.addEventListener('click', () => {
     if (cur.page) return;
     scratchUi.drafts.delete(keyOf(cur));
+    conflicts.delete(keyOf(cur));
     selectFile(cur.file.path, true);
   });
   text.addEventListener('keydown', (e) => {

@@ -16,7 +16,7 @@
 //    on every platform, so a folder moves between machines.
 //  - Only a card has a folder here; a group's tab is as it was.
 //  - A new file is a `.md` or `.txt`. A save, a delete, a rename and a move take any existing file that
-//    reads as text (no NUL byte, not a picture by name, within the cap), whatever its extension; a binary
+//    reads as text (valid UTF-8 with no NUL byte, not a picture by name, within the cap in bytes), whatever its extension; a binary
 //    file, a picture or a file over the cap is view only. A save or a delete names the `version` it read (a hash
 //    of the file as it was, as the todo lists do) and is a 409 when the file has changed since.
 //  - A text read or write is capped at the page's own cap (MAX_PAD).
@@ -30,7 +30,8 @@ const crypto = require('crypto');
 const { within, real, TYPES } = require('./card-images');
 const { StatusError, versionOf } = require('./store-common');
 
-const MAX_TEXT = sp.MAX_PAD;
+const MAX_TEXT = sp.MAX_PAD; // in bytes, for a read and for what a save would write
+const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const WRITABLE = /\.(md|txt)$/i;
 const PAGE_RE = /\.scratchpad\.md$/i;
 const RESERVED_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
@@ -158,9 +159,8 @@ function open(dir, target, rel) {
   const entry = { ...entryOf(root, segs, stat, rootReal), base: path.dirname(abs) };
   if (entry.kind === 'image') return { file: entry };
   if (stat.size > MAX_TEXT) return { file: { ...entry, kind: 'other', writable: false, tooLarge: true } };
-  const buf = fs.readFileSync(here);
-  if (buf.includes(0)) return { file: { ...entry, kind: 'other', writable: false } };
-  const raw = buf.toString('utf8');
+  const raw = decodeText(fs.readFileSync(here));
+  if (raw === null) return { file: { ...entry, kind: 'other', writable: false } };
   return { file: { ...entry, kind: entry.kind === 'markdown' ? 'markdown' : 'text', text: raw.replace(/\r\n/g, '\n'), version: versionOf(raw) } };
 }
 
@@ -183,11 +183,21 @@ function existingSegs(rel) {
   return segs;
 }
 
+// The text of a buffer that reads as text: valid UTF-8 (a BOM kept) with no NUL byte; else null.
+function decodeText(buf) {
+  if (buf.includes(0)) return null;
+  try { return UTF8.decode(buf); } catch (_) { return null; }
+}
+
 // The real place of an existing file of the card's folder, and its stat; a folder is a 400, nothing there a 404.
 function existingFile(root, segs) {
   const rootReal = realRootOf(root, false);
   if (rootReal === null) throw gone();
-  const here = realInside(rootReal, path.join(root, ...segs));
+  const named = path.join(root, ...segs);
+  const here = realInside(rootReal, named);
+  try {
+    if (fs.lstatSync(named).isSymbolicLink()) throw bad('That is a link: it is shown, never written through.');
+  } catch (e) { if (e instanceof StatusError) throw e; throw gone(); }
   let stat;
   try { stat = fs.statSync(here); } catch (_) { throw gone(); }
   if (stat.isDirectory()) throw bad('That is a folder.');
@@ -198,9 +208,9 @@ function existingFile(root, segs) {
 // The text of a file that reads as text, else a 400: not a picture by name, within the cap, no NUL byte.
 function textOf(here, stat, name) {
   if (kindByName(name) === 'image' || stat.size > MAX_TEXT) throw bad('That file does not read as text, so it is view only.');
-  const buf = fs.readFileSync(here);
-  if (buf.includes(0)) throw bad('That file does not read as text, so it is view only.');
-  return buf.toString('utf8');
+  const raw = decodeText(fs.readFileSync(here));
+  if (raw === null) throw bad('That file does not read as text, so it is view only.');
+  return raw;
 }
 
 // The real place of the parent of `segs`, which must be a folder of the card's folder.
@@ -248,7 +258,7 @@ function writeOver(abs, text) {
 
 function checkText(text) {
   if (typeof text !== 'string') throw bad('The file is text.');
-  if (text.length > MAX_TEXT) throw new StatusError('That file is too long.', 413);
+  if (Buffer.byteLength(text, 'utf8') > MAX_TEXT) throw new StatusError('That file is too long.', 413);
 }
 
 // A new .md or .txt file `{ path, text }`. The card's folder is made if the card has none yet.
@@ -278,7 +288,9 @@ function save(dir, target, body) {
   if (versionOf(old) !== version) throw new StatusError('That file changed since it was read.', 409);
   const eol = old.includes('\r\n') ? '\r\n' : '\n';
   const plain = text.replace(/\r\n?/g, '\n');
-  writeOver(here, eol === '\n' ? plain : plain.replace(/\n/g, eol));
+  const out = eol === '\n' ? plain : plain.replace(/\n/g, eol);
+  if (Buffer.byteLength(out, 'utf8') > MAX_TEXT) throw new StatusError('That file is too long.', 413);
+  writeOver(here, out);
   return open(dir, target, relOf(segs));
 }
 

@@ -34,6 +34,7 @@ const PAGE_GLOBALS = [
   'renderBoard',
   'renderCalendarView',
   'renderGraphView',
+  'scratchUi',
   'selectedIds',
   'selectionFromParts',
   'selectionState',

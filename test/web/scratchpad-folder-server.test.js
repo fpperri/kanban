@@ -479,3 +479,76 @@ test('a new file is still only .md or .txt, and the page stays out of reach what
   assert.strictEqual((await call('PUT', q(1, 'file'), { path: '0001.scratchpad.md', text: 'x', version: 'v' })).status, 403);
   assert.strictEqual((await call('POST', q(1, 'move'), { from: 'notes.md', to: '0001.scratchpad.md' })).status, 403);
 }));
+
+test('the cap is in bytes: a save that would write more than the cap is a 413, and what is saved can be opened again', () => withBoard(async ({ call, q, open, mine }) => {
+  const { file } = (await open(1, 'notes.md')).json;
+  const wide = '\u00e9'.repeat(150001);
+  assert.strictEqual(wide.length, 150001);
+  const r = await call('PUT', q(1, 'file'), { path: 'notes.md', text: wide, version: file.version });
+  assert.strictEqual(r.status, 413);
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'notes.md'), 'utf8'), '# Notes\n\nhello\n');
+  assert.strictEqual((await call('POST', q(1, 'file'), { path: 'wide.md', text: wide })).status, 413);
+  assert.ok(!fs.existsSync(path.join(mine, 'wide.md')));
+  const fits = '\u00e9'.repeat(150000);
+  const ok = await call('PUT', q(1, 'file'), { path: 'notes.md', text: fits, version: file.version });
+  assert.strictEqual(ok.status, 200);
+  assert.strictEqual(fs.statSync(path.join(mine, 'notes.md')).size, 300000);
+  assert.strictEqual((await open(1, 'notes.md')).json.file.kind, 'markdown', 'a saved file opens again');
+}));
+
+test('the cap counts the line endings a CRLF file gets back on save', () => withBoard(async ({ call, q, open, mine }) => {
+  fs.writeFileSync(path.join(mine, 'crlf.txt'), 'a\r\n');
+  const { file } = (await open(1, 'crlf.txt')).json;
+  const lines = 'x\n'.repeat(150000);
+  assert.strictEqual((await call('PUT', q(1, 'file'), { path: 'crlf.txt', text: lines, version: file.version })).status, 413);
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'crlf.txt'), 'utf8'), 'a\r\n');
+}));
+
+test('only valid UTF-8 is text: a Latin-1 file opens view only and is never rewritten; a BOM is kept on save', () => withBoard(async ({ call, q, open, mine }) => {
+  const latin = Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]);
+  fs.writeFileSync(path.join(mine, 'cafe.txt'), latin);
+  const r = await open(1, 'cafe.txt');
+  assert.strictEqual(r.json.file.kind, 'other');
+  assert.strictEqual(r.json.file.text, undefined);
+  assert.strictEqual(r.json.file.writable, false);
+  assert.strictEqual((await call('PUT', q(1, 'file'), { path: 'cafe.txt', text: 'x', version: 'v' })).status, 400);
+  assert.strictEqual((await call('DELETE', q(1, 'file'), { path: 'cafe.txt', version: 'v' })).status, 400);
+  assert.strictEqual((await call('POST', q(1, 'move'), { from: 'cafe.txt', to: 'cafe2.txt' })).status, 400);
+  assert.deepStrictEqual(fs.readFileSync(path.join(mine, 'cafe.txt')), latin);
+  fs.writeFileSync(path.join(mine, 'bom.txt'), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('caf\u00e9\n')]));
+  const bom = (await open(1, 'bom.txt')).json.file;
+  assert.strictEqual(bom.kind, 'text');
+  assert.strictEqual(bom.text, '\ufeffcaf\u00e9\n');
+  const saved = await call('PUT', q(1, 'file'), { path: 'bom.txt', text: bom.text + 'more\n', version: bom.version });
+  assert.strictEqual(saved.status, 200);
+  assert.deepStrictEqual(fs.readFileSync(path.join(mine, 'bom.txt')).subarray(0, 3), Buffer.from([0xef, 0xbb, 0xbf]));
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'bom.txt'), 'utf8'), '\ufeffcaf\u00e9\nmore\n');
+}));
+
+test('a save, delete or move through a link in the folder is a 400 and acts on nothing', (t) => withBoard(async ({ call, q, open, mine, root }) => {
+  const page = path.join(mine, '0001.scratchpad.md');
+  const pageBefore = fs.readFileSync(page, 'utf8');
+  const made = [];
+  const tryLink = (target, name, type) => {
+    try { fs.symlinkSync(target, path.join(mine, name), type); made.push(name); } catch (e) { t.diagnostic(`could not make ${name} (${type}) here: ${e.code}`); }
+  };
+  tryLink(path.join(mine, 'log.txt'), 'inside.txt', 'file');
+  tryLink(page, 'topage.txt', 'file');
+  tryLink(path.join(mine, 'sub'), 'dirlink', process.platform === 'win32' ? 'junction' : 'dir');
+  if (made.length === 0) t.diagnostic('no kind of link could be made on this machine, so this test checked nothing');
+  const { file } = (await open(1, 'log.txt')).json;
+  for (const name of made.filter((n) => n.endsWith('.txt'))) {
+    assert.strictEqual((await call('PUT', q(1, 'file'), { path: name, text: 'x', version: file.version })).status, 400, `save ${name}`);
+    assert.strictEqual((await call('DELETE', q(1, 'file'), { path: name, version: file.version })).status, 400, `delete ${name}`);
+    assert.strictEqual((await call('POST', q(1, 'move'), { from: name, to: `moved-${name}` })).status, 400, `move ${name}`);
+    assert.ok(fs.lstatSync(path.join(mine, name)).isSymbolicLink(), `${name} is still a link`);
+  }
+  if (made.includes('dirlink')) {
+    assert.strictEqual((await call('PUT', q(1, 'file'), { path: 'dirlink', text: 'x', version: 'v' })).status, 400);
+    assert.strictEqual((await call('DELETE', q(1, 'file'), { path: 'dirlink', version: 'v' })).status, 400);
+    assert.ok(fs.existsSync(path.join(mine, 'sub', 'inner.md')));
+  }
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'log.txt'), 'utf8'), 'line one\n');
+  assert.strictEqual(fs.readFileSync(page, 'utf8'), pageBefore);
+  assert.ok(fs.existsSync(path.join(root, 'outside', 'secret.txt')));
+}));
