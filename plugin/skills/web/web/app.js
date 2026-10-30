@@ -3309,7 +3309,7 @@ async function openDetailModal(id, { quiet, onFail } = {}) {
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors($('#detail-frontmatter'));
-  markdownInto($('#detail-body'), data.body || '');
+  markdownInto($('#detail-body'), data.body || '', { card: data.id });
   renderDetailRollup(data.id);
   renderDetailRelatives(data.id);
   // Archived cards: Edit only knows about state.active, and Archive on an already-archived

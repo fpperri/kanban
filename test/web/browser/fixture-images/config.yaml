@@ -1,0 +1,4 @@
+name: images
+nextId: 26
+statuses: [backlog, todo, doing, done]
+priorities: [High, Normal, Low]

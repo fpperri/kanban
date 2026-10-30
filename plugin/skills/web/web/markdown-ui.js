@@ -4,7 +4,8 @@
 // block. Card bodies and the scratchpad's preview come through markdownInto (the notes list will),
 // so a block behaves the same in each.
 //
-// Reads app.js's globals at the moment it runs, never when it loads: state, fallbackCopy.
+// Reads app.js's globals at the moment it runs, never when it loads: state, fallbackCopy, and
+// cardImageSrc (markdown-images.js).
 
 // Colour and diagrams for typed blocks (code-blocks.js), from the vendored libraries. The files are
 // version-pinned, so the version rides the address and the server may cache them for good.
@@ -20,9 +21,11 @@ const codeBlocks = kanbanCodeBlocks.createCodeBlocks({
 
 // Draws text as Markdown into el. The renderer escapes every piece of text it writes, so this is
 // the only innerHTML write a person's prose ever reaches. `opts.inline` draws one line with no block
-// around it (a todo item's row).
+// around it (a todo item's row). `opts.card` is the id of the card whose body this is: an image in it
+// is then drawn as a picture from that card's route (markdown-images.js), else as its alt text.
 function markdownInto(el, text, opts) {
   const board = { board: state.projectName };
+  if (opts && opts.card !== undefined && opts.card !== null) board.imageSrc = (path) => cardImageSrc(opts.card, path);
   el.innerHTML = opts && opts.inline ? mdInlineToHtml(text || '', board) : mdToHtml(text || '', board);
   if (opts && opts.inline) return; // one line holds no typed block
   // Colour and diagrams for typed blocks: only ever an addition to the text just drawn, so
