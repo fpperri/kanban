@@ -6,7 +6,7 @@
 // the icons off. The scratchpad board draws no todo icon. The card details wear the same icons in their
 // header. Each step waits on the page, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, loadBoard, openCard, closeCard.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, currentDetailId, notesUi, loadBoard, openCard, closeCard.
 
 const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
@@ -53,7 +53,7 @@ module.exports = {
     const boardDir = await ev(`fetch('/api/board').then((r)=>r.json()).then((d)=>d.boardDir)`);
     fs.writeFileSync(path.join(boardDir, 'logbook', '2026.10.15.0007.logbook.md'), '---\nentries:\n  - at: "16:30"\n    by: "@human"\n    note: seven needs a look\n---\n');
     await ev(`loadBoard()`);
-    check('todos board: card 7 has a note now', await waitFor(`document.querySelectorAll('#board .card-el[data-id="7"] .card-notes').length===1`, 6000));
+    check('todos board: card 7 has a note now', await waitFor(`document.querySelectorAll('#board .card-el[data-id="7"] .card-head .card-notes').length===1`, 6000));
     const order = await ev(kit(head('ID'), '7'));
     check('todos board: card 7 wears notes, todos, scratchpad in that order', order === 'notes,todos,scratch', order);
     const none = await ev(kit(head('ID'), '22'));
@@ -72,6 +72,21 @@ module.exports = {
 
     await ev(`openCard('7')`);
     check('todos board: the card details wear the same three icons in their header', await waitFor(`document.querySelectorAll('#detail-kit .np-trigger').length===3`, 4000) && await ev(kit('#detail-kit .np-trigger', '7')) === 'notes,todos,scratch', await ev(kit('#detail-kit .np-trigger', '7')));
+    await ev(`closeCard()`);
+
+    const badgeKit = `[...document.querySelectorAll('#board .card-el[data-id="3"] .card-groups .np-trigger:not(.group-badge)')].map((b)=>b.classList.contains('card-notes')?'notes':b.classList.contains('card-todos')?'todos':b.classList.contains('card-scratch')?'scratch':'?').join()`;
+    check('todos board: the badge of the group of card 3 wears notes, todos, scratchpad in that order', await ev(badgeKit) === 'notes,todos,scratch', await ev(badgeKit));
+    for (const [cls, tab] of [['card-notes', 'Group'], ['card-todos', 'Todos'], ['card-scratch', 'Scratchpad']]) {
+      await clickOn(`#board .card-el[data-id="3"] .card-groups .${cls}`);
+      check(`todos board: the badge's ${cls} icon opens the group's ${tab} tab`, await waitFor(PAL_UP, 4000) && await waitFor(`${ACTIVE_TAB}===${JSON.stringify(tab)}&&notesUi.sub.kind==='group'`, 4000), await ev(ACTIVE_TAB));
+      check(`todos board: the palette closes after the badge's ${tab}`, await closePalette());
+    }
+
+    await ev(`openCard('22')`);
+    check('details: card 22 opens with no icon in its header', await waitFor(`document.querySelectorAll('#detail-modal:not(.hidden)').length===1&&currentDetailId==='22'`, 4000) && await ev(`document.querySelectorAll('#detail-kit .np-trigger').length`) === 0);
+    await ev(`fetch('/api/scratchpad/22',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({body:'a page'})}).then((r)=>r.status)`);
+    await ev(`loadBoard()`);
+    check('details: a page saved while they are open shows its icon without reopening', await waitFor(`document.querySelectorAll('#detail-kit .card-scratch').length===1`, 6000));
     await ev(`closeCard()`);
   },
 };

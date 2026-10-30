@@ -66,7 +66,8 @@ test('both tile builders, the card details header and a group badge draw the ico
   const web = (f) => fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', f), 'utf8');
   const app = web('app.js');
   assert.strictEqual(app.match(/for \(const icon of cardKitIcons\(card\.id\)\) el\.querySelector\('\.card-head'\)\.appendChild\(icon\)/g).length, 2);
-  assert.match(app, /\$\('#detail-kit'\)\.replaceChildren\(\.\.\.cardKitIcons\(data\.id\)\)/);
+  assert.match(app, /function renderDetailKit\(\) \{\n  \$\('#detail-kit'\)\.replaceChildren\(\.\.\.\(currentDetailId == null \? \[\] : cardKitIcons\(currentDetailId\)\)\);/);
   assert.match(web('app.html'), /<div id="detail-kit" class="detail-kit"><\/div>/);
-  assert.match(web('groups-ui.js'), /scratchpadIconButton\(g\.id\)/);
+  assert.match(web('groups-ui.js'), /wrap\.append\(\.\.\.cardKitIcons\(g\.id\)\)/);
+  assert.match(app, /renderBoard\(\);\n  renderDetailKit\(\);/);
 });

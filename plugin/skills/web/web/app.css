@@ -2184,7 +2184,7 @@ button.np-note-card:hover { color: var(--accent); }
 .card-notes + .card-todos, .card-notes + .card-scratch, .card-todos + .card-scratch { margin-left: 0; }
 .card-todos svg { width: 11px; height: 11px; }
 .card-todos.all-done { color: var(--ok); }
-.card-groups .card-scratch { margin-left: 0; padding: 0 3px; }
+.card-groups .card-scratch, .card-groups .card-notes { margin-left: 0; padding: 0 3px; }
 .detail-kit { display: flex; gap: 4px; margin-top: 4px; }
 .detail-kit:empty { display: none; }
 .detail-kit .card-notes, .detail-kit .card-todos, .detail-kit .card-scratch { margin-left: 0; font-size: 0.85em; }

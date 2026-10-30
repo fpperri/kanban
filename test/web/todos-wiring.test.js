@@ -63,7 +63,7 @@ test('the card menu has a Todos… entry for one card, and a tile or a badge car
   assert.ok(html.indexOf('id="ctx-todos"') > html.indexOf('id="ctx-scratch"') && html.indexOf('id="ctx-todos"') < html.indexOf('id="ctx-add"'), 'beside Scratchpad…');
   assert.match(appSrc, /\$\('#ctx-todos'\)\.classList\.toggle\('hidden', !todosOn\(\) \|\| !!menuSubject\.canvas \|\| menuSubject\.ids\.length !== 1\);/);
   assert.match(appSrc, /return \[noteCountButton\(id\), todoCountButton\(id\), scratchpadIconButton\(id\)\]\.filter\(Boolean\);/);
-  assert.match(groupsUi, /const todos = todoCountButton\(g\.id\);/);
+  assert.match(groupsUi, /wrap\.append\(\.\.\.cardKitIcons\(g\.id\)\)/);
 });
 
 test('the delete popup tells the plan whether the board keeps todo lists and which targets have one', () => {

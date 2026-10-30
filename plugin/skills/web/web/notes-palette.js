@@ -1326,7 +1326,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const count = e.target.closest && e.target.closest('.card-notes');
     if (!count) return;
     e.preventDefault();
-    openNotes({ kind: 'card-notes', id: count.dataset.noteTarget });
+    const id = count.dataset.noteTarget;
+    openNotes(groupsList().some((g) => g.id === id) ? { kind: 'group', gid: id } : { kind: 'card-notes', id });
   });
   $('#ctx-note').addEventListener('click', () => {
     hideContextMenu();

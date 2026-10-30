@@ -2256,6 +2256,7 @@ function applyBoardData(data) {
   const caption = document.activeElement && document.activeElement.closest ? document.activeElement.closest('[data-caption]') : null;
   const captionKey = caption ? caption.getAttribute('data-caption') : null;
   renderBoard();
+  renderDetailKit(); // the open details' icons follow the board read: a page just saved, a first note
   if (controlSel) {
     const again = document.querySelector(controlSel);
     if (again) again.focus({ preventScroll: true });
@@ -3290,7 +3291,7 @@ async function openDetailModal(id, { quiet, onFail } = {}) {
   const titleDisplay = cardTitleDisplay(data);
   $('#detail-title').textContent = `#${data.id} ${titleDisplay.text}`;
   $('#detail-title').classList.toggle('detail-title--prompt-fallback', titleDisplay.isPromptFallback);
-  $('#detail-kit').replaceChildren(...cardKitIcons(data.id));
+  renderDetailKit();
   // Folders quiet, the file name in full ink: the part a reader looks for.
   const detailPath = data.path || '';
   const cut = Math.max(detailPath.lastIndexOf('/'), detailPath.lastIndexOf('\\')) + 1;
@@ -3379,6 +3380,10 @@ function pushCardHistoryStep(targetId) {
 // stops a stale push if a popstate or close lands mid-fetch.
 // The icons a card's working material gets, in the order they always stand: its note count, its open/total
 // todos, its scratchpad page. Each is absent when the board keeps none of that or the card has none.
+function renderDetailKit() {
+  $('#detail-kit').replaceChildren(...(currentDetailId == null ? [] : cardKitIcons(currentDetailId)));
+}
+
 function cardKitIcons(id) {
   return [noteCountButton(id), todoCountButton(id), scratchpadIconButton(id)].filter(Boolean);
 }
