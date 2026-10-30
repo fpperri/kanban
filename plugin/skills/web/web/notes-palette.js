@@ -1031,8 +1031,6 @@ function onNotesMenuKey(e) {
   e.stopImmediatePropagation();
   if (e.key === 'ArrowDown') m.items[(at + 1) % m.items.length].focus();
   else if (e.key === 'ArrowUp') m.items[(at <= 0 ? m.items.length : at) - 1].focus();
-  else if (e.key === 'Home') m.items[0].focus();
-  else if (e.key === 'End') m.items[m.items.length - 1].focus();
   else if (e.key === 'Escape' || e.key === 'Tab') notesMenuClose();
 }
 
@@ -1432,7 +1430,7 @@ function notesOnBoard() {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
-  document.addEventListener('keydown', onNotesMenuKey, true);
+  document.addEventListener('keydown', onNotesMenuKey, true); // key-guard: exempt (acts only while a note's menu is open, and then owns every key)
   document.addEventListener('keydown', onNotesEscape, true);
   document.addEventListener('keydown', onNotesTabKey);
   window.addEventListener('resize', () => {

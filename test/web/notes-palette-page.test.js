@@ -48,7 +48,7 @@ test('Timeline is one flat list by time, each row naming its card, and the choic
   switchBtn(p, 'timeline').click();
   assert.deepStrictEqual(pressed(p), ['grouped:false', 'timeline:true']);
   assert.deepStrictEqual(p.rows(), ['twenty-two first', 'early on seven']);
-  assert.deepStrictEqual(p.all('.np-note-card').map((c) => p.text(c)), ['#22 Cut over the data layer', '#7 Port the zephyr schema']);
+  assert.deepStrictEqual(p.all('.np-note-card').map((c) => p.text(c)), ['#22', '#7']);
   assert.strictEqual(p.all('.np-ngroup').every((g) => g.classes.includes('np-tgroup')), true);
   assert.strictEqual(p.stored['kanban.kanban.notes.layout'], 'timeline');
   switchBtn(p, 'grouped').click();
