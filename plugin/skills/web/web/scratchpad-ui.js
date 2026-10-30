@@ -132,6 +132,7 @@ function scratchPanel(target) {
   const bar = scratchEl('div', 'sp-bar');
   bar.append(save, scratchEl('span', 'np-muted', 'Ctrl+Enter saves'), status);
   wrap.append(path, refs, modes, mdEditAttach(text), view, bar); // the box is drawn in colour (markdown-edit-ui.js)
+  if (scratchFolderOn()) wrap.append(scratchFolderPanel(target, () => { if (!text.disabled) text.focus({ preventScroll: true }); })); // the card's folder, under the box (scratchpad-folder-ui.js)
 
   let pad = null;
   const paintPad = () => {

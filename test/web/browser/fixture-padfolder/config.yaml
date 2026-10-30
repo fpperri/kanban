@@ -1,0 +1,5 @@
+name: padfolder
+nextId: 22
+statuses: [backlog, todo, doing, done]
+priorities: [High, Normal, Low]
+scratchpad: .pads/<card>

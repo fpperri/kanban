@@ -25,7 +25,11 @@ const codeBlocks = kanbanCodeBlocks.createCodeBlocks({
 // is then drawn as a picture from that card's route (markdown-images.js), else as its alt text.
 function markdownInto(el, text, opts) {
   const board = { board: state.projectName };
-  if (opts && opts.card !== undefined && opts.card !== null) board.imageSrc = (path) => cardImageSrc(opts.card, path);
+  if (opts && opts.card !== undefined && opts.card !== null) {
+    // `opts.imageBase` is the folder of the file the text came from (a file in a card's scratchpad folder): a picture's path then reads against it, not against the board
+    const from = opts.imageBase ? (path) => `${opts.imageBase}/${path}` : (path) => path;
+    board.imageSrc = (path) => cardImageSrc(opts.card, from(path));
+  }
   el.innerHTML = opts && opts.inline ? mdInlineToHtml(text || '', board) : mdToHtml(text || '', board);
   if (opts && opts.inline) return; // one line holds no typed block
   // Colour and diagrams for typed blocks: only ever an addition to the text just drawn, so

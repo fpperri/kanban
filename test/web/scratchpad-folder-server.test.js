@@ -301,3 +301,11 @@ test("each id reaches only its own folder: a file of one card is not there for t
   assert.strictEqual((await call('DELETE', q(1, 'file'), { path: 'two.md' })).status, 404);
   assert.ok(fs.existsSync(path.join(theirs, 'two.md')));
 }));
+
+test('every route of the folder browser is named in the web skill\'s api reference', () => {
+  const api = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'references', 'api.md'), 'utf8');
+  for (const route of [
+    'GET /api/scratchpad/<id>/files?path=', 'GET /api/scratchpad/<id>/file?path=', 'POST /api/scratchpad/<id>/file',
+    'PUT /api/scratchpad/<id>/file', 'DELETE /api/scratchpad/<id>/file', 'POST /api/scratchpad/<id>/move', 'POST /api/scratchpad/<id>/folder',
+  ]) assert.ok(api.includes(route), route);
+});
