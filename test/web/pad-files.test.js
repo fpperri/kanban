@@ -76,3 +76,29 @@ test('a rename keeps the file in its folder: a blank, an unchanged or a pathy na
   assert.strictEqual(pf.renameDest('', 'a.md', 'x/b.md'), '');
   assert.strictEqual(pf.renameDest('', 'a.md', 'x\\b.md'), '');
 });
+
+function memoryStorage(initial) {
+  const m = new Map(Object.entries(initial || {}));
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); }, m };
+}
+
+test('the explorer is open until the person folds it, and the choice is kept per board', () => {
+  const s = memoryStorage();
+  assert.strictEqual(pf.foldedLoad(s, 'webapp'), false);
+  pf.foldedSave(s, 'webapp', true);
+  assert.strictEqual(pf.foldedLoad(s, 'webapp'), true);
+  assert.strictEqual(pf.foldedLoad(s, 'other'), false);
+  assert.ok(s.m.has('kanban.webapp.scratchpad.folded'));
+  pf.foldedSave(s, 'webapp', false);
+  assert.strictEqual(pf.foldedLoad(s, 'webapp'), false);
+  assert.strictEqual(s.m.has('kanban.webapp.scratchpad.folded'), false, 'open is the default, so nothing is kept');
+});
+
+test('storage that throws, or holds anything else, leaves the explorer open and never throws', () => {
+  const broken = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('full'); }, removeItem() { throw new Error('blocked'); } };
+  assert.strictEqual(pf.foldedLoad(broken, 'webapp'), false);
+  assert.doesNotThrow(() => pf.foldedSave(broken, 'webapp', true));
+  assert.strictEqual(pf.foldedLoad(null, 'webapp'), false);
+  assert.doesNotThrow(() => pf.foldedSave(null, 'webapp', true));
+  assert.strictEqual(pf.foldedLoad(memoryStorage({ 'kanban.webapp.scratchpad.folded': 'maybe' }), 'webapp'), false);
+});

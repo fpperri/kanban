@@ -91,7 +91,22 @@ const padFilesModule = (() => {
     return joinPath(cwd, name);
   }
 
-  return { sizeText, dateText, joinPath, parentPath, crumbs, newFileName, joinFolder, absJoin, iconOf, rowTitle, moveTargets, moveDest, renameDest };
+  // Whether the explorer is folded away, kept in this browser per board (column-state.js's one place for such
+  // a preference). Open is the default and is the absence of the key; storage that throws leaves it open.
+  const FOLDED_FEATURE = 'scratchpad.folded';
+  const columnState = () => ((typeof module !== 'undefined' && module.exports) ? require('./column-state') : window);
+
+  function foldedLoad(storage, projectName) {
+    if (!storage) return false;
+    return columnState().boardPrefLoad(storage, projectName, FOLDED_FEATURE) === '1';
+  }
+
+  function foldedSave(storage, projectName, folded) {
+    if (!storage) return;
+    columnState().boardPrefSave(storage, projectName, FOLDED_FEATURE, folded ? '1' : null);
+  }
+
+  return { sizeText, dateText, joinPath, parentPath, crumbs, newFileName, joinFolder, absJoin, iconOf, rowTitle, moveTargets, moveDest, renameDest, foldedLoad, foldedSave };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
