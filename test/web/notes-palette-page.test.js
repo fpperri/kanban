@@ -48,7 +48,7 @@ test('Timeline is one flat list by time, each row naming its card, and the choic
   switchBtn(p, 'timeline').click();
   assert.deepStrictEqual(pressed(p), ['grouped:false', 'timeline:true']);
   assert.deepStrictEqual(p.rows(), ['twenty-two first', 'early on seven']);
-  assert.deepStrictEqual(p.all('.np-note-card').map((c) => p.text(c)), ['#22 Cut over the data layer', '#7 Port the zephyr schema']);
+  assert.deepStrictEqual(p.all('.np-note-card').map((c) => p.text(c)), ['#22', '#7']);
   assert.strictEqual(p.all('.np-ngroup').every((g) => g.classes.includes('np-tgroup')), true);
   assert.strictEqual(p.stored['kanban.kanban.notes.layout'], 'timeline');
   switchBtn(p, 'grouped').click();
@@ -64,13 +64,13 @@ test('a palette opened on a board that saved Timeline lists that way at once', a
 });
 
 test('Timeline names "no card" on a note about nothing, and links the others to their card', async () => {
-  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
-  p.page.run("openNotes({ kind: 'untimed', day: '2026-10-15' })");
-  const label = p.find('.np-note-card');
+  const today = (await openPalette({ notes: [] })).page.run('localTodayStr()');
+  const p = await openPalette({ notes: [note(today, '7', '09:00', '@human', 'on seven'), note(today, '', '09:05', '@human', 'on nothing')], stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run('openNotes({})');
+  const label = p.all('.np-note-card')[1];
   assert.strictEqual(p.text(label), 'no card');
   assert.strictEqual(label.tag, 'span', 'a note about nothing links nowhere');
-  p.page.run(`openNotes(${DAY})`);
-  const link = p.all('.np-note-card')[1];
+  const link = p.all('.np-note-card')[0];
   assert.strictEqual(link.tag, 'button');
   let opened = null;
   p.page.ctx.openCard = (id) => { opened = id; };
@@ -508,4 +508,27 @@ test('closing the palette does not leave the focus in its hidden box', async () 
   assert.strictEqual(p.doc.activeElement.uid, p.ui().input.uid);
   p.page.run('notesClose()');
   assert.ok(!p.doc.activeElement || !p.pal().contains(p.doc.activeElement));
+});
+
+test('Timeline leaves the card column out when every listed note is about one card or about nothing, and keeps it for two', async () => {
+  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  assert.strictEqual(p.all('.np-note').length, 2);
+  assert.strictEqual(p.all('.np-note-card').length, 0);
+  assert.strictEqual(p.all('.np-note').every((r) => r.classes.includes('np-one')), true);
+  p.page.run("openNotes({ kind: 'untimed', day: '2026-10-15' })");
+  assert.strictEqual(p.all('.np-note-card').length, 0, 'one note about nothing');
+  p.page.run(`openNotes(${DAY})`);
+  assert.strictEqual(p.all('.np-note-card').length, 2);
+  assert.strictEqual(p.all('.np-note').some((r) => r.classes.includes('np-one')), false);
+});
+
+test('Timeline names a card by its id, with the full label as the title, and a row has no action buttons', async () => {
+  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run(`openNotes(${DAY})`);
+  const cards = p.all('.np-note-card');
+  assert.deepStrictEqual(cards.map((c) => p.text(c)), ['#22', '#7']);
+  assert.deepStrictEqual(cards.map((c) => c.title), ['#22 Cut over the data layer', '#7 Port the zephyr schema']);
+  assert.strictEqual(p.all('.np-act').length, 0);
+  assert.strictEqual(p.all('.np-note-acts').length, 0);
 });

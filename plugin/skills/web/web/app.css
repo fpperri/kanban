@@ -2018,17 +2018,18 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-range-label { padding: 2px 8px; border: 0; background: transparent; color: var(--ink-strong); font: inherit; font-size: 0.85em; font-weight: 600; cursor: pointer; }
 .np-range-label:hover:not(:disabled) { color: var(--accent); }
 .np-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 12px; }
-.np-notes { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.np-notes { display: flex; flex-direction: column; gap: 12px; min-width: 0; container: np-list / inline-size; }
 .np-nhead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; font-size: 0.8em; min-width: 0; }
 .np-nhead-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--ink-strong); font: inherit; font-weight: 600; text-align: left; }
 button.np-nhead-label { cursor: pointer; }
 button.np-nhead-label:hover { color: var(--accent); }
 .np-nday { color: var(--mut); white-space: nowrap; }
 .np-nhead-count { margin-left: auto; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
-.np-note { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
+.np-note { -webkit-touch-callout: none; display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
 .np-note:hover, .np-note:focus-within { background: var(--hover-wash); }
 .np-note:focus { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
-.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 11em) minmax(0, 1fr) auto; }
+.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 5em) minmax(0, 1fr); }
+.np-note.np-tl.np-one { grid-template-columns: 4.2em auto minmax(0, 1fr); }
 .np-note.np-tl .np-note-by:empty { display: block; }
 .np-note-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--mut); font: inherit; text-align: left; }
 button.np-note-card { cursor: pointer; }
@@ -2041,9 +2042,16 @@ button.np-note-card:hover { color: var(--accent); }
 .np-note-by:empty { display: none; }
 .np-note-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--prose); }
 .np-note-text code.mention { color: var(--mention); background: var(--mention-bg); }
-.np-note-acts { display: inline-flex; gap: 2px; visibility: hidden; }
-.np-note:hover .np-note-acts, .np-note:focus-within .np-note-acts { visibility: visible; }
-@media (hover: none) { .np-note-acts { visibility: visible; } }
+/* A row's Edit, Assign and Delete are a menu (notes-palette.js notesMenuOpen), so the text keeps the row's width.
+   Delete's second press shows Sure? at the row's right end. */
+.np-sure { grid-column: 1 / -1; justify-self: end; color: var(--crit); font-size: 0.9em; }
+/* A narrow list (the palette over a phone, or a card's details at their least): the time, the author and the card
+   share a line and the text runs under them at the list's full width. It reads the list's own width, not the
+   window's, as the palette and the card's details are not the same width. */
+@container np-list (max-width: 30em) {
+  .np-note, .np-note.np-tl, .np-note.np-tl.np-one { grid-template-columns: 4.2em auto minmax(0, 1fr); }
+  .np-note-text { grid-column: 1 / -1; }
+}
 .np-act { padding: 1px 7px; border: 1px solid transparent; border-radius: .15rem; background: transparent; color: var(--mut); font-size: 0.9em; cursor: pointer; }
 .np-act:hover { border-color: var(--line-strong); color: var(--ink); }
 .np-act.sure { color: var(--crit); border-color: var(--crit); }
