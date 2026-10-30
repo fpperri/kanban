@@ -35,3 +35,44 @@ test('a typed new file name gets .md unless it already ends in .md or .txt', () 
   assert.strictEqual(pf.newFileName('   '), '');
   assert.strictEqual(pf.newFileName(null), '');
 });
+
+test('a folder and a file name join with one slash, whichever way the folder ends', () => {
+  assert.strictEqual(pf.joinFolder('../work/0499.x/.scratchpad', '0499.scratchpad.md'), '../work/0499.x/.scratchpad/0499.scratchpad.md');
+  assert.strictEqual(pf.joinFolder('../work/0499.x/.scratchpad/', 'a.md'), '../work/0499.x/.scratchpad/a.md');
+  assert.strictEqual(pf.joinFolder('a\b\', 'c.md'), 'a\b/c.md');
+  assert.strictEqual(pf.joinFolder('', 'c.md'), 'c.md');
+  assert.strictEqual(pf.absJoin('C:\pads\7', 'a.md'), 'C:\pads\7\a.md');
+  assert.strictEqual(pf.absJoin('C:\pads\7\', 'a.md'), 'C:\pads\7\a.md');
+  assert.strictEqual(pf.absJoin('/home/pads/7', 'a.md'), '/home/pads/7/a.md');
+});
+
+test('a row\'s icon says what the entry is, and its title carries the full name, size and date', () => {
+  assert.strictEqual(pf.iconOf({ name: 'x', dir: true }), 'folder');
+  assert.strictEqual(pf.iconOf({ name: '7.scratchpad.md', page: true, kind: 'markdown' }), 'page');
+  assert.strictEqual(pf.iconOf({ name: 'a.md', kind: 'markdown' }), 'markdown');
+  assert.strictEqual(pf.iconOf({ name: 'a.txt', kind: 'text' }), 'text');
+  assert.strictEqual(pf.iconOf({ name: 'a.log', kind: 'file', readable: true }), 'text');
+  assert.strictEqual(pf.iconOf({ name: 'a.png', kind: 'image' }), 'image');
+  assert.strictEqual(pf.iconOf({ name: 'a.bin', kind: 'file', readable: false }), 'other');
+  const at = new Date(2026, 9, 30, 7, 5).toISOString();
+  assert.strictEqual(pf.rowTitle({ name: 'very-long-name.png', size: 1536, mtime: at }), 'very-long-name.png\n1.5 KB\n2026-10-30 07:05');
+  assert.strictEqual(pf.rowTitle({ name: 'sub', dir: true, size: 0, mtime: at }), 'sub\n2026-10-30 07:05');
+});
+
+test('the folders a file can move into are the parent and the subfolders of the folder shown', () => {
+  const entries = [{ name: '0007.scratchpad.md', page: true }, { name: 'sub', dir: true }, { name: 'a.md' }, { name: 'shots', dir: true }];
+  assert.deepStrictEqual(pf.moveTargets('', entries), [{ label: 'sub/', path: 'sub' }, { label: 'shots/', path: 'shots' }]);
+  assert.deepStrictEqual(pf.moveTargets('sub', [{ name: 'deeper', dir: true }]), [{ label: '.. (up)', path: '' }, { label: 'deeper/', path: 'sub/deeper' }]);
+  assert.deepStrictEqual(pf.moveTargets('a/b', []), [{ label: '.. (up)', path: 'a' }]);
+  assert.strictEqual(pf.moveDest('sub', 'a.md'), 'sub/a.md');
+  assert.strictEqual(pf.moveDest('', 'a.md'), 'a.md');
+});
+
+test('a rename keeps the file in its folder: a blank, an unchanged or a pathy name makes no move', () => {
+  assert.strictEqual(pf.renameDest('sub', 'a.md', ' b.md '), 'sub/b.md');
+  assert.strictEqual(pf.renameDest('', 'a.md', 'b.md'), 'b.md');
+  assert.strictEqual(pf.renameDest('', 'a.md', 'a.md'), '');
+  assert.strictEqual(pf.renameDest('', 'a.md', '   '), '');
+  assert.strictEqual(pf.renameDest('', 'a.md', 'x/b.md'), '');
+  assert.strictEqual(pf.renameDest('', 'a.md', 'x\b.md'), '');
+});

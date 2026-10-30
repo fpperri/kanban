@@ -46,7 +46,52 @@ const padFilesModule = (() => {
     return /\.(md|txt)$/i.test(name) ? name : `${name}.md`;
   }
 
-  return { sizeText, dateText, joinPath, parentPath, crumbs, newFileName };
+  // A folder as the server names it (a path of the board, with `/` or `\` between names, perhaps a slash at
+  // the end) and a file name, joined with one slash.
+  function joinFolder(folder, name) {
+    const f = String(folder == null ? '' : folder).replace(/[\/]+$/, '');
+    return f === '' ? name : `${f}/${name}`;
+  }
+
+  // The absolute path of a file in an absolute folder, with the folder's own separator.
+  function absJoin(root, name) {
+    const sep = root.includes('\') && !root.includes('/') ? '\' : '/';
+    return `${root.replace(/[\/]+$/, '')}${sep}${name}`;
+  }
+
+  // Which small picture a row wears.
+  function iconOf(entry) {
+    if (entry.dir) return 'folder';
+    if (entry.page) return 'page';
+    if (entry.kind === 'image') return 'image';
+    if (entry.kind === 'markdown') return 'markdown';
+    if (entry.kind === 'text' || entry.readable) return 'text';
+    return 'other';
+  }
+
+  // What a row shows on hover: the whole name, then the size (a file) and the date.
+  function rowTitle(entry) {
+    return [entry.name, entry.dir ? '' : sizeText(entry.size), dateText(entry.mtime)].filter((x) => x !== '').join('\n');
+  }
+
+  // Where a file can be moved from the folder shown: its parent, then each subfolder.
+  function moveTargets(cwd, entries) {
+    const out = [];
+    if (cwd !== '') out.push({ label: '.. (up)', path: parentPath(cwd) });
+    for (const e of entries) if (e.dir) out.push({ label: `${e.name}/`, path: joinPath(cwd, e.name) });
+    return out;
+  }
+
+  const moveDest = (destFolder, name) => joinPath(destFolder, name);
+
+  // The path a rename gives a file, or '' when it changes nothing or names a path (that is Move to).
+  function renameDest(cwd, oldName, typed) {
+    const name = String(typed == null ? '' : typed).trim();
+    if (name === '' || name === oldName || /[\/]/.test(name)) return '';
+    return joinPath(cwd, name);
+  }
+
+  return { sizeText, dateText, joinPath, parentPath, crumbs, newFileName, joinFolder, absJoin, iconOf, rowTitle, moveTargets, moveDest, renameDest };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
