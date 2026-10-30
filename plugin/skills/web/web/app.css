@@ -2022,7 +2022,7 @@ button.np-nhead-label { cursor: pointer; }
 button.np-nhead-label:hover { color: var(--accent); }
 .np-nday { color: var(--mut); white-space: nowrap; }
 .np-nhead-count { margin-left: auto; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
-.np-note { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
+.np-note { -webkit-touch-callout: none; display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
 .np-note:hover, .np-note:focus-within { background: var(--hover-wash); }
 .np-note:focus { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
 .np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 5em) minmax(0, 1fr); }

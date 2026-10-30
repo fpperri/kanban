@@ -415,6 +415,11 @@ function notesBuild() {
   u.input.addEventListener('keydown', notesOnInputKey);
   u.body.addEventListener('keydown', notesOnBodyKey);
   u.body.addEventListener('contextmenu', notesOnRowMenu);
+  u.body.addEventListener('touchstart', notesOnPressStart, { passive: true });
+  u.body.addEventListener('touchmove', notesOnPressMove, { passive: true });
+  u.body.addEventListener('touchend', notesOnPressEnd);
+  u.body.addEventListener('touchcancel', notesPressCancel, { passive: true });
+  u.body.addEventListener('scroll', notesPressCancel, { passive: true });
   u.body.addEventListener('focusin', (e) => {
     const row = e.target.closest && e.target.closest('.np-note');
     if (row) u.hi = notesRows().indexOf(row);
@@ -992,6 +997,7 @@ function notesMenuClose() {
 
 function notesMenuOpen(row, x, y) {
   notesMenuClose();
+  hideContextMenu(); // app.js: the card menu closes on a click, which a right-click never makes
   const acts = row.npActs;
   if (!acts) return;
   const el = notesEl('div', 'context-menu np-menu');
@@ -1012,6 +1018,7 @@ function notesMenuOpen(row, x, y) {
     return b;
   });
   const del = items[2];
+  del.textContent = acts.sure() ? 'Sure?' : 'Delete';
   acts.onSure = () => { del.textContent = acts.sure() ? 'Sure?' : 'Delete'; };
   el.append(...items);
   document.body.append(el);
@@ -1032,6 +1039,55 @@ function onNotesMenuKey(e) {
   if (e.key === 'ArrowDown') m.items[(at + 1) % m.items.length].focus();
   else if (e.key === 'ArrowUp') m.items[(at <= 0 ? m.items.length : at) - 1].focus();
   else if (e.key === 'Escape' || e.key === 'Tab') notesMenuClose();
+}
+
+// A contextmenu while the menu is open: on the menu itself (Windows fires one at the focused button when the Menu key
+// is released) it is ours, and the browser's menu stays down; anywhere else it closes the menu, and the row's own
+// listener may open it again.
+function onNotesMenuContext(e) {
+  const m = notesUi.menu;
+  if (!m) return;
+  if (m.el.contains(e.target)) { e.preventDefault(); e.stopPropagation(); return; }
+  notesMenuClose();
+}
+
+// A long press on a row opens its menu, for the touch screens that fire no contextmenu for one (iOS Safari). The
+// press is cancelled by a move past a few pixels, by the finger lifting and by a scroll; the listeners that
+// start and move it are passive, so scrolling is never held up.
+const NOTES_LONG_PRESS_MS = 500;
+const NOTES_LONG_PRESS_SLOP = 10;
+const notesPress = { timer: 0, x: 0, y: 0, fired: false };
+
+function notesPressCancel() {
+  clearTimeout(notesPress.timer);
+  notesPress.timer = 0;
+}
+
+function notesOnPressStart(e) {
+  notesPressCancel();
+  notesPress.fired = false;
+  const row = e.target.closest && e.target.closest('.np-note');
+  const t = e.touches && e.touches.length === 1 ? e.touches[0] : null;
+  if (!row || !t || row.classList.contains('editing') || !row.npActs || e.target.closest('a, img, button')) return;
+  notesPress.x = t.clientX;
+  notesPress.y = t.clientY;
+  notesPress.timer = setTimeout(() => {
+    notesPress.timer = 0;
+    notesPress.fired = true;
+    notesMenuOpen(row, notesPress.x, notesPress.y);
+  }, NOTES_LONG_PRESS_MS);
+}
+
+function notesOnPressMove(e) {
+  const t = e.touches && e.touches[0];
+  if (!notesPress.timer || !t) return;
+  if (Math.abs(t.clientX - notesPress.x) > NOTES_LONG_PRESS_SLOP || Math.abs(t.clientY - notesPress.y) > NOTES_LONG_PRESS_SLOP) notesPressCancel();
+}
+
+function notesOnPressEnd(e) {
+  notesPressCancel();
+  if (notesPress.fired && e.cancelable) e.preventDefault(); // the click that would follow lands on the menu under the finger
+  notesPress.fired = false;
 }
 
 function notesOnRowMenu(e) {
@@ -1430,6 +1486,7 @@ function notesOnBoard() {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
+  document.addEventListener('contextmenu', onNotesMenuContext, true);
   document.addEventListener('keydown', onNotesMenuKey, true); // key-guard: exempt (acts only while a note's menu is open, and then owns every key)
   document.addEventListener('keydown', onNotesEscape, true);
   document.addEventListener('keydown', onNotesTabKey);
