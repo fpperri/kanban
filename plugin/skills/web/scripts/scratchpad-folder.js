@@ -106,9 +106,9 @@ function entryOf(rootAbs, segs, stat, rootReal) {
   const abs = path.join(rootAbs, ...segs);
   const page = !stat.isDirectory() && isPageName(name);
   const out = { name, path: relOf(segs), dir: stat.isDirectory(), size: stat.isDirectory() ? 0 : stat.size, mtime: stat.mtime.toISOString(), abs };
-  if (out.dir) return { ...out, kind: 'dir', writable: false, text: false };
+  if (out.dir) return { ...out, kind: 'dir', writable: false, readable: false };
   const kind = kindByName(name);
-  return { ...out, kind, page, writable: !page && kind !== 'image', text: !page && readsAsText(abs, kind, stat.size) };
+  return { ...out, kind, page, writable: !page && kind !== 'image', readable: !page && readsAsText(abs, kind, stat.size) };
 }
 
 function parentOf(segs) {
