@@ -26,6 +26,12 @@ test('scratchpad-ui.js loads after settings-ui.js, which it registers a page wit
   assert.ok(at('app.js') > at('scratchpad-ui.js'));
 });
 
+test('scratchpad-folder-ui.js and its pure module load before scratchpad-ui.js, which draws the folder list', () => {
+  const at = (f) => html.indexOf(`<script src="/${f}"></script>`);
+  assert.ok(at('pad-files.js') > -1 && at('scratchpad-folder-ui.js') > at('pad-files.js'));
+  assert.ok(at('scratchpad-ui.js') > at('scratchpad-folder-ui.js'));
+});
+
 test('the gear gains a Scratchpad page right after the Logbook\'s, through the hook settings-ui.js leaves', () => {
   const noop = () => {};
   const sandbox = {
