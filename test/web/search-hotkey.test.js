@@ -161,3 +161,55 @@ test('a box that is one token still loses the "#" when the token stops being an 
   assert.strictEqual(searchHashStrip('#fix '), 'fix ', 'trailing space does not hide a second token that is not there');
   assert.strictEqual(searchHashStrip('#tags:ui'), 'tags:ui');
 });
+
+// The notes palette's own Ctrl+F: the note box gets "#" while it is empty and no card is aimed,
+// and the id typed after it narrows the list to that card.
+
+const { notesFindPrefill, notesFindScope } = require('../../plugin/skills/web/web/search-hotkey');
+
+const ctrlF = { key: 'f', ctrlKey: true, metaKey: false, altKey: false, shiftKey: false };
+const emptyBox = { tab: 'notes', subjectKind: 'none', boxValue: '' };
+
+test('notes: Ctrl+F or Cmd+F on an empty note box with no card aimed puts "#" in it, caret after', () => {
+  const want = { value: '#', selectionStart: 1, selectionEnd: 1 };
+  assert.deepStrictEqual(notesFindPrefill(ctrlF, emptyBox), want);
+  assert.deepStrictEqual(notesFindPrefill({ ...ctrlF, ctrlKey: false, metaKey: true }, emptyBox), want);
+  assert.deepStrictEqual(notesFindPrefill({ ...ctrlF, key: 'F' }, emptyBox), want);
+  for (const subjectKind of ['slot', 'untimed']) assert.deepStrictEqual(notesFindPrefill(ctrlF, { ...emptyBox, subjectKind }), want, subjectKind);
+});
+
+test('notes: text in the note box, or a card, group or several cards aimed, leaves Ctrl+F to the browser', () => {
+  assert.strictEqual(notesFindPrefill(ctrlF, { ...emptyBox, boxValue: 'half a note' }), null);
+  assert.strictEqual(notesFindPrefill(ctrlF, { ...emptyBox, boxValue: '#' }), null);
+  assert.strictEqual(notesFindPrefill(ctrlF, { ...emptyBox, boxValue: ' ' }), null);
+  for (const subjectKind of ['card', 'group', 'each']) assert.strictEqual(notesFindPrefill(ctrlF, { ...emptyBox, subjectKind }), null, subjectKind);
+});
+
+test('notes: a tab with no note box, another chord or no context is not the palette\'s', () => {
+  for (const tab of ['group', 'scratch', 'todos']) assert.strictEqual(notesFindPrefill(ctrlF, { ...emptyBox, tab }), null, tab);
+  assert.strictEqual(notesFindPrefill({ ...ctrlF, shiftKey: true }, emptyBox), null);
+  assert.strictEqual(notesFindPrefill({ ...ctrlF, altKey: true }, emptyBox), null);
+  assert.strictEqual(notesFindPrefill({ ...ctrlF, ctrlKey: false }, emptyBox), null);
+  assert.strictEqual(notesFindPrefill({ ...ctrlF, key: 'g' }, emptyBox), null);
+  assert.strictEqual(notesFindPrefill(null, emptyBox), null);
+  assert.strictEqual(notesFindPrefill(ctrlF, null), null);
+});
+
+test('notes: a box holding "#" and a whole id scopes the list to that card', () => {
+  assert.strictEqual(notesFindScope('#23'), '23');
+  assert.strictEqual(notesFindScope('#2'), '2', 'live: the first digit already scopes');
+  assert.strictEqual(notesFindScope('#G7'), 'G7');
+  assert.strictEqual(notesFindScope('#_12'), '_12');
+  assert.strictEqual(notesFindScope('#0023'), '23', 'the id is its number, as the board reads it');
+  assert.strictEqual(notesFindScope('#23 '), '23', 'a trailing space is not a second token');
+});
+
+test('notes: "#" alone or with a prefix so far scopes nothing: the list stays whole', () => {
+  assert.strictEqual(notesFindScope('#'), null);
+  assert.strictEqual(notesFindScope('#G'), null);
+  assert.strictEqual(notesFindScope('#_'), null);
+});
+
+test('notes: anything that is not "#" and an id puts the list back', () => {
+  for (const v of ['', '23', '#a', '#12a', '#12 note', '# 12', 'note #12', '#12\n', '#12 | #14', '#g7', null, undefined, 12]) assert.strictEqual(notesFindScope(v), null, JSON.stringify(v));
+});

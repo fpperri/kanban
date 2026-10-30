@@ -57,9 +57,35 @@ function searchHashStrip(value) {
   return value.slice(1);
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { searchHotkeyPrefill, searchHashStrip };
+// The notes palette's own Ctrl+F (notes-palette.js does the DOM part). Its target is the note box, which
+// is on screen whenever the palette is, so the chord is not stood down by a surface: the palette is no
+// backdrop. It is the palette's only while the box is empty and the palette is aimed at no card
+// (subject kind none, slot or untimed) on its Notes tab: a note half-written, or a card already
+// aimed, leaves the chord to the browser's find bar. The result is the box's new value and caret.
+function notesFindPrefill(chord, ctx) {
+  if (!chord || !ctx) return null;
+  const key = typeof chord.key === 'string' ? chord.key.toLowerCase() : '';
+  if (key !== 'f') return null;
+  if (!chord.ctrlKey && !chord.metaKey) return null;
+  if (chord.altKey || chord.shiftKey) return null;
+  if (ctx.tab !== 'notes' || String(ctx.boxValue || '') !== '') return null;
+  if (ctx.subjectKind === 'card' || ctx.subjectKind === 'group' || ctx.subjectKind === 'each') return null;
+  return { value: '#', selectionStart: 1, selectionEnd: 1 };
+}
+
+// The card the note box scopes the list to: the box holds "#" and one whole id, nothing else (trailing
+// spaces aside), and the answer is the id as the board reads it (`#0023` is `23`). "#" alone, "#" and a
+// prefix so far, or anything else is null: the list is whole. The palette reads it on every input.
+function notesFindScope(value) {
+  if (typeof value !== 'string' || value[0] !== '#') return null;
+  return SHK_IDS.idKey(value.slice(1).replace(/ +$/, ''));
+} if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { searchHotkeyPrefill, searchHashStrip, notesFindPrefill, notesFindScope };
+
+
 } else {
   window.searchHotkeyPrefill = searchHotkeyPrefill;
   window.searchHashStrip = searchHashStrip;
+  window.notesFindPrefill = notesFindPrefill;
+  window.notesFindScope = notesFindScope;
 }
