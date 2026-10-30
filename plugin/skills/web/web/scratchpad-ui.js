@@ -1,5 +1,5 @@
 'use strict';
-// The scratchpad on the page (docs/adr/0016): a disposable page for a card or a group, a free
+// The scratchpad on the page (docs/adr/0016; with <card> in the path the folder's list stands beside the editor, scratchpad-folder-ui.js): a disposable page for a card or a group, a free
 // Markdown file in the folder `scratchpad:` names in config.yaml. Nothing here shows without that
 // line: state.scratchpad is null then. Three entry points, all in the notes palette's frame:
 // the palette's Scratchpad tab (a card's or a group's), the Group tab's Scratchpad button, and the
@@ -60,7 +60,9 @@ function scratchPreviewKey(e) {
   return true;
 }
 
-// The panel of the palette's Scratchpad tab for one card or group id.
+// The panel of the palette's Scratchpad tab for one card or group id. With <card> in `scratchpad:` (a
+// card, not a group) the folder's list stands beside the editor and any file that reads as text opens in
+// the same editor the page uses; the page is the first row and is selected when the tab opens.
 function scratchPanel(target) {
   const wrap = scratchEl('div', 'sp');
   wrap.dataset.target = target;
@@ -70,6 +72,8 @@ function scratchPanel(target) {
     return wrap;
   }
   const url = `/api/scratchpad/${encodeURIComponent(target)}`;
+  const folderOn = scratchFolderOn() && notesCard(target) !== null;
+  const main = folderOn ? scratchEl('div', 'sp-main') : wrap;
   const path = scratchEl('p', 'sp-path', `${state.scratchpad.folder}/…`);
   const refs = scratchEl('div', 'sp-refs');
   const text = scratchEl('textarea', 'sp-text');
@@ -97,11 +101,20 @@ function scratchPanel(target) {
   preview.setAttribute('aria-pressed', 'false');
   preview.disabled = true;
   modes.append(edit, preview);
+
+  let pad = null; // the page as the server last gave it
+  let cur = { page: true }; // what the editor holds: the page, or { file } (a text file, or a picture or a binary one the viewer shows)
+  let loadSeq = 0;
+  const keyOf = (c) => (c.page ? target : `${target}\u0000${c.file.path}`);
+  const baseText = () => (cur.page ? (pad ? pad.body : null) : cur.file.text);
+  const previewOpts = () => (cur.page ? undefined : { card: target, imageBase: cur.file.base });
+  const drawPreview = () => markdownInto(view, text.value, previewOpts());
+
   const showPreview = (on, byKey) => {
     const typing = document.activeElement === text;
     text.hidden = on;
     view.hidden = !on;
-    if (on) markdownInto(view, text.value); // after it is shown: a diagram is measured where it is drawn
+    if (on) drawPreview(); // after it is shown: a diagram is measured where it is drawn
     edit.classList.toggle('on', !on);
     preview.classList.toggle('on', on);
     edit.setAttribute('aria-pressed', String(!on));
@@ -129,14 +142,35 @@ function scratchPanel(target) {
   const save = scratchEl('button', 'sp-save', 'Save');
   save.type = 'button';
   save.disabled = true;
+  const reload = scratchEl('button', 'sp-save sp-reload', 'Reload');
+  reload.type = 'button';
+  reload.hidden = true;
+  reload.title = 'Read the file as it is now, dropping this text';
   const bar = scratchEl('div', 'sp-bar');
-  bar.append(save, scratchEl('span', 'np-muted', 'Ctrl+Enter saves'), status);
-  wrap.append(path, refs, modes, mdEditAttach(text), view, bar); // the box is drawn in colour (markdown-edit-ui.js)
-  if (scratchFolderOn() && notesCard(target) !== null) wrap.append(scratchFolderPanel(target, () => { if (!text.disabled) text.focus({ preventScroll: true }); })); // the card's folder, under the box (scratchpad-folder-ui.js)
+  bar.append(save, scratchEl('span', 'np-muted', 'Ctrl+Enter saves'), reload, status);
+  const boxNode = mdEditAttach(text); // the box is drawn in colour (markdown-edit-ui.js)
+  const viewer = scratchEl('div', 'sp-viewer'); // a picture, or the name and size of a file that is not text
+  viewer.hidden = true;
+  main.append(path, refs, modes, boxNode, view, bar);
+  if (folderOn) main.append(viewer);
 
-  let pad = null;
+  let folder = null;
+  if (folderOn) {
+    folder = scratchFolderPanel(target, {
+      select: (entry) => (entry.page ? selectPage() : selectFile(entry.path, !!entry.edit)),
+      selection: () => (cur.page || !cur.file.version ? null : { path: cur.file.path, version: cur.file.version }),
+      gone: () => { selectPage(); },
+    });
+    const cq = scratchEl('div', 'sp-cq');
+    const split = scratchEl('div', 'sp-split');
+    split.append(folder.el, main);
+    cq.append(split);
+    wrap.append(cq);
+  }
+
   const paintPad = () => {
     path.textContent = `${pad.folder === undefined ? state.scratchpad.folder : pad.folder}/${pad.file}${pad.exists ? '' : ' (not written yet)'}`;
+    refs.hidden = false;
     if (!pad.refs.length) {
       refs.replaceChildren(scratchEl('p', 'np-muted', 'No refs. A refs: list in the page\'s frontmatter points it at notes, files and folders.'));
       return;
@@ -150,51 +184,146 @@ function scratchPanel(target) {
     }
     refs.replaceChildren(list);
   };
-  const draftOf = () => (scratchUi.drafts.has(target) ? scratchUi.drafts.get(target) : null);
-  text.addEventListener('input', () => {
+
+  // The editor takes text: the draft kept for this file, else what the server gave.
+  const enterText = (next, content, isMarkdown) => {
+    cur = next;
+    for (const el of [modes, boxNode, view, bar]) el.hidden = false;
+    viewer.hidden = true;
+    const draft = scratchUi.drafts.has(keyOf(cur)) ? scratchUi.drafts.get(keyOf(cur)) : null;
+    text.value = draft !== null ? draft : content;
+    text.disabled = false;
+    text.placeholder = 'Anything: a checklist, a paste, a half-formed plan';
+    save.disabled = false;
+    preview.disabled = !isMarkdown;
+    reload.hidden = true;
     status.textContent = '';
-    if (pad && text.value === pad.body) scratchUi.drafts.delete(target);
-    else scratchUi.drafts.set(target, text.value);
-  });
-  const write = async () => {
-    if (!pad || scratchUi.saving) return;
-    scratchUi.saving = true;
+    showPreview(false);
+    if (cur.page) paintPad();
+    else { path.textContent = cur.file.path; refs.hidden = true; }
+  };
+
+  // A picture, or a file that does not read as text: shown in the editor's place.
+  const enterViewer = (file) => {
+    cur = { file };
+    for (const el of [modes, boxNode, view, bar, refs]) el.hidden = true;
+    text.disabled = true;
+    preview.disabled = true;
+    path.textContent = file.path;
+    const bits = [];
+    if (file.kind === 'image') {
+      const img = scratchEl('img', 'spf-img');
+      img.alt = file.name;
+      img.src = cardImageSrc(target, file.abs);
+      bits.push(img);
+    } else {
+      bits.push(scratchEl('p', 'np-muted spf-other', file.tooLarge ? 'Too large to show here. Open it in an editor from its path.' : 'This kind of file does not show here.'));
+    }
+    const row = scratchEl('div', 'spf-file-bar');
+    const copy = scratchEl('button', 'spf-btn spf-copy', 'Copy path');
+    copy.type = 'button';
+    copy.title = 'Copy this file\'s full path';
+    copy.addEventListener('click', () => scratchCopyPath(file.abs, copy));
+    row.append(scratchEl('strong', 'spf-file-name', file.name), scratchEl('span', 'np-muted', kanbanPadFiles.sizeText(file.size)), copy);
+    viewer.replaceChildren(row, ...bits);
+    viewer.hidden = false;
+  };
+
+  const selectPage = () => {
+    if (!pad) return;
+    loadSeq++;
+    enterText({ page: true }, pad.body, true);
+    if (folder) folder.mark(null);
+    if (!text.disabled && wrap.isConnected) text.focus({ preventScroll: true });
+  };
+
+  async function selectFile(rel, focus) {
+    const mine = ++loadSeq;
+    text.disabled = true;
     save.disabled = true;
     try {
-      const answer = await api('PUT', url, { body: text.value });
-      pad = answer.pad;
-      scratchUi.drafts.delete(target);
-      paintPad();
-      if (!view.hidden) markdownInto(view, text.value);
-      status.textContent = 'Saved';
-      await loadBoard();
+      const answer = await api('GET', `${url}/file?path=${encodeURIComponent(rel)}`);
+      if (mine !== loadSeq) return;
+      const file = answer.file;
+      if (file.kind === 'markdown' || file.kind === 'text') enterText({ file }, file.text, file.kind === 'markdown');
+      else enterViewer(file);
+      folder.mark(file.path);
+      if (focus && !text.disabled) text.focus({ preventScroll: true });
     } catch (e) {
+      if (mine !== loadSeq) return;
       toast(e.message);
+      folder.refresh();
+      selectPage();
+    }
+  }
+
+  text.addEventListener('input', () => {
+    status.textContent = '';
+    const base = baseText();
+    if (base !== null && text.value === base) scratchUi.drafts.delete(keyOf(cur));
+    else scratchUi.drafts.set(keyOf(cur), text.value);
+  });
+  const write = async () => {
+    if (text.disabled || scratchUi.saving) return;
+    scratchUi.saving = true;
+    save.disabled = true;
+    const was = cur;
+    try {
+      if (was.page) {
+        const answer = await api('PUT', url, { body: text.value });
+        pad = answer.pad;
+        scratchUi.drafts.delete(target);
+        if (cur === was) paintPad();
+      } else {
+        const answer = await api('PUT', `${url}/file`, { path: was.file.path, text: text.value, version: was.file.version });
+        scratchUi.drafts.delete(keyOf(was));
+        was.file = answer.file;
+      }
+      if (!view.hidden) drawPreview();
+      status.textContent = 'Saved';
+      if (was.page) await loadBoard();
+      if (folder) folder.refresh();
+    } catch (e) {
+      if (!was.page && e.status === 409) {
+        status.textContent = 'Changed on disk since you opened it.';
+        reload.hidden = false;
+      } else {
+        toast(e.message);
+      }
     } finally {
       scratchUi.saving = false;
       save.disabled = false;
     }
   };
   save.addEventListener('click', write);
+  reload.addEventListener('click', () => {
+    if (cur.page) return;
+    scratchUi.drafts.delete(keyOf(cur));
+    selectFile(cur.file.path, true);
+  });
   text.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); write(); }
   });
 
   api('GET', url).then((answer) => {
     pad = answer.pad;
-    paintPad();
-    const draft = draftOf();
-    text.value = draft !== null ? draft : pad.body;
-    text.disabled = false;
-    text.placeholder = 'Anything: a checklist, a paste, a half-formed plan';
-    save.disabled = false;
-    preview.disabled = false;
+    if (cur.page) selectPage();
     const here = document.activeElement;
     if (wrap.isConnected && (!here || here === document.body || notesUi.el.contains(here))) text.focus({ preventScroll: true });
   }).catch((e) => {
     path.textContent = e.message;
   });
   return wrap;
+}
+
+function scratchCopyPath(value, btn) {
+  const show = (ok) => {
+    btn.textContent = ok ? 'Copied!' : 'Copy failed';
+    setTimeout(() => { btn.textContent = 'Copy path'; }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(value).then(() => show(true), () => show(fallbackCopy(value)));
+  } else show(fallbackCopy(value));
 }
 
 // The gear's Scratchpad page, after the Logbook's: the same switch and folder.

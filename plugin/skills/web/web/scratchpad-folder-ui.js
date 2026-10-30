@@ -1,16 +1,14 @@
 'use strict';
-// The folder browser under the Scratchpad tab's box: the files in the card's own scratchpad folder
+// The list beside the Scratchpad tab's editor: the files in the card's own scratchpad folder
 // (scratchpad-folder.js on the server), one level at a time. It shows only when `scratchpad:` holds
-// <card> (scratchFolderOn); without it the tab is as it was. A row opens a folder (with a way back up) or
-// a file: an image in the tab, Markdown rendered, other text plain, any other file by name and size with a
-// Copy path button. A .md or .txt file can also be edited (Ctrl+Enter or Save, a 409 when the file
-// changed since it was read), deleted after a second "Sure?" press, renamed or moved into another
-// folder of the card's folder; the buttons above the list make a new file and a new folder. The page
-// itself is listed first with no controls: it is the tab's own box.
+// <card> (scratchFolderOn); without it the tab is as it was. A row opens a folder (with a way back up)
+// or selects a file: the editor (scratchpad-ui.js) then shows the file where the page was, so a card can
+// keep one scratchpad or several files for scratchpad reasons. The page is the first row, selected when
+// the tab opens. Above the list a New file (a .md or .txt, `.md` by default) and a New folder; below it,
+// Rename or move and Delete (a second "Sure?" press) act on the selected file and never on the page.
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
-// loads: state, api, toast, fallbackCopy, markdownInto, cardImageSrc, textEditAttach, kanbanPadFiles
-// (pad-files.js).
+// loads: state, api, toast, kanbanPadFiles (pad-files.js).
 
 function scratchFolderOn() {
   return !!state.scratchpad && state.scratchpad.folder.split(/[\\/]/).includes('<card>');
@@ -30,18 +28,13 @@ function spfButton(label, className, title) {
   return b;
 }
 
-function spfCopy(text, btn) {
-  const show = (ok) => {
-    btn.textContent = ok ? 'Copied!' : 'Copy failed';
-    setTimeout(() => { btn.textContent = 'Copy path'; }, 1500);
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => show(true), () => show(fallbackCopy(text)));
-  } else show(fallbackCopy(text));
-}
-
-// The browser for one card or group id; `onPage` is called when the page's own row is clicked.
-function scratchFolderPanel(target, onPage) {
+// The list for one card id. `hooks` is the editor's side:
+//   select({ path, page, edit })  a row was chosen (a file's path, or the page), or a file was just made (edit);
+//   selection()                   { path, version } of the selected file, or null when it is the page or none;
+//   gone()                        the selected file was deleted: show the page.
+// Returns { el, refresh(), mark(path|null) }: refresh reads the folder again (a size and a date moved);
+// mark(path) highlights the selected row, null for the page.
+function scratchFolderPanel(target, hooks) {
   const pf = kanbanPadFiles;
   const base = `/api/scratchpad/${encodeURIComponent(target)}`;
   const wrap = spfEl('div', 'spf');
@@ -65,21 +58,43 @@ function scratchFolderPanel(target, onPage) {
   const list = spfEl('ul', 'spf-list');
   list.setAttribute('aria-label', 'Files in the card\'s folder');
   const note = spfEl('p', 'np-muted spf-note');
-  const view = spfEl('div', 'spf-view');
-  wrap.append(head, ask, list, note, view);
+
+  const acts = spfEl('div', 'spf-acts');
+  const del = spfButton('Delete', 'spf-btn spf-delete', 'Delete the selected file');
+  const moveForm = spfEl('form', 'spf-move');
+  const moveInput = spfEl('input', 'spf-move-input');
+  Object.assign(moveInput, { type: 'text', autocomplete: 'off', spellcheck: false, placeholder: 'path in the card\'s folder' });
+  moveInput.setAttribute('aria-label', 'Rename or move the selected file to (a path in the card\'s folder)');
+  const moveGo = spfButton('Rename or move', 'spf-btn spf-move-go');
+  moveGo.type = 'submit';
+  moveForm.append(moveInput, moveGo);
+  acts.append(moveForm, del);
+  wrap.append(head, ask, list, note, acts);
 
   let cwd = '';
   let listing = null;
-  let current = null;
+  let selected = null; // the selected file's path; null is the page
   let asking = null;
   let seq = 0;
+  let sureTimer = null;
   const q = (p) => `?path=${encodeURIComponent(p)}`;
+
+  const paintActs = () => {
+    const sel = hooks.selection();
+    del.disabled = !sel;
+    moveGo.disabled = !sel;
+    moveInput.disabled = !sel;
+    moveInput.value = sel ? sel.path : '';
+    clearTimeout(sureTimer);
+    del.classList.remove('sure');
+    del.textContent = 'Delete';
+  };
 
   const closeAsk = () => { asking = null; ask.hidden = true; };
   const openAsk = (kind) => {
     asking = kind;
     askInput.value = '';
-    askInput.placeholder = kind === 'file' ? 'name.md or name.txt' : 'folder name';
+    askInput.placeholder = kind === 'file' ? 'name (.md unless it ends in .txt)' : 'folder name';
     askInput.setAttribute('aria-label', kind === 'file' ? 'New file name' : 'New folder name');
     ask.hidden = false;
     askInput.focus();
@@ -101,7 +116,7 @@ function scratchFolderPanel(target, onPage) {
         const made = await api('POST', `${base}/file`, { path: pf.joinPath(cwd, name), text: '' });
         closeAsk();
         await go(cwd);
-        showFile(made.file, true);
+        hooks.select({ path: made.file.path, edit: true });
       } else {
         const name = askInput.value.trim();
         if (name === '') return;
@@ -109,6 +124,41 @@ function scratchFolderPanel(target, onPage) {
         closeAsk();
         await go(cwd);
       }
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
+  del.addEventListener('click', async () => {
+    const sel = hooks.selection();
+    if (!sel) return;
+    if (!del.classList.contains('sure')) {
+      del.classList.add('sure');
+      del.textContent = 'Sure?';
+      clearTimeout(sureTimer);
+      sureTimer = setTimeout(() => { del.classList.remove('sure'); del.textContent = 'Delete'; }, 3500);
+      return;
+    }
+    clearTimeout(sureTimer);
+    try {
+      await api('DELETE', `${base}/file`, { path: sel.path, version: sel.version });
+      selected = null;
+      await go(cwd);
+      hooks.gone();
+    } catch (e) {
+      toast(e.message);
+      paintActs();
+    }
+  });
+  moveForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const sel = hooks.selection();
+    const to = moveInput.value.trim();
+    if (!sel || to === '' || to === sel.path) return;
+    try {
+      const moved = await api('POST', `${base}/move`, { from: sel.path, to });
+      await go(pf.parentPath(moved.file.path));
+      hooks.select({ path: moved.file.path });
     } catch (err) {
       toast(err.message);
     }
@@ -128,6 +178,14 @@ function scratchFolderPanel(target, onPage) {
     crumbs.replaceChildren(...nodes);
   };
 
+  const paintMarks = () => {
+    for (const b of list.querySelectorAll('.spf-row')) {
+      const on = selected === null ? b.classList.contains('spf-page') : b.dataset.path === selected;
+      b.classList.toggle('on', on);
+      if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    }
+  };
+
   const paintList = () => {
     const rows = [];
     if (listing.parent !== null) {
@@ -140,17 +198,18 @@ function scratchFolderPanel(target, onPage) {
     }
     for (const e of listing.entries) {
       const li = spfEl('li');
-      const b = spfButton('', `spf-row${e.dir ? ' spf-dir' : ''}${e.page ? ' spf-page' : ''}${current && current.path === e.path ? ' on' : ''}`);
+      const b = spfButton('', `spf-row${e.dir ? ' spf-dir' : ''}${e.page ? ' spf-page' : ''}`);
       b.dataset.path = e.path;
       b.dataset.kind = e.page ? 'page' : e.kind;
       b.append(spfEl('span', 'spf-name', e.dir ? `${e.name}/` : e.name), spfEl('span', 'spf-size', e.dir ? '' : pf.sizeText(e.size)), spfEl('span', 'spf-date', pf.dateText(e.mtime)));
       if (e.page) b.append(spfEl('span', 'spf-tag', 'this page'));
-      b.addEventListener('click', () => (e.dir ? go(e.path) : e.page ? onPage() : openFile(e.path)));
+      b.addEventListener('click', () => (e.dir ? go(e.path) : hooks.select({ path: e.path, page: !!e.page })));
       li.append(b);
       rows.push(li);
     }
     list.replaceChildren(...rows);
     note.textContent = listing.entries.length ? '' : 'Nothing in this folder yet.';
+    paintMarks();
   };
 
   async function go(rel) {
@@ -160,7 +219,6 @@ function scratchFolderPanel(target, onPage) {
       if (mine !== seq) return;
       cwd = answer.path;
       listing = answer;
-      if (current && pf.parentPath(current.path) !== cwd) { current = null; view.replaceChildren(); }
       paintCrumbs();
       paintList();
     } catch (e) {
@@ -168,139 +226,11 @@ function scratchFolderPanel(target, onPage) {
     }
   }
 
-  async function openFile(rel) {
-    try {
-      const answer = await api('GET', `${base}/file${q(rel)}`);
-      showFile(answer.file, false);
-    } catch (e) {
-      toast(e.message);
-      go(cwd);
-    }
-  }
-
-  function paintBody(file, body) {
-    if (file.kind === 'image') {
-      const img = spfEl('img', 'spf-img');
-      img.alt = file.name;
-      img.src = cardImageSrc(target, file.abs);
-      body.replaceChildren(img);
-    } else if (file.kind === 'markdown') {
-      const md = spfEl('div', 'spf-md detail-body');
-      body.replaceChildren(md);
-      markdownInto(md, file.text, { card: target, imageBase: file.base });
-    } else if (file.kind === 'text') {
-      body.replaceChildren(spfEl('pre', 'spf-pre', file.text));
-    } else {
-      body.replaceChildren(spfEl('p', 'np-muted spf-other', file.tooLarge ? 'Too large to show here. Open it in an editor from its path.' : 'This kind of file does not show here.'));
-    }
-  }
-
-  function showFile(file, edit) {
-    current = file;
-    for (const b of list.querySelectorAll('.spf-row')) b.classList.toggle('on', b.dataset.path === file.path);
-    const bar = spfEl('div', 'spf-file-bar');
-    bar.append(spfEl('strong', 'spf-file-name', file.name), spfEl('span', 'np-muted', pf.sizeText(file.size)));
-    const copy = spfButton('Copy path', 'spf-btn spf-copy', 'Copy this file\'s full path');
-    copy.addEventListener('click', () => spfCopy(file.abs, copy));
-    bar.append(copy);
-    const body = spfEl('div', 'spf-body');
-    const status = spfEl('span', 'spf-status');
-    status.setAttribute('aria-live', 'polite');
-    const acts = spfEl('div', 'spf-acts');
-    view.replaceChildren(bar, body, acts);
-    paintBody(file, body);
-    if (!file.writable) return;
-
-    const editBtn = spfButton('Edit', 'spf-btn spf-edit');
-    const del = spfButton('Delete', 'spf-btn spf-delete', 'Delete this file');
-    const moveForm = spfEl('form', 'spf-move');
-    const moveInput = spfEl('input', 'spf-move-input');
-    Object.assign(moveInput, { type: 'text', value: file.path, autocomplete: 'off', spellcheck: false });
-    moveInput.setAttribute('aria-label', 'Rename or move to (a path in the card\'s folder)');
-    const moveGo = spfButton('Rename or move', 'spf-btn spf-move-go');
-    moveGo.type = 'submit';
-    moveForm.append(moveInput, moveGo);
-    acts.append(editBtn, del, moveForm, status);
-
-    let sureTimer = null;
-    del.addEventListener('click', async () => {
-      if (!del.classList.contains('sure')) {
-        del.classList.add('sure');
-        del.textContent = 'Sure?';
-        clearTimeout(sureTimer);
-        sureTimer = setTimeout(() => { del.classList.remove('sure'); del.textContent = 'Delete'; }, 3500);
-        return;
-      }
-      clearTimeout(sureTimer);
-      try {
-        await api('DELETE', `${base}/file`, { path: file.path, version: file.version });
-        current = null;
-        view.replaceChildren();
-        await go(cwd);
-      } catch (e) {
-        toast(e.message);
-        del.classList.remove('sure');
-        del.textContent = 'Delete';
-      }
-    });
-    moveForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const to = moveInput.value.trim();
-      if (to === '' || to === file.path) return;
-      try {
-        const moved = await api('POST', `${base}/move`, { from: file.path, to });
-        await go(pf.parentPath(moved.file.path));
-        showFile(moved.file, false);
-      } catch (err) {
-        toast(err.message);
-      }
-    });
-
-    const startEdit = () => {
-      const box = spfEl('textarea', 'spf-text');
-      Object.assign(box, { spellcheck: false, value: file.text });
-      box.setAttribute('aria-label', `Text of ${file.name}`);
-      textEditAttach(box);
-      const save = spfButton('Save', 'spf-btn spf-save', 'Save (Ctrl+Enter)');
-      const cancel = spfButton('Cancel', 'spf-btn spf-cancel');
-      const reload = spfButton('Reload', 'spf-btn spf-reload', 'Read the file as it is now, dropping this text');
-      reload.hidden = true;
-      const bar2 = spfEl('div', 'spf-edit-bar');
-      bar2.append(save, cancel, reload, spfEl('span', 'np-muted', 'Ctrl+Enter saves'));
-      body.replaceChildren(box, bar2);
-      editBtn.hidden = true;
-      box.focus({ preventScroll: true });
-      let saving = false;
-      const write = async () => {
-        if (saving) return;
-        saving = true;
-        save.disabled = true;
-        try {
-          const answer = await api('PUT', `${base}/file`, { path: file.path, text: box.value, version: file.version });
-          await go(cwd);
-          showFile(answer.file, false);
-          const again = view.querySelector('.spf-status');
-          if (again) again.textContent = 'Saved';
-        } catch (e) {
-          status.textContent = e.status === 409 ? 'Changed on disk since you opened it.' : e.message;
-          reload.hidden = e.status !== 409;
-          if (e.status !== 409) toast(e.message);
-          save.disabled = false;
-        } finally {
-          saving = false;
-        }
-      };
-      save.addEventListener('click', write);
-      cancel.addEventListener('click', () => { editBtn.hidden = false; status.textContent = ''; paintBody(file, body); });
-      reload.addEventListener('click', () => openFile(file.path));
-      box.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); write(); }
-      });
-    };
-    editBtn.addEventListener('click', startEdit);
-    if (edit) startEdit();
-  }
-
   go('');
-  return wrap;
+  paintActs();
+  return {
+    el: wrap,
+    refresh: () => go(cwd),
+    mark(path) { selected = path; paintMarks(); paintActs(); },
+  };
 }

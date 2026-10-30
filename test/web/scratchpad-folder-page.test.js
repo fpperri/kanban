@@ -30,7 +30,9 @@ test('the folder list shows only for a scratchpad path with <card> as a whole se
   assert.strictEqual(on(null), false);
 });
 
-test('scratchpad-ui.js draws the list under the box only when scratchFolderOn() says so', () => {
+test('scratchpad-ui.js draws the list beside the editor only for a card, when scratchFolderOn() says so', () => {
   const ui = read('scratchpad-ui.js');
-  assert.ok(/if \(scratchFolderOn\(\) && notesCard\(target\) !== null\) wrap\.append\(scratchFolderPanel\(target/.test(ui));
+  assert.ok(/const folderOn = scratchFolderOn\(\) && notesCard\(target\) !== null;/.test(ui));
+  assert.ok(/if \(folderOn\) main\.append\(viewer\)/.test(ui));
+  assert.ok(/folder = scratchFolderPanel\(target,/.test(ui));
 });
