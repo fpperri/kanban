@@ -77,3 +77,22 @@ test('the script is loaded by the page, after the file that draws into an elemen
   const html = read('app.html');
   assert.ok(html.indexOf('<script src="/markdown-images.js"></script>') > html.indexOf('<script src="/markdown-ui.js"></script>'));
 });
+
+test('the same listener swaps a failed picture of the folder browser (img.spf-img) for its name as a plain label', () => {
+  const { listeners } = load();
+  const onError = listeners.find((l) => l.type === 'error').fn;
+  const label = { className: '', textContent: '' };
+  const img = {
+    alt: 'shot.png',
+    matches: (sel) => sel === 'img.spf-img',
+    closest: () => null,
+    replaceWith: (n) => { img.replacedWith = n; },
+    ownerDocument: { createElement: (tag) => { label.tag = tag; return label; } },
+  };
+  onError({ target: img });
+  assert.strictEqual(img.replacedWith, label);
+  assert.strictEqual(label.tag, 'span');
+  assert.strictEqual(label.className, 'md-img-alt');
+  assert.strictEqual(label.textContent, 'shot.png');
+  assert.strictEqual(listeners.filter((l) => l.type === 'error').length, 1, 'one handler, not two');
+});

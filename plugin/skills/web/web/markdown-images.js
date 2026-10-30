@@ -11,8 +11,9 @@ function cardImageSrc(card, path) {
 
 document.addEventListener('error', (e) => {
   const img = e.target;
-  if (!img || typeof img.matches !== 'function' || !img.matches('img.md-img-pic')) return;
-  const link = img.closest('a.md-img');
+  if (!img || typeof img.matches !== 'function') return;
+  // A body picture sits in its link; the Scratchpad folder browser's picture (img.spf-img) stands alone.
+  const link = img.matches('img.md-img-pic') ? img.closest('a.md-img') : img.matches('img.spf-img') ? img : null;
   if (!link) return;
   const label = img.ownerDocument.createElement('span');
   label.className = 'md-img-alt';

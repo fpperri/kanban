@@ -187,7 +187,7 @@ function scratchFolderPanel(target, onPage) {
     } else if (file.kind === 'markdown') {
       const md = spfEl('div', 'spf-md detail-body');
       body.replaceChildren(md);
-      markdownInto(md, file.text, { card: target, imageBase: file.dir });
+      markdownInto(md, file.text, { card: target, imageBase: file.base });
     } else if (file.kind === 'text') {
       body.replaceChildren(spfEl('pre', 'spf-pre', file.text));
     } else {

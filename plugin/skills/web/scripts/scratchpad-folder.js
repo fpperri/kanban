@@ -10,8 +10,12 @@
 //    every link followed against the folder's real place. A link that points out is not listed and
 //    answers 404 like a file that is not there.
 //  - The page itself (`<id>.scratchpad.md`) is listed first and never written from here: the tab's box
-//    saves it (scratchpad-store.js), and only the delete flow deletes it.
-//  - A write names a `.md` or `.txt` file and nothing else; a save names the `version` it read (a hash
+//    saves it (scratchpad-store.js), and only the delete flow deletes it. Any name that ends in
+//    `.scratchpad.md` is held as a page, for a file or a folder, so no look-alike is ever made.
+//  - A name that Windows reserves (con, prn, aux, nul, com1-9, lpt1-9, before the first dot) is refused
+//    on every platform, so a folder moves between machines.
+//  - Only a card has a folder here; a group's tab is as it was.
+//  - A write names a `.md` or `.txt` file and nothing else; a save or a delete names the `version` it read (a hash
 //    of the file as it was, as the todo lists do) and is a 409 when the file has changed since.
 //  - A text read or write is capped at the page's own cap (MAX_PAD).
 const fs = require('fs');
@@ -19,14 +23,19 @@ const path = require('path');
 const iter = require('./iteration-folders');
 const ids = require('../web/ids');
 const sp = require('./scratchpad-store');
-const { writeAtomic } = require('./card-store');
+const cs = require('./card-store');
+const crypto = require('crypto');
 const { within, real, TYPES } = require('./card-images');
 const { StatusError, versionOf } = require('./store-common');
 
 const MAX_TEXT = sp.MAX_PAD;
 const WRITABLE = /\.(md|txt)$/i;
-const PAGE_RE = /^[^.]+\.scratchpad\.md$/i;
+const PAGE_RE = /\.scratchpad\.md$/i;
+const RESERVED_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 const NAME_RE = /^[^<>:"|?*\\/\x00-\x1f]+$/;
+
+const isPageName = (name) => PAGE_RE.test(name);
+const isReservedName = (name) => RESERVED_RE.test(name.split('.')[0]);
 
 const gone = () => new StatusError('No such file or folder.', 404);
 const bad = (message) => new StatusError(message, 400);
@@ -39,14 +48,19 @@ const kindByName = (name) => {
   return 'file';
 };
 
-// Names between `/`, each one a plain name. '' is the folder itself.
-function segmentsOf(rel) {
+// Names between `/`, each one a plain name. '' is the folder itself. No name is a page's look-alike (a 403)
+// or a reserved device name (a 400); `leafIsFile` lets the last name be a page's, for opening one.
+function segmentsOf(rel, leafIsFile) {
   if (rel === undefined || rel === null || rel === '') return [];
   if (typeof rel !== 'string') throw bad('A path is text.');
   const segs = rel.split('/');
   for (const s of segs) {
     if (!NAME_RE.test(s) || s === '.' || s === '..' || /[ .]$/.test(s)) throw bad('That path is not a name inside the card\'s folder.');
+    if (isReservedName(s)) throw bad('That name is reserved by Windows.');
   }
+  segs.forEach((s, i) => {
+    if (isPageName(s) && !(leafIsFile && i === segs.length - 1)) throw new StatusError('A name ending in .scratchpad.md is the scratchpad page\'s.', 403);
+  });
   return segs;
 }
 
@@ -56,6 +70,7 @@ const relOf = (segs) => segs.join('/');
 // path has no `<card>` has no folder of its own to browse.
 function cardFolder(dir, target) {
   const place = sp.padPlace(dir, target);
+  if (!cs.findCardFile(dir, place.id)) throw new StatusError('Only a card has a folder to browse.', 404);
   const own = place.value.split('/').includes(iter.CARD)
     && place.folder.parts.card !== undefined && ids.idKey(place.folder.parts.card.split('.')[0]) === place.id;
   if (!own) throw new StatusError('The scratchpad is not kept in a folder of the card\'s own: config.yaml\'s scratchpad: path has no <card>.', 404);
@@ -80,7 +95,7 @@ function realInside(rootReal, abs) {
 function entryOf(rootAbs, segs, stat, rootReal) {
   const name = segs[segs.length - 1];
   const abs = path.join(rootAbs, ...segs);
-  const page = !stat.isDirectory() && PAGE_RE.test(name);
+  const page = !stat.isDirectory() && isPageName(name);
   const out = { name, path: relOf(segs), dir: stat.isDirectory(), size: stat.isDirectory() ? 0 : stat.size, mtime: stat.mtime.toISOString(), abs };
   if (out.dir) return { ...out, kind: 'dir', writable: false };
   return { ...out, kind: kindByName(name), page, writable: !page && WRITABLE.test(name) };
@@ -128,7 +143,7 @@ function list(dir, target, rel) {
 // version; anything binary, or over the cap, gives its name, size and path only.
 function open(dir, target, rel) {
   const { root } = cardFolder(dir, target);
-  const segs = segmentsOf(rel);
+  const segs = segmentsOf(rel, true);
   if (segs.length === 0) throw gone();
   const rootReal = realRootOf(root, false);
   if (rootReal === null) throw gone();
@@ -137,7 +152,7 @@ function open(dir, target, rel) {
   let stat;
   try { stat = fs.statSync(here); } catch (_) { throw gone(); }
   if (!stat.isFile()) throw gone();
-  const entry = { ...entryOf(root, segs, stat, rootReal), dir: path.dirname(abs) };
+  const entry = { ...entryOf(root, segs, stat, rootReal), base: path.dirname(abs) };
   if (entry.kind === 'image') return { file: entry };
   if (stat.size > MAX_TEXT) return { file: { ...entry, kind: 'other', writable: false, tooLarge: true } };
   const buf = fs.readFileSync(here);
@@ -148,10 +163,10 @@ function open(dir, target, rel) {
 
 // A path of a write: its segments, the name checked to be a .md or .txt that is not a page.
 function writableSegs(rel) {
-  const segs = segmentsOf(rel);
+  const segs = segmentsOf(rel, true);
   const name = segs[segs.length - 1];
   if (!name || !WRITABLE.test(name) || /^\.(md|txt)$/i.test(name)) throw bad('Only a .md or .txt file can be written here.');
-  if (PAGE_RE.test(name)) throw new StatusError('The scratchpad page is saved by its own box, and only the delete flow takes it.', 403);
+  if (isPageName(name)) throw new StatusError('The scratchpad page is saved by its own box, and only the delete flow takes it.', 403);
   return segs;
 }
 
@@ -166,6 +181,37 @@ function parentReal(rootReal, root, segs) {
 }
 
 const exists = (abs) => { try { fs.lstatSync(abs); return true; } catch (_) { return false; } };
+
+// Whether a move may land on `dest`: when nothing is there, or when what is there is the source itself
+// (a case-only rename on a file system that ignores case). Any other file that exists is never replaced.
+function mayReplace(source, dest) {
+  let d;
+  try { d = fs.statSync(dest, { bigint: true }); } catch (_) { return true; }
+  try {
+    const s = fs.statSync(source, { bigint: true });
+    return s.dev === d.dev && s.ino === d.ino && d.ino !== 0n;
+  } catch (_) { return false; }
+}
+
+// A new file is opened exclusively (writeNew), and a save writes a temp file under a unique name, also opened
+// exclusively (writeOver), then renames it into place: a file or a link planted at either name is never followed or replaced.
+function writeNew(abs, text) {
+  try { fs.writeFileSync(abs, text, { flag: 'wx' }); } catch (e) {
+    if (e.code === 'EEXIST') throw new StatusError('A file by that name is already there.', 409);
+    throw e;
+  }
+}
+
+function writeOver(abs, text) {
+  const tmp = `${abs}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmp, text, { flag: 'wx' });
+    fs.renameSync(tmp, abs);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) { /* never made, or already renamed */ }
+    throw e;
+  }
+}
 
 function checkText(text) {
   if (typeof text !== 'string') throw bad('The file is text.');
@@ -182,8 +228,7 @@ function create(dir, target, body) {
   const rootReal = realRootOf(root, true);
   parentReal(rootReal, root, segs);
   const abs = path.join(root, ...segs);
-  if (exists(abs)) throw new StatusError('A file by that name is already there.', 409);
-  writeAtomic(abs, text === undefined ? '' : text);
+  writeNew(abs, text === undefined ? '' : text);
   return open(dir, target, relOf(segs));
 }
 
@@ -206,22 +251,23 @@ function save(dir, target, body) {
   if (versionOf(old) !== version) throw new StatusError('That file changed since it was read.', 409);
   const eol = old.includes('\r\n') ? '\r\n' : '\n';
   const plain = text.replace(/\r\n?/g, '\n');
-  writeAtomic(here, eol === '\n' ? plain : plain.replace(/\n/g, eol));
+  writeOver(here, eol === '\n' ? plain : plain.replace(/\n/g, eol));
   return open(dir, target, relOf(segs));
 }
 
-// Delete `{ path }` (and `version`, when the caller has one to hold it to): a .md or .txt file.
+// Delete `{ path, version }`: a .md or .txt file, as it was read.
 function remove(dir, target, body) {
   const { path: rel, version } = body && typeof body === 'object' ? body : {};
   const { root } = cardFolder(dir, target);
   const segs = writableSegs(rel);
+  if (typeof version !== 'string') throw bad('A delete names the version of the file it read.');
   const rootReal = realRootOf(root, false);
   if (rootReal === null) throw gone();
   const here = realInside(rootReal, path.join(root, ...segs));
   let stat;
   try { stat = fs.statSync(here); } catch (_) { throw gone(); }
   if (!stat.isFile()) throw gone();
-  if (version !== undefined && versionOf(fs.readFileSync(here, 'utf8')) !== version) throw new StatusError('That file changed since it was read.', 409);
+  if (versionOf(fs.readFileSync(here, 'utf8')) !== version) throw new StatusError('That file changed since it was read.', 409);
   fs.unlinkSync(here);
   return { ok: true };
 }
@@ -240,7 +286,7 @@ function move(dir, target, body) {
   if (!stat.isFile()) throw gone();
   const parent = parentReal(rootReal, root, b);
   const dest = path.join(parent, b[b.length - 1]);
-  if (exists(dest) && dest.toLowerCase() !== source.toLowerCase()) throw new StatusError('A file by that name is already there.', 409);
+  if (!mayReplace(source, dest)) throw new StatusError('A file by that name is already there.', 409);
   fs.renameSync(source, dest);
   return open(dir, target, relOf(b));
 }
@@ -259,4 +305,4 @@ function makeFolder(dir, target, body) {
   return entryOf(root, segs, fs.statSync(abs), rootReal);
 }
 
-module.exports = { list, open, create, save, remove, move, makeFolder, MAX_TEXT, PAGE_RE };
+module.exports = { list, open, create, save, remove, move, makeFolder, mayReplace, isPageName, isReservedName, MAX_TEXT, PAGE_RE };

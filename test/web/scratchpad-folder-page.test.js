@@ -29,5 +29,5 @@ test('the folder list shows only for a scratchpad path with <card> as a whole se
 
 test('scratchpad-ui.js draws the list under the box only when scratchFolderOn() says so', () => {
   const ui = read('scratchpad-ui.js');
-  assert.ok(/if \(scratchFolderOn\(\)\) wrap\.append\(scratchFolderPanel\(target/.test(ui));
+  assert.ok(/if \(scratchFolderOn\(\) && notesCard\(target\) !== null\) wrap\.append\(scratchFolderPanel\(target/.test(ui));
 });
