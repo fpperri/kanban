@@ -79,7 +79,7 @@ test('Ctrl+Enter and the Save button write the body to PUT /api/scratchpad/<id>,
 });
 
 test('a page shows the folder the board names for it, the one its path has when the path holds <iteration> (ADR 0019)', () => {
-  assert.match(ui, /\$\{pad\.folder === undefined \? state\.scratchpad\.folder : pad\.folder\}\/\$\{pad\.file\}/);
+  assert.match(ui, /pf\.joinFolder\(pad\.folder === undefined \? state\.scratchpad\.folder : pad\.folder, pad\.file\)/);
 });
 
 test('the page has no way to delete a scratchpad', () => {
