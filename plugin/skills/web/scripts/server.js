@@ -8,6 +8,7 @@ const lb = require('./logbook-store');
 const iter = require('./iteration-folders');
 const { cardImage } = require('./card-images');
 const sp = require('./scratchpad-store');
+const spf = require('./scratchpad-folder');
 const td = require('./todo-store');
 const gs = require('./group-store');
 const del = require('./delete-store');
@@ -375,6 +376,26 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       if (pm && (req.method === 'GET' || req.method === 'PUT')) {
         const body = req.method === 'GET' ? {} : await readBody(req);
         return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
+      }
+
+      // the scratchpad's folder browser: the files of a card's own scratchpad folder (scratchpad-folder.js).
+      // GET .../files?path= lists a folder one level down, GET .../file?path= opens a file; POST .../file
+      // creates a .md or .txt, PUT .../file saves one (naming the version it read), DELETE .../file deletes
+      // one, POST .../move renames or moves one and POST .../folder makes a subfolder
+      const fm = p.match(new RegExp(`^/api/scratchpad/(${ids.ID_SOURCE})/(files|file|move|folder)$`));
+      if (fm) {
+        const [, who, what] = fm;
+        const rel = url.searchParams.get('path');
+        if (req.method === 'GET' && what === 'files') return sendJSON(res, 200, spf.list(dir, who, rel === null ? '' : rel));
+        if (req.method === 'GET' && what === 'file') return sendJSON(res, 200, spf.open(dir, who, rel === null ? '' : rel));
+        if (req.method !== 'GET') {
+          const body = await readBody(req);
+          if (what === 'file' && req.method === 'POST') return sendJSON(res, 201, spf.create(dir, who, body));
+          if (what === 'file' && req.method === 'PUT') return sendJSON(res, 200, spf.save(dir, who, body));
+          if (what === 'file' && req.method === 'DELETE') return sendJSON(res, 200, spf.remove(dir, who, body));
+          if (what === 'move' && req.method === 'POST') return sendJSON(res, 200, spf.move(dir, who, body));
+          if (what === 'folder' && req.method === 'POST') return sendJSON(res, 201, { entry: spf.makeFolder(dir, who, body) });
+        }
       }
 
       // the todo lists (ADR 0021): GET reads a list; POST adds an item, PATCH ticks or edits one, DELETE

@@ -124,6 +124,15 @@ function writePad(dir, target, body, opts) {
   return readPad(dir, key, opts);
 }
 
+// Where a target's page is or would be written, for the folder browser: { id, folder, name, exists }
+// with `folder` the { label, abs, parts } of iteration-folders.js. It reads and writes nothing.
+function padPlace(dir, target, opts) {
+  const { value, digits } = mustScratchpad(dir);
+  const id = checkTarget(target);
+  const place = placeOf(dir, value, digits, id, (opts && opts.today) || localToday());
+  return { id, value, folder: place.folder, name: place.name, exists: place.exists };
+}
+
 const { listTargets, deleteTargetFiles } = files;
 
-module.exports = { readPad, writePad, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };
+module.exports = { readPad, writePad, padPlace, listTargets, deleteTargetFiles, canonicalName, MAX_PAD };

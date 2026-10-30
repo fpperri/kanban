@@ -64,4 +64,4 @@ function cardImage(dir, id, rawPath) {
   return { file, type: typeOf(file), size: stat.size };
 }
 
-module.exports = { cardImage, TYPES };
+module.exports = { cardImage, TYPES, typeOf, within, real };
