@@ -822,7 +822,12 @@ The list below groups the notes by day and card, newest first, with a filter fie
 written in the palette stays listed whatever they say. A **Grouped | Timeline** switch beside them,
 remembered per board, changes the list's shape: Timeline is one flat list, days newest first and
 inside a day the timed notes in time order, then the untimed ones, each row naming its card (a link
-to it, or "no card"); the filter, the switches and the keys work on it as on the grouped one. A
+to it, or "no card"; with every listed note about one card, as in a card's details with its chip, the
+card column is left out); the filter, the switches and the keys work on it as on the grouped one. A row's
+Edit, Assign and Delete take no column: they show over its right end while the pointer or the focus is on
+the row, so the text runs to the row's edge, and where nothing hovers (a touch screen) they sit on a line
+under the text. A list narrower than 30em (the list's own width, not the window's) puts the time, the
+author and the card on one line and runs the text under them at full width. A
 **range** row over the list, All, Month, Week, 3 days or Day, with ‹ and › buttons (off on All) and a
 label (`Wed 21 Oct`, `19–25 Oct`; a click on it goes back to the range that holds today), limits the
 list to a span of days; weeks start on Monday, as the Calendar's do. The palette opens on All for a

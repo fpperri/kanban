@@ -758,6 +758,7 @@ function notesList() {
   const wrap = notesEl('div', 'np-notes');
   const first = noteIsTarget(sub) ? sub.id : null;
   if (notesLayout() === 'timeline') {
+    const one = noteOneTarget(notes);
     for (const day of noteTimeline(notes, { first })) {
       const block = notesEl('section', 'np-ngroup np-tgroup');
       block.dataset.day = day.day;
@@ -767,7 +768,7 @@ function notesList() {
         block.append(head);
       }
       for (const n of day.notes) {
-        const row = notesRow(n, true);
+        const row = notesRow(n, true, one);
         if (fresh.has(notesKey(n))) row.classList.add('np-new');
         block.append(row);
       }
@@ -807,9 +808,10 @@ function notesTargetLabel(target, className) {
 
 // ---------- one note ----------
 
-// `named`: the timeline's row, which says which card or group it is about.
-function notesRow(note, named = false) {
-  const row = notesEl('div', `np-note${named ? ' np-tl' : ''}`);
+// `named`: the timeline's row, which says which card or group it is about, unless `one`: every listed note
+// is about the same one, so the column would repeat it.
+function notesRow(note, named = false, one = false) {
+  const row = notesEl('div', `np-note${named ? ' np-tl' : ''}${named && one ? ' np-one' : ''}`);
   row.tabIndex = -1;
   row.dataset.day = note.day;
   row.dataset.target = note.target;
@@ -836,7 +838,7 @@ function notesRow(note, named = false) {
         notesDo('DELETE', '/api/notes', { ref: noteRef(note) }, row);
       }),
     );
-    row.replaceChildren(...(named ? [time, by, notesTargetLabel(note.target, 'np-note-card'), text, acts] : [time, by, text, acts]));
+    row.replaceChildren(...(named && !one ? [time, by, notesTargetLabel(note.target, 'np-note-card'), text, acts] : [time, by, text, acts]));
   };
   const enter = () => {
     if (!row.classList.contains('editing')) { row.classList.add('editing'); notesUi.editing += 1; }
