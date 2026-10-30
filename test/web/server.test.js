@@ -2465,17 +2465,17 @@ test('the drag-hides-chips rule excludes the DRAGGED chip itself, not just other
   });
 });
 
-test('CAL_HOUR_PX and the .cal-tg-col hour stripe agree — JS positions blocks in the CSS-drawn coordinate space', () => {
+test('HSCALE_HOUR_PX and the .cal-tg-col hour stripe agree — JS positions blocks in the CSS-drawn coordinate space', () => {
   // Same JS/CSS sync-pinning as status-colors.test.js's palette checks: the
-  // comment convention ("40px = CAL_HOUR_PX") enforced nothing — a one-sided
+  // comment convention ("40px = HSCALE_HOUR_PX") enforced nothing — a one-sided
   // edit drifted every timed block off the drawn hour lines with the suite green.
-  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
-  const m = js.match(/const CAL_HOUR_PX = (\d+);/);
-  assert.ok(m, 'CAL_HOUR_PX declared in app.js');
+  const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'hour-scale.js'), 'utf8');
+  const m = js.match(/const HSCALE_HOUR_PX = (\d+);/);
+  assert.ok(m, 'HSCALE_HOUR_PX declared in hour-scale.js');
   const px = Number(m[1]);
   const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
   assert.ok(css.includes(`repeating-linear-gradient(to bottom, transparent 0 ${px - 1}px, var(--line-soft) ${px - 1}px ${px}px)`),
-    `.cal-tg-col hour stripe must be ${px}px to match CAL_HOUR_PX`);
+    `.cal-tg-col hour stripe must be ${px}px to match HSCALE_HOUR_PX`);
 });
 
 test('Esc closes the open popup directly on the first press — no exit-fullscreen step, fullscreen state untouched', () => {

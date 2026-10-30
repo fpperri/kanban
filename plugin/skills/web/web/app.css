@@ -1357,8 +1357,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    is a header row + an "all day" band + a scrollable 24h grid, all sharing
    one column template (fixed hour gutter + a 1fr column per day, count via
    --cal-day-cols set by the render). The hour lines are a 40px repeating
-   gradient — app.js's CAL_HOUR_PX must match that stripe height, it positions
-   the blocks in the same coordinate space. */
+   gradient — hour-scale.js's HSCALE_HOUR_PX must match that stripe height, the
+   scale positions the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
 .cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 /* The span cycle button stands in for the span switch on a phone, and the switch for it from 760 px. */
@@ -1398,7 +1398,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .cal-tg-hour { position: absolute; right: 6px; transform: translateY(-50%); color: var(--mut); font-size: 0.65em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .cal-tg-gutter .cal-tg-hour:first-child { transform: none; } /* 00:00 sits below the band edge, not clipped on it */
 .cal-tg-col { position: relative; border-left: 1px solid var(--line-soft);
-  background: repeating-linear-gradient(to bottom, transparent 0 39px, var(--line-soft) 39px 40px); } /* 40px = CAL_HOUR_PX */
+  background: repeating-linear-gradient(to bottom, transparent 0 39px, var(--line-soft) 39px 40px); } /* 40px = HSCALE_HOUR_PX */
 .cal-tg-col.in-iteration { background-color: var(--iter-wash); }
 .cal-tg-col.today { background-color: var(--today-wash); }
 .cal-tg-col.drag-over, .cal-tg-allday-cell.drag-over { background-color: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
@@ -1452,11 +1452,14 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* --- The Calendar's notes layer: the week, 3-day and day views, on a board with a logbook. ---
    A day with timed notes keeps a strip (--cal-note-strip) at the right of its column, and the
    card blocks (app.js) shrink to the rest of the width. A note is a chip at its half hour (a
-   half hour is 20px of the 40px hour); two or more in a half hour are one count bubble. The
+   half hour is 20px of the 40px hour); two or more in a half hour are one count bubble. In Each note mode
+   every note is a chip, stacked 20px apart from its hour line down, and the hour grows to hold them (hour-scale.js; the
+   column's own background then draws the hour lines). The
    day's untimed notes are one box in its all-day cell. The Notes switch is the toolbar button
    that hides the lot. */
 .cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-notes-switch { margin-left: 6px; }
+@media (max-width: 759.98px) { .cal-controls:has(.cal-notes-switch) { gap: 4px; } .cal-notes-switch { margin-left: 0; padding-inline: 6px; white-space: nowrap; } } /* "Grouped Notes" must still fit the phone's one row */
 .cal-tg-col.has-notes { --cal-note-strip: var(--cal-note-width, clamp(44px, 34%, 170px)); }
 .cal-note-divider { position: absolute; top: 0; bottom: 0; right: calc(var(--cal-note-strip) - 3px); width: 6px; z-index: 3; cursor: col-resize; touch-action: none; user-select: none; }
 .cal-note-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; }
