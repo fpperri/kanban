@@ -824,11 +824,13 @@ The list below groups the notes by day and card, newest first, with a filter fie
 written in the palette stays listed whatever they say. A **Grouped | Timeline** switch beside them,
 remembered per board, changes the list's shape: Timeline is one flat list, days newest first and
 inside a day the timed notes in time order, then the untimed ones, each row naming its card (a link
-to it, or "no card"; with every listed note about one card, as in a card's details with its chip, the
-card column is left out); the filter, the switches and the keys work on it as on the grouped one. A row's
-Edit, Assign and Delete take no column: they show over its right end while the pointer or the focus is on
-the row, so the text runs to the row's edge, and where nothing hovers (a touch screen) they sit on a line
-under the text. A list narrower than 30em (the list's own width, not the window's) puts the time, the
+to it, or "no card"; the column shows the id alone, `#22`, with the card's full title as its hover title, and
+it is left out when every listed note is about one card, as in a card's details with its chip); the filter,
+the switches and the keys work on it as on the grouped one. A row has no action buttons, so its text keeps the
+row's full width: a right-click, a long press, the Menu key or Shift+F10 on a row opens a small menu of **Edit**,
+**Assign…** and **Delete** (the card menu's look; Esc closes it and the arrows move through it), and Delete asks
+twice there as on the `d` key, the second press deleting. A right-click with text selected inside a note keeps the
+browser's own menu. A list narrower than 30em (the list's own width, not the window's) puts the time, the
 author and the card on one line and runs the text under them at full width. A
 **range** row over the list, All, Month, Week, 3 days or Day, with ‹ and › buttons (off on All) and a
 label (`Wed 21 Oct`, `19–25 Oct`; a click on it goes back to the range that holds today), limits the

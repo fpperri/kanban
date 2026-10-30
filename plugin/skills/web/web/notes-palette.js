@@ -44,7 +44,7 @@ const notesUi = {
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
-  sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
+  menu: null, sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
 let notesCountsOf = null;
@@ -409,6 +409,7 @@ function notesBuild() {
   u.filter.addEventListener('keydown', notesOnFilterKey);
   u.input.addEventListener('keydown', notesOnInputKey);
   u.body.addEventListener('keydown', notesOnBodyKey);
+  u.body.addEventListener('contextmenu', notesOnRowMenu);
   u.body.addEventListener('focusin', (e) => {
     const row = e.target.closest && e.target.closest('.np-note');
     if (row) u.hi = notesRows().indexOf(row);
@@ -539,6 +540,7 @@ function notesFocusGroupPanel() {
 
 function notesClose() {
   const u = notesUi;
+  notesMenuClose();
   if (!u.sub) return false;
   u.sub = null;
   u.tab = 'notes';
@@ -748,6 +750,7 @@ function notesSetLayout(layout) {
 
 function notesPaintBody() {
   const u = notesUi;
+  notesMenuClose();
   if (!u.sub) return;
   for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   for (const b of u.layoutBtns) b.setAttribute('aria-pressed', String(b.dataset.layout === notesLayout()));
@@ -829,9 +832,11 @@ const notesDayText = (day, today) => `${noteDayName(day)}${day === today ? ' · 
 
 // A card or group as a heading or a row names it: a link that opens the card (or the group's notes),
 // plain text for a note about nothing or about an id the board no longer has.
-function notesTargetLabel(target, className) {
-  if (!notesCard(target) && !notesGroup(target)) return notesEl('span', className, notesLabel(target));
-  return notesButton(className, notesLabel(target), notesLabel(target), () => {
+function notesTargetLabel(target, className, short = false) {
+  const known = notesCard(target) || notesGroup(target);
+  const shown = short && known ? (notesCard(target) ? `#${target}` : target) : notesLabel(target);
+  if (!known) { const span = notesEl('span', className, shown); span.title = shown; return span; }
+  return notesButton(className, shown, notesLabel(target), () => {
     if (notesCard(target)) { notesClose(); openCard(target); } else openNotes({ kind: 'group', gid: target });
   });
 }
@@ -846,6 +851,25 @@ function notesRow(note, named = false, one = false) {
   row.dataset.day = note.day;
   row.dataset.target = note.target;
   let sureTimer = 0;
+  let sure = false;
+  const sureMark = () => notesEl('span', 'np-sure', 'Sure?');
+  const remove = () => {
+    if (!sure) {
+      sure = true;
+      row.append(sureMark());
+      clearTimeout(sureTimer);
+      sureTimer = setTimeout(() => {
+        sure = false;
+        const mark = row.querySelector('.np-sure');
+        if (mark) mark.remove();
+        if (row.npActs.onSure) row.npActs.onSure();
+      }, 3500);
+      if (row.npActs.onSure) row.npActs.onSure();
+      return;
+    }
+    clearTimeout(sureTimer);
+    notesDo('DELETE', '/api/notes', { ref: noteRef(note) }, row);
+  };
   const view = () => {
     if (row.classList.contains('editing')) { notesUi.editing -= 1; row.classList.remove('editing'); }
     const time = notesEl('span', `np-note-time${note.at ? '' : ' untimed'}`, note.at || 'untimed');
@@ -853,22 +877,8 @@ function notesRow(note, named = false, one = false) {
     by.title = note.by || '';
     const text = notesEl('span', 'np-note-text');
     text.append(...notesTextNodes(note.note));
-    const acts = notesEl('span', 'np-note-acts');
-    acts.append(
-      notesAct('edit', 'Edit', 'Edit the text and the time', edit),
-      notesAct('assign', 'Assign', 'Move it to another card, or to no card (same day)', assign),
-      notesAct('delete', 'Delete', 'Delete this note', (b) => {
-        if (!b.classList.contains('sure')) {
-          b.classList.add('sure');
-          b.textContent = 'Sure?';
-          clearTimeout(sureTimer);
-          sureTimer = setTimeout(() => { b.classList.remove('sure'); b.textContent = 'Delete'; }, 3500);
-          return;
-        }
-        notesDo('DELETE', '/api/notes', { ref: noteRef(note) }, row);
-      }),
-    );
-    row.replaceChildren(...(named && !one ? [time, by, notesTargetLabel(note.target, 'np-note-card'), text, acts] : [time, by, text, acts]));
+    row.replaceChildren(...(named && !one ? [time, by, notesTargetLabel(note.target, 'np-note-card', true), text] : [time, by, text]));
+    if (sure) row.append(sureMark());
   };
   const enter = () => {
     if (!row.classList.contains('editing')) { row.classList.add('editing'); notesUi.editing += 1; }
@@ -941,15 +951,84 @@ function notesRow(note, named = false, one = false) {
     paintOptions();
     input.focus();
   };
+  row.npActs = { edit, assign, remove, sure: () => sure, onSure: null };
   view();
   return row;
 }
 
-function notesAct(name, label, title, onclick) {
-  const b = notesButton('np-act', label, title, onclick);
-  b.dataset.act = name;
-  b.tabIndex = -1;
-  return b;
+// ---------- a row's menu ----------
+
+// Edit, Assign and Delete live in a small menu (the card menu's look: .context-menu) that a right-click, a long
+// press, the Menu key or Shift+F10 opens on a row. Delete asks twice, in the menu as on the d key.
+const NOTES_MENU_ITEMS = [['edit', 'Edit', 'e'], ['assign', 'Assign…', 'a'], ['remove', 'Delete', 'd d']];
+
+function notesMenuClose() {
+  const m = notesUi.menu;
+  if (!m) return;
+  notesUi.menu = null;
+  if (m.row.npActs) m.row.npActs.onSure = null;
+  const had = m.el.contains(document.activeElement);
+  m.el.remove();
+  if (had && m.row.isConnected && !m.row.classList.contains('editing')) m.row.focus();
+}
+
+function notesMenuOpen(row, x, y) {
+  notesMenuClose();
+  const acts = row.npActs;
+  if (!acts) return;
+  const el = notesEl('div', 'context-menu np-menu');
+  el.setAttribute('role', 'menu');
+  el.tabIndex = -1;
+  const items = NOTES_MENU_ITEMS.map(([name, label, hint]) => {
+    const b = notesEl('button', name === 'remove' ? 'danger' : '', label);
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.dataset.hint = hint;
+    b.dataset.act = name;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (name === 'remove' && !acts.sure()) { acts.remove(); return; }
+      notesMenuClose();
+      acts[name]();
+    });
+    return b;
+  });
+  const del = items[2];
+  acts.onSure = () => { del.textContent = acts.sure() ? 'Sure?' : 'Delete'; };
+  el.append(...items);
+  document.body.append(el);
+  notesUi.menu = { el, row, items };
+  const rect = el.getBoundingClientRect();
+  el.style.left = `${Math.max(4, Math.min(x, window.innerWidth - rect.width - 8))}px`;
+  el.style.top = `${Math.max(4, Math.min(y, window.innerHeight - rect.height - 8))}px`;
+  items[0].focus();
+}
+
+function onNotesMenuKey(e) {
+  const m = notesUi.menu;
+  if (!m) return;
+  const at = m.items.indexOf(document.activeElement);
+  if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); return; }
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (e.key === 'ArrowDown') m.items[(at + 1) % m.items.length].focus();
+  else if (e.key === 'ArrowUp') m.items[(at <= 0 ? m.items.length : at) - 1].focus();
+  else if (e.key === 'Home') m.items[0].focus();
+  else if (e.key === 'End') m.items[m.items.length - 1].focus();
+  else if (e.key === 'Escape' || e.key === 'Tab') notesMenuClose();
+}
+
+function notesOnRowMenu(e) {
+  const row = e.target.closest && e.target.closest('.np-note');
+  if (!row || row.classList.contains('editing') || !row.npActs) return;
+  if (e.target.closest('a, img')) return;
+  const picked = window.getSelection();
+  if (picked && !picked.isCollapsed && row.contains(picked.anchorNode)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.clientX || e.clientY) { notesMenuOpen(row, e.clientX, e.clientY); return; }
+  const at = row.getBoundingClientRect();
+  notesMenuOpen(row, at.left + 24, at.bottom);
 }
 
 // One write on a note, then the board is read again so the list shows what the file now holds;
@@ -1174,13 +1253,14 @@ function notesOnBodyKey(e) {
   if (!row || row.classList.contains('editing') || e.altKey || e.ctrlKey || e.metaKey) return;
   const rows = notesRows();
   const i = rows.indexOf(row);
-  const act = (name) => { const b = row.querySelector(`[data-act="${name}"]`); if (b) b.click(); };
+  const act = (name) => { if (row.npActs) row.npActs[name](); };
   const own = () => { e.preventDefault(); e.stopPropagation(); };
   if (e.key === 'ArrowDown') { own(); notesFocusRow(Math.min(i + 1, rows.length - 1)); }
   else if (e.key === 'ArrowUp') { own(); if (i <= 0) { notesUi.hi = -1; notesUi.input.focus(); } else notesFocusRow(i - 1); }
   else if (e.key === 'e' || e.key === 'Enter') { own(); act('edit'); }
   else if (e.key === 'a') { own(); act('assign'); }
-  else if (e.key === 'd') { own(); act('delete'); }
+  else if (e.key === 'd') { own(); act('remove'); }
+  else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) { own(); const at = row.getBoundingClientRect(); notesMenuOpen(row, at.left + 24, at.bottom); }
   else if (e.key === 'Backspace') { own(); notesUi.input.focus(); }
   else if (e.key.length === 1 && e.key !== ' ') { notesUi.hi = -1; notesUi.input.focus(); }
 }
@@ -1283,8 +1363,9 @@ function onNotesEscape(e) {
 // A mouse press outside the palette closes it, but not on what opens it.
 function onNotesPointer(e) {
   const u = notesUi;
+  if (u.menu && !u.menu.el.contains(e.target)) notesMenuClose();
   if (!u.sub || u.el.contains(e.target)) return;
-  if (e.target.closest && e.target.closest('.np-trigger, .np-pick-menu, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
+  if (e.target.closest && e.target.closest('.np-menu, .np-trigger, .np-pick-menu, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
   notesClose();
 }
 
@@ -1316,6 +1397,7 @@ function notesOnBoard() {
 
 window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', onNotesKey);
+  document.addEventListener('keydown', onNotesMenuKey, true);
   document.addEventListener('keydown', onNotesEscape, true);
   document.addEventListener('keydown', onNotesTabKey);
   window.addEventListener('resize', () => {

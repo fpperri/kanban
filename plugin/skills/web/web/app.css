@@ -2022,10 +2022,10 @@ button.np-nhead-label { cursor: pointer; }
 button.np-nhead-label:hover { color: var(--accent); }
 .np-nday { color: var(--mut); white-space: nowrap; }
 .np-nhead-count { margin-left: auto; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
-.np-note { position: relative; display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
+.np-note { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
 .np-note:hover, .np-note:focus-within { background: var(--hover-wash); }
 .np-note:focus { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
-.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 11em) minmax(0, 1fr); }
+.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 5em) minmax(0, 1fr); }
 .np-note.np-tl.np-one { grid-template-columns: 4.2em auto minmax(0, 1fr); }
 .np-note.np-tl .np-note-by:empty { display: block; }
 .np-note-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--mut); font: inherit; text-align: left; }
@@ -2039,12 +2039,9 @@ button.np-note-card:hover { color: var(--accent); }
 .np-note-by:empty { display: none; }
 .np-note-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--prose); }
 .np-note-text code.mention { color: var(--mention); background: var(--mention-bg); }
-/* The actions take no column: they sit over the row's right end while they show, on the row's own colour
-   (the palette's surface under the wash the row wears). Where nothing hovers they stay and take a line under the text. */
-.np-note-acts { position: absolute; top: 1px; right: 2px; display: inline-flex; gap: 2px; padding-left: 6px; visibility: hidden; background: linear-gradient(var(--hover-wash), var(--hover-wash)), var(--surface); }
-.np-note:focus .np-note-acts { background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface); }
-.np-note:hover .np-note-acts, .np-note:focus-within .np-note-acts { visibility: visible; }
-@media (hover: none) { .np-note-acts { position: static; grid-column: 1 / -1; justify-self: end; padding-left: 0; background: none; visibility: visible; } }
+/* A row's Edit, Assign and Delete are a menu (notes-palette.js notesMenuOpen), so the text keeps the row's width.
+   Delete's second press shows Sure? at the row's right end. */
+.np-sure { grid-column: 1 / -1; justify-self: end; color: var(--crit); font-size: 0.9em; }
 /* A narrow list (the palette over a phone, or a card's details at their least): the time, the author and the card
    share a line and the text runs under them at the list's full width. It reads the list's own width, not the
    window's, as the palette and the card's details are not the same width. */

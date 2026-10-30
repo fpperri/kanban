@@ -98,7 +98,7 @@ function noSandboxWanted(env, uid) {
 
 function chromeArgs({ cdpPort, profileDir, env = process.env, uid = typeof process.getuid === 'function' ? process.getuid() : undefined }) {
   const args = ['--headless=new', '--disable-gpu', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${profileDir}`,
-    '--window-size=1600,1000', '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4', '--no-first-run', '--no-default-browser-check'];
+    '--window-size=1600,1000', '--no-first-run', '--no-default-browser-check'];
   if (noSandboxWanted(env, uid)) args.push('--no-sandbox');
   args.push('about:blank');
   return args;

@@ -522,3 +522,13 @@ test('Timeline leaves the card column out when every listed note is about one ca
   assert.strictEqual(p.all('.np-note-card').length, 2);
   assert.strictEqual(p.all('.np-note').some((r) => r.classes.includes('np-one')), false);
 });
+
+test('Timeline names a card by its id, with the full label as the title, and a row has no action buttons', async () => {
+  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run(`openNotes(${DAY})`);
+  const cards = p.all('.np-note-card');
+  assert.deepStrictEqual(cards.map((c) => p.text(c)), ['#22', '#7']);
+  assert.deepStrictEqual(cards.map((c) => c.title), ['#22 Cut over the data layer', '#7 Port the zephyr schema']);
+  assert.strictEqual(p.all('.np-act').length, 0);
+  assert.strictEqual(p.all('.np-note-acts').length, 0);
+});
