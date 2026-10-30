@@ -8,7 +8,7 @@
 // Enter writes the note at the time field's time, keeps the palette open and clears the box;
 // Shift+Enter starts a new line; a leading HH:MM, the untimed tick and a leading - each set the
 // time, and the preview line says exactly what Enter will write; a bare #22 then Enter aims the
-// palette at that card and Backspace on the empty box clears the chip. e, a and d d work on a
+// palette at that card and Backspace on the empty box clears the chip. Ctrl+F in an empty note box with no card aimed puts # there, and the id typed after it narrows the list to that card until the # is erased; with a draft in the box it leaves it alone. e, a and d d work on a
 // listed note: edit its text and time, assign it to another card, delete it. Keys typed in the
 // palette reach none of the board's own shortcuts, and Esc closes it from the filter field too. The
 // subject row's date and card picker retarget the note (a note written to another day lands in that
@@ -193,6 +193,32 @@ module.exports = {
     check('notes: a leading mention before the text aims that one note', /^Note at \d\d:\d\d on #22 Cut over the data layer$/.test(await preview()), await preview());
     await key('Enter');
     check('notes: it is written on card 22 with the mention cut from its text', await written('22', 'from the line'));
+
+    // --- Ctrl+F in an empty note box with no card aimed puts # there, and an id narrows the list ---------------
+    const TARGETS = `[...new Set([...document.querySelectorAll('#notes-palette .np-ngroup')].map((g)=>g.dataset.target))].sort().join()`;
+    const BOX_CARET = `${q('.np-input')}.selectionStart+','+${q('.np-input')}.selectionEnd`;
+    check('notes: with no card aimed the list holds the notes of cards 22 and 7', await waitFor(`${TARGETS}==='22,7'&&${CHIP}===''&&${BOX}===''`, 3000), await ev(TARGETS));
+    await key('f', { ctrl: true });
+    check('notes: Ctrl+F puts # in the empty note box with the caret after it and the list unchanged', await waitFor(`${BOX}==='#'&&${BOX_CARET}==='1,1'`, 2500) && await ev(TARGETS) === '22,7', await ev(BOX));
+    await key('2');
+    await key('2');
+    check('notes: typing 22 narrows the list to card 22, as it is typed', await waitFor(`${BOX}==='#22'&&${TARGETS}==='22'`, 2500), await ev(TARGETS));
+    check('notes: the filter field is left alone', await ev(`${q('.np-filter')}.value===''`));
+    await key('Backspace');
+    await key('Backspace');
+    await key('Backspace');
+    check('notes: erasing the # puts the whole list back', await waitFor(`${BOX}===''&&${TARGETS}==='22,7'`, 2500), await ev(TARGETS));
+    await key('f', { ctrl: true });
+    await key('2');
+    await key('2');
+    await key('Enter');
+    check('notes: Enter on # and an id aims the palette at that card', await waitFor(`${CHIP}==='#22 Cut over the data layer'&&${BOX}===''`, 2500), await chip());
+    await key('Backspace');
+    check('notes: Backspace on the empty box clears the chip again', await waitFor(`${CHIP}===''`, 2500));
+    await setBox('a draft');
+    await key('f', { ctrl: true });
+    check('notes: with a draft in the box Ctrl+F leaves the draft untouched', await ev(`${BOX}==='a draft'&&${TARGETS}==='22,7'`), await ev(BOX));
+    await setBox('');
 
     // --- e, a and d d on a listed note --------------------------------------------------------------------------
     check('notes: Esc closes the palette', await closePalette());
