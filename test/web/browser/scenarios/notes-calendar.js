@@ -69,7 +69,7 @@ module.exports = {
 
     // --- the week of 12 to 18 October on the board that keeps a logbook ---------------------------------------
     check('calnotes: the week is drawn', await showWeek());
-    check('calnotes: the Notes switch is on and says so', await ev(`(()=>{const b=document.getElementById('cal-notes-btn');return !!b&&b.getAttribute('aria-pressed')==='true'&&b.textContent==='Notes'})()`));
+    check('calnotes: the Notes button is on, grouped, and says so', await ev(`(()=>{const b=document.getElementById('cal-notes-btn');return !!b&&b.getAttribute('aria-pressed')==='true'&&b.textContent==='Grouped Notes'})()`));
     check('calnotes: a lone note is a chip at its half hour, in the day it was written', await ev(`!!document.querySelector(${JSON.stringify(slotEl('2026-10-13', 660))}+'.cal-note-chip')&&!!document.querySelector(${JSON.stringify(slotEl('2026-10-15', 570))}+'.cal-note-chip')&&!!document.querySelector(${JSON.stringify(slotEl('2026-10-15', 840))}+'.cal-note-chip')`));
     const chip = (day, from) => ev(`(()=>{const c=document.querySelector(${JSON.stringify(slotEl(day, from))});return c?{text:c.textContent,title:c.title}:null})()`);
     const lone = await chip('2026-10-15', 840);
