@@ -62,7 +62,7 @@ test('the card menu has a Todos… entry for one card, and a tile or a badge car
   assert.match(html, /<button type="button" id="ctx-todos" role="menuitem" class="hidden">Todos…<\/button>/);
   assert.ok(html.indexOf('id="ctx-todos"') > html.indexOf('id="ctx-scratch"') && html.indexOf('id="ctx-todos"') < html.indexOf('id="ctx-add"'), 'beside Scratchpad…');
   assert.match(appSrc, /\$\('#ctx-todos'\)\.classList\.toggle\('hidden', !todosOn\(\) \|\| !!menuSubject\.canvas \|\| menuSubject\.ids\.length !== 1\);/);
-  assert.strictEqual((appSrc.match(/const todoCount = todoCountButton\(card\.id\);/g) || []).length, 2, 'the live tile and the archived tile');
+  assert.match(appSrc, /return \[noteCountButton\(id\), todoCountButton\(id\), scratchpadIconButton\(id\)\]\.filter\(Boolean\);/);
   assert.match(groupsUi, /const todos = todoCountButton\(g\.id\);/);
 });
 

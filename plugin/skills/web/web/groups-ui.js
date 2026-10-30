@@ -86,6 +86,8 @@ function groupBadges(cardId) {
     wrap.append(b);
     const todos = todoCountButton(g.id); // the group's own open/total, only when its todo list has items
     if (todos) wrap.append(todos);
+    const pad = scratchpadIconButton(g.id); // the group's own page, only when it has one
+    if (pad) wrap.append(pad);
   }
   if (model.more > 0) {
     const more = groupEl('span', 'group-more', `+${model.more}`);
