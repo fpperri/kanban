@@ -15,7 +15,9 @@
 //  - A name that Windows reserves (con, prn, aux, nul, com1-9, lpt1-9, before the first dot) is refused
 //    on every platform, so a folder moves between machines.
 //  - Only a card has a folder here; a group's tab is as it was.
-//  - A write names a `.md` or `.txt` file and nothing else; a save or a delete names the `version` it read (a hash
+//  - A new file is a `.md` or `.txt`. A save, a delete, a rename and a move take any existing file that
+//    reads as text (no NUL byte, not a picture by name, within the cap), whatever its extension; a binary
+//    file, a picture or a file over the cap is view only. A save or a delete names the `version` it read (a hash
 //    of the file as it was, as the todo lists do) and is a 409 when the file has changed since.
 //  - A text read or write is capped at the page's own cap (MAX_PAD).
 const fs = require('fs');
@@ -98,7 +100,8 @@ function entryOf(rootAbs, segs, stat, rootReal) {
   const page = !stat.isDirectory() && isPageName(name);
   const out = { name, path: relOf(segs), dir: stat.isDirectory(), size: stat.isDirectory() ? 0 : stat.size, mtime: stat.mtime.toISOString(), abs };
   if (out.dir) return { ...out, kind: 'dir', writable: false };
-  return { ...out, kind: kindByName(name), page, writable: !page && WRITABLE.test(name) };
+  const kind = kindByName(name);
+  return { ...out, kind, page, writable: !page && kind !== 'image' };
 }
 
 function parentOf(segs) {
@@ -161,13 +164,43 @@ function open(dir, target, rel) {
   return { file: { ...entry, kind: entry.kind === 'markdown' ? 'markdown' : 'text', text: raw.replace(/\r\n/g, '\n'), version: versionOf(raw) } };
 }
 
-// A path of a write: its segments, the name checked to be a .md or .txt that is not a page.
+const PAGE_REFUSED = 'The scratchpad page is saved by its own box, and only the delete flow takes it.';
+
+// The segments of a new file's path: a .md or .txt name that is not a page's.
 function writableSegs(rel) {
   const segs = segmentsOf(rel, true);
   const name = segs[segs.length - 1];
-  if (!name || !WRITABLE.test(name) || /^\.(md|txt)$/i.test(name)) throw bad('Only a .md or .txt file can be written here.');
-  if (isPageName(name)) throw new StatusError('The scratchpad page is saved by its own box, and only the delete flow takes it.', 403);
+  if (!name || !WRITABLE.test(name) || /^\.(md|txt)$/i.test(name)) throw bad('A new file is a .md or .txt file.');
+  if (isPageName(name)) throw new StatusError(PAGE_REFUSED, 403);
   return segs;
+}
+
+// The segments of a file that is already there: any name but a page's.
+function existingSegs(rel) {
+  const segs = segmentsOf(rel, true);
+  if (segs.length === 0) throw bad('A file needs a path.');
+  if (isPageName(segs[segs.length - 1])) throw new StatusError(PAGE_REFUSED, 403);
+  return segs;
+}
+
+// The real place of an existing file of the card's folder, and its stat; a folder is a 400, nothing there a 404.
+function existingFile(root, segs) {
+  const rootReal = realRootOf(root, false);
+  if (rootReal === null) throw gone();
+  const here = realInside(rootReal, path.join(root, ...segs));
+  let stat;
+  try { stat = fs.statSync(here); } catch (_) { throw gone(); }
+  if (stat.isDirectory()) throw bad('That is a folder.');
+  if (!stat.isFile()) throw gone();
+  return { here, stat, rootReal };
+}
+
+// The text of a file that reads as text, else a 400: not a picture by name, within the cap, no NUL byte.
+function textOf(here, stat, name) {
+  if (kindByName(name) === 'image' || stat.size > MAX_TEXT) throw bad('That file does not read as text, so it is view only.');
+  const buf = fs.readFileSync(here);
+  if (buf.includes(0)) throw bad('That file does not read as text, so it is view only.');
+  return buf.toString('utf8');
 }
 
 // The real place of the parent of `segs`, which must be a folder of the card's folder.
@@ -232,22 +265,16 @@ function create(dir, target, body) {
   return open(dir, target, relOf(segs));
 }
 
-// Save `{ path, text, version }` over a .md or .txt file: the version is of the file as it was read, and
+// Save `{ path, text, version }` over a file that reads as text: the version is of the file as it was read, and
 // the file keeps its own line ending.
 function save(dir, target, body) {
   const { path: rel, text, version } = body && typeof body === 'object' ? body : {};
   const { root } = cardFolder(dir, target);
-  const segs = writableSegs(rel);
+  const segs = existingSegs(rel);
   if (typeof version !== 'string') throw bad('A save names the version of the file it read.');
   checkText(text);
-  const rootReal = realRootOf(root, false);
-  if (rootReal === null) throw gone();
-  const abs = path.join(root, ...segs);
-  const here = realInside(rootReal, abs);
-  let stat;
-  try { stat = fs.statSync(here); } catch (_) { throw gone(); }
-  if (!stat.isFile()) throw gone();
-  const old = fs.readFileSync(here, 'utf8');
+  const { here, stat } = existingFile(root, segs);
+  const old = textOf(here, stat, segs[segs.length - 1]);
   if (versionOf(old) !== version) throw new StatusError('That file changed since it was read.', 409);
   const eol = old.includes('\r\n') ? '\r\n' : '\n';
   const plain = text.replace(/\r\n?/g, '\n');
@@ -255,35 +282,27 @@ function save(dir, target, body) {
   return open(dir, target, relOf(segs));
 }
 
-// Delete `{ path, version }`: a .md or .txt file, as it was read.
+// Delete `{ path, version }`: a file that reads as text, as it was read.
 function remove(dir, target, body) {
   const { path: rel, version } = body && typeof body === 'object' ? body : {};
   const { root } = cardFolder(dir, target);
-  const segs = writableSegs(rel);
+  const segs = existingSegs(rel);
   if (typeof version !== 'string') throw bad('A delete names the version of the file it read.');
-  const rootReal = realRootOf(root, false);
-  if (rootReal === null) throw gone();
-  const here = realInside(rootReal, path.join(root, ...segs));
-  let stat;
-  try { stat = fs.statSync(here); } catch (_) { throw gone(); }
-  if (!stat.isFile()) throw gone();
-  if (versionOf(fs.readFileSync(here, 'utf8')) !== version) throw new StatusError('That file changed since it was read.', 409);
+  const { here, stat } = existingFile(root, segs);
+  if (versionOf(textOf(here, stat, segs[segs.length - 1])) !== version) throw new StatusError('That file changed since it was read.', 409);
   fs.unlinkSync(here);
   return { ok: true };
 }
 
-// Rename or move `{ from, to }`: both are paths of .md or .txt files, `to` in a folder that is there.
+// Rename or move `{ from, to }`: a file that reads as text, to a name that is not a picture's, in a folder that is there.
 function move(dir, target, body) {
   const { from, to } = body && typeof body === 'object' ? body : {};
   const { root } = cardFolder(dir, target);
-  const a = writableSegs(from);
-  const b = writableSegs(to);
-  const rootReal = realRootOf(root, false);
-  if (rootReal === null) throw gone();
-  const source = realInside(rootReal, path.join(root, ...a));
-  let stat;
-  try { stat = fs.statSync(source); } catch (_) { throw gone(); }
-  if (!stat.isFile()) throw gone();
+  const a = existingSegs(from);
+  const b = existingSegs(to);
+  if (kindByName(b[b.length - 1]) === 'image') throw bad('A text file keeps a name that is not a picture\'s.');
+  const { here: source, stat, rootReal } = existingFile(root, a);
+  textOf(source, stat, a[a.length - 1]);
   const parent = parentReal(rootReal, root, b);
   const dest = path.join(parent, b[b.length - 1]);
   if (!mayReplace(source, dest)) throw new StatusError('A file by that name is already there.', 409);

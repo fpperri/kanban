@@ -150,7 +150,7 @@ test('opening a markdown file gives its text and version; a text file the same; 
   const txt = await open(1, 'run.log');
   assert.strictEqual(txt.json.file.kind, 'text');
   assert.strictEqual(txt.json.file.text, 'a log line\n');
-  assert.strictEqual(txt.json.file.writable, false);
+  assert.strictEqual(txt.json.file.writable, true, 'any file that reads as text is editable');
   const img = await open(1, 'shot.png');
   assert.strictEqual(img.json.file.kind, 'image');
   assert.strictEqual(img.json.file.text, undefined);
@@ -228,19 +228,17 @@ test('a card whose folder does not exist yet gets it made by its first file', ()
   assert.strictEqual((await open(2, 'first.md')).json.file.text, 'x');
 }));
 
-test('create, save, delete and move refuse any name that is not .md or .txt, and any name the page uses', () => withBoard(async ({ call, q, mine }) => {
+test('create refuses any name that is not .md or .txt, and save, delete and move refuse a file that does not read as text or a name the page uses', () => withBoard(async ({ call, q, mine }) => {
   for (const name of ['a.png', 'a.js', 'a', 'a.md.exe', '.md', 'a.txt.', 'a.md ', 'a.svg']) {
     const r = await call('POST', q(1, 'file'), { path: name, text: 'x' });
     assert.strictEqual(r.status, 400, `create ${name}: ${r.status}`);
     assert.ok(!fs.existsSync(path.join(mine, name.trim())), name);
   }
   assert.strictEqual((await call('PUT', q(1, 'file'), { path: 'shot.png', text: 'x', version: 'v' })).status, 400);
-  assert.strictEqual((await call('PUT', q(1, 'file'), { path: 'run.log', text: 'x', version: 'v' })).status, 400);
   assert.strictEqual((await call('DELETE', q(1, 'file'), { path: 'shot.png', version: 'v' })).status, 400);
   assert.strictEqual((await call('DELETE', q(1, 'file'), { path: 'blob.bin', version: 'v' })).status, 400);
   assert.strictEqual((await call('POST', q(1, 'move'), { from: 'shot.png', to: 'sub/shot.png' })).status, 400);
   assert.strictEqual((await call('POST', q(1, 'move'), { from: 'notes.md', to: 'notes.png' })).status, 400);
-  assert.strictEqual((await call('POST', q(1, 'move'), { from: 'notes.md', to: 'notes.js' })).status, 400);
   assert.ok(fs.existsSync(path.join(mine, 'shot.png')) && fs.existsSync(path.join(mine, 'run.log')) && fs.existsSync(path.join(mine, 'notes.md')));
   assert.strictEqual((await call('POST', q(1, 'file'), { path: '0009.scratchpad.md', text: 'x' })).status, 403);
   assert.strictEqual((await call('POST', q(1, 'move'), { from: 'notes.md', to: '0001.scratchpad.md' })).status, 403);
@@ -431,4 +429,53 @@ test('a group id is not a card: the folder browser answers only for a card', () 
   assert.strictEqual((await list('I1')).status, 404);
   assert.strictEqual((await call('POST', q('I1', 'file'), { path: 'a.md', text: 'x' })).status, 404);
   assert.strictEqual((await list(99)).status, 404);
+}));
+
+test('any file that reads as text is saved, whatever its extension, keeping its name and line ending', () => withBoard(async ({ call, q, open, mine }) => {
+  fs.writeFileSync(path.join(mine, 'data.json'), '{"a":1}\r\n');
+  fs.writeFileSync(path.join(mine, 'noext'), 'plain\n');
+  for (const [name, text] of [['run.log', 'a log line\nmore\n'], ['data.json', '{"a":2}\n'], ['noext', 'changed\n']]) {
+    const { file } = (await open(1, name)).json;
+    assert.strictEqual(file.writable, true, name);
+    const r = await call('PUT', q(1, 'file'), { path: name, text, version: file.version });
+    assert.strictEqual(r.status, 200, name);
+    assert.strictEqual(r.json.file.text, text);
+  }
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'run.log'), 'utf8'), 'a log line\nmore\n');
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'data.json'), 'utf8'), '{"a":2}\r\n', 'the CRLF stays');
+  assert.deepStrictEqual(fs.readdirSync(mine).filter((n) => n.endsWith('.tmp')), []);
+}));
+
+test('a save of a binary file, an image, or a text file over the cap is refused and writes nothing', () => withBoard(async ({ call, q, mine, open }) => {
+  const bin = fs.readFileSync(path.join(mine, 'blob.bin'));
+  const png = fs.readFileSync(path.join(mine, 'shot.png'));
+  fs.writeFileSync(path.join(mine, 'big.txt'), 'x'.repeat(300001));
+  fs.writeFileSync(path.join(mine, 'fake.png'), 'this is text named like a picture\n');
+  const { file } = (await open(1, 'run.log')).json;
+  for (const name of ['blob.bin', 'shot.png', 'big.txt', 'fake.png']) {
+    assert.strictEqual((await call('PUT', q(1, 'file'), { path: name, text: 'x', version: file.version })).status, 400, `save ${name}`);
+    assert.strictEqual((await call('DELETE', q(1, 'file'), { path: name, version: file.version })).status, 400, `delete ${name}`);
+    assert.strictEqual((await call('POST', q(1, 'move'), { from: name, to: `moved-${name}` })).status, 400, `move ${name}`);
+  }
+  assert.deepStrictEqual(fs.readFileSync(path.join(mine, 'blob.bin')), bin);
+  assert.deepStrictEqual(fs.readFileSync(path.join(mine, 'shot.png')), png);
+  assert.strictEqual(fs.readFileSync(path.join(mine, 'fake.png'), 'utf8'), 'this is text named like a picture\n');
+}));
+
+test('any text file is deleted by version, renamed and moved; a destination named like a picture is refused', () => withBoard(async ({ call, q, open, mine }) => {
+  assert.strictEqual((await call('POST', q(1, 'move'), { from: 'run.log', to: 'sub/run.log' })).status, 200);
+  assert.strictEqual((await call('POST', q(1, 'move'), { from: 'sub/run.log', to: 'notes.js' })).status, 200);
+  assert.strictEqual((await call('POST', q(1, 'move'), { from: 'notes.js', to: 'notes.png' })).status, 400);
+  assert.ok(fs.existsSync(path.join(mine, 'notes.js')));
+  const { file } = (await open(1, 'notes.js')).json;
+  assert.strictEqual((await call('DELETE', q(1, 'file'), { path: 'notes.js', version: file.version })).status, 200);
+  assert.ok(!fs.existsSync(path.join(mine, 'notes.js')));
+}));
+
+test('a new file is still only .md or .txt, and the page stays out of reach whatever else is text', () => withBoard(async ({ call, q, mine }) => {
+  assert.strictEqual((await call('POST', q(1, 'file'), { path: 'new.log', text: 'x' })).status, 400);
+  assert.strictEqual((await call('POST', q(1, 'file'), { path: 'new.json', text: 'x' })).status, 400);
+  assert.ok(!fs.existsSync(path.join(mine, 'new.log')));
+  assert.strictEqual((await call('PUT', q(1, 'file'), { path: '0001.scratchpad.md', text: 'x', version: 'v' })).status, 403);
+  assert.strictEqual((await call('POST', q(1, 'move'), { from: 'notes.md', to: '0001.scratchpad.md' })).status, 403);
 }));
