@@ -122,14 +122,36 @@ test('an absolute path elsewhere is refused, and one inside the root is allowed'
   await inside.arrayBuffer();
 }));
 
-test('a symlink or junction pointing out of the roots is refused', () => withBoard(async ({ get, root, project }) => {
+test('a symlink or junction pointing out of the roots is refused', (t) => withBoard(async ({ get, root, project }) => {
   fs.symlinkSync(path.join(root, 'outside'), path.join(project, 'shots', 'door'), 'junction');
   await assertSendsNothing(await get(1, '../shots/door/secret.png'), 'a linked folder');
   let file = true;
   try { fs.symlinkSync(path.join(root, 'outside', 'secret.png'), path.join(project, 'shots', 'link.png'), 'file'); } catch (_) { file = false; }
-  if (file) await assertSendsNothing(await get(1, '../shots/link.png'), 'a linked file');
-  try { fs.symlinkSync(path.join(root, 'outside', 'secret.txt'), path.join(project, 'shots', 'inside.png'), 'file'); } catch (_) { return; }
+  if (!file) { t.diagnostic('file symlinks need a privilege this machine lacks: the linked-file checks did not run'); return; }
+  await assertSendsNothing(await get(1, '../shots/link.png'), 'a linked file');
+  fs.symlinkSync(path.join(root, 'outside', 'secret.txt'), path.join(project, 'shots', 'inside.png'), 'file');
   await assertSendsNothing(await get(1, '../shots/inside.png'), 'a .png link to a file of another type');
+}));
+
+// A path outside both roots is refused before the file system is asked about it: on Windows a
+// realpath or a stat of a UNC path (two backslashes, a host, a share) opens an SMB connection to that host.
+test('a path outside the roots, a network share included, is refused without touching the file system', () => withBoard(async ({ get }) => {
+  const asked = [];
+  const { realpathSync, statSync } = fs;
+  const native = realpathSync.native;
+  const note = (p) => { if (String(p).includes('evilhost')) asked.push(String(p)); };
+  fs.realpathSync.native = (p, ...rest) => { note(p); return native(p, ...rest); };
+  fs.statSync = (p, ...rest) => { note(p); return statSync(p, ...rest); };
+  try {
+    const paths = ['//evilhost/share/a.png'];
+    const bs = String.fromCharCode(92);
+    if (process.platform === 'win32') paths.push(`${bs}${bs}evilhost${bs}share${bs}a.png`, `${bs}${bs}?${bs}UNC${bs}evilhost${bs}share${bs}a.png`);
+    for (const p of paths) await assertSendsNothing(await get(1, p), p);
+  } finally {
+    fs.realpathSync.native = native;
+    fs.statSync = statSync;
+  }
+  assert.deepStrictEqual(asked, []);
 }));
 
 test('svg, text and every other type are refused, and so is a folder or a card file', () => withBoard(async ({ get }) => {

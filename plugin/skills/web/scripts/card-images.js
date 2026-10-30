@@ -48,13 +48,18 @@ function cardImage(dir, id, rawPath) {
   try { decoded = decodeURIComponent(rawPath); } catch (_) { throw new StatusError('That path has a bad % escape.', 400); }
   if (decoded.includes('\0')) throw new StatusError('That path is not a file name.', 400);
   if (!typeOf(decoded)) throw refuse();
-  const file = real(path.resolve(dir, decoded));
+  const wanted = path.resolve(dir, decoded);
+  const pads = scratchpadFolders(dir, id);
+  // Checked as written before the file system is asked, so a path outside both roots never reaches it:
+  // on Windows a realpath or a stat of a network share opens a connection to that host.
+  if (![path.dirname(path.resolve(dir)), ...pads].some((r) => within(r, wanted))) throw refuse();
+  const file = real(wanted);
   if (file === null || !typeOf(file)) throw refuse();
   let stat;
   try { stat = fs.statSync(file); } catch (_) { throw refuse(); }
   if (!stat.isFile()) throw refuse();
   const board = real(path.resolve(dir));
-  const roots = [board === null ? null : path.dirname(board), ...scratchpadFolders(dir, id).map(real)].filter((r) => r !== null);
+  const roots = [board === null ? null : path.dirname(board), ...pads.map(real)].filter((r) => r !== null);
   if (!roots.some((r) => within(r, file))) throw refuse();
   return { file, type: typeOf(file), size: stat.size };
 }
