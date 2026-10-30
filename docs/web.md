@@ -839,7 +839,8 @@ the switches and the keys work on it as on the grouped one. A row has no action 
 row's full width: a right-click, a long press, the Menu key or Shift+F10 on a row opens a small menu of **Edit**,
 **Assign…** and **Delete** (the card menu's look; Esc closes it and the arrows move through it), and Delete asks
 twice there as on the `d` key, the second press deleting. A right-click with text selected inside a note keeps the
-browser's own menu. A list narrower than 30em (the list's own width, not the window's) puts the time, the
+browser's own menu. For 800 ms after a long press opened the menu, the browser's own echo of it (its contextmenu,
+and the lifted finger's mouse events where the menu now sits) neither closes nor reopens the menu nor picks an entry. A list narrower than 30em (the list's own width, not the window's) puts the time, the
 author and the card on one line and runs the text under them at full width. A
 **range** row over the list, All, Month, Week, 3 days or Day, with ‹ and › buttons (off on All) and a
 label (`Wed 21 Oct`, `19–25 Oct`; a click on it goes back to the range that holds today), limits the

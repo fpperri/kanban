@@ -419,20 +419,22 @@ module.exports = {
     await touch('touchStart', [{ x: p.x, y: p.y, id: 0 }]);
     check('notes: a long press on a row opens the menu', await waitFor(`!!${MENU}`, 3000));
     await touch('touchEnd', []);
-    await sleep(300);
-    check('notes: and lifting the finger leaves it open', await ev(`!!${MENU}`));
-    await key('Escape');
-    await waitFor(`!${MENU}`, 2000);
-    p = await centre(TXT);
-    await touch('touchStart', [{ x: p.x, y: p.y, id: 0 }]);
-    await touch('touchMove', [{ x: p.x, y: p.y + 40, id: 0 }]);
-    await sleep(1200);
+    await ev(`${MENU}.dataset.seen='1'`);
+    // The browser's own long press echoes: a contextmenu, and the lifted finger's mouse events where the menu sits.
+    // They are fired here on purpose, so the check never depends on when the browser's gesture lands.
+    await ev(`(()=>{const t=document.querySelector(${JSON.stringify(TXT)});const r=t.getBoundingClientRect();const o={bubbles:true,cancelable:true,clientX:r.left+5,clientY:r.top+5};t.dispatchEvent(new MouseEvent('contextmenu',o));t.dispatchEvent(new MouseEvent('mousedown',o));const m=${MENU};const b=m&&m.querySelector('[data-act="edit"]');if(b)b.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail:1}));})()`);
+    check('notes: and lifting the finger leaves it open, through the echo of the long press', await ev(`!!${MENU}&&${MENU}.dataset.seen==='1'&&!document.querySelector('#notes-palette .np-note.editing')`), await ev(`String(!!${MENU})`));
+    await sleep(900);
+    await ev(`document.querySelector(${JSON.stringify(TXT)}).dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))`);
+    check('notes: once the echo is over a press elsewhere closes it', await waitFor(`!${MENU}`, 2000));
+    // A press that moves, and a tap, run inside the page in one go, so the long press's timer can never fire between
+    // their steps on a slow machine.
+    const swipe = (dy, lift) => ev(`(()=>{const t=document.querySelector(${JSON.stringify(TXT)});const r=t.getBoundingClientRect();const x=r.left+5,y=r.top+5;const pt=(yy)=>new Touch({identifier:7,target:t,clientX:x,clientY:yy});t.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,cancelable:true,touches:[pt(y)],targetTouches:[pt(y)],changedTouches:[pt(y)]}));if(${dy})t.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[pt(y+${dy})],targetTouches:[pt(y+${dy})],changedTouches:[pt(y+${dy})]}));if(${lift})t.dispatchEvent(new TouchEvent('touchend',{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[pt(y+${dy})]}));})()`);
+    await swipe(40, false);
+    await sleep(900);
     check('notes: a press that moves opens no menu', await ev(`!${MENU}`));
-    await touch('touchEnd', []);
-    p = await centre(TXT);
-    await touch('touchStart', [{ x: p.x, y: p.y, id: 0 }]);
-    await touch('touchEnd', []);
-    await sleep(1200);
+    await swipe(0, true);
+    await sleep(900);
     check('notes: a tap opens no menu either', await ev(`!${MENU}`));
     await send('Emulation.setTouchEmulationEnabled', { enabled: false });
     await ev(`${q('.np-input')}.focus()`);

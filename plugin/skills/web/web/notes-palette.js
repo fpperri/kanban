@@ -419,7 +419,7 @@ function notesBuild() {
   u.body.addEventListener('touchstart', notesOnPressStart, { passive: true });
   u.body.addEventListener('touchmove', notesOnPressMove, { passive: true });
   u.body.addEventListener('touchend', notesOnPressEnd);
-  u.body.addEventListener('touchcancel', notesPressCancel, { passive: true });
+  u.body.addEventListener('touchcancel', notesOnPressEnd, { passive: true });
   u.body.addEventListener('scroll', notesPressCancel, { passive: true });
   u.body.addEventListener('focusin', (e) => {
     const row = e.target.closest && e.target.closest('.np-note');
@@ -1012,6 +1012,7 @@ function notesMenuOpen(row, x, y) {
     b.dataset.act = name;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (e.detail > 0 && notesPressEcho()) return; // the lifted finger's click, not a choice
       if (name === 'remove' && !acts.sure()) { acts.remove(); return; }
       notesMenuClose();
       acts[name]();
@@ -1048,6 +1049,7 @@ function onNotesMenuKey(e) {
 function onNotesMenuContext(e) {
   const m = notesUi.menu;
   if (!m) return;
+  if (notesPressEcho()) { e.preventDefault(); e.stopPropagation(); return; }
   if (m.el.contains(e.target)) { e.preventDefault(); e.stopPropagation(); return; }
   notesMenuClose();
 }
@@ -1057,7 +1059,13 @@ function onNotesMenuContext(e) {
 // start and move it are passive, so scrolling is never held up.
 const NOTES_LONG_PRESS_MS = 500;
 const NOTES_LONG_PRESS_SLOP = 10;
-const notesPress = { timer: 0, x: 0, y: 0, fired: false };
+// A press that opened the menu has an echo: the browser's own long press may fire a contextmenu, during the press
+// or after it, and the lifted finger may fire a mouse click where the menu now sits. Until the echo is over, those
+// neither close nor reopen the menu nor choose an entry.
+const NOTES_PRESS_ECHO_MS = 800;
+const NOTES_PRESS_HELD_MS = 5000;
+const notesPress = { timer: 0, x: 0, y: 0, fired: false, echoUntil: 0 };
+const notesPressEcho = () => performance.now() < notesPress.echoUntil;
 
 function notesPressCancel() {
   clearTimeout(notesPress.timer);
@@ -1067,6 +1075,7 @@ function notesPressCancel() {
 function notesOnPressStart(e) {
   notesPressCancel();
   notesPress.fired = false;
+  notesPress.echoUntil = 0;
   const row = e.target.closest && e.target.closest('.np-note');
   const t = e.touches && e.touches.length === 1 ? e.touches[0] : null;
   if (!row || !t || row.classList.contains('editing') || !row.npActs || e.target.closest('a, img, button')) return;
@@ -1075,6 +1084,7 @@ function notesOnPressStart(e) {
   notesPress.timer = setTimeout(() => {
     notesPress.timer = 0;
     notesPress.fired = true;
+    notesPress.echoUntil = performance.now() + NOTES_PRESS_HELD_MS;
     notesMenuOpen(row, notesPress.x, notesPress.y);
   }, NOTES_LONG_PRESS_MS);
 }
@@ -1087,11 +1097,15 @@ function notesOnPressMove(e) {
 
 function notesOnPressEnd(e) {
   notesPressCancel();
-  if (notesPress.fired && e.cancelable) e.preventDefault(); // the click that would follow lands on the menu under the finger
+  if (notesPress.fired) {
+    if (e.cancelable) e.preventDefault(); // the click that would follow lands on the menu under the finger
+    notesPress.echoUntil = performance.now() + NOTES_PRESS_ECHO_MS;
+  }
   notesPress.fired = false;
 }
 
 function notesOnRowMenu(e) {
+  if (notesPressEcho()) { e.preventDefault(); return; }
   const row = e.target.closest && e.target.closest('.np-note');
   if (!row || row.classList.contains('editing') || !row.npActs) return;
   if (e.target.closest('a, img')) return;
@@ -1453,7 +1467,7 @@ function onNotesEscape(e) {
 // A mouse press outside the palette closes it, but not on what opens it.
 function onNotesPointer(e) {
   const u = notesUi;
-  if (u.menu && !u.menu.el.contains(e.target)) notesMenuClose();
+  if (u.menu && !u.menu.el.contains(e.target) && !notesPressEcho()) notesMenuClose();
   if (!u.sub || u.el.contains(e.target)) return;
   if (e.target.closest && e.target.closest('.np-menu, .np-trigger, .np-pick-menu, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
   notesClose();
