@@ -13,7 +13,7 @@
 // (pad-files.js).
 
 function scratchFolderOn() {
-  return !!state.scratchpad && state.scratchpad.folder.split('/').includes('<card>');
+  return !!state.scratchpad && state.scratchpad.folder.split(/[\\/]/).includes('<card>');
 }
 
 function spfEl(tag, className, text) {

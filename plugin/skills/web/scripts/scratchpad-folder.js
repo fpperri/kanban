@@ -71,7 +71,7 @@ const relOf = (segs) => segs.join('/');
 function cardFolder(dir, target) {
   const place = sp.padPlace(dir, target);
   if (!cs.findCardFile(dir, place.id)) throw new StatusError('Only a card has a folder to browse.', 404);
-  const own = place.value.split('/').includes(iter.CARD)
+  const own = iter.segmentsOf(place.value).includes(iter.CARD)
     && place.folder.parts.card !== undefined && ids.idKey(place.folder.parts.card.split('.')[0]) === place.id;
   if (!own) throw new StatusError('The scratchpad is not kept in a folder of the card\'s own: config.yaml\'s scratchpad: path has no <card>.', 404);
   return { id: place.id, root: place.folder.abs, name: place.name };

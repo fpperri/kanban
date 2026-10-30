@@ -21,6 +21,9 @@ function on(folder) {
 test('the folder list shows only for a scratchpad path with <card> as a whole segment', () => {
   assert.strictEqual(on('.scratchpad/<card>'), true);
   assert.strictEqual(on('../work/<iteration>/<card>/.scratchpad'), true);
+  const bs = String.fromCharCode(92);
+  assert.strictEqual(on(`.scratchpad${bs}<card>`), true);
+  assert.strictEqual(on(`<kanban>${bs}.scratchpad${bs}<iteration>${bs}<card>${bs}`), true);
   assert.strictEqual(on('.scratchpad'), false);
   assert.strictEqual(on('.scratchpad/<iteration>'), false);
   assert.strictEqual(on('x<card>'), false);

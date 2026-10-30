@@ -114,6 +114,13 @@ test('a card with no folder yet lists nothing; another card sees only its own fo
   refused(await call('GET', `${q(1, 'file')}?path=${encodeURIComponent('../2/theirs.txt')}`), "the other card's folder");
 }));
 
+test("a scratchpad path written with backslashes is a card's own folder too", () => withBoard(async ({ list }) => {
+  const res = await list(1);
+  assert.strictEqual(res.status, 200);
+  const names = res.json.entries.map((e) => e.name);
+  assert.ok(names.includes('notes.md'), names.join());
+}, ['scratchpad: ..', 'pads', '<card>', ''].join(String.fromCharCode(92)) + '\n'));
+
 test('without <card> in the scratchpad path every route is a 404 and the page stays as it is', () => withBoard(async ({ call, q, list, open }) => {
   assert.strictEqual((await list(1)).status, 404);
   assert.strictEqual((await open(1, 'notes.md')).status, 404);
