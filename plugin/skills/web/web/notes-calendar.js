@@ -25,6 +25,7 @@ const NCAL_STRIP_SLIVER = 24;
 const NCAL_STRIP_STEP = 8;
 const NCAL_STRIP_MAX_SAVED = 4000;
 const NCAL_STRIP_FEATURE = 'calendar.notesWidth';
+const NCAL_MODE_FEATURE = 'calendar.notesMode';
 const NCAL_WORDS = 12;
 const NCAL_WORDS_WIDE = 60;
 
@@ -55,6 +56,40 @@ function noteCalendarDay(notes, day) {
   const list = [...slots.values()].sort((a, b) => a.fromMin - b.fromMin);
   for (const slot of list) slot.notes.sort(nCalByTime);
   return { slots: list, untimed };
+}
+
+// Each note mode: the day's timed notes as one chip each, in time order, with the `hour` it sits in,
+// its `row` there (0 from the hour line down) and the half-hour slot it belongs to (a chip with no
+// card opens that slot).
+function noteEachChips(dayNotes) {
+  const chips = [];
+  const rows = new Map();
+  const all = [];
+  for (const slot of dayNotes.slots) for (const note of slot.notes) all.push({ note, slot });
+  all.sort((a, b) => nCalByTime(a.note, b.note));
+  for (const { note, slot } of all) {
+    const hour = Math.floor(slot.fromMin / 60);
+    const row = rows.get(hour) || 0;
+    rows.set(hour, row + 1);
+    chips.push({ note, slot, hour, row });
+  }
+  return chips;
+}
+
+// How many timed notes a day has in each of the 24 hours (all zeros for a day with none).
+function noteHourCounts(dayNotes) {
+  const counts = Array(24).fill(0);
+  if (dayNotes) for (const slot of dayNotes.slots) counts[Math.floor(slot.fromMin / 60)] += slot.notes.length;
+  return counts;
+}
+
+// 'grouped' (the default) or 'each', kept per board in this browser like the strip's width.
+function noteModeLoad(storage, projectName) {
+  return NCAL_COLUMN_STATE.boardPrefLoad(storage, projectName, NCAL_MODE_FEATURE) === 'each' ? 'each' : 'grouped';
+}
+
+function noteModeSave(storage, projectName, mode) {
+  NCAL_COLUMN_STATE.boardPrefSave(storage, projectName, NCAL_MODE_FEATURE, mode === 'each' ? 'each' : null);
 }
 
 // The width in whole px a strip may have in a column `colWidth` wide.
@@ -164,6 +199,7 @@ function noteHourRequest(day, rawMin) {
 
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
+  noteEachChips, noteHourCounts, noteModeLoad, noteModeSave,
   noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };
 
