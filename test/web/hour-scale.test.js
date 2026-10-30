@@ -113,3 +113,23 @@ test('a stretched scale spans the difference of its two ys', () => {
   const s = h.hourScale(heights);
   assert.strictEqual(s.span(540, 660), 100 + 40);
 });
+
+test('the Notes button has three states in a ring: off, every note its own chip, grouped, then off again', () => {
+  assert.strictEqual(c.noteLayerState(false, 'grouped'), 'off');
+  assert.strictEqual(c.noteLayerState(false, 'each'), 'off');
+  assert.strictEqual(c.noteLayerState(true, 'each'), 'each');
+  assert.strictEqual(c.noteLayerState(true, 'grouped'), 'grouped');
+  assert.strictEqual(c.noteLayerState(true, 'junk'), 'grouped');
+  assert.deepStrictEqual(['off', 'each', 'grouped', 'off'].map(c.noteLayerNext), ['each', 'grouped', 'off', 'each']);
+  assert.deepStrictEqual(c.noteLayerParts('each'), { on: true, mode: 'each' });
+  assert.deepStrictEqual(c.noteLayerParts('grouped'), { on: true, mode: 'grouped' });
+  assert.strictEqual(c.noteLayerParts('off').on, false);
+});
+
+test('the button says Notes when off or showing each note and Grouped Notes when grouped, and its title names the next press', () => {
+  assert.deepStrictEqual(['off', 'each', 'grouped'].map(c.noteLayerLabel), ['Notes', 'Notes', 'Grouped Notes']);
+  assert.deepStrictEqual(['off', 'each', 'grouped'].map((s) => c.noteLayerPressed(s)), [false, true, true]);
+  assert.match(c.noteLayerTitle('off'), /Show every note/);
+  assert.match(c.noteLayerTitle('each'), /Group the notes/);
+  assert.match(c.noteLayerTitle('grouped'), /Hide the notes/);
+});

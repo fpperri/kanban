@@ -4374,20 +4374,29 @@ function setCalendarNotes(on) {
 // board in this browser (notes-calendar.js), Grouped until chosen.
 let calendarNotesMode = null;
 
-function calendarNotesEach() {
-  if (!calendarNotesOn()) return false;
+function calendarNotesModeValue() {
   if (calendarNotesMode === null) {
     const storage = prefsStorage();
     calendarNotesMode = storage ? noteModeLoad(storage, state.projectName) : 'grouped';
   }
-  return calendarNotesMode === 'each';
+  return calendarNotesMode;
 }
 
-function setCalendarNotesMode(mode) {
-  calendarNotesMode = mode === 'each' ? 'each' : 'grouped';
+function calendarNotesEach() {
+  return calendarNotesOn() && calendarNotesModeValue() === 'each';
+}
+
+// The Notes button's state: 'off', 'each' or 'grouped' (notes-calendar.js noteLayerState).
+function calendarNotesLayer() {
+  return noteLayerState(calendarNotesOn(), calendarNotesModeValue());
+}
+
+function setCalendarNotesLayer(layer) {
+  const parts = noteLayerParts(layer);
+  calendarNotesMode = parts.mode;
   const storage = prefsStorage();
-  if (storage) noteModeSave(storage, state.projectName, calendarNotesMode);
-  renderCalendarView();
+  if (storage) noteModeSave(storage, state.projectName, parts.mode);
+  setCalendarNotes(parts.on);
 }
 
 // The notes strip's width (feature key 'calendar.notesWidth'): the divider on a strip's left edge sets
@@ -4558,15 +4567,9 @@ function renderCalendarView() {
     // The span cycle button: on a phone it stands in for the span switch (app.css hides one and shows the other).
     // It shows the current span and a cycle mark; a screen reader hears the span a tap moves to.
     `<button type="button" class="cal-span-cycle cal-nav" data-keeps-selection data-holds-poll aria-label="Span: ${CAL_SUBVIEW_LABELS[subview]}. Change to ${CAL_SUBVIEW_LABELS[nextSubview(CALENDAR_SUBVIEWS, subview)]}">${CAL_SUBVIEW_LABELS[subview]} &#8635;</button>` +
-    // The Notes switch: only where notes are drawn (the time grids of a board with a logbook).
+    // The Notes button (off, every note, grouped): only where notes are drawn (the time grids of a board with a logbook).
     (subview !== 'month' && notesOn()
-      ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>` +
-        (calendarNotesOn()
-          ? `<span class="cal-notes-mode" role="group" aria-label="Notes on the calendar">` +
-            [['grouped', 'Grouped', 'A half hour with several notes is one count bubble'], ['each', 'Each note', 'Every note is its own chip, and an hour grows to hold them']].map(([m, label, tip]) =>
-              `<button type="button" class="cal-notes-mode-btn cal-nav${(calendarNotesEach() ? 'each' : 'grouped') === m ? ' active' : ''}" data-keeps-selection data-holds-poll data-notes-mode="${m}" aria-pressed="${(calendarNotesEach() ? 'each' : 'grouped') === m}" title="${tip}">${label}</button>`).join('') +
-            `</span>`
-          : '')
+      ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${noteLayerPressed(calendarNotesLayer()) ? ' active' : ''}" data-keeps-selection data-holds-poll data-notes-layer="${calendarNotesLayer()}" aria-pressed="${noteLayerPressed(calendarNotesLayer())}" title="${noteLayerTitle(calendarNotesLayer())}">${noteLayerLabel(calendarNotesLayer())}</button>`
       : '');
   container.appendChild(controls);
   // No status pill row here: the search panel's Statuses section keeps the
@@ -5239,9 +5242,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#cal-prev-btn')) { shiftCalendarWindow(-1); return; }
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
     if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); return; }
-    if (e.target.closest('#cal-notes-btn')) { setCalendarNotes(!calendarNotesOn()); return; }
-    const nm = e.target.closest('.cal-notes-mode-btn');
-    if (nm) { setCalendarNotesMode(nm.dataset.notesMode); return; }
+    if (e.target.closest('#cal-notes-btn')) { setCalendarNotesLayer(noteLayerNext(calendarNotesLayer())); return; }
     // A click on an empty part of a day's column opens the palette on that hour. A double click
     // there makes a card, so the palette waits out the double click's window.
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);

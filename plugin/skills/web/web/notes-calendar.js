@@ -92,6 +92,32 @@ function noteModeSave(storage, projectName, mode) {
   NCAL_COLUMN_STATE.boardPrefSave(storage, projectName, NCAL_MODE_FEATURE, mode === 'each' ? 'each' : null);
 }
 
+// The Notes button's three states, in the order a press steps through them: 'off' (no notes), 'each' (every
+// note its own chip, hours growing) and 'grouped' (half-hour chips and count bubbles), then off again. They
+// are kept as two board prefs, whether the layer is on (calendar.notes) and the mode (calendar.notesMode).
+const NCAL_LAYER_NEXT = { off: 'each', each: 'grouped', grouped: 'off' };
+
+function noteLayerState(on, mode) {
+  return !on ? 'off' : mode === 'each' ? 'each' : 'grouped';
+}
+
+function noteLayerNext(state) {
+  return NCAL_LAYER_NEXT[state] || 'off';
+}
+
+function noteLayerParts(state) {
+  return { on: state !== 'off', mode: state === 'each' ? 'each' : 'grouped' };
+}
+
+const noteLayerLabel = (state) => (state === 'grouped' ? 'Grouped Notes' : 'Notes');
+const noteLayerPressed = (state) => state !== 'off';
+
+function noteLayerTitle(state) {
+  return state === 'off' ? 'Show every note on the calendar, each as its own chip'
+    : state === 'each' ? 'Group the notes: a half hour with several is one count bubble'
+      : 'Hide the notes on the calendar';
+}
+
 // The width in whole px a strip may have in a column `colWidth` wide.
 function noteStripClamp(px, colWidth) {
   const most = Math.max(NCAL_STRIP_MIN, colWidth - NCAL_STRIP_SLIVER);
@@ -199,6 +225,7 @@ function noteHourRequest(day, rawMin) {
 
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
+  noteLayerState, noteLayerNext, noteLayerParts, noteLayerLabel, noteLayerPressed, noteLayerTitle,
   noteEachChips, noteHourCounts, noteModeLoad, noteModeSave,
   noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };

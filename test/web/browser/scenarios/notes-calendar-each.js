@@ -12,7 +12,7 @@
 // state, calendarAnchor, renderCalendarView.
 
 const COL = (day) => `document.querySelector('#calendar-view .cal-tg-col[data-day="${day}"]')`;
-const MODE_BTN = (m) => `document.querySelector('#calendar-view [data-notes-mode="${m}"]')`;
+const NOTES_BTN = `document.getElementById('cal-notes-btn')`;
 const SCROLL = `document.querySelector('#calendar-view .cal-tg-scroll')`;
 
 module.exports = {
@@ -48,7 +48,7 @@ module.exports = {
 
     // --- Grouped is the default and is today's 40px hour ----------------------------------------------------------
     check('each: the week is drawn', await showWeek() && await waitFor(`!!${COL('2026-10-15')}.querySelector('.cal-timeblock[data-id="3"]')`, 5000));
-    check('each: Grouped is pressed and Each note is not', await ev(`${MODE_BTN('grouped')}.getAttribute('aria-pressed')==='true'&&${MODE_BTN('each')}.getAttribute('aria-pressed')==='false'`));
+    check('each: the Notes button starts grouped: pressed, saying Grouped Notes', await ev(`${NOTES_BTN}.getAttribute('aria-pressed')==='true'&&${NOTES_BTN}.textContent==='Grouped Notes'`));
     check('each: Grouped shows a count bubble and every column is 960px', await ev(`document.querySelectorAll('#calendar-view .cal-note-bubble').length>0`) && near(await colHeight('2026-10-15'), 960) && near(await colHeight('2026-10-16'), 960));
     check('each: the block spans two 40px hours', await ev(`(()=>{const b=${COL('2026-10-15')}.querySelector('.cal-timeblock[data-id="3"]');return Math.round(parseFloat(b.style.top))===360&&Math.round(parseFloat(b.style.height))===78})()`));
 
@@ -56,7 +56,9 @@ module.exports = {
     await ev(`(()=>{const sh=new CSSStyleSheet();sh.replaceSync('#calendar-view .cal-tg-scroll{max-height:340px!important}');document.adoptedStyleSheets=[...document.adoptedStyleSheets,sh]})()`);
     await ev(`${SCROLL}.scrollTop=560`);
     check('each: the grid is scrolled to 14:00 before the switch', await waitFor(`${SCROLL}.scrollTop===560`, 3000));
-    check('each: pressing Each note redraws the week', await press(MODE_BTN('each')) && await waitFor(`${MODE_BTN('each')}.getAttribute('aria-pressed')==='true'`, 3000));
+    check('each: a press hides the notes: the button says Notes, unpressed', await press(NOTES_BTN) && await waitFor(`${NOTES_BTN}.getAttribute('aria-pressed')==='false'&&${NOTES_BTN}.textContent==='Notes'&&document.querySelectorAll('#calendar-view .cal-note').length===0`, 3000));
+    check('each: and the scroll still keeps its time with no notes', await ev(`(()=>{const l=document.querySelectorAll('#calendar-view .cal-tg-hour')[14];return Math.abs(parseFloat(l.style.top)-${SCROLL}.scrollTop)<=3})()`));
+    check('each: the next press shows every note as its own chip: Notes, pressed', await press(NOTES_BTN) && await waitFor(`${NOTES_BTN}.getAttribute('aria-pressed')==='true'&&${NOTES_BTN}.textContent==='Notes'&&document.querySelectorAll('#calendar-view .cal-note-chip').length>0`, 3000));
     check('each: the scroll keeps its time: 14:00 is still at the top of the grid', await ev(`(()=>{const l=document.querySelectorAll('#calendar-view .cal-tg-hour')[14];return Math.abs(parseFloat(l.style.top)-${SCROLL}.scrollTop)<=3})()`), await ev(`${SCROLL}.scrollTop`));
     check('each: no note is in a count bubble and every note is its own chip', await ev(`document.querySelectorAll('#calendar-view .cal-note-bubble').length===0&&${COL('2026-10-15')}.querySelectorAll('.cal-note-chip').length===7`));
     check('each: the choice is kept for this board in this browser', await ev(`localStorage.getItem('kanban.'+state.projectName+'.calendar.notesMode')==='each'`));
@@ -82,8 +84,9 @@ module.exports = {
 
     // --- Grouped brings the 40px hours back ------------------------------------------------------------------------
     check('each: the week is drawn again', await showWeek());
-    check('each: the board opens in Each note, as it was left', await ev(`${MODE_BTN('each')}.getAttribute('aria-pressed')==='true'`));
-    check('each: pressing Grouped puts the bubbles and the 960px columns back', await press(MODE_BTN('grouped')) && await waitFor(`document.querySelectorAll('#calendar-view .cal-note-bubble').length>0`, 3000) && near(await colHeight('2026-10-15'), 960));
-    check('each: and forgets the choice', await ev(`localStorage.getItem('kanban.'+state.projectName+'.calendar.notesMode')===null`));
+    check('each: the board opens with every note its own chip, as it was left', await ev(`${NOTES_BTN}.textContent==='Notes'&&${NOTES_BTN}.getAttribute('aria-pressed')==='true'&&document.querySelectorAll('#calendar-view .cal-note-bubble').length===0`));
+    check('each: the next press is Grouped Notes, with the bubbles and the 960px columns back', await press(NOTES_BTN) && await waitFor(`${NOTES_BTN}.textContent==='Grouped Notes'&&document.querySelectorAll('#calendar-view .cal-note-bubble').length>0`, 3000) && near(await colHeight('2026-10-15'), 960));
+    check('each: and forgets the mode', await ev(`localStorage.getItem('kanban.'+state.projectName+'.calendar.notesMode')===null`));
+    check('each: one more press hides the notes, and the one after shows every note again', await press(NOTES_BTN) && await waitFor(`${NOTES_BTN}.getAttribute('aria-pressed')==='false'`, 3000) && await press(NOTES_BTN) && await waitFor(`${NOTES_BTN}.textContent==='Notes'&&${NOTES_BTN}.getAttribute('aria-pressed')==='true'&&document.querySelectorAll('#calendar-view .cal-note-bubble').length===0`, 3000));
   },
 };

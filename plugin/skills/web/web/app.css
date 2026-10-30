@@ -1453,8 +1453,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    that hides the lot. */
 .cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-notes-switch { margin-left: 6px; }
-.cal-notes-mode { display: inline-flex; gap: 4px; margin-left: 6px; }
-.cal-notes-mode-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+@media (max-width: 759.98px) { .cal-controls:has(.cal-notes-switch) { gap: 4px; } .cal-notes-switch { margin-left: 0; padding-inline: 6px; white-space: nowrap; } } /* "Grouped Notes" must still fit the phone's one row */
 .cal-tg-col.has-notes { --cal-note-strip: var(--cal-note-width, clamp(44px, 34%, 170px)); }
 .cal-note-divider { position: absolute; top: 0; bottom: 0; right: calc(var(--cal-note-strip) - 3px); width: 6px; z-index: 3; cursor: col-resize; touch-action: none; user-select: none; }
 .cal-note-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; }
