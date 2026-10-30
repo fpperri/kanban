@@ -1446,11 +1446,15 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* --- The Calendar's notes layer: the week, 3-day and day views, on a board with a logbook. ---
    A day with timed notes keeps a strip (--cal-note-strip) at the right of its column, and the
    card blocks (app.js) shrink to the rest of the width. A note is a chip at its half hour (a
-   half hour is 20px of the 40px hour); two or more in a half hour are one count bubble. The
+   half hour is 20px of the 40px hour); two or more in a half hour are one count bubble. In Each note mode
+   every note is a chip, stacked 20px apart from its hour line down, and the hour grows to hold them (hour-scale.js; the
+   column's own background then draws the hour lines). The
    day's untimed notes are one box in its all-day cell. The Notes switch is the toolbar button
    that hides the lot. */
 .cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-notes-switch { margin-left: 6px; }
+.cal-notes-mode { display: inline-flex; gap: 4px; margin-left: 6px; }
+.cal-notes-mode-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .cal-tg-col.has-notes { --cal-note-strip: var(--cal-note-width, clamp(44px, 34%, 170px)); }
 .cal-note-divider { position: absolute; top: 0; bottom: 0; right: calc(var(--cal-note-strip) - 3px); width: 6px; z-index: 3; cursor: col-resize; touch-action: none; user-select: none; }
 .cal-note-divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; }

@@ -198,11 +198,12 @@ function notesCalendarButton(className, title, req) {
 }
 
 // One half hour's notes in a day's column: a chip for one note (the card's id and the first
-// words), a count bubble for two or more. `top` is the half hour's offset in pixels.
-function notesCalendarSlot(day, slot, top) {
+// words), a count bubble for two or more. `top` is the half hour's offset in pixels. `only`, in Each
+// note mode, is the one note of the slot to draw as a chip whatever else the slot holds.
+function notesCalendarSlot(day, slot, top, only) {
   let el;
-  if (slot.notes.length === 1) {
-    const note = slot.notes[0];
+  if (only || slot.notes.length === 1) {
+    const note = only || slot.notes[0];
     el = notesCalendarButton('cal-note-chip', noteTip(note, notesLabel), noteChipRequest(note, slot));
     if (note.target) el.append(notesEl('span', 'cal-note-id', `#${note.target}`));
     else el.append(notesGlyph());

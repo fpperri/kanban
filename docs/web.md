@@ -164,6 +164,8 @@ strip's width for every day at once: drag it (from 44px nearly to the whole colu
 cards a sliver), or focus it and press Left and Right; a double click puts the default width
 back. A wider strip shows more of each note's words. The width is kept per board in this browser.
 
+Beside the view buttons a **Grouped | Each note** switch picks how the notes are drawn. Grouped is the default and is as described above. **Each note** draws every timed note as its own chip, stacked in time order from its hour line down, and an hour grows to hold them: it is as tall as the most notes any shown day has in it, never under 40px, and the same height in every column so the rows line up across the days. The card blocks stretch with the hours (a block from 09:00 to 11:00 spans whatever height those two hours take), and a drag, a resize, a click on an empty hour and a double click that makes a card all land on the time under the pointer. The month view and the untimed box are the same in both. The choice is kept per board in this browser.
+
 The Calendar and the Gantt open on today, and until you move their window with the arrows or a jump
 they follow the clock across midnight.
 

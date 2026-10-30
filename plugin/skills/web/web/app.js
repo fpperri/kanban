@@ -4369,6 +4369,27 @@ function setCalendarNotes(on) {
   renderCalendarView();
 }
 
+// The notes mode (feature key 'calendar.notesMode'): 'grouped' draws a half hour's notes as a chip or a
+// count bubble, 'each' draws every note as its own chip and lets an hour grow to hold them. Kept per
+// board in this browser (notes-calendar.js), Grouped until chosen.
+let calendarNotesMode = null;
+
+function calendarNotesEach() {
+  if (!calendarNotesOn()) return false;
+  if (calendarNotesMode === null) {
+    const storage = prefsStorage();
+    calendarNotesMode = storage ? noteModeLoad(storage, state.projectName) : 'grouped';
+  }
+  return calendarNotesMode === 'each';
+}
+
+function setCalendarNotesMode(mode) {
+  calendarNotesMode = mode === 'each' ? 'each' : 'grouped';
+  const storage = prefsStorage();
+  if (storage) noteModeSave(storage, state.projectName, calendarNotesMode);
+  renderCalendarView();
+}
+
 // The notes strip's width (feature key 'calendar.notesWidth'): the divider on a strip's left edge sets
 // it for every day column at once. It is CAL_NOTES_UNREAD until the board's saved choice has been read,
 // then CAL_NOTES_DEFAULT (the stylesheet's own width) or a number of px. Kept per board in this browser
@@ -4539,7 +4560,13 @@ function renderCalendarView() {
     `<button type="button" class="cal-span-cycle cal-nav" data-keeps-selection data-holds-poll aria-label="Span: ${CAL_SUBVIEW_LABELS[subview]}. Change to ${CAL_SUBVIEW_LABELS[nextSubview(CALENDAR_SUBVIEWS, subview)]}">${CAL_SUBVIEW_LABELS[subview]} &#8635;</button>` +
     // The Notes switch: only where notes are drawn (the time grids of a board with a logbook).
     (subview !== 'month' && notesOn()
-      ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>`
+      ? `<button type="button" id="cal-notes-btn" class="cal-nav cal-notes-switch${calendarNotesOn() ? ' active' : ''}" data-keeps-selection data-holds-poll aria-pressed="${calendarNotesOn()}" title="${calendarNotesOn() ? 'Hide' : 'Show'} the notes on the calendar">Notes</button>` +
+        (calendarNotesOn()
+          ? `<span class="cal-notes-mode" role="group" aria-label="Notes on the calendar">` +
+            [['grouped', 'Grouped', 'A half hour with several notes is one count bubble'], ['each', 'Each note', 'Every note is its own chip, and an hour grows to hold them']].map(([m, label, tip]) =>
+              `<button type="button" class="cal-notes-mode-btn cal-nav${(calendarNotesEach() ? 'each' : 'grouped') === m ? ' active' : ''}" data-keeps-selection data-holds-poll data-notes-mode="${m}" aria-pressed="${(calendarNotesEach() ? 'each' : 'grouped') === m}" title="${tip}">${label}</button>`).join('') +
+            `</span>`
+          : '')
       : '');
   container.appendChild(controls);
   // No status pill row here: the search panel's Statuses section keeps the
@@ -4688,6 +4715,9 @@ function renderCalendarMonthGrid(container) {
 // Pixel height of one hour row. Must match app.css's .cal-tg-col background
 // gradient (40px stripes) — the JS positions blocks, the CSS draws the lines.
 const CAL_HOUR_PX = 40;
+// The scale the time grid on screen is drawn with and read back through (hour-scale.js): the plain
+// 40px hour in Grouped mode, taller hours in Each note mode. Set by every render.
+let calScaleCur = hourScale(plainHeights());
 const CAL_DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; // getUTCDay order
 
 function renderCalendarTimeGrid(container, subview, keepScroll) {
@@ -4741,6 +4771,9 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   const bandGrid = document.createElement('div');
   bandGrid.className = 'cal-tg-allday-grid';
   const notesByDay = new Map(days.map((day) => [day, calendarNotesOn() ? noteCalendarDay(notesAll(), day) : null]));
+  const each = calendarNotesEach();
+  const scale = hourScale(each ? eachHeights(days.map((day) => noteHourCounts(notesByDay.get(day)))) : plainHeights());
+  calScaleCur = scale;
   const untimedRow = layout.allDayRows + 1; // a day with untimed notes gets one more row in the band, under the cards
   const bandRows = Math.max(1, layout.allDayRows + ([...notesByDay.values()].some((d) => d && d.untimed.length) ? 1 : 0)); // at least one row of drop surface, even empty
   days.forEach((day, i) => {
@@ -4774,7 +4807,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   grid.appendChild(band);
 
   // The hour grid, in its own scroll container so the header + band stay put
-  // (Outlook-style). 24 rows of CAL_HOUR_PX; blocks absolutely positioned by
+  // (Outlook-style). 24 rows of calScaleCur's hours; blocks absolutely positioned by
   // minutes, side-by-side within their overlap cluster via lane/lanes.
   const scroll = document.createElement('div');
   scroll.className = 'cal-tg-scroll';
@@ -4782,11 +4815,11 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   body.className = 'cal-tg-body';
   const gutter = document.createElement('div');
   gutter.className = 'cal-tg-gutter';
-  gutter.style.height = `${24 * CAL_HOUR_PX}px`;
+  gutter.style.height = `${scale.total}px`;
   for (let h = 0; h < 24; h++) {
     const lbl = document.createElement('div');
     lbl.className = 'cal-tg-hour';
-    lbl.style.top = `${h * CAL_HOUR_PX}px`;
+    lbl.style.top = `${scale.top(h)}px`;
     lbl.textContent = `${String(h).padStart(2, '0')}:00`;
     gutter.appendChild(lbl);
   }
@@ -4795,7 +4828,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     const col = document.createElement('div');
     col.className = 'cal-tg-col cal-drop' + (day === today ? ' today' : '') + (shaded(day) ? ' in-iteration' : '');
     col.dataset.day = day;
-    col.style.height = `${24 * CAL_HOUR_PX}px`;
+    col.style.height = `${scale.total}px`;
+    if (each) col.style.backgroundImage = hourLinesCss(scale, 'var(--line-soft)');
     const dayNotes = notesByDay.get(day);
     const strip = dayNotes && dayNotes.slots.length; // a day with timed notes keeps a strip right of the card blocks for them
     if (strip) col.classList.add('has-notes');
@@ -4809,8 +4843,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       // calendarChipEl's default so the two drag systems never both fire; the
       // all-day band + month chips keep native day-drag (they're day-granular).
       el.draggable = false;
-      el.style.top = `${(block.startMin / 60) * CAL_HOUR_PX}px`;
-      el.style.height = `${Math.max(18, ((block.endMin - block.startMin) / 60) * CAL_HOUR_PX - 2)}px`;
+      el.style.top = `${scale.yOf(block.startMin)}px`;
+      el.style.height = `${Math.max(18, scale.yOf(block.endMin) - scale.yOf(block.startMin) - 2)}px`;
       el.style.left = strip ? `calc(${block.lane} * (100% - var(--cal-note-strip)) / ${block.lanes})` : `calc(${block.lane} * 100% / ${block.lanes})`;
       el.style.width = strip ? `calc((100% - var(--cal-note-strip)) / ${block.lanes} - 4px)` : `calc(100% / ${block.lanes} - 4px)`;
       // Only a REAL same-day duration (not a point/due placeholder,
@@ -4829,7 +4863,8 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
     }
     if (strip) {
       col.appendChild(notesCalendarDivider(day));
-      for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, (slot.fromMin / 60) * CAL_HOUR_PX + 1));
+      if (each) for (const chip of noteEachChips(dayNotes)) col.appendChild(notesCalendarSlot(day, chip.slot, scale.top(chip.hour) + chip.row * HSCALE_CHIP_PX + 1, chip.note));
+      else for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, scale.yOf(slot.fromMin) + 1));
     }
     body.appendChild(col);
   }
@@ -4839,7 +4874,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   paintCalendarNotesAria();
   // First paint opens at 08:00 (the working morning, Outlook's default);
   // re-renders — poll ticks included — keep the user's scroll.
-  scroll.scrollTop = keepScroll != null ? keepScroll : 8 * CAL_HOUR_PX;
+  scroll.scrollTop = keepScroll != null ? keepScroll : scale.yOf(8 * 60);
 }
 
 // Same per-render wiring discipline as the board's wireDrag(): #calendar-view
@@ -4948,7 +4983,6 @@ function suppressCalTimeClick() {
   setTimeout(() => { calTimeClickSuppressed = false; }, 0);
 }
 
-const CAL_PX_PER_MIN = CAL_HOUR_PX / 60;
 const calTimeSnap = (min) => Math.round(min / CALENDAR_DRAG_SNAP_MIN) * CALENDAR_DRAG_SNAP_MIN;
 
 // The day column under the pointer's x (clamped to the first/last column) and
@@ -4963,7 +4997,7 @@ function calTimePointer(e) {
     if (e.clientX >= c.getBoundingClientRect().left) col = c; else break;
   }
   const r = col.getBoundingClientRect();
-  return { day: col.dataset.day, col, rawMin: (e.clientY - r.top) / CAL_PX_PER_MIN };
+  return { day: col.dataset.day, col, rawMin: calScaleCur.minOf(e.clientY - r.top) };
 }
 
 function calTimeApplyPreview(drag) {
@@ -4974,18 +5008,18 @@ function calTimeApplyPreview(drag) {
     // the minute delta. Cosmetic only — onCalTimeDragEnd's PATCH is authoritative.
     const baseCol = el.closest('.cal-tg-col');
     const dxPx = drag.targetCol && baseCol ? drag.targetCol.getBoundingClientRect().left - baseCol.getBoundingClientRect().left : 0;
-    const dyPx = (drag.targetMin - drag.baseStartMin) * CAL_PX_PER_MIN;
+    const dyPx = calScaleCur.yOf(drag.targetMin) - calScaleCur.yOf(drag.baseStartMin);
     el.style.transform = `translate(${dxPx}px, ${dyPx}px)`;
     return;
   }
   // resize: mutate top/height directly (mirrors the gantt's left/width split).
   if (drag.mode === 'resize-start') {
     const start = Math.max(0, Math.min(drag.targetMin, drag.baseEndMin - CALENDAR_DRAG_SNAP_MIN));
-    el.style.top = `${start * CAL_PX_PER_MIN}px`;
-    el.style.height = `${Math.max(4, (drag.baseEndMin - start) * CAL_PX_PER_MIN)}px`;
+    el.style.top = `${calScaleCur.yOf(start)}px`;
+    el.style.height = `${Math.max(4, calScaleCur.yOf(drag.baseEndMin) - calScaleCur.yOf(start))}px`;
   } else { // resize-end
     const end = Math.min(1439, Math.max(drag.targetMin, drag.baseStartMin + CALENDAR_DRAG_SNAP_MIN));
-    el.style.height = `${Math.max(4, (end - drag.baseStartMin) * CAL_PX_PER_MIN)}px`;
+    el.style.height = `${Math.max(4, calScaleCur.yOf(end) - calScaleCur.yOf(drag.baseStartMin))}px`;
   }
 }
 
@@ -5034,7 +5068,7 @@ function wireCalendarTimeDrag() {
     // card only lives in state.archived, so this find returns undefined.
     const card = state.active.find((c) => c.id === id);
     if (!card) { toast('Archived cards are read-only — restore the card to reschedule it.'); return; }
-    const baseStartMin = (parseFloat(blockEl.style.top) || 0) / CAL_PX_PER_MIN;
+    const baseStartMin = calScaleCur.minOf(parseFloat(blockEl.style.top) || 0);
     const drag = {
       id, mode, blockEl, pointerId: e.pointerId,
       originX: e.clientX, originY: e.clientY, moved: false,
@@ -5209,12 +5243,14 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#cal-next-btn')) { shiftCalendarWindow(1); return; }
     if (e.target.closest('#cal-today-btn')) { calendarAnchor = null; renderCalendarView(); return; }
     if (e.target.closest('#cal-notes-btn')) { setCalendarNotes(!calendarNotesOn()); return; }
+    const nm = e.target.closest('.cal-notes-mode-btn');
+    if (nm) { setCalendarNotesMode(nm.dataset.notesMode); return; }
     // A click on an empty part of a day's column opens the palette on that hour. A double click
     // there makes a card, so the palette waits out the double click's window.
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
     if (!col || e.target.closest('.card-el, .cal-note, .cal-note-divider') || isDragging || ganttDrag || calTimeDrag || !calendarNotesOn()) return;
     const r = col.getBoundingClientRect();
-    const req = noteHourRequest(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN);
+    const req = noteHourRequest(col.dataset.day, calScaleCur.minOf(e.clientY - r.top));
     clearTimeout(calHourClickTimer);
     calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, CAL_DOUBLE_CLICK_MS);
   });
@@ -5237,7 +5273,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const col = e.target.closest(CALENDAR_CREATE_COLUMNS);
     if (col) {
       const r = col.getBoundingClientRect();
-      openModal(null, null, calendarCreateStart(col.dataset.day, (e.clientY - r.top) / CAL_PX_PER_MIN));
+      openModal(null, null, calendarCreateStart(col.dataset.day, calScaleCur.minOf(e.clientY - r.top)));
     }
   });
 });

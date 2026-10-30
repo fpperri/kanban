@@ -28,18 +28,21 @@ function hourScale(heights) {
   const tops = [0];
   for (let h = 0; h < HSCALE_HOURS; h++) tops.push(tops[h] + heights[h]);
   const total = tops[HSCALE_HOURS];
+  const flat = heights.every((x) => x === heights[0]); // plain hours: one straight line, to the last digit
   return {
     total,
     top: (h) => tops[h],
     height: (h) => heights[h],
     yOf(min) {
       const m = Math.max(0, Math.min(HSCALE_HOURS * 60, min));
+      if (flat) return (m / 60) * heights[0];
       const h = Math.min(HSCALE_HOURS - 1, Math.floor(m / 60));
       return tops[h] + ((m - h * 60) / 60) * heights[h];
     },
     minOf(y) {
       if (y <= 0) return 0;
       if (y >= total) return HSCALE_HOURS * 60;
+      if (flat) return (y / heights[0]) * 60;
       let h = 0;
       while (h < HSCALE_HOURS - 1 && y >= tops[h + 1]) h++;
       return h * 60 + ((y - tops[h]) / heights[h]) * 60;
