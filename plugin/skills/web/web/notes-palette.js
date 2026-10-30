@@ -35,7 +35,7 @@
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
-// prefsStorage, keyGuardOff, scratchpadOn, scratchPanel, scratchPreviewKey, todosOn, todosPanel, todosHints, todosOnBoard, todosPreviewKey, wireDatePickButton, attachCombobox, loadViewMode,
+// prefsStorage, keyGuardOff, scratchpadOn, scratchpadTargets, scratchPanel, scratchPreviewKey, todosOn, todosPanel, todosHints, todosOnBoard, todosPreviewKey, wireDatePickButton, attachCombobox, loadViewMode,
 // loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
 
 const notesUi = {
@@ -170,9 +170,39 @@ function noteCountButton(id) {
   return b;
 }
 
+// The small page icon on a card's tile, a group's badge or the card details' header, or null when the
+// board keeps no scratchpad or the target has no page (text or not). A button: it opens the Scratchpad tab.
+function scratchpadIconButton(id) {
+  if (!scratchpadOn() || !scratchpadTargets().includes(id)) return null;
+  const b = notesEl('button', 'card-scratch np-trigger');
+  b.type = 'button';
+  b.dataset.scratchTarget = id;
+  b.title = 'Has a scratchpad page; open it';
+  b.setAttribute('aria-label', `${notesLabel(id)}: ${b.title}`);
+  b.append(notesIcon('M3 2.5h10v11H3z M5.5 5.5h5 M5.5 8h5 M5.5 10.5h2.5', '2 1.4'));
+  return b;
+}
+
 // ---------- the Calendar's notes ----------
 
 const NOTES_SVG_NS = 'http://www.w3.org/2000/svg';
+
+// A 16-px line icon of one path, drawn as the note icon is.
+function notesIcon(d, dashed) {
+  const svg = document.createElementNS(NOTES_SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NOTES_SVG_NS, 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.4');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-linecap', 'round');
+  if (dashed) path.setAttribute('stroke-dasharray', dashed);
+  svg.append(path);
+  return svg;
+}
 
 function notesGlyph() {
   const svg = document.createElementNS(NOTES_SVG_NS, 'svg');
@@ -1298,7 +1328,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const count = e.target.closest && e.target.closest('.card-notes');
     if (!count) return;
     e.preventDefault();
-    openNotes({ kind: 'card-notes', id: count.dataset.noteTarget });
+    const id = count.dataset.noteTarget;
+    openNotes(groupsList().some((g) => g.id === id) ? { kind: 'group', gid: id } : { kind: 'card-notes', id });
   });
   $('#ctx-note').addEventListener('click', () => {
     hideContextMenu();

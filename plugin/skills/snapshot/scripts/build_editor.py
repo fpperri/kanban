@@ -751,6 +751,7 @@ code.mention.same{border-bottom:1px dotted var(--accent);cursor:pointer}
 .bodymd p{margin:.6em 0}
 .bodymd a{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
 .bodymd a:hover,.bodymd a:focus-visible{border-bottom-style:solid}
+.bodymd .md-img-alt{color:var(--mut);font-style:italic}
 .bodymd ul,.bodymd ol{margin:.55em 0 .55em 1.25em;padding:0}
 .bodymd li{margin:.3em 0}
 .bodymd li::marker{color:var(--mut)}
@@ -1166,6 +1167,7 @@ const MD_INLINE_NODE=new Map([
 ["text",t=>document.createTextNode(t.v)],
 ["code",(t,b)=>codeSegNode(t.v,b)],
 ["br",()=>el("br")],
+["img",t=>el("span","md-img-alt",t.alt||t.path)],
 ["strong",(t,b)=>mdKids(el("strong"),t.kids,b)],
 ["em",(t,b)=>mdKids(el("em"),t.kids,b)],
 ["del",(t,b)=>mdKids(el("del"),t.kids,b)],

@@ -128,3 +128,17 @@ test('deleting a group takes its page only when ticked, and its member cards\' p
   assert.ok(!exists(taken, '.scratchpad/I0001.scratchpad.md'));
   assert.ok(exists(taken, '.scratchpad/0007.scratchpad.md'), 'a deleted member card keeps its page unless it is ticked on its own');
 });
+
+test('the targets that have a page come out of a per-card folder (<card>) as out of a shared one', async () => {
+  const perCard = tmpBoard({
+    config: CONFIG.replace('scratchpad: .scratchpad', 'scratchpad: pads/<card>'),
+    files: { 'pads/0007.seven/0007.scratchpad.md': '', 'pads/0003.three/notes.md': 'not a page' },
+  });
+  await withServer(perCard, async (base) => {
+    assert.deepStrictEqual((await req(base, 'GET', '/api/board')).json.scratchpad.targets, ['7']);
+  });
+  const shared = tmpBoard({ files: { '.scratchpad/0003.scratchpad.md': '', '.scratchpad/0007.scratchpad.md': '   \n' } });
+  await withServer(shared, async (base) => {
+    assert.deepStrictEqual((await req(base, 'GET', '/api/board')).json.scratchpad.targets, ['3', '7'], 'a page with no text still counts');
+  });
+});

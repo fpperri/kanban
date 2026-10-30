@@ -113,3 +113,15 @@ test('a refused copy says so on the button', () => {
     assert.strictEqual(button.textContent, 'Copy failed');
   });
 });
+
+test('an image in a body draws in the snapshot as the plain label the web draws with no card, and nothing is fetched', () => {
+  const body = 'before ![Screenshot](../work/item%2012/3f2a.png) and ![](x/y.png) after [a](https://e.test) ![r](https://e.test/r.png)';
+  withSnapshot(BOARD, (html) => {
+    const page = loadPage(html);
+    const node = page.run(`mdBodyNode(${JSON.stringify(body)}, "fixture")`);
+    const drawn = node.children.map(nodesToHtml).join('');
+    assert.strictEqual(drawn, webToHtml(mdToHtml(body, { board: 'fixture' })));
+    assert.ok(drawn.includes('<span class="md-img-alt">Screenshot</span>') && drawn.includes('<span class="md-img-alt">x/y.png</span>'));
+    assert.ok(!drawn.includes('<img'));
+  });
+});

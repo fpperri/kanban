@@ -39,6 +39,10 @@ The notes are written by `POST`, `PATCH` and `DELETE /api/notes` and `POST /api/
 
 A note's `by` is kept as written (one trimmed line, any text; a blank one is `@human`), never refused for not being a handle.
 
+### GET /api/cards/<id>/image?path=
+
+The server's `GET /api/cards/<id>/image?path=<path>` sends the file of a Markdown image in a card's body. The `path` is the body's own text: percent-decoded once, then resolved against the board folder (so an archived card keeps its pictures). It sends a `png`, `jpg`, `jpeg`, `gif` or `webp` (with its `Content-Type` and `X-Content-Type-Options: nosniff`) found, with every link followed, inside the folder that holds the board folder or inside the card's own scratchpad folder; anything else (another type, `svg` included, a missing file, a directory, a path outside) is a 404 that sends nothing, a malformed `%` escape or no path is a 400, and a card that is not on the board is a 404.
+
 ### GET /api/scratchpad/<id> and PUT /api/scratchpad/<id>
 
 The server's `GET /api/scratchpad/<id>` answers `{ pad: { target, exists, file, refs, body } }` and `PUT /api/scratchpad/<id>` with `{ body }` writes the body (404 with the scratchpad off, 400 for an id or a body that is wrong, 413 for a page over 300000 characters); there is no delete route, only the delete popup's **Its scratchpad** takes a page.
