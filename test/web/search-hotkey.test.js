@@ -165,7 +165,7 @@ test('a box that is one token still loses the "#" when the token stops being an 
 // The notes palette's own Ctrl+F: the note box gets "#" while it is empty and no card is aimed,
 // and the id typed after it narrows the list to that card.
 
-const { notesFindPrefill, notesFindScope } = require('../../plugin/skills/web/web/search-hotkey');
+const { notesFindPrefill, notesFindScope, notesFindHolds } = require('../../plugin/skills/web/web/search-hotkey');
 
 const ctrlF = { key: 'f', ctrlKey: true, metaKey: false, altKey: false, shiftKey: false };
 const emptyBox = { tab: 'notes', subjectKind: 'none', boxValue: '' };
@@ -196,20 +196,30 @@ test('notes: a tab with no note box, another chord or no context is not the pale
 });
 
 test('notes: a box holding "#" and a whole id scopes the list to that card', () => {
-  assert.strictEqual(notesFindScope('#23'), '23');
-  assert.strictEqual(notesFindScope('#2'), '2', 'live: the first digit already scopes');
-  assert.strictEqual(notesFindScope('#G7'), 'G7');
-  assert.strictEqual(notesFindScope('#_12'), '_12');
-  assert.strictEqual(notesFindScope('#0023'), '23', 'the id is its number, as the board reads it');
-  assert.strictEqual(notesFindScope('#23 '), '23', 'a trailing space is not a second token');
+  assert.strictEqual(notesFindScope(true, '#23'), '23');
+  assert.strictEqual(notesFindScope(true, '#2'), '2', 'live: the first digit already scopes');
+  assert.strictEqual(notesFindScope(true, '#G7'), 'G7');
+  assert.strictEqual(notesFindScope(true, '#_12'), '_12');
+  assert.strictEqual(notesFindScope(true, '#0023'), '23', 'the id is its number, as the board reads it');
+  assert.strictEqual(notesFindScope(true, '#23 '), '23', 'a trailing space is not a second token');
 });
 
 test('notes: "#" alone or with a prefix so far scopes nothing: the list stays whole', () => {
-  assert.strictEqual(notesFindScope('#'), null);
-  assert.strictEqual(notesFindScope('#G'), null);
-  assert.strictEqual(notesFindScope('#_'), null);
+  assert.strictEqual(notesFindScope(true, '#'), null);
+  assert.strictEqual(notesFindScope(true, '#G'), null);
+  assert.strictEqual(notesFindScope(true, '#_'), null);
 });
 
 test('notes: anything that is not "#" and an id puts the list back', () => {
-  for (const v of ['', '23', '#a', '#12a', '#12 note', '# 12', 'note #12', '#12\n', '#12 | #14', '#g7', null, undefined, 12]) assert.strictEqual(notesFindScope(v), null, JSON.stringify(v));
+  for (const v of ['', '23', '#a', '#12a', '#12 note', '# 12', 'note #12', '#12\n', '#12 | #14', '#g7', null, undefined, 12]) assert.strictEqual(notesFindScope(true, v), null, JSON.stringify(v));
+});
+
+test('notes: a "#" and id that Ctrl+F did not start scopes nothing', () => {
+  assert.strictEqual(notesFindScope(false, '#23'), null);
+  assert.strictEqual(notesFindScope(undefined, '#23'), null);
+});
+
+test('notes: the find state holds while the box reads "#" and an id or the start of one', () => {
+  for (const v of ['#', '#2', '#23', '#G', '#G7', '#_', '#_12', '#23 ']) assert.strictEqual(notesFindHolds(v), true, JSON.stringify(v));
+  for (const v of ['', '23', '#a', '#12a', '#12 note', '#23 fixed it', '#12 | #14', '#g7', null, undefined]) assert.strictEqual(notesFindHolds(v), false, JSON.stringify(v));
 });

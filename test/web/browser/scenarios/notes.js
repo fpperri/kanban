@@ -8,7 +8,9 @@
 // Enter writes the note at the time field's time, keeps the palette open and clears the box;
 // Shift+Enter starts a new line; a leading HH:MM, the untimed tick and a leading - each set the
 // time, and the preview line says exactly what Enter will write; a bare #22 then Enter aims the
-// palette at that card and Backspace on the empty box clears the chip. Ctrl+F in an empty note box with no card aimed puts # there, and the id typed after it narrows the list to that card until the # is erased; with a draft in the box it leaves it alone. e, a and d d work on a
+// palette at that card and Backspace on the empty box clears the chip. Ctrl+F in an empty note box with
+// no card aimed puts # there, and the id typed after it narrows the list to that card until the # is
+// erased; a #id typed by hand narrows nothing, and with a draft in the box Ctrl+F leaves it alone. e, a and d d work on a
 // listed note: edit its text and time, assign it to another card, delete it. Keys typed in the
 // palette reach none of the board's own shortcuts, and Esc closes it from the filter field too. The
 // subject row's date and card picker retarget the note (a note written to another day lands in that
@@ -215,6 +217,9 @@ module.exports = {
     check('notes: Enter on # and an id aims the palette at that card', await waitFor(`${CHIP}==='#22 Cut over the data layer'&&${BOX}===''`, 2500), await chip());
     await key('Backspace');
     check('notes: Backspace on the empty box clears the chip again', await waitFor(`${CHIP}===''`, 2500));
+    await setBox('#22');
+    check('notes: a #22 typed by hand, with no Ctrl+F, leaves the list whole', await ev(`${TARGETS}==='22,7'`), await ev(TARGETS));
+    await setBox('');
     await setBox('a draft');
     await key('f', { ctrl: true });
     check('notes: with a draft in the box Ctrl+F leaves the draft untouched', await ev(`${BOX}==='a draft'&&${TARGETS}==='22,7'`), await ev(BOX));

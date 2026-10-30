@@ -73,19 +73,28 @@ function notesFindPrefill(chord, ctx) {
   return { value: '#', selectionStart: 1, selectionEnd: 1 };
 }
 
-// The card the note box scopes the list to: the box holds "#" and one whole id, nothing else (trailing
+// Whether the find state Ctrl+F started goes on: the box still reads "#" and an id or the start of one
+// (a prefix so far, trailing spaces aside). It ends the moment the box reads as anything else.
+function notesFindHolds(value) {
+  if (typeof value !== 'string' || value[0] !== '#') return false;
+  const rest = value.slice(1).replace(/ +$/, '');
+  return rest === '' || SHK_IDS.parseId(rest) !== null || new RegExp(`^${SHK_IDS.PREFIX_SOURCE}$`).test(rest);
+}
+
+// The card the note box scopes the list to, once Ctrl+F has started the find state (`finding`): the box holds "#" and one whole id, nothing else (trailing
 // spaces aside), and the answer is the id as the board reads it (`#0023` is `23`). "#" alone, "#" and a
-// prefix so far, or anything else is null: the list is whole. The palette reads it on every input.
-function notesFindScope(value) {
-  if (typeof value !== 'string' || value[0] !== '#') return null;
+// prefix so far, anything else, or a `#id` typed by hand with no Ctrl+F before it is null: the list is whole.
+function notesFindScope(finding, value) {
+  if (!finding || typeof value !== 'string' || value[0] !== '#') return null;
   return SHK_IDS.idKey(value.slice(1).replace(/ +$/, ''));
-} if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { searchHotkeyPrefill, searchHashStrip, notesFindPrefill, notesFindScope };
+}
 
-
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { searchHotkeyPrefill, searchHashStrip, notesFindPrefill, notesFindScope, notesFindHolds };
 } else {
   window.searchHotkeyPrefill = searchHotkeyPrefill;
   window.searchHashStrip = searchHashStrip;
   window.notesFindPrefill = notesFindPrefill;
   window.notesFindScope = notesFindScope;
+  window.notesFindHolds = notesFindHolds;
 }

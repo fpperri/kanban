@@ -73,6 +73,7 @@ test('a key the page reads and the list lacks is reported: drop an entry from th
   assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), ['a'], 'e and d are still listed: they are Ctrl+E and Ctrl+Shift+D too');
   assert.deepStrictEqual(keysMissing(texts, without('slice'), NOT_HOTKEYS), ['[', ']', '{', '}'].sort());
   assert.deepStrictEqual(keysMissing(texts, HOTKEYS.filter((entry) => entry.id !== 'find' && entry.id !== 'note-find'), NOT_HOTKEYS), ['f']);
+  for (const id of ['find', 'note-find']) assert.deepStrictEqual(HOTKEYS.find((entry) => entry.id === id).reads, ['f'], `${id} reads f`);
   assert.deepStrictEqual(keysMissing(texts, without('hotkeys'), NOT_HOTKEYS), ['?']);
   assert.deepStrictEqual(keysMissing([...texts, "if (e.key === 'x') {}"], HOTKEYS, NOT_HOTKEYS), ['x']);
   assert.deepStrictEqual(keysMissing([...texts, "if (e.key.toLowerCase() === 'X') {}"], HOTKEYS, NOT_HOTKEYS), ['x']);

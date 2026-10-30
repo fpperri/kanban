@@ -44,7 +44,7 @@ const notesUi = {
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
-  sub: null, scoped: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
+  sub: null, scoped: null, finding: false, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
 let notesCountsOf = null;
@@ -364,6 +364,7 @@ function notesBuild() {
   u.input.addEventListener('input', () => {
     notesGrow();
     notesPaintPreview();
+    if (u.finding && !notesFindHolds(u.input.value)) u.finding = false;
     if (notesScope() !== u.scoped) { u.hi = -1; notesPaintBody(); }
   });
   u.filter.addEventListener('input', () => { u.hi = -1; notesPaintBody(); });
@@ -468,6 +469,7 @@ function openNotes(req) {
   const same = u.sub && JSON.stringify(u.sub) === JSON.stringify(sub);
   if (!u.sub && document.activeElement && !u.el.contains(document.activeElement)) u.opener = document.activeElement;
   u.sub = sub;
+  u.finding = false;
   u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : req && req.kind === 'todos' ? 'todos' : same ? u.tab : 'notes';
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (!same) {
@@ -515,6 +517,7 @@ function notesClose() {
   const u = notesUi;
   if (!u.sub) return false;
   u.sub = null;
+  u.finding = false;
   u.tab = 'notes';
   u.groupSig = '';
   u.written = [];
@@ -609,6 +612,7 @@ function notesTimeOptions() {
 // the Calendar's own range).
 function notesRetargeted() {
   const u = notesUi;
+  u.finding = false;
   u.tab = 'notes';
   u.written = [];
   u.hi = -1;
@@ -740,10 +744,10 @@ function notesPaintBody() {
   u.body.scrollTop = scroll;
 }
 
-// The card the note box narrows the list to: it holds `#` and an id (Ctrl+F puts the `#`), and the
-// palette is aimed at no card. The filter field is not written to; this rides on the list beside it.
+// The card the note box narrows the list to: Ctrl+F started a find (`finding`), the box holds `#` and an id,
+// and the palette is aimed at no card. A `#id` typed by hand starts none. The filter field is not written to; this rides on the list beside it.
 function notesScope() {
-  return notesUi.sub && !noteIsAboutCards(notesUi.sub) ? notesFindScope(notesUi.input.value) : null;
+  return notesUi.sub && !noteIsAboutCards(notesUi.sub) ? notesFindScope(notesUi.finding, notesUi.input.value) : null;
 }
 
 function notesList() {
@@ -1220,6 +1224,7 @@ function notesFindKey(e) {
   e.preventDefault();
   e.stopPropagation();
   u.input.value = put.value;
+  u.finding = true;
   u.input.dispatchEvent(new Event('input'));
   u.input.focus();
   u.input.setSelectionRange(put.selectionStart, put.selectionEnd);
