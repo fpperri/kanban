@@ -512,15 +512,16 @@ const markdownModule = (() => {
       : `<code class="mention">${text}</code>`;
   }
 
-  // A picture is drawn only for a card, since the server finds the file by the card and the path: the
-  // src is a route built here, never the body's own text. Without a card (a scratchpad preview, the
-  // snapshot, which has no server) the alt text, or the path when there is none, is a plain label;
-  // the page swaps a picture the server refused or could not find for the same label.
+  // A picture is drawn only where the caller hands in opts.imageSrc, which turns the body's path into
+  // the address of a route that sends the file (the web's, by card): the src is never the body's own
+  // text. Without it (the snapshot, which has no server, or a preview with no card) the alt text, or
+  // the path when there is none, is a plain label; the page swaps a picture the server refused or could
+  // not find for the same label.
   function imgHtml(t, ctx) {
     const label = t.alt || t.path;
-    if (!ctx || ctx.card === undefined || ctx.card === null || ctx.card === '') return `<span class="md-img-alt">${mdEscape(label)}</span>`;
-    const src = mdEscape(`/api/cards/${encodeURIComponent(ctx.card)}/image?path=${encodeURIComponent(t.path)}`);
-    return `<a class="md-img" href="${src}" target="_blank" rel="noopener noreferrer"><img class="md-img-pic" src="${src}" alt="${mdEscape(label)}" loading="lazy"></a>`;
+    const src = ctx && typeof ctx.imageSrc === 'function' ? ctx.imageSrc(t.path) : '';
+    if (!src) return `<span class="md-img-alt">${mdEscape(label)}</span>`;
+    return `<a class="md-img" href="${mdEscape(src)}" target="_blank" rel="noopener noreferrer"><img class="md-img-pic" src="${mdEscape(src)}" alt="${mdEscape(label)}" loading="lazy"></a>`;
   }
 
   const wrapped = (tag) => (t, board) => `<${tag}>${inlineHtml(t.kids, board)}</${tag}>`;
@@ -591,16 +592,16 @@ const markdownModule = (() => {
     return blocks.map((b) => (BLOCK_HTML.has(b.t) ? BLOCK_HTML.get(b.t)(b, board) : unknownHtml(b))).join('');
   }
 
-  // opts.board is the board's own name: a mention of a card on it opens the card. opts.card is the
-  // id of the card whose body this is: an image in it is drawn as a picture from that card's route.
+  // opts.board is the board's own name: a mention of a card on it opens the card. opts.imageSrc, when given, maps an image's path
+  // to the address of the picture (see imgHtml).
   function mdToHtml(md, opts) {
-    return renderBlocks(parseMarkdown(md), { board: opts && opts.board, card: opts && opts.card });
+    return renderBlocks(parseMarkdown(md), { board: opts && opts.board, imageSrc: opts && opts.imageSrc });
   }
 
   // One line of text as inline HTML with no block around it, for a row that holds a single line (a todo
   // item): a leading # or - stays text, and a line break is a space.
   function mdInlineToHtml(md, opts) {
-    return inlineHtml(parseInline(String(md == null ? '' : md).replace(/\s*[\r\n]+\s*/g, ' ')), { board: opts && opts.board, card: opts && opts.card });
+    return inlineHtml(parseInline(String(md == null ? '' : md).replace(/\s*[\r\n]+\s*/g, ' ')), { board: opts && opts.board, imageSrc: opts && opts.imageSrc });
   }
 
   return { parseMarkdown, parseInline, mdToHtml, mdInlineToHtml, renderBlocks, codeLang, splitRow, isTableDelimiter };

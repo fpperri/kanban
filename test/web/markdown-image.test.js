@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { mdToHtml, parseInline } = require('../../plugin/skills/web/web/markdown.js');
 
-const draw = (text, card) => mdToHtml(text, { board: 'webapp', card });
+const route = (card) => (path) => `/api/cards/${card}/image?path=${encodeURIComponent(path)}`;
+const draw = (text, card) => mdToHtml(text, { board: 'webapp', imageSrc: card === undefined ? undefined : route(card) });
 const BODY = '![Screenshot](../work/item%2012/.scratchpad/3f2a9c1e.png)';
 const SRC = '/api/cards/7/image?path=..%2Fwork%2Fitem%252012%2F.scratchpad%2F3f2a9c1e.png';
 
@@ -15,13 +16,13 @@ test('on a card the picture sits inside a link to the same route, which opens it
     `<p><a class="md-img" href="${SRC}" target="_blank" rel="noopener noreferrer"><img class="md-img-pic" src="${SRC}" alt="Screenshot" loading="lazy"></a></p>`);
 });
 
-test('the src is built from the card and the path, so the body cannot name another address', () => {
+test('the src is whatever the route function of the caller answers for the path, so the body cannot name another address', () => {
   const html = draw('![x](/etc/shot.png) ![y](..\a\b.png)', '7');
   assert.ok(!html.includes('src="/etc/'), 'the raw path is not the src');
   for (const src of html.matchAll(/src="([^"]*)"/g)) assert.ok(src[1].startsWith('/api/cards/7/image?path='), src[1]);
 });
 
-test('with no card to ask the server for, the alt text draws as the plain label', () => {
+test('with no route to ask the server for, the alt text draws as the plain label', () => {
   assert.strictEqual(draw(BODY), '<p><span class="md-img-alt">Screenshot</span></p>');
   assert.strictEqual(draw('![](a/b.png)'), '<p><span class="md-img-alt">a/b.png</span></p>');
 });
