@@ -49,14 +49,14 @@ const padFilesModule = (() => {
   // A folder as the server names it (a path of the board, with `/` or `\` between names, perhaps a slash at
   // the end) and a file name, joined with one slash.
   function joinFolder(folder, name) {
-    const f = String(folder == null ? '' : folder).replace(/[\/]+$/, '');
+    const f = String(folder == null ? '' : folder).replace(/[\\/]+$/, '');
     return f === '' ? name : `${f}/${name}`;
   }
 
   // The absolute path of a file in an absolute folder, with the folder's own separator.
   function absJoin(root, name) {
-    const sep = root.includes('\') && !root.includes('/') ? '\' : '/';
-    return `${root.replace(/[\/]+$/, '')}${sep}${name}`;
+    const sep = root.includes('\\') && !root.includes('/') ? '\\' : '/';
+    return `${root.replace(/[\\/]+$/, '')}${sep}${name}`;
   }
 
   // Which small picture a row wears.
@@ -87,7 +87,7 @@ const padFilesModule = (() => {
   // The path a rename gives a file, or '' when it changes nothing or names a path (that is Move to).
   function renameDest(cwd, oldName, typed) {
     const name = String(typed == null ? '' : typed).trim();
-    if (name === '' || name === oldName || /[\/]/.test(name)) return '';
+    if (name === '' || name === oldName || /[\\/]/.test(name)) return '';
     return joinPath(cwd, name);
   }
 

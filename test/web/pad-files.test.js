@@ -39,10 +39,10 @@ test('a typed new file name gets .md unless it already ends in .md or .txt', () 
 test('a folder and a file name join with one slash, whichever way the folder ends', () => {
   assert.strictEqual(pf.joinFolder('../work/0499.x/.scratchpad', '0499.scratchpad.md'), '../work/0499.x/.scratchpad/0499.scratchpad.md');
   assert.strictEqual(pf.joinFolder('../work/0499.x/.scratchpad/', 'a.md'), '../work/0499.x/.scratchpad/a.md');
-  assert.strictEqual(pf.joinFolder('a\b\', 'c.md'), 'a\b/c.md');
+  assert.strictEqual(pf.joinFolder('a\\b\\', 'c.md'), 'a\\b/c.md');
   assert.strictEqual(pf.joinFolder('', 'c.md'), 'c.md');
-  assert.strictEqual(pf.absJoin('C:\pads\7', 'a.md'), 'C:\pads\7\a.md');
-  assert.strictEqual(pf.absJoin('C:\pads\7\', 'a.md'), 'C:\pads\7\a.md');
+  assert.strictEqual(pf.absJoin('C:\\pads\\7', 'a.md'), 'C:\\pads\\7\\a.md');
+  assert.strictEqual(pf.absJoin('C:\\pads\\7\\', 'a.md'), 'C:\\pads\\7\\a.md');
   assert.strictEqual(pf.absJoin('/home/pads/7', 'a.md'), '/home/pads/7/a.md');
 });
 
@@ -74,5 +74,5 @@ test('a rename keeps the file in its folder: a blank, an unchanged or a pathy na
   assert.strictEqual(pf.renameDest('', 'a.md', 'a.md'), '');
   assert.strictEqual(pf.renameDest('', 'a.md', '   '), '');
   assert.strictEqual(pf.renameDest('', 'a.md', 'x/b.md'), '');
-  assert.strictEqual(pf.renameDest('', 'a.md', 'x\b.md'), '');
+  assert.strictEqual(pf.renameDest('', 'a.md', 'x\\b.md'), '');
 });
