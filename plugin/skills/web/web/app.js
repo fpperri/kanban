@@ -735,10 +735,7 @@ function cardEl(card) {
     pill.title = reviewLabel(card.review);
     el.querySelector('.card-head').appendChild(pill);
   }
-  const noteCount = noteCountButton(card.id); // the small note count, only when the card has notes
-  if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
-  const todoCount = todoCountButton(card.id); // open over all todo items, only when the card has a list with items
-  if (todoCount) el.querySelector('.card-head').appendChild(todoCount);
+  for (const icon of cardKitIcons(card.id)) el.querySelector('.card-head').appendChild(icon); // notes, todos, scratchpad, each only when the card has it
   const badges = groupBadges(card.id); // up to two group badges, only when the board keeps groups and the card is in one
   if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
@@ -786,10 +783,7 @@ function archiveCardEl(card) {
   paintAssigneeColors(el); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors(el);
   paintRollupBars(el);
-  const noteCount = noteCountButton(card.id);
-  if (noteCount) el.querySelector('.card-head').appendChild(noteCount);
-  const todoCount = todoCountButton(card.id);
-  if (todoCount) el.querySelector('.card-head').appendChild(todoCount);
+  for (const icon of cardKitIcons(card.id)) el.querySelector('.card-head').appendChild(icon);
   const badges = groupBadges(card.id);
   if (badges) el.querySelector('.card-main').appendChild(badges);
   return el;
@@ -2262,6 +2256,7 @@ function applyBoardData(data) {
   const caption = document.activeElement && document.activeElement.closest ? document.activeElement.closest('[data-caption]') : null;
   const captionKey = caption ? caption.getAttribute('data-caption') : null;
   renderBoard();
+  renderDetailKit(); // the open details' icons follow the board read: a page just saved, a first note
   if (controlSel) {
     const again = document.querySelector(controlSel);
     if (again) again.focus({ preventScroll: true });
@@ -3296,6 +3291,7 @@ async function openDetailModal(id, { quiet, onFail } = {}) {
   const titleDisplay = cardTitleDisplay(data);
   $('#detail-title').textContent = `#${data.id} ${titleDisplay.text}`;
   $('#detail-title').classList.toggle('detail-title--prompt-fallback', titleDisplay.isPromptFallback);
+  renderDetailKit();
   // Folders quiet, the file name in full ink: the part a reader looks for.
   const detailPath = data.path || '';
   const cut = Math.max(detailPath.lastIndexOf('/'), detailPath.lastIndexOf('\\')) + 1;
@@ -3382,6 +3378,16 @@ function pushCardHistoryStep(targetId) {
 // isn't showing) behind a chip for a deleted/nonexistent card or a failed
 // fetch. The detailRequestId supersede check inside openDetailModal already
 // stops a stale push if a popstate or close lands mid-fetch.
+// The icons a card's working material gets, in the order they always stand: its note count, its open/total
+// todos, its scratchpad page. Each is absent when the board keeps none of that or the card has none.
+function renderDetailKit() {
+  $('#detail-kit').replaceChildren(...(currentDetailId == null ? [] : cardKitIcons(currentDetailId)));
+}
+
+function cardKitIcons(id) {
+  return [noteCountButton(id), todoCountButton(id), scratchpadIconButton(id)].filter(Boolean);
+}
+
 async function openCard(id) {
   if (await openDetailModal(id)) pushCardHistoryStep(id);
 }

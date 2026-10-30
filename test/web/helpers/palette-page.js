@@ -85,6 +85,7 @@ function paletteDocument(holder) {
       return appended(c);
     };
     el.replaceChildren = (...kids) => { el.children.length = 0; el.append(...kids); };
+    el.prepend = (...kids) => { for (const k of kids) k.parent = el; el.children.unshift(...kids); };
     el.descendants = () => el.walk().slice(1).map(same);
     el.querySelectorAll = (sel) => { const is = matcher(sel); return el.descendants().filter((e) => e.classes && is(e)); };
     el.querySelector = (sel) => el.querySelectorAll(sel)[0] || null;
