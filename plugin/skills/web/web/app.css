@@ -1034,6 +1034,12 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    own overflow the whole popup would scroll sideways and take the prose with it.
    Scoped under .md-table so .detail-frontmatter's own table rules stay untouched. */
 .detail-body .md-table { overflow-x: auto; margin: 1em 0; }
+/* A card's Markdown image: the picture at most the body's width, its link opening it full size; a
+   picture the server refused or could not find becomes the alt text, plain (markdown-images.js). */
+.md-img { display: inline-block; max-width: 100%; vertical-align: top; }
+.detail-body a.md-img, .detail-body a.md-img:hover { border-bottom: 0; padding-bottom: 0; }
+.md-img-pic { display: block; max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--line); }
+.md-img-alt { color: var(--mut); font-style: italic; }
 .detail-body .md-table table { border-collapse: collapse; font-size: 0.9em; line-height: 1.5; }
 .detail-body .md-table th, .detail-body .md-table td { border-bottom: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
 /* Quiet + tracked like the shop status page's th, but NOT uppercase — unlike
