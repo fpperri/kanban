@@ -198,6 +198,15 @@ test('in the timeline two notes at one time keep the chip\'s target first, then 
   assert.deepStrictEqual(order('22'), ['c', 'a', 'b', 'g', 'none']);
 });
 
+test('every note is about one card when all share a target, and an empty list is not', () => {
+  const note = (target) => ({ day: '2026-10-16', target, at: '09:00', by: '@human', note: 'x', index: 0, file: 'f' });
+  assert.strictEqual(n.noteOneTarget([note('7'), note('7')]), true);
+  assert.strictEqual(n.noteOneTarget([note('7')]), true);
+  assert.strictEqual(n.noteOneTarget([note('7'), note('22')]), false);
+  assert.strictEqual(n.noteOneTarget([note('7'), note('')]), false);
+  assert.strictEqual(n.noteOneTarget([]), false);
+});
+
 test('the timeline of no notes is no days', () => {
   assert.deepStrictEqual(n.noteTimeline([]), []);
 });

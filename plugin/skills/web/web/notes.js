@@ -423,6 +423,11 @@ function noteGroups(notes, o = {}) {
   return list;
 }
 
+// Whether every listed note is about the one card (or group, or nothing): the Timeline then leaves its card column out.
+function noteOneTarget(notes) {
+  return notes.length > 0 && notes.every((n) => n.target === notes[0].target);
+}
+
 // The same notes as one flat list per day, for the palette's Timeline switch: newest day first, and
 // within a day the timed notes in time order, then the untimed ones. Two notes at one time go the way
 // noteGroups orders their targets: the one the palette is on first, then by id, nothing last.
@@ -514,7 +519,7 @@ const NOTES_EXPORTS = {
   NOTE_TODAY, NOTE_NOW, noteHhmm, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
-  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
