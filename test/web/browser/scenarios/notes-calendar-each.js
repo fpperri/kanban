@@ -53,7 +53,11 @@ module.exports = {
     check('each: the block spans two 40px hours', await ev(`(()=>{const b=${COL('2026-10-15')}.querySelector('.cal-timeblock[data-id="3"]');return Math.round(parseFloat(b.style.top))===360&&Math.round(parseFloat(b.style.height))===78})()`));
 
     // --- Each note --------------------------------------------------------------------------------------------------
+    await ev(`(()=>{const sh=new CSSStyleSheet();sh.replaceSync('#calendar-view .cal-tg-scroll{max-height:340px!important}');document.adoptedStyleSheets=[...document.adoptedStyleSheets,sh]})()`);
+    await ev(`${SCROLL}.scrollTop=560`);
+    check('each: the grid is scrolled to 14:00 before the switch', await waitFor(`${SCROLL}.scrollTop===560`, 3000));
     check('each: pressing Each note redraws the week', await press(MODE_BTN('each')) && await waitFor(`${MODE_BTN('each')}.getAttribute('aria-pressed')==='true'`, 3000));
+    check('each: the scroll keeps its time: 14:00 is still at the top of the grid', await ev(`(()=>{const l=document.querySelectorAll('#calendar-view .cal-tg-hour')[14];return Math.abs(parseFloat(l.style.top)-${SCROLL}.scrollTop)<=3})()`), await ev(`${SCROLL}.scrollTop`));
     check('each: no note is in a count bubble and every note is its own chip', await ev(`document.querySelectorAll('#calendar-view .cal-note-bubble').length===0&&${COL('2026-10-15')}.querySelectorAll('.cal-note-chip').length===7`));
     check('each: the choice is kept for this board in this browser', await ev(`localStorage.getItem('kanban.'+state.projectName+'.calendar.notesMode')==='each'`));
     check('each: the four notes of hour 10 are stacked 20px apart from the hour line', await ev(`(()=>{const col=${COL('2026-10-15')};const top=[...col.querySelectorAll('.cal-note-chip')].filter((c)=>/^#7extra|^#22|^#3/.test(c.textContent)).map((c)=>parseFloat(c.style.top)).sort((a,b)=>a-b);return top.length===4&&top.every((t,i)=>t===400+1+i*20)})()`));

@@ -1,7 +1,7 @@
 'use strict';
 // The Calendar time grid's scale: minutes from midnight to pixels down a day's column and back, over
 // 24 hours that may each have their own height. In Grouped mode every hour is HSCALE_HOUR_PX (40px, the
-// stripe in app.css and app.js's CAL_HOUR_PX); in Each note mode an hour grows to hold its stacked
+// stripe in app.css); in Each note mode an hour grows to hold its stacked
 // note chips. Time is linear inside an hour, so a card block spanning a tall hour stretches with it.
 //
 // Pure: Node tests drive it with plain arrays. Same dual-environment export pattern as notes.js.
@@ -38,6 +38,10 @@ function hourScale(heights) {
       if (flat) return (m / 60) * heights[0];
       const h = Math.min(HSCALE_HOURS - 1, Math.floor(m / 60));
       return tops[h] + ((m - h * 60) / 60) * heights[h];
+    },
+    // The height of a span of minutes; the plain scale keeps the straight line's own arithmetic.
+    span(from, to) {
+      return flat ? ((to - from) / 60) * heights[0] : this.yOf(to) - this.yOf(from);
     },
     minOf(y) {
       if (y <= 0) return 0;

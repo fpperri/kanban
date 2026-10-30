@@ -97,3 +97,19 @@ test('the notes mode is kept per board, Grouped by default', () => {
   for (const k of [...mem.keys()]) mem.set(k, 'junk');
   assert.strictEqual(c.noteModeLoad(storage, 'b'), 'grouped');
 });
+
+test('the flat scale gives a span exactly as the straight 40px line always did, to the last digit', () => {
+  const s = h.hourScale(h.plainHeights());
+  for (const [a, b] of [[300, 335], [0, 1], [545, 610], [1, 1439], [600, 725]]) {
+    assert.strictEqual(s.span(a, b), ((b - a) / 60) * 40, `${a}-${b}`);
+    assert.strictEqual(s.yOf(a), (a / 60) * 40);
+  }
+  assert.strictEqual(s.span(300, 330) - 2, 18);
+});
+
+test('a stretched scale spans the difference of its two ys', () => {
+  const heights = h.plainHeights();
+  heights[9] = 100;
+  const s = h.hourScale(heights);
+  assert.strictEqual(s.span(540, 660), 100 + 40);
+});

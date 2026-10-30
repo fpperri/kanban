@@ -4534,7 +4534,7 @@ function renderCalendarView() {
   // Preserve the time grid's scroll across re-renders (poll included) — same
   // keepLeft/keepTop discipline as renderMapView. null = first paint.
   const prevScroll = container.querySelector('.cal-tg-scroll');
-  const keepScroll = prevScroll ? prevScroll.scrollTop : null;
+  const keepScroll = prevScroll ? calScaleCur.minOf(prevScroll.scrollTop) : null; // kept as a time, for the scale may change
   container.innerHTML = '';
 
   const spanNoun = { month: 'month', week: 'week', '3day': '3 days', day: 'day' }[subview];
@@ -4712,15 +4712,12 @@ function renderCalendarMonthGrid(container) {
 // hour-grid blocks retime + edge-resize at minute granularity via a custom
 // pointer-drag (wireCalendarTimeDrag) — so they're draggable:false here.
 
-// Pixel height of one hour row. Must match app.css's .cal-tg-col background
-// gradient (40px stripes) — the JS positions blocks, the CSS draws the lines.
-const CAL_HOUR_PX = 40;
 // The scale the time grid on screen is drawn with and read back through (hour-scale.js): the plain
 // 40px hour in Grouped mode, taller hours in Each note mode. Set by every render.
 let calScaleCur = hourScale(plainHeights());
 const CAL_DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; // getUTCDay order
 
-function renderCalendarTimeGrid(container, subview, keepScroll) {
+function renderCalendarTimeGrid(container, subview, keepMin) {
   const days = calendarSubviewDays(subview, currentCalendarAnchor());
   // Same live search + status-filter composition as the month grid above —
   // filtered-out statuses must drop their chips from the all-day
@@ -4844,7 +4841,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
       // all-day band + month chips keep native day-drag (they're day-granular).
       el.draggable = false;
       el.style.top = `${scale.yOf(block.startMin)}px`;
-      el.style.height = `${Math.max(18, scale.yOf(block.endMin) - scale.yOf(block.startMin) - 2)}px`;
+      el.style.height = `${Math.max(18, scale.span(block.startMin, block.endMin) - 2)}px`;
       el.style.left = strip ? `calc(${block.lane} * (100% - var(--cal-note-strip)) / ${block.lanes})` : `calc(${block.lane} * 100% / ${block.lanes})`;
       el.style.width = strip ? `calc((100% - var(--cal-note-strip)) / ${block.lanes} - 4px)` : `calc(100% / ${block.lanes} - 4px)`;
       // Only a REAL same-day duration (not a point/due placeholder,
@@ -4874,7 +4871,7 @@ function renderCalendarTimeGrid(container, subview, keepScroll) {
   paintCalendarNotesAria();
   // First paint opens at 08:00 (the working morning, Outlook's default);
   // re-renders — poll ticks included — keep the user's scroll.
-  scroll.scrollTop = keepScroll != null ? keepScroll : scale.yOf(8 * 60);
+  scroll.scrollTop = scale.yOf(keepMin != null ? keepMin : 8 * 60);
 }
 
 // Same per-render wiring discipline as the board's wireDrag(): #calendar-view
@@ -5261,7 +5258,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // shared grammar.
   // Month/all-day cells only carry a day; time-grid columns also carry the
   // pointer's y, converted to a snapped minute the same way the retime drag
-  // math does (CAL_PX_PER_MIN). Status is left at the modal's own default —
+  // math does (calScaleCur). Status is left at the modal's own default —
   // unlike the column "+", a calendar cell doesn't imply a status.
   $('#calendar-view').addEventListener('dblclick', (e) => {
     if (isDragging || ganttDrag || calTimeDrag) return; // same guard as the contextmenu listener below: never fire out from under a live drag

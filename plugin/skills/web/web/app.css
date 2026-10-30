@@ -1351,8 +1351,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    is a header row + an "all day" band + a scrollable 24h grid, all sharing
    one column template (fixed hour gutter + a 1fr column per day, count via
    --cal-day-cols set by the render). The hour lines are a 40px repeating
-   gradient — app.js's CAL_HOUR_PX must match that stripe height, it positions
-   the blocks in the same coordinate space. */
+   gradient — hour-scale.js's HSCALE_HOUR_PX must match that stripe height, the
+   scale positions the blocks in the same coordinate space. */
 .cal-subview-switch { display: flex; gap: 2px; margin-left: auto; }
 .cal-subview-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 /* The span cycle button stands in for the span switch on a phone, and the switch for it from 760 px. */
@@ -1392,7 +1392,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .cal-tg-hour { position: absolute; right: 6px; transform: translateY(-50%); color: var(--mut); font-size: 0.65em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .cal-tg-gutter .cal-tg-hour:first-child { transform: none; } /* 00:00 sits below the band edge, not clipped on it */
 .cal-tg-col { position: relative; border-left: 1px solid var(--line-soft);
-  background: repeating-linear-gradient(to bottom, transparent 0 39px, var(--line-soft) 39px 40px); } /* 40px = CAL_HOUR_PX */
+  background: repeating-linear-gradient(to bottom, transparent 0 39px, var(--line-soft) 39px 40px); } /* 40px = HSCALE_HOUR_PX */
 .cal-tg-col.in-iteration { background-color: var(--iter-wash); }
 .cal-tg-col.today { background-color: var(--today-wash); }
 .cal-tg-col.drag-over, .cal-tg-allday-cell.drag-over { background-color: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
