@@ -821,7 +821,7 @@ The list below groups the notes by day and card, newest first, with a filter fie
 (`by:@afk` keeps one author's notes) and an All, Human and AI switch on who wrote them; a note
 written in the palette stays listed whatever they say. **Ctrl+F** (Cmd+F) in the palette, with its
 note box empty and no card aimed, puts `#` in the note box with the caret after it; while the box holds
-`#` and an id, the list shows only that card's notes (still within the range row's range), live as the
+`#` and an id, the list shows only that card's notes from every date (the range Enter's aim gives the card; the range row is left as it is), live as the
 digits are typed, and Enter aims the palette at the card, as a bare `#22` and Enter does. Erasing the
 `#`, or typing anything that is not an id, puts the list back. It does not write into the filter field.
 With text in the box or a card aimed, and on the Group, Scratchpad and Todos tabs, Ctrl+F is the

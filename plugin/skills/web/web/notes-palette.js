@@ -758,7 +758,9 @@ function notesList() {
   const fresh = new Set(u.written);
   const all = notesAll();
   const group = sub.kind === 'group' ? notesGroup(sub.id) : null;
-  const mine = noteListNotes(all, sub, { ...u.range, touched: u.rangeTouched }, { members: () => (group ? group.cards : []) });
+  // A scope looks across every date, the range Enter's aim gives the card; the range row is left as it is.
+  const range = scope === null ? { ...u.range, touched: u.rangeTouched } : { mode: 'all', anchor: u.range.anchor, touched: true };
+  const mine = noteListNotes(all, sub, range, { members: () => (group ? group.cards : []) });
   const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }).filter((n) => scope === null || NOTE_IDS.idKey(n.target) === scope));
   const notes = mine.filter((n) => shown.has(n) || fresh.has(notesKey(n)));
   for (const n of all) if (fresh.has(notesKey(n)) && !notes.includes(n)) notes.push(n);
