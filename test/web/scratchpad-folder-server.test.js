@@ -96,6 +96,19 @@ test('the list names the folder, the page first, then folders, then files, each 
   assert.strictEqual(shot.abs, path.join(mine, 'shot.png'));
 }));
 
+test('each file entry says whether it reads as text, so the page can offer the right menu', () => withBoard(async ({ list, mine }) => {
+  fs.writeFileSync(path.join(mine, 'cafe.txt'), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]));
+  const by = Object.fromEntries((await list(1)).json.entries.map((e) => [e.name, e]));
+  assert.strictEqual(by['log.txt'].text, true);
+  assert.strictEqual(by['run.log'].text, true);
+  assert.strictEqual(by['notes.md'].text, true);
+  assert.strictEqual(by['blob.bin'].text, false);
+  assert.strictEqual(by['shot.png'].text, false);
+  assert.strictEqual(by['cafe.txt'].text, false);
+  assert.strictEqual(by.sub.text, false);
+  assert.strictEqual(by['0001.scratchpad.md'].text, false, 'the page belongs to the box, not the menu');
+}));
+
 test('a click on a folder lists it one level down, with a way back up', () => withBoard(async ({ list }) => {
   const r = await list(1, 'sub');
   assert.strictEqual(r.status, 200);

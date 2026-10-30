@@ -95,14 +95,20 @@ function realInside(rootReal, abs) {
   return r;
 }
 
+// Whether a file in the list reads as text (the menu offers Rename, Move and Delete for those only).
+function readsAsText(abs, kind, size) {
+  if (kind === 'image' || size > MAX_TEXT) return false;
+  try { return decodeText(fs.readFileSync(abs)) !== null; } catch (_) { return false; }
+}
+
 function entryOf(rootAbs, segs, stat, rootReal) {
   const name = segs[segs.length - 1];
   const abs = path.join(rootAbs, ...segs);
   const page = !stat.isDirectory() && isPageName(name);
   const out = { name, path: relOf(segs), dir: stat.isDirectory(), size: stat.isDirectory() ? 0 : stat.size, mtime: stat.mtime.toISOString(), abs };
-  if (out.dir) return { ...out, kind: 'dir', writable: false };
+  if (out.dir) return { ...out, kind: 'dir', writable: false, text: false };
   const kind = kindByName(name);
-  return { ...out, kind, page, writable: !page && kind !== 'image' };
+  return { ...out, kind, page, writable: !page && kind !== 'image', text: !page && readsAsText(abs, kind, stat.size) };
 }
 
 function parentOf(segs) {
