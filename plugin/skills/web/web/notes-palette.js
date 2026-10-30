@@ -44,7 +44,7 @@ const notesUi = {
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
-  sub: null, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
+  sub: null, scoped: null, finding: false, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
 };
 
 let notesCountsOf = null;
@@ -392,7 +392,12 @@ function notesBuild() {
   u.el.append(u.head, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
   document.body.append(u.el);
 
-  u.input.addEventListener('input', () => { notesGrow(); notesPaintPreview(); });
+  u.input.addEventListener('input', () => {
+    notesGrow();
+    notesPaintPreview();
+    if (u.finding && !notesFindHolds(u.input.value)) u.finding = false;
+    if (notesScope() !== u.scoped) { u.hi = -1; notesPaintBody(); }
+  });
   u.filter.addEventListener('input', () => { u.hi = -1; notesPaintBody(); });
   u.time.addEventListener('input', () => { notesPaintMode(); notesPaintPreview(); });
   u.date.addEventListener('input', () => { u.dateTyped = true; notesPaintMode(); notesPaintPreview(); });
@@ -495,6 +500,7 @@ function openNotes(req) {
   const same = u.sub && JSON.stringify(u.sub) === JSON.stringify(sub);
   if (!u.sub && document.activeElement && !u.el.contains(document.activeElement)) u.opener = document.activeElement;
   u.sub = sub;
+  u.finding = false;
   u.tab = req && req.kind === 'group' ? 'group' : req && req.kind === 'scratchpad' ? 'scratch' : req && req.kind === 'todos' ? 'todos' : same ? u.tab : 'notes';
   if (!notesTabs().includes(u.tab)) u.tab = notesTabs()[0];
   if (!same) {
@@ -542,6 +548,7 @@ function notesClose() {
   const u = notesUi;
   if (!u.sub) return false;
   u.sub = null;
+  u.finding = false;
   u.tab = 'notes';
   u.groupSig = '';
   u.written = [];
@@ -636,6 +643,7 @@ function notesTimeOptions() {
 // the Calendar's own range).
 function notesRetargeted() {
   const u = notesUi;
+  u.finding = false;
   u.tab = 'notes';
   u.written = [];
   u.hi = -1;
@@ -767,21 +775,31 @@ function notesPaintBody() {
   u.body.scrollTop = scroll;
 }
 
+// The card the note box narrows the list to: Ctrl+F started a find (`finding`), the box holds `#` and an id,
+// and the palette is aimed at no card. A `#id` typed by hand starts none. The filter field is not written to; this rides on the list beside it.
+function notesScope() {
+  return notesUi.sub && !noteIsAboutCards(notesUi.sub) ? notesFindScope(notesUi.finding, notesUi.input.value) : null;
+}
+
 function notesList() {
   const u = notesUi;
   const sub = u.sub;
+  const scope = notesScope();
+  u.scoped = scope;
   const fresh = new Set(u.written);
   const all = notesAll();
   const group = sub.kind === 'group' ? notesGroup(sub.id) : null;
-  const mine = noteListNotes(all, sub, { ...u.range, touched: u.rangeTouched }, { members: () => (group ? group.cards : []) });
-  const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }));
+  // A scope looks across every date, the range Enter's aim gives the card; the range row is left as it is.
+  const range = scope === null ? { ...u.range, touched: u.rangeTouched } : { mode: 'all', anchor: u.range.anchor, touched: true };
+  const mine = noteListNotes(all, sub, range, { members: () => (group ? group.cards : []) });
+  const shown = new Set(noteFilter(mine, u.filter.value, notesLabel, { by: u.by, assignees: state.assignees }).filter((n) => scope === null || NOTE_IDS.idKey(n.target) === scope));
   const notes = mine.filter((n) => shown.has(n) || fresh.has(notesKey(n)));
   for (const n of all) if (fresh.has(notesKey(n)) && !notes.includes(n)) notes.push(n);
   if (!notes.length) {
     const typed = u.filter.value.trim();
     const ranged = u.range.mode !== 'all' && !(sub.kind === 'none' && u.range.mode === 'day' && u.range.anchor === localTodayStr());
     const none = sub.kind === 'none' ? 'No notes today yet.' : 'No notes here yet. Enter writes the first one.';
-    const text = mine.length ? (typed ? `No note here matches “${typed}”${u.by === 'all' ? '' : ` by ${u.by === 'human' ? 'a human' : 'an AI'}`}.` : `No note here is by ${u.by === 'human' ? 'a human' : 'an AI'}.`) : ranged ? `No notes in ${noteRangeLabel(u.range.mode, u.range.anchor)} yet.` : none;
+    const text = scope !== null ? `No note here is on #${scope}.` : mine.length ? (typed ? `No note here matches “${typed}”${u.by === 'all' ? '' : ` by ${u.by === 'human' ? 'a human' : 'an AI'}`}.` : `No note here is by ${u.by === 'human' ? 'a human' : 'an AI'}.`) : ranged ? `No notes in ${noteRangeLabel(u.range.mode, u.range.anchor)} yet.` : none;
     return notesEl('p', 'np-empty', text);
   }
   const today = localTodayStr();
@@ -1226,7 +1244,24 @@ function notesOnPaletteKey(e) {
     notesEscape(e.target === notesUi.filter);
     return;
   }
+  if (notesFindKey(e)) return;
   e.stopPropagation();
+}
+
+// Ctrl+F (Cmd+F) with the note box empty and no card aimed: `#` in the note box, caret after it, and the id
+// typed next narrows the list (notesScope). Otherwise the chord is the browser's find bar.
+function notesFindKey(e) {
+  const u = notesUi;
+  const put = notesFindPrefill(e, { tab: u.tab, subjectKind: u.sub.kind, boxValue: u.input.value });
+  if (!put) return false;
+  e.preventDefault();
+  e.stopPropagation();
+  u.input.value = put.value;
+  u.finding = true;
+  u.input.dispatchEvent(new Event('input'));
+  u.input.focus();
+  u.input.setSelectionRange(put.selectionStart, put.selectionEnd);
+  return true;
 }
 
 // The one popup the notes keys work over, through the key guard's `except`: n, t and Alt+1 to Alt+4 act with
