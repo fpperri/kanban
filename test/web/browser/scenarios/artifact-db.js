@@ -75,7 +75,10 @@ module.exports = {
       const url = fileUrl(file);
 
       injected = (await send('Page.addScriptToEvaluateOnNewDocument', { source: STAND_IN })).identifier;
+      // This scenario leaves a page that holds a copied-for-nobody change on purpose; the page's prompt is not what it checks.
+      const stayPut = () => ev(`window.askBeforeLeaving&&window.removeEventListener('beforeunload',window.askBeforeLeaving)`);
       const load = async (query = '') => {
+        await stayPut();
         await send('Page.navigate', { url: url + query });
         return waitFor(`document.readyState==='complete'&&${NAME}==='fixture'&&${DRAWN}`, 15000);
       };
@@ -88,7 +91,7 @@ module.exports = {
       await ev('localStorage.clear()');
 
       check('the page opens with the stand-in database and draws the board', await load());
-      check('the board load names the artifact as its source', (await ev(`window.kanbanSourceInUse.request('GET','/api/board').then((r)=>JSON.stringify(r.json.source))`)) === JSON.stringify({ kind: 'artifact', queued: 0 }));
+      check('the board load names the artifact as its source', (await ev(`window.kanbanSourceInUse.request('GET','/api/board').then((r)=>JSON.stringify([r.json.source.kind,r.json.source.queued]))`)) === JSON.stringify(['artifact', 0]));
       check('the header shows no queued count yet', (await ev(PILL)) === '');
       check('and no line telling Claude to apply the tray', (await ev(HINT)) === '');
       check('card 7 starts in Todo', await ev(column('7', 'todo')));
