@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -9,6 +9,7 @@ const { makeMemoryRoute } = require('../../plugin/skills/web/scripts/memory-rout
 const { makePageSource, makeTrayStore, boot } = require('../../plugin/skills/web/scripts/page-source');
 const { applyTray, APPLIED_FILE } = require('../../plugin/skills/web/scripts/apply-tray');
 const { routeSources } = require('./helpers/route-sources');
+const idsModule = require('../../plugin/skills/web/web/ids');
 const { COLLECTION } = require('../../plugin/skills/web/scripts/artifact-tray');
 const { makeFakeDb, claudeWith } = require('./helpers/fake-db');
 
@@ -17,6 +18,9 @@ const { makeFakeDb, claudeWith } = require('./helpers/fake-db');
 
 const DOC = read('plugin', 'skills', 'artifact', 'SKILL.md');
 const SKILL_DIR = path.join(ROOT, 'plugin', 'skills', 'artifact');
+
+// boot() makes the shared ids module take temporary ids; the other tests of this file run as the server does.
+afterEach(() => idsModule.acceptTempIds(false));
 
 test('the build command in the skill runs: its script is where the doc puts it, and it writes the file --out names', () => {
   const [command] = fenced(DOC, 'bash').map((b) => b.trim()).filter((b) => b.startsWith('node '));
