@@ -302,3 +302,32 @@ test('a user whose isOwner() never settles falls back to browser storage, and th
   const load = (await src.request('GET', '/api/board')).json;
   assert.strictEqual(load.source.kind, 'page');
 });
+
+test('an edit is one document holding only the fields it changed and the value the page had for each', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  await src.request('PATCH', '/api/cards/3', { title: 'Three, renamed', status: 'todo', priority: 'Normal' });
+  const doc = fake.docs.get('phone-1');
+  assert.deepStrictEqual(doc.change, { method: 'PATCH', path: '/api/cards/3', body: { title: 'Three, renamed' } });
+  assert.deepStrictEqual(doc.before, { title: 'Three' });
+});
+
+test('a record Claude marks refused stops showing on the board at once, and a page built afterwards shows it in the tray with its reason and no change', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  let told = 0;
+  src.onChange(() => { told += 1; });
+  fake.change((docs) => { docs.set('phone-1', { ...docs.get('phone-1'), refused: 'status changed at the desk since' }); });
+  await settle();
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:todo', '7:todo']);
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, refused: [{ id: 'phone-1', reason: 'status changed at the desk since' }], base: DATA.board.base });
+  assert.ok(told >= 1);
+
+  const later = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  const again = (await later.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(again), ['3:todo', '7:todo']);
+  assert.deepStrictEqual(again.source.refused, [{ id: 'phone-1', reason: 'status changed at the desk since' }]);
+  assert.strictEqual(later.records()[0].refused, 'status changed at the desk since');
+});

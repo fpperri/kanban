@@ -5,8 +5,13 @@
 // records every save that worked in the tray, a list of queued changes kept in browser storage under a
 // key that names the board and its Base. A reload makes the source again over the embedded board and
 // replays the tray through route, so the board shows its queued changes applied. A queued change is
-// { id: '<device>-<n>', at, device, change: { method, path, body }, temp? }: the server save as route took it,
-// and `temp`, when it made a card or group, the temporary id (n1, web/ids.js) the page gave it. A card or
+// { id: '<device>-<n>', at, device, change: { method, path, body }, temp?, before?, refused? }: the server save
+// as route took it, `temp`, when it made a card or group, the temporary id (n1, web/ids.js) the page gave it,
+// `before`, on a card edit, the page's value of each field the edit changed, and `refused`, set by the apply,
+// the reason it kept the record out. An edit records only the fields that differ from the card as the page had
+// it (the edit form sends the whole card), so the apply can refuse it only for a field changed at the desk
+// since and an unrelated desk edit never blocks it. A refused record stays in the tray and is not replayed
+// (the board does not show a change the apply kept out), and the board load names it. A card or
 // group made in the page takes a temporary id, not the real one the board would allocate; later saves may
 // name it (scripts/temp-ids.js), and a reload gives the same card the same id. Removing a record removes
 // the records that name the temporary id it made. The apply maps each to the real id (scripts/apply-tray.js).
@@ -44,6 +49,13 @@ const pageSourceModule = (() => {
   }
   const TODO_LIST = /^\/api\/todos\/[^/]+$/;
   const TODO_EDIT = /^\/api\/todos\/([^/]+)(?:\/(?:move|indent|outdent))?$/;
+  const CARD_EDIT = /^\/api\/cards\/([^/]+)$/;
+  // The fields of a card's JSON an edit can set (card-store's toJSON).
+  const CARD_FIELDS = ['title', 'status', 'priority', 'parent', 'rank', 'tags', 'waiting_for', 'blocked', 'review', 'prompt', 'assignee', 'type', 'start_date', 'end_date', 'due_date', 'body'];
+  const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
+  // A value as a person would call it the same: an empty text, list or nothing at all is one value, and a
+  // number reads as its text (the form sends a parent as text, the card holds it as a number).
+  const plain = (v) => (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) ? null : Array.isArray(v) ? JSON.stringify(v) : String(v));
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 
@@ -70,9 +82,9 @@ const pageSourceModule = (() => {
       records: () => held.records.slice(),
       // What storage holds now, which another tab of the board may have added to since this page last read.
       latest: () => (read() || held).records.slice(),
-      add(at, change, temp) {
+      add(at, change, temp, before) {
         const stored = read() || held;
-        const record = { id: `${device}-${stored.next}`, at, device, change, ...(temp ? { temp } : {}) };
+        const record = { id: `${device}-${stored.next}`, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) };
         held = { records: [...stored.records, record], next: stored.next + 1 };
         write();
         return record;
@@ -120,6 +132,7 @@ const pageSourceModule = (() => {
   function makePageSource({ route, tray, board, fresh = null, temp = null, now = () => new Date().toISOString() }) {
     let current = route;
     const applied = new Map(); // record id -> the change as the board last replayed it
+    const refusedSeen = new Map(); // record id -> whether it was refused when the board last saw it
     const listeners = [];
 
     function replayRecord(record) {
@@ -143,13 +156,21 @@ const pageSourceModule = (() => {
     // for its own card stays out (temp-ids.js shadowed): the apply makes both.
     function catchUp() {
       const records = tray.records();
+      // A record the apply refused since the board replayed it (or the other way) is not what the board
+      // shows now: show the board again without it.
+      if (fresh && records.some((r) => applied.has(r.id) && refusedSeen.get(r.id) !== !!r.refused)) {
+        current = fresh();
+        applied.clear();
+        refusedSeen.clear();
+      }
       const left = tempIds.shadowed(records, tray.device);
       for (const record of records) {
         const key = JSON.stringify(record.change);
         const had = applied.get(record.id);
         if (had === key) continue;
         applied.set(record.id, key);
-        if (left.has(record.id)) continue;
+        refusedSeen.set(record.id, !!record.refused);
+        if (left.has(record.id) || record.refused) continue;
         if (had === undefined) replayRecord(record);
         else replayRewrite(record);
       }
@@ -182,12 +203,15 @@ const pageSourceModule = (() => {
       const sent = clone(body);
       const list = write ? TODO_EDIT.exec(pathname) : null;
       const folded = list ? foldedChange(list[1]) : null;
+      const edit = write && method === 'PATCH' ? CARD_EDIT.exec(pathname) : null;
+      const held = edit ? cardNow(edit[1]) : null;
       const result = current(method, path, clone(body) || {});
       if (result === null) return { status: 404, json: null, text: 'not found', statusText: 'Not Found' };
       if (result.status >= 200 && result.status < 300 && write) {
-        const record = list ? queueList(list[1], folded, result) : queueSave(method, path, sent, result);
+        const record = list ? queueList(list[1], folded, result) : edit && held ? queueEdit(path, sent, held, result) : queueSave(method, path, sent, result);
         if (record) {
           applied.set(record.id, JSON.stringify(record.change));
+          refusedSeen.set(record.id, !!record.refused);
           if (tray.written) {
             try { await tray.written(record.id); } catch (e) {
               const why = [e && e.code, e && e.message].filter(Boolean).join(': ');
@@ -201,7 +225,7 @@ const pageSourceModule = (() => {
         return reply(200, {
           ...result.body,
           boardDir: '',
-          source: { kind: tray.kind, queued: tray.records().length, base: board.base },
+          source: sourceInfo(),
           ...(board.snapshot ? { snapshot: board.snapshot } : {}),
           settings: lockedSettings(result.body.settings),
         });
@@ -217,6 +241,37 @@ const pageSourceModule = (() => {
       if (held) return { id: held.id, version: held.change.body.version };
       const read = current('GET', at, {});
       return { id: null, version: read && read.status === 200 ? read.body.todos.version : null };
+    }
+
+    // The card `seg` names (a card id in a path) as the board shows it now, or null.
+    function cardNow(seg) {
+      const read = current('GET', '/api/board', {});
+      if (!read || read.status !== 200) return null;
+      const key = String(ids.idKey(seg) === null ? seg : ids.idKey(seg));
+      return read.body.active.concat(read.body.archived).find((c) => String(c.id) === key) || null;
+    }
+
+    // The record of a card edit: only the fields the person changed, as the edit sent them, each with the value
+    // the card had. A field the store changed on its own (a move into todo stamps start_date) or the form sent
+    // as the card already held it is not the person's. An edit that changed none queues nothing.
+    function queueEdit(path, sent, held, result) {
+      const body = {};
+      const before = {};
+      for (const key of CARD_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(sent || {}, key)) continue;
+        if (JSON.stringify(valueOf(held, key)) === JSON.stringify(valueOf(result.body, key))) continue;
+        if (plain(sent[key]) === plain(held[key])) continue;
+        body[key] = sent[key];
+        before[key] = valueOf(held, key);
+      }
+      if (!Object.keys(body).length) return null;
+      return tray.add(now(), { method: 'PATCH', path, body }, undefined, before);
+    }
+
+    function sourceInfo() {
+      const records = tray.records();
+      const refused = records.filter((r) => r.refused).map((r) => ({ id: r.id, reason: r.refused }));
+      return { kind: tray.kind, queued: records.length, ...(refused.length ? { refused } : {}), base: board.base };
     }
 
     function queueSave(method, path, sent, result) {
@@ -342,7 +397,7 @@ const pageSourceModule = (() => {
       get kind() { return found ? found.kind : 'page'; },
       records: () => (found ? found.records() : []),
       latest: () => (found ? found.latest() : []),
-      add: (at, change, temp) => found.add(at, change, temp),
+      add: (at, change, temp, before) => found.add(at, change, temp, before),
       remove: (gone) => found.remove(gone),
       replace: (id, at, change) => found.replace(id, at, change),
       written: (id) => (found.written ? found.written(id) : Promise.resolve()),
