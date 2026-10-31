@@ -659,7 +659,8 @@ function cardEl(card) {
   // status) — status is already implied
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
-  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (paintsSelected(card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
+  const queuedNew = kanbanIds.isTempId(card.id); // made in this page, not on the board yet (its id is temporary)
+  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (queuedNew ? ' queued-new' : '') + (paintsSelected(card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
   el.draggable = !onPhoneLayout(); // a phone swipes between statuses; a touch never starts a native drag
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -695,7 +696,7 @@ function cardEl(card) {
   // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types, state.typesOn)}${parent.badge}</div>` +
+      `<div class="card-head"><span class="card-id">${queuedNew ? card.id : `#${card.id}`}${pb.label ? ` ${pb.label}` : ''}</span>${queuedNew ? '<span class="new-mark" title="Made in this page: not on the board until Claude applies it">new</span>' : ''}${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types, state.typesOn)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
       (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting + parent.bar +
     `</div>` +
@@ -3235,6 +3236,19 @@ function copyBoardPath() {
   } else done(fallbackCopy(text));
 }
 
+// Remove a card made in this page from the queue, with the queued changes that name its temporary id
+// (a child, a note, a group, an archive): the confirm says how many go with it.
+async function unqueueCard(id) {
+  const record = boardSource.recordMaking ? boardSource.recordMaking(id) : null;
+  const plan = record === null ? null : boardSource.removal(record);
+  if (!plan) return;
+  const more = plan.more === 0 ? '' : ` ${plan.more} more queued change${plan.more === 1 ? ' names' : 's name'} it and ${plan.more === 1 ? 'goes' : 'go'} too.`;
+  if (!confirm(`Remove ${id} from the queue?${more}`)) return;
+  boardSource.remove(record);
+  closeCard();
+  await loadBoard();
+}
+
 // Copy changes: the queued changes as the change payload, for Claude to apply (same clipboard ladder as copyBoardPath).
 function copyChanges() {
   const text = boardSource.payload ? boardSource.payload() : '';
@@ -3312,6 +3326,9 @@ async function openDetailModal(id, { quiet, onFail } = {}) {
   $('#detail-copy-btn').dataset.path = data.path || '';
   resetCopyState();
   $('#detail-modified').innerHTML = formatDetailModified(data);
+  const queuedNew = kanbanIds.isTempId(data.id) && !!boardSource.recordMaking && boardSource.recordMaking(data.id) !== null;
+  $('#detail-queued').classList.toggle('hidden', !queuedNew);
+  $('#detail-queued-id').textContent = data.id;
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors($('#detail-frontmatter'));
@@ -3489,6 +3506,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#detail-delete-btn').addEventListener('click', () => {
     if (currentDetailId != null) doDelete(currentDetailId, { onSuccess: closeCard });
   });
+  $('#detail-unqueue-btn').addEventListener('click', () => { if (currentDetailId != null) unqueueCard(currentDetailId); });
   $('#detail-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('detail'));
   $('#detail-modal').addEventListener('click', (e) => { if (e.target.id === 'detail-modal') closeCard(); });
   // Esc priority: fullscreen is out of the Esc picture entirely.

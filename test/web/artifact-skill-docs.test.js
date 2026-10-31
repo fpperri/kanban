@@ -6,7 +6,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { ROOT, read, fenced } = require('./helpers/doc-text');
 const { makeMemoryRoute } = require('../../plugin/skills/web/scripts/memory-route');
-const { makePageSource, makeTrayStore } = require('../../plugin/skills/web/scripts/page-source');
+const { makePageSource, makeTrayStore, boot } = require('../../plugin/skills/web/scripts/page-source');
+const { applyTray } = require('../../plugin/skills/web/scripts/apply-tray');
 const { routeSources } = require('./helpers/route-sources');
 
 // What the artifact skill's SKILL.md tells a person or an agent to run or parse: the build command, with
@@ -44,6 +45,25 @@ test('the change payload the skill shows is the one the page copies: its header 
   assert.strictEqual(shape(realHead), docHead);
   const keysOf = (records) => records.map((r) => [Object.keys(r).sort(), Object.keys(r.change).sort()]);
   assert.deepStrictEqual(keysOf(JSON.parse(docRest.join('\n'))), keysOf(JSON.parse(realRest.join('\n'))));
+});
+
+test('the skill names the temp key a record carries for a card made in the page, and the temp map the apply reports', async () => {
+  const map = new Map();
+  const storage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, v); } };
+  const src = boot({ board: { name: 'n', id: 'x', base: '2026-10-31T00:00:00.000Z' }, sources: routeSources(), files: { '/p/.kanban/config.yaml': 'name: n\nnextId: 5\n' }, dir: '/p/.kanban' }, { storage, device: 'dev' });
+  await src.request('POST', '/api/cards', { title: 'Made in the page' });
+  const [record] = src.records();
+  assert.strictEqual(record.temp, 'n1');
+  assert.ok(DOC.includes('temp?'), 'the doc lists temp among the keys of a record');
+  assert.ok(DOC.includes('"temp": "n1"'), 'the doc shows the key as the page writes it');
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-')), '.kanban');
+  fs.mkdirSync(dir);
+  try {
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: n\nnextId: 5\n');
+    const report = applyTray({ dir, records: src.records() });
+    assert.deepStrictEqual(report.temp, { n1: '5' });
+    assert.ok(DOC.includes('`temp` in the `--json` report'), 'the doc names the key of the report');
+  } finally { fs.rmSync(path.dirname(dir), { recursive: true, force: true }); }
 });
 
 test('the skill description names the header the page copies, so a payload from a file reaches the apply here and not the Snapshot protocol', () => {
