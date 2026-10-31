@@ -15,8 +15,8 @@ function tmpBoard() {
   return dir;
 }
 
-async function overHttp(dir, method, url, body) {
-  const srv = createServer(dir);
+async function overHttp(dir, method, url, body, homeUrl = null) {
+  const srv = createServer(dir, undefined, homeUrl);
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   try {
     const res = await fetch(`http://127.0.0.1:${srv.address().port}${url}`, {
@@ -28,12 +28,15 @@ async function overHttp(dir, method, url, body) {
   } finally { srv.close(); }
 }
 
-test('route answers the board load with no port', () => {
+test('route answers the board load with no port, as the server does', async () => {
   const dir = tmpBoard();
-  const { status, body } = makeRoute(dir, { homeUrl: 'http://example.test/' })('GET', '/api/board');
-  assert.strictEqual(status, 200);
-  assert.deepStrictEqual(body.active.map((c) => c.id).sort(), ['1', '2']);
-  assert.strictEqual(body.homeUrl, 'http://example.test/');
+  const homeUrl = 'http://example.test/';
+  const viaRoute = makeRoute(dir, { homeUrl })('GET', '/api/board');
+  assert.strictEqual(viaRoute.status, 200);
+  assert.deepStrictEqual(viaRoute.body.active.map((c) => c.id).sort(), ['1', '2']);
+  assert.strictEqual(viaRoute.body.homeUrl, homeUrl);
+  const viaServer = await overHttp(dir, 'GET', '/api/board', undefined, homeUrl);
+  assert.deepStrictEqual({ status: viaRoute.status, body: viaRoute.body }, viaServer);
 });
 
 test('route creates a card and moves it, answering what the server answers', async () => {
@@ -52,7 +55,7 @@ test('route creates a card and moves it, answering what the server answers', asy
   assert.strictEqual(move.status, 200);
   assert.strictEqual(move.body.status, 'doing');
   assert.strictEqual(move.status, moved.status);
-  assert.strictEqual(move.body.status, moved.body.status);
+  assert.deepStrictEqual(strip(move.body), strip(moved.body));
 });
 
 test('route refuses a doing-gate move with the 422 and the waiting ids the server gives', async () => {
