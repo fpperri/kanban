@@ -102,6 +102,8 @@
     <button id="prefs-btn" type="button" class="prefs-btn" data-keeps-selection aria-haspopup="dialog" aria-expanded="false" title="Preferences" aria-label="Preferences">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
     </button>
+    <span id="queued-pill" class="queued-pill hidden" role="status" title="Saves queued in this page, not yet applied to the board"></span>
+    <button type="button" id="copy-changes-btn" class="copy-changes-btn hidden" data-keeps-selection title="Copy the queued saves, for Claude to apply to the board">Copy changes</button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
   <!-- The phone header's More button and menu (more-menu.js): the stylesheet draws them under 760 px only. The menu holds what the desktop header shows, so the home link and the iteration picker are hidden unless the board has them. -->
@@ -605,6 +607,7 @@
   </aside>
 </div>
 
+<script src="/board-source.js"></script>
 <script src="/ids.js"></script>
 <script src="/explore-sets.js"></script>
 <script src="/hover-show.js"></script>
