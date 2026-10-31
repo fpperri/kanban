@@ -54,6 +54,7 @@ function makeRoute(dir, { homeUrl = null } = {}) {
         // preference, so renaming the field would orphan saved state.
         projectName: boardName(dir, config),
         homeUrl,
+        source: { kind: 'server', queued: 0 }, // where the board is answered from: the server here; a page that carries its board says page, and how many saves it has queued
         // the header copy button copies the board dir's ABSOLUTE
         // path — resolve()d because the CLI defaults dir to a relative
         // '.kanban'/'kanban' (resolveDefaultBoardDir()), and a relative

@@ -553,23 +553,12 @@ function openFullscreenModalType() {
   return null;
 }
 
-async function api(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  const isJson = (res.headers.get('content-type') || '').includes('application/json');
-  let json = null;
-  if (isJson && text) {
-    try { json = JSON.parse(text); } catch (e) { json = null; } // malformed JSON body falls back to status+text below
-  }
-  if (!res.ok) {
-    const msg = (json && json.error) || `${res.status} — ${text || res.statusText}`;
-    throw Object.assign(new Error(msg), { status: res.status, data: json });
-  }
-  return json;
+// api() asks a board source (board-source.js): the server, through fetch, unless the page carries its
+// board, in which case the script that built it set its own source before this one runs.
+const boardSource = window.kanbanSourceInUse || window.kanbanBoardSource.serverSource((...args) => fetch(...args));
+
+function api(method, path, body) {
+  return window.kanbanBoardSource.call(boardSource, method, path, body);
 }
 
 function toast(msg) {
@@ -2181,6 +2170,15 @@ function applyProjectName(name) {
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 
+// A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
+// header says how many are queued and offers them to be copied. Hidden when none are, and always on the server.
+function applyQueued(source) {
+  const n = source && source.kind === 'page' ? source.queued : 0;
+  $('#queued-pill').textContent = `${n} queued`;
+  $('#queued-pill').classList.toggle('hidden', n === 0);
+  $('#copy-changes-btn').classList.toggle('hidden', n === 0);
+}
+
 function applyHomeUrl(url) {
   const link = $('#home-link');
   if (!link) return;
@@ -2234,6 +2232,7 @@ function applyBoardData(data) {
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
   state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
+  applyQueued(data.source);
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
   state.scratchpad = data.scratchpad || null; // { folder, targets } when config.yaml has a scratchpad: line, else null and nothing of it shows (scratchpad-ui.js); targets are the ids that have a page
   state.todos = data.todos || null; // { folder, targets, counts } when config.yaml has a todos: line, else null and nothing of it shows (todos-ui.js); counts are { id: { open, total } }, read by the card tiles
@@ -2663,6 +2662,7 @@ window.addEventListener('DOMContentLoaded', () => {
     $('#toast').classList.add('hidden');
   });
   $('#board-copy-btn').addEventListener('click', copyBoardPath);
+  $('#copy-changes-btn').addEventListener('click', copyChanges);
   $('#refresh-btn').addEventListener('click', () =>
     loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message)));
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
@@ -3231,6 +3231,16 @@ function copyBoardPath() {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     // Rejection (permissions, non-secure context) retries through the
     // fallback before reporting — same ladder as copyDetailPath above.
+    navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
+  } else done(fallbackCopy(text));
+}
+
+// Copy changes: the queued changes as the change payload, for Claude to apply (same clipboard ladder as copyBoardPath).
+function copyChanges() {
+  const text = boardSource.payload ? boardSource.payload() : '';
+  if (!text) return;
+  const done = (ok) => toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
   } else done(fallbackCopy(text));
 }
