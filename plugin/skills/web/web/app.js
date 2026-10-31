@@ -2203,6 +2203,15 @@ function applyQueued(source) {
   $('#copy-changes-btn').classList.toggle('hidden', n === 0);
 }
 
+// A page built with a Snapshot query says it in the header, so it is plain which cards it carries. The server's
+// board load has no such field and the label stays hidden.
+function applySnapshotQuery(snapshot) {
+  const el = $('#snapshot-query');
+  const label = snapshot && snapshot.label ? snapshot.label : '';
+  el.textContent = label;
+  el.classList.toggle('hidden', label === '');
+}
+
 function applyHomeUrl(url) {
   const link = $('#home-link');
   if (!link) return;
@@ -2257,6 +2266,7 @@ function applyBoardData(data) {
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
   state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
   applyQueued(data.source);
+  applySnapshotQuery(data.snapshot);
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
   state.scratchpad = data.scratchpad || null; // { folder, targets } when config.yaml has a scratchpad: line, else null and nothing of it shows (scratchpad-ui.js); targets are the ids that have a page
   state.todos = data.todos || null; // { folder, targets, counts } when config.yaml has a todos: line, else null and nothing of it shows (todos-ui.js); counts are { id: { open, total } }, read by the card tiles

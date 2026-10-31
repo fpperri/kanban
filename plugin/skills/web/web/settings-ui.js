@@ -829,7 +829,8 @@ function settingsRenderBoard() {
     const where = settingsPageReads(current.id, state.settings);
     const reads = where ? settingsPathNode(where.path, where.kind) : null;
     const now = settingsPathNowNode(current.id, where);
-    panel.replaceChildren(settingsEl('p', 'prefs-eyebrow', 'This board · written to config.yaml'), title, ...(reads ? [reads] : []), ...(now ? [now] : []), ...current.build(state.settings));
+    const locked = state.settings.lock ? [settingsEl('p', 'prefs-note prefs-desk-lock', `Locked. ${state.settings.lock}: the gear reads config.yaml here and does not save it.`)] : [];
+    panel.replaceChildren(settingsEl('p', 'prefs-eyebrow', 'This board · written to config.yaml'), title, ...locked, ...(reads ? [reads] : []), ...(now ? [now] : []), ...current.build(state.settings));
     paintTypeColors(panel);
   } else {
     panel.replaceChildren();

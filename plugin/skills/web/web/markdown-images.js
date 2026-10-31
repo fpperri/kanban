@@ -6,6 +6,9 @@
 // onerror attribute: an error does not bubble, so one listener on the document captures it.
 
 function cardImageSrc(card, path) {
+  // A board source that holds no pictures (a page that carries its board keeps text files only) gives no
+  // address, so the renderer draws the alt text and nothing asks for a file that is not there.
+  if (typeof window !== 'undefined' && window.kanbanSourceInUse && window.kanbanSourceInUse.pictures === false) return '';
   return `/api/cards/${encodeURIComponent(card)}/image?path=${encodeURIComponent(path)}`;
 }
 
