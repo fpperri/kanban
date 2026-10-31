@@ -9,7 +9,7 @@
 //
 // openTray({ db, device, board, storage, timeoutMs, retryMs }) reads the collection once and resolves the tray,
 // or rejects when the database cannot be read in time (the caller then keeps the queue in browser
-// storage). The tray has the same face as the browser-storage tray (records(), add(at, change)) plus
+// storage). The tray has the same face as the browser-storage tray (records(), add({ at, change, temp, before })) plus
 // written(id), a promise for the write of a record that add() returned, and subscribe(fn), told when the
 // set of records changed from outside this page (another device wrote one, Claude deleted the applied
 // ones, the apply marked one refused). Same dual-environment pattern as ids.js: required by node --test,
@@ -65,6 +65,12 @@ const artifactTrayModule = (() => {
         return n;
       },
     };
+  }
+
+  // The record a tray holds for a change: { id, at, device, change, temp?, before? }, the same in browser
+  // storage and in the database.
+  function makeRecord(id, device, { at, change, temp, before }) {
+    return { id, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) };
   }
 
   async function openTray({ db, device, board, storage, timeoutMs, retryMs = 1000 }) {
@@ -144,9 +150,8 @@ const artifactTrayModule = (() => {
       records: () => [...held.values()].sort(byTime),
       device,
       latest: () => [...held.values()].sort(byTime),
-      add(at, change, temp, before) {
-        const id = `${device}-${take()}`;
-        return put({ id, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) });
+      add(change) {
+        return put(makeRecord(`${device}-${take()}`, device, change));
       },
       // The records `gone` leave the tray, and their documents are deleted.
       remove(gone) {
@@ -161,7 +166,7 @@ const artifactTrayModule = (() => {
       // document is written again. A record that is no longer held (the apply deleted it) is added as a new one.
       replace(id, at, change) {
         const had = held.get(id);
-        if (!had) return this.add(at, change);
+        if (!had) return this.add({ at, change });
         return put({ ...had, change });
       },
       written: (id) => writes.get(id) || Promise.resolve(),
@@ -169,7 +174,7 @@ const artifactTrayModule = (() => {
     };
   }
 
-  return { openTray, withTimeout, makeNumbers, COLLECTION };
+  return { openTray, withTimeout, makeNumbers, makeRecord, COLLECTION };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

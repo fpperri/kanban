@@ -82,10 +82,10 @@ const pageSourceModule = (() => {
       records: () => held.records.slice(),
       // What storage holds now, which another tab of the board may have added to since this page last read.
       latest: () => (read() || held).records.slice(),
-      add(at, change, temp, before) {
+      add(change) {
         const stored = read() || held;
         const n = numbers ? numbers.take(stored.next) : stored.next;
-        const record = { id: `${device}-${n}`, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) };
+        const record = artifactTray.makeRecord(`${device}-${n}`, device, change);
         held = { records: [...stored.records, record], next: n + 1 };
         write();
         return record;
@@ -98,7 +98,7 @@ const pageSourceModule = (() => {
       // The record `id` takes `change`, keeping its id and its place in the tray.
       replace(id, at, change) {
         const stored = read() || held;
-        if (!stored.records.some((r) => r.id === id)) return this.add(at, change);
+        if (!stored.records.some((r) => r.id === id)) return this.add({ at, change });
         held = { records: stored.records.map((r) => (r.id === id ? { ...r, at, change } : r)), next: stored.next };
         write();
         return held.records.find((r) => r.id === id);
@@ -111,7 +111,7 @@ const pageSourceModule = (() => {
   // The temporary ids a page hands out: allocate() answers the next one no record of the tray holds
   // (read from storage as it is now), unless expect(id) named the one the next create must take, which is
   // how a reload gives a card the id its record says it made.
-  function makeTempIds(tray) {
+  function makeTempAllocator(tray) {
     let expected = null;
     return {
       expect(id) { expected = id || null; },
@@ -160,9 +160,7 @@ const pageSourceModule = (() => {
       // A record the apply refused since the board replayed it (or the other way) is not what the board
       // shows now: show the board again without it.
       if (fresh && records.some((r) => applied.has(r.id) && refusedSeen.get(r.id) !== !!r.refused)) {
-        current = fresh();
-        applied.clear();
-        refusedSeen.clear();
+        reshow();
       }
       const left = tempIds.shadowed(records, tray.device);
       for (const record of records) {
@@ -175,6 +173,13 @@ const pageSourceModule = (() => {
         if (had === undefined) replayRecord(record);
         else replayRewrite(record);
       }
+    }
+
+    // The board shown again over the embedded board as it was built, with nothing replayed yet.
+    function reshow() {
+      current = fresh();
+      applied.clear();
+      refusedSeen.clear();
     }
 
     let started = null;
@@ -266,7 +271,7 @@ const pageSourceModule = (() => {
         before[key] = valueOf(held, key);
       }
       if (!Object.keys(body).length) return null;
-      return tray.add(now(), { method: 'PATCH', path, body }, undefined, before);
+      return tray.add({ at: now(), change: { method: 'PATCH', path, body }, before });
     }
 
     function sourceInfo() {
@@ -277,13 +282,13 @@ const pageSourceModule = (() => {
 
     function queueSave(method, path, sent, result) {
       const made = tempIds.createdId(method, path, result.body);
-      return tray.add(now(), { method, path, body: sent === undefined ? {} : sent }, ids.isTempId(made) ? made : undefined);
+      return tray.add({ at: now(), change: { method, path, body: sent === undefined ? {} : sent }, temp: ids.isTempId(made) ? made : undefined });
     }
 
     function queueList(target, folded, result) {
       if (folded.version === null || !result.body || !result.body.todos) return null;
       const change = { method: 'PUT', path: `/api/todos/${target}`, body: { text: result.body.todos.text, version: folded.version } };
-      return folded.id === null ? tray.add(now(), change) : tray.replace(folded.id, now(), change);
+      return folded.id === null ? tray.add({ at: now(), change }) : tray.replace(folded.id, now(), change);
     }
 
     function payload() {
@@ -305,8 +310,7 @@ const pageSourceModule = (() => {
       if (!plan) return [];
       if (!fresh) throw new Error('this page source cannot show the board again, so it cannot remove a record');
       tray.remove(plan.ids);
-      current = fresh();
-      applied.clear();
+      reshow();
       catchUp();
       return plan.ids;
     }
@@ -317,8 +321,7 @@ const pageSourceModule = (() => {
       if (!gone.length) return [];
       if (!fresh) throw new Error('this page source cannot show the board again, so it cannot discard the tray');
       tray.remove(gone);
-      current = fresh();
-      applied.clear();
+      reshow();
       catchUp();
       return gone;
     }
@@ -385,25 +388,26 @@ const pageSourceModule = (() => {
     }
   }
 
+  // A tray that has to be found first (the artifact's database answers later than the page starts): until
+  // `ready` it holds nothing, and after it every call goes to the tray found. A tray that has no `written`
+  // or `subscribe` of its own (browser storage) shows none.
   function deferTray(find, device) {
     let found = null;
     const listeners = [];
+    const waiting = { kind: 'page', records: () => [], latest: () => [] };
     const ready = find().then((tray) => {
       found = tray;
       if (tray.subscribe) tray.subscribe(() => { for (const fn of listeners.slice()) fn(); });
     });
-    return {
-      ready,
-      device,
-      get kind() { return found ? found.kind : 'page'; },
-      records: () => (found ? found.records() : []),
-      latest: () => (found ? found.latest() : []),
-      add: (at, change, temp, before) => found.add(at, change, temp, before),
-      remove: (gone) => found.remove(gone),
-      replace: (id, at, change) => found.replace(id, at, change),
-      written: (id) => (found.written ? found.written(id) : Promise.resolve()),
-      subscribe(fn) { listeners.push(fn); },
-    };
+    const own = { ready, device, subscribe(fn) { listeners.push(fn); } };
+    return new Proxy(own, {
+      get(target, key) {
+        if (key in target) return target[key];
+        const tray = found || waiting;
+        const value = tray[key];
+        return typeof value === 'function' ? value.bind(tray) : value;
+      },
+    });
   }
 
   // The source for the data a built page embeds: { board: { name, id, base }, sources, files, dir }.
@@ -415,12 +419,12 @@ const pageSourceModule = (() => {
     const tray = claude && typeof claude.use === 'function'
       ? deferTray(() => pickTray({ claude, storage, board: data.board, device: label, timeoutMs, retryMs }), label)
       : makeTrayStore(storage, trayKey(data.board), label, artifactTray.makeNumbers({ storage, board: data.board, device: label }));
-    const temp = makeTempIds(tray);
+    const temp = makeTempAllocator(tray);
     const fresh = () => makeMemoryRoute(data.sources, { files: data.files, dir: data.dir, newId: temp.allocate, ...given }).route;
     return makePageSource({ route: fresh(), fresh, tray, board: data.board, temp });
   }
 
-  return { makePageSource, makeTrayStore, makeTempIds, deviceLabel, trayKey, boot };
+  return { makePageSource, makeTrayStore, makeTempAllocator, deviceLabel, trayKey, boot };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
