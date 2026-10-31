@@ -17,7 +17,7 @@
 //   todos      the scratchpad board with a todos: line naming the scratchpad's own folder, a todo list for card 7 beside its page and one for group I2
 //   markdown   the fixture board plus card 22, whose body holds the rich Markdown the detail popup draws
 //   images     the fixture board plus card 25, whose body holds a picture that can be sent, an svg, a missing file and a remote address
-//   padfolder  the fixture board with a scratchpad: line that holds <card>, and card 7's own folder: its page, plan.md (with a picture), build.log, notes.txt, shot.png, blob.bin (binary) and sub/deep.txt
+//   padfolder  the fixture board with a scratchpad: line that holds <card>, and card 7's own folder: its page, plan.md (with a picture), build.log, notes.txt, shot.png, blob.bin (binary), late.txt (text for 9000 bytes, then a NUL) and sub/deep.txt
 //   calnotes   the notes board with two more notes, so one half hour holds two and one day holds two untimed
 //   iterations the groups board with iterations: true, so the header has the iteration dropdown
 //   iterlog    the groups board whose logbook: and scratchpad: paths name the <iteration> folder (docs/adr/0019)

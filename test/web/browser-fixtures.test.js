@@ -410,7 +410,7 @@ test('padfolder board: the fixture board whose scratchpad path holds <card>, wit
   assert.strictEqual(b.config.name, 'padfolder');
   assert.strictEqual(b.config.scratchpad, '.pads/<card>');
   const folder = path.join(b.dir, '.pads', '0007.port-the-zephyr-schema');
-  assert.deepStrictEqual(fs.readdirSync(folder).sort(), ['0007.scratchpad.md', 'blob.bin', 'build.log', 'notes.txt', 'plan.md', 'shot.png', 'sub']);
+  assert.deepStrictEqual(fs.readdirSync(folder).sort(), ['0007.scratchpad.md', 'blob.bin', 'build.log', 'late.txt', 'notes.txt', 'plan.md', 'shot.png', 'sub']);
   assert.deepStrictEqual(fs.readdirSync(path.join(folder, 'sub')), ['deep.txt']);
   assert.ok(/!\[the shot\]\(shot\.png\)/.test(fs.readFileSync(path.join(folder, 'plan.md'), 'utf8')), 'plan.md holds a picture beside it');
   assert.deepStrictEqual(listTargets(b.dir), ['7']);

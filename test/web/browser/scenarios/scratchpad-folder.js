@@ -42,9 +42,10 @@ module.exports = {
   name: 'scratchpad-folder',
   board: 'padfolder',
   timeoutMs: 120000,
-  expectedErrors: [/status of (403 \(Forbidden\)|409 \(Conflict\)).*\/api\/scratchpad\/7\/file/],
+  expectedErrors: [/status of (403 \(Forbidden\)|409 \(Conflict\)).*\/api\/scratchpad\/7\/file/,
+    /status of 400 \(Bad Request\).*\/api\/scratchpad\/7\/move/],
   async run(page) {
-    const { ev, open, waitFor, check, rightClick, key, shot, send, sleep } = page;
+    const { ev, open, waitFor, check, rightClick, key, shot, send, sleep, centre, click } = page;
     const press = (sel) => ev(`(()=>{const b=document.querySelector(${JSON.stringify(sel)});if(!b||b.disabled||b.hidden)return false;b.click();return true})()`);
     const menuUp = () => waitFor(`!document.getElementById('context-menu').classList.contains('hidden')`, 2500);
     const typeInto = (sel, text) => ev(`(()=>{const t=document.querySelector(${JSON.stringify(sel)});t.focus();t.value=${JSON.stringify(text)};t.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
@@ -71,9 +72,10 @@ module.exports = {
     check('scratchpad-folder: card 7\'s Scratchpad tab opens', await waitFor(READY, 4000));
 
     // --- the explorer beside the editor, the page selected ---------------------------------------------------------------------------
-    check('scratchpad-folder: the list shows the page first, then the folder, then the files', await waitFor(`${NAMES}==='${PAGE},sub/,blob.bin,build.log,notes.txt,plan.md,shot.png'`, 4000), await ev(NAMES));
+    check('scratchpad-folder: the list shows the page first, then the folder, then the files', await waitFor(`${NAMES}==='${PAGE},sub/,blob.bin,build.log,late.txt,notes.txt,plan.md,shot.png'`, 4000), await ev(NAMES));
     check('scratchpad-folder: the page is selected and named in the header, its folder beside it with no doubled slash', await ev(`${SELECTED}===${JSON.stringify(PAGE)}&&${NAME}===${JSON.stringify(PAGE)}&&!/\\/\\//.test(${WHERE})&&${WHERE}.length>0`), [await ev(SELECTED), await ev(NAME), await ev(WHERE)]);
     check('scratchpad-folder: the page\'s refs are one compact line under the header', await ev(`(()=>{const r=document.querySelector('#notes-palette .sp-refs');const items=r.querySelectorAll('li');return !r.hidden&&items.length===2&&Math.abs(items[0].getBoundingClientRect().top-items[1].getBoundingClientRect().top)<4})()`));
+    check('scratchpad-folder: the header\'s file name and the crumb carry their full names as titles', await ev(`document.querySelector('#notes-palette .sp-name').title===${JSON.stringify(PAGE)}&&document.querySelector('#notes-palette .spf-crumb').title==='card folder'`));
     const PAGE_TEXT = await ev(`${BOX}.value`);
     check('scratchpad-folder: the page\'s text is in the box', PAGE_TEXT.startsWith('check the enum renames'), PAGE_TEXT);
     check('scratchpad-folder: the list is a column of 13 to 18rem left of the editor, and both reach the foot of the tab', await ev(`(()=>{const l=document.querySelector('#notes-palette .spf').getBoundingClientRect();const m=document.querySelector('#notes-palette .sp-main').getBoundingClientRect();const em=parseFloat(getComputedStyle(document.documentElement).fontSize);const sp=document.querySelector('#notes-palette .sp-split').getBoundingClientRect();return l.right<=m.left+1&&l.width>=12.5*em&&l.width<=18.5*em&&Math.abs(l.bottom-sp.bottom)<3&&Math.abs(m.bottom-sp.bottom)<3&&Math.abs(l.top-m.top)<8})()`));
@@ -88,6 +90,8 @@ module.exports = {
     check('scratchpad-folder: the row of the page opens no menu', await ev(`!${MENU}`));
     check('scratchpad-folder: a picture\'s row offers Copy path only', await menuOn('shot.png') && await ev(`${ACTS}==='copy'`) && await closeMenu());
     check('scratchpad-folder: a binary file\'s row offers Copy path only', await menuOn('blob.bin') && await ev(`${ACTS}==='copy'`) && await closeMenu());
+    check('scratchpad-folder: late.txt (text for 9000 bytes, then a NUL) is called text by the list, so its row offers the text menu', await menuOn('late.txt') && await ev(`${ACTS}==='rename,move,remove'`) && await closeMenu());
+    check('scratchpad-folder: opened, it is view only, and its row menu is Copy path only from then on', await select('late.txt') && await ev(`!!${VIEWER}&&!${VIEWER}.hidden&&document.querySelector('#notes-palette .md-edit').hidden`) && await menuOn('late.txt') && await ev(`${ACTS}==='copy'`) && await closeMenu());
     check('scratchpad-folder: a text file\'s row offers Rename, Move to and Delete, and the Menu key opens it too', await menuOn('notes.txt') && await ev(`${ACTS}==='rename,move,remove'`) && await closeMenu());
     await ev(`document.querySelector(${JSON.stringify(row('notes.txt'))}).focus()`);
     await key('F10', { shift: true });
@@ -210,6 +214,16 @@ module.exports = {
     check('scratchpad-folder: renamed to b.md, the file shows b.md with the unsaved text carried to it', await waitFor(`${NAME}==='b.md'&&${SELECTED}==='b.md'&&${BOX}.value==='draft for a'`, 6000) && fs.existsSync(path.join(folder, 'b.md')) && !fs.existsSync(path.join(folder, 'a.md')));
     check('scratchpad-folder: a new a.md then opens empty, with no draft of the old a.md', await newFile('a') && await ev(`${BOX}.value===''`));
     check('scratchpad-folder: Esc in the rename field leaves the name', await menuOn('a.md') && await press(act('rename')) && await waitFor(`!!document.querySelector('.spf-rename')`, 3000) && await (async () => { await typeInto('#notes-palette .spf-rename', 'zzz.md'); await key('Escape'); return waitFor(`!document.querySelector('.spf-rename')&&${NAMES}.includes('a.md')`, 2000); })() && !fs.existsSync(path.join(folder, 'zzz.md')));
+    const renameBy = async (rel, to) => {
+      if (!(await menuOn(rel)) || !(await press(act('rename')))) return false;
+      await waitFor(`!!document.querySelector('.spf-rename')`, 3000);
+      await typeInto('#notes-palette .spf-rename', to);
+      await ev(`${BOX}.focus()`); // a press elsewhere: the field loses the focus
+      return true;
+    };
+    check('scratchpad-folder: a rename commits when the field loses the focus', await renameBy('a.md', 'c.md') && await waitFor(`${NAMES}.split(',').includes('c.md')&&!${NAMES}.split(',').includes('a.md')&&!document.querySelector('.spf-rename')`, 4000) && fs.existsSync(path.join(folder, 'c.md')) && !fs.existsSync(path.join(folder, 'a.md')));
+    check('scratchpad-folder: and back again the same way', await renameBy('c.md', 'a.md') && await waitFor(`${NAMES}.split(',').includes('a.md')&&!${NAMES}.split(',').includes('c.md')`, 4000) && fs.existsSync(path.join(folder, 'a.md')));
+    check('scratchpad-folder: a name the server refuses keeps the field open with the message, and Esc cancels it', await renameBy('a.md', 'con.md') && await waitFor(`!!document.querySelector('.spf-rename')&&/reserved/i.test(document.getElementById('toast').textContent)&&document.activeElement.classList.contains('spf-rename')`, 4000) && fs.existsSync(path.join(folder, 'a.md')) && !fs.existsSync(path.join(folder, 'con.md')) && await (async () => { await key('Escape'); return waitFor(`!document.querySelector('.spf-rename')&&${NAMES}.split(',').includes('a.md')&&!${PAL_GONE}`, 3000); })());
     await select('b.md');
     check('scratchpad-folder: b.md still holds its draft after the switch', await ev(`${BOX}.value==='draft for a'`));
 
@@ -278,6 +292,16 @@ module.exports = {
     check('scratchpad-folder: in a narrow tab the explorer is a line above the editor, naming the selected file', await waitFor(`(()=>{const l=document.querySelector('#notes-palette .spf-pick').getBoundingClientRect();const m=document.querySelector('#notes-palette .sp-main').getBoundingClientRect();return l.width>0&&l.bottom<=m.top+1&&document.querySelector('#notes-palette .spf-pick-name').textContent===${JSON.stringify(PAGE)}&&getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='none'})()`, 3000));
     await press('#notes-palette .spf-pick');
     check('scratchpad-folder: its arrow opens the list over the editor', await waitFor(`getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='flex'&&document.querySelector('#notes-palette .spf-panel').getBoundingClientRect().top<document.querySelector('#notes-palette .sp-main').getBoundingClientRect().top+80`, 3000));
+    const PANEL_OPEN = `getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='flex'`;
+    const boxAt = async () => { const at = await centre('#notes-palette .sp-main'); await click(at.x, at.y + 60); };
+    await boxAt();
+    check('scratchpad-folder: a press on the editor shuts the list', await waitFor(`!(${PANEL_OPEN})&&document.querySelector('#notes-palette .spf-pick').getAttribute('aria-expanded')==='false'`, 3000));
+    await press('#notes-palette .spf-pick');
+    await waitFor(PANEL_OPEN, 3000);
+    await key('Escape');
+    check('scratchpad-folder: Esc shuts only the list, the palette stays and the focus is on the bar', await waitFor(`!(${PANEL_OPEN})&&!(${PAL_GONE})&&document.activeElement===document.querySelector('#notes-palette .spf-pick')`, 3000));
+    await press('#notes-palette .spf-pick');
+    await waitFor(PANEL_OPEN, 3000);
     await press(row('notes.txt'));
     check('scratchpad-folder: choosing a file there shuts the list and names it on the line', await waitFor(`${NAME}==='notes.txt'&&getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='none'&&document.querySelector('#notes-palette .spf-pick-name').textContent==='notes.txt'`, 4000));
     await ev(`(()=>{document.querySelector('#notes-palette .sp-cq').style.width='';return true})()`);
@@ -291,7 +315,13 @@ module.exports = {
     await press('#notes-palette .spf-pick');
     check('scratchpad-folder: at 390 wide the list opens over the editor and fits', await waitFor(`(()=>{const r=document.querySelector('#notes-palette .spf-panel').getBoundingClientRect();return getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='flex'&&r.right<=window.innerWidth&&r.left>=0})()`, 3000));
     await shot('scratchpad-folder-phone-list');
+    const phoneBox = await centre('#notes-palette .sp-main');
+    await click(phoneBox.x, phoneBox.y + 200);
+    check('scratchpad-folder: at 390 wide a press on the editor shuts the list', await waitFor(`getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='none'`, 3000));
     await press('#notes-palette .spf-pick');
+    await waitFor(`getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='flex'`, 3000);
+    await key('Escape');
+    check('scratchpad-folder: at 390 wide Esc shuts only the list', await waitFor(`getComputedStyle(document.querySelector('#notes-palette .spf-panel')).display==='none'&&!(${PAL_GONE})`, 3000));
     await metrics(1800, 1000);
 
     check('scratchpad-folder: the other files and the page are as they were', onDisk('notes.txt') === 'edited note\n' && onDisk(PAGE).includes('check the enum renames') && fs.existsSync(path.join(folder, 'sub', 'deep.txt')));

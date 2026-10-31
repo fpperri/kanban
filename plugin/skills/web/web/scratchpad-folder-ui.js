@@ -254,7 +254,7 @@ function scratchFolderPanel(target, hooks) {
       } catch (err) {
         toast(err.message);
         sending = false;
-        if (byKey) input.focus();
+        input.focus();
       }
     };
     input.addEventListener('keydown', (ev) => {
