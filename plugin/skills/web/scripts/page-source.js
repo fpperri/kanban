@@ -128,7 +128,14 @@ const pageSourceModule = (() => {
       return `Apply kanban changes (board ${JSON.stringify(board.name)}, base ${board.base}, ${n} change${n === 1 ? '' : 's'}):\n${JSON.stringify(records, null, 2)}`;
     }
 
-    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload };
+    // What the tray holds, whole: the leaving guard compares it with the one a copy took, so an edit folded
+    // into a record already copied, or a record gone, counts as a change. Empty when nothing is queued.
+    function fingerprint() {
+      const records = tray.records();
+      return records.length ? JSON.stringify(records) : '';
+    }
+
+    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload, fingerprint };
   }
 
   // A label for this browser, kept in storage so its changes carry one name across reloads.

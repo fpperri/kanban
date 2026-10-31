@@ -3277,8 +3277,9 @@ function copyBoardPath() {
 // The listener is on only while there is something to ask about: a page with a beforeunload listener takes a
 // round trip through the page before it can leave, and some browsers keep it out of their back/forward cache.
 let leaveGuardOn = false;
+const trayFingerprint = () => (boardSource.fingerprint ? boardSource.fingerprint() : '');
 function syncLeaveGuard() {
-  const asks = !!saveGuard.leaving(boardSourceInfo);
+  const asks = !!saveGuard.leaving(boardSourceInfo, trayFingerprint());
   if (asks === leaveGuardOn) return;
   leaveGuardOn = asks;
   if (asks) window.addEventListener('beforeunload', askBeforeLeaving);
@@ -3286,7 +3287,7 @@ function syncLeaveGuard() {
 }
 
 function askBeforeLeaving(e) {
-  if (!saveGuard.leaving(boardSourceInfo)) return;
+  if (!saveGuard.leaving(boardSourceInfo, trayFingerprint())) return;
   e.preventDefault();
   e.returnValue = 'Changes are not saved yet. Leaving now may lose them.';
 }
@@ -3295,9 +3296,9 @@ function askBeforeLeaving(e) {
 function copyChanges() {
   const text = boardSource.payload ? boardSource.payload() : '';
   if (!text) return;
-  const count = boardSource.records().length;
+  const copied = boardSource.fingerprint();
   const done = (ok) => {
-    if (ok) { saveGuard.sent(count); syncLeaveGuard(); }
+    if (ok) { saveGuard.sent(copied); syncLeaveGuard(); }
     toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {

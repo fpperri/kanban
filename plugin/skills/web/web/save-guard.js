@@ -1,9 +1,10 @@
 'use strict';
 // What the header's activity mark and the leaving guard read. makeSaveGuard counts the saves in flight
 // (the page tracks every write api() sends, on every board source) and, for a downloaded file, how many of
-// its queued changes have left the page by a copy or a save. leaving() says why the page should ask before
-// it goes: 'saving' while any save is in flight; 'unsent' when a file's queue is longer than the last copy
-// or save. A Board artifact keeps its queue in its database and the desk Web writes to the board, so for
+// what its tray held at the last copy or save (the tray's fingerprint, page-source.js: its records whole, so an
+// edit folded into a record already copied, or a record gone, shows). leaving() says why the page should ask
+// before it goes: 'saving' while any save is in flight; 'unsent' when a file's tray is not what the last copy
+// or save took. A Board artifact keeps its queue in its database and the desk Web writes to the board, so for
 // them only a save in flight asks. asOfLabel is the word Refresh wears in a page that carries its board.
 // Same dual-environment pattern as ids.js/nesting.js: loaded as a plain <script> in the browser (one global,
 // window.kanbanSaveGuard) AND required directly by node --test.
@@ -11,7 +12,7 @@
 const saveGuardModule = (() => {
   function makeSaveGuard(onChange = () => {}) {
     let inFlight = 0;
-    let sent = 0;
+    let sent = '';
 
     function track(promise) {
       inFlight += 1;
@@ -21,9 +22,9 @@ const saveGuardModule = (() => {
       return promise;
     }
 
-    function leaving(source) {
+    function leaving(source, fingerprint = '') {
       if (inFlight > 0) return 'saving';
-      if (source && source.kind === 'page' && source.queued > sent) return 'unsent';
+      if (source && source.kind === 'page' && fingerprint !== sent) return 'unsent';
       return null;
     }
 
@@ -31,7 +32,7 @@ const saveGuardModule = (() => {
       track,
       leaving,
       inFlight: () => inFlight,
-      sent: (count) => { sent = Math.max(sent, count); },
+      sent: (fingerprint) => { sent = fingerprint; },
     };
   }
 

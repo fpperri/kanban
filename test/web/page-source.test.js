@@ -266,3 +266,31 @@ test('a todo save the list refuses is refused as the desk refuses it, and leaves
   assert.strictEqual(res.status, 409);
   assert.strictEqual(JSON.stringify(src.records()), before);
 });
+
+test('the fingerprint of the tray is empty with nothing queued and changes with every edit, including one folded into a record already there', async () => {
+  const src = open(memoryStorage());
+  assert.strictEqual(src.fingerprint(), '');
+  const built = await todos(src, 7);
+  await src.request('POST', '/api/todos/7', { text: 'c', version: built.version });
+  const afterFirst = src.fingerprint();
+  assert.notStrictEqual(afterFirst, '');
+  assert.strictEqual(afterFirst, src.fingerprint());
+  await src.request('POST', '/api/todos/7', { text: 'd', version: (await todos(src, 7)).version });
+  assert.strictEqual(src.records().length, 1);
+  assert.notStrictEqual(src.fingerprint(), afterFirst);
+});
+
+test('a copy of one todo list edit, then another edit to the same list, leaves the guard asking', async () => {
+  const { makeSaveGuard } = require('../../plugin/skills/web/web/save-guard');
+  const src = open(memoryStorage());
+  const guard = makeSaveGuard();
+  await src.request('POST', '/api/todos/7', { text: 'c', version: (await todos(src, 7)).version });
+  const source = (await src.request('GET', '/api/board')).json.source;
+  assert.strictEqual(guard.leaving(source, src.fingerprint()), 'unsent');
+  guard.sent(src.fingerprint());
+  assert.strictEqual(guard.leaving(source, src.fingerprint()), null);
+  await src.request('POST', '/api/todos/7', { text: 'd', version: (await todos(src, 7)).version });
+  const after = (await src.request('GET', '/api/board')).json.source;
+  assert.strictEqual(after.queued, 1);
+  assert.strictEqual(guard.leaving(after, src.fingerprint()), 'unsent');
+});

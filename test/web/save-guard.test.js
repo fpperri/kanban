@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { makeSaveGuard, asOfLabel } = require('../../plugin/skills/web/web/save-guard');
 
 // The activity mark and the leaving guard read one counter of saves in flight; a downloaded file's guard
-// also reads whether its queued changes have left the page by a copy or a save.
+// also reads whether its tray is what the last copy or save took.
 
 const later = () => { let release; const promise = new Promise((r) => { release = r; }); return { promise, release }; };
 
@@ -46,29 +46,41 @@ test('leaving asks while a save is in flight, on every source', () => {
   for (const kind of ['server', 'page', 'artifact']) assert.strictEqual(guard.leaving({ kind, queued: 0 }), 'saving');
 });
 
-test('leaving asks for a file whose queue is longer than the last copy or save, and for nothing else', () => {
+test('leaving asks for a file whose tray differs from what the last copy or save took, and for nothing else', () => {
   const guard = makeSaveGuard();
-  assert.strictEqual(guard.leaving({ kind: 'page', queued: 0 }), null);
-  assert.strictEqual(guard.leaving({ kind: 'page', queued: 2 }), 'unsent');
-  guard.sent(2);
-  assert.strictEqual(guard.leaving({ kind: 'page', queued: 2 }), null);
-  assert.strictEqual(guard.leaving({ kind: 'page', queued: 3 }), 'unsent');
+  const page = { kind: 'page' };
+  assert.strictEqual(guard.leaving(page, ''), null);
+  assert.strictEqual(guard.leaving(page, 'one'), 'unsent');
+  guard.sent('one');
+  assert.strictEqual(guard.leaving(page, 'one'), null);
+  assert.strictEqual(guard.leaving(page, 'one+two'), 'unsent');
+});
+
+test('a tray that changed at the same length asks too: an edit folded into a record already copied', () => {
+  const guard = makeSaveGuard();
+  guard.sent('[b]');
+  assert.strictEqual(guard.leaving({ kind: 'page', queued: 1 }, '[b,c]'), 'unsent');
+});
+
+test('a record removed after the copy counts as a change', () => {
+  const guard = makeSaveGuard();
+  guard.sent('[b][c]');
+  assert.strictEqual(guard.leaving({ kind: 'page' }, '[b]'), 'unsent');
+  assert.strictEqual(guard.leaving({ kind: 'page' }, ''), 'unsent');
+});
+
+test('a tray put back to what was copied asks nothing', () => {
+  const guard = makeSaveGuard();
+  guard.sent('[b]');
+  assert.strictEqual(guard.leaving({ kind: 'page' }, '[b,c]'), 'unsent');
+  assert.strictEqual(guard.leaving({ kind: 'page' }, '[b]'), null);
 });
 
 test('the desk and a Board artifact keep their changes elsewhere, so only a save in flight asks', () => {
   const guard = makeSaveGuard();
-  assert.strictEqual(guard.leaving({ kind: 'server', queued: 0 }), null);
-  assert.strictEqual(guard.leaving({ kind: 'artifact', queued: 5 }), null);
+  assert.strictEqual(guard.leaving({ kind: 'server', queued: 0 }, ''), null);
+  assert.strictEqual(guard.leaving({ kind: 'artifact', queued: 5 }, 'x'), null);
   assert.strictEqual(guard.leaving(null), null);
-});
-
-test('a copy that covered fewer changes than are queued leaves the rest unsent', () => {
-  const guard = makeSaveGuard();
-  guard.sent(1);
-  assert.strictEqual(guard.leaving({ kind: 'page', queued: 2 }), 'unsent');
-  guard.sent(2);
-  guard.sent(1);
-  assert.strictEqual(guard.leaving({ kind: 'page', queued: 2 }), null);
 });
 
 test('Refresh in a page reads "Board as of <time>" in local time, with the date when the Base is not today', () => {
