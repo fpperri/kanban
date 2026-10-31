@@ -197,3 +197,17 @@ test('settings and notifications are still a desk job and write nothing to the d
   assert.strictEqual((await src.request('POST', '/api/config', { key: 'name', value: 'x' })).status, 403);
   assert.strictEqual(fake.docs.size, 0);
 });
+
+test('edits to one todo list leave one document in the database, rewritten in place as the list changes', async () => {
+  const fake = makeFakeDb();
+  const data = { ...DATA, files: { ...FILES, '/p/.kanban/config.yaml': 'name: alpha\nnextId: 30\ntodos: .todos\n', '/p/.kanban/.todos/0007.todo.md': '- [ ] a\n- [x] b\n' } };
+  const src = boot(data, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  const read = async () => (await src.request('GET', '/api/todos/7')).json.todos;
+  const built = await read();
+  assert.strictEqual((await src.request('POST', '/api/todos/7', { text: 'c', version: built.version })).status, 201);
+  assert.strictEqual((await src.request('PATCH', '/api/todos/7', { index: 0, done: true, version: (await read()).version })).status, 200);
+  const shown = await read();
+  assert.deepStrictEqual([...fake.docs.keys()], ['phone-1']);
+  assert.deepStrictEqual(fake.docs.get('phone-1').change, { method: 'PUT', path: '/api/todos/7', body: { text: shown.text, version: built.version } });
+  assert.strictEqual((await src.request('GET', '/api/board')).json.source.queued, 1);
+});

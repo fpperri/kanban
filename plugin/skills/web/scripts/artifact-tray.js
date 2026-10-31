@@ -95,19 +95,31 @@ const artifactTrayModule = (() => {
 
     collection.onSnapshot((snapshot) => { if (adopt(snapshot)) for (const fn of listeners.slice()) fn(); }, () => { /* the listener is dead; the tray keeps what it holds */ });
 
+    function put(record) {
+      const id = record.id;
+      held.set(id, record);
+      unsynced.add(id);
+      let write;
+      try { write = Promise.resolve(collection.doc(id).set(clone(record))); } catch (e) { write = Promise.reject(e); }
+      const done = write.then(() => { if (writes.get(id) === done) unsynced.delete(id); });
+      writes.set(id, done);
+      done.catch(() => { /* the caller of written() hears it */ });
+      return record;
+    }
+
     return {
       kind: 'artifact',
       records: () => [...held.values()].sort(byTime),
       add(at, change) {
         const id = `${device}-${take()}`;
-        const record = { id, at, device, change };
-        held.set(id, record);
-        unsynced.add(id);
-        let write;
-        try { write = Promise.resolve(collection.doc(id).set(clone(record))); } catch (e) { write = Promise.reject(e); }
-        writes.set(id, write.then(() => { unsynced.delete(id); }));
-        writes.get(id).catch(() => { /* the caller of written() hears it */ });
-        return record;
+        return put({ id, at, device, change });
+      },
+      // The record `id` takes `change`, keeping its id and its time, so its place in the tray: its
+      // document is written again. A record that is no longer held (the apply deleted it) is added as a new one.
+      replace(id, at, change) {
+        const had = held.get(id);
+        if (!had) return this.add(at, change);
+        return put({ ...had, change });
       },
       written: (id) => writes.get(id) || Promise.resolve(),
       subscribe(fn) { listeners.push(fn); },

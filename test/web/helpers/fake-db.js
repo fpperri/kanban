@@ -45,7 +45,7 @@ function makeFakeDb(initial = {}) {
 const claudeWith = (db, { owner } = {}) => ({
   use: async (name) => {
     if (name === 'db') return db;
-    if (name === 'user' && owner !== undefined) return { isOwner: () => owner };
+    if (name === 'user' && owner !== undefined) return { isOwner: async () => owner };
     return null;
   },
 });
