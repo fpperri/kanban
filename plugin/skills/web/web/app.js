@@ -2172,12 +2172,14 @@ function applyProjectName(name) {
 
 // A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
 // header says how many are queued and offers them to be copied. Hidden when none are, and always on the server
-// (its board load names no source).
+// (its board load names no source). In a Board artifact, where the tray is in the artifact's database, it
+// also says to tell Claude to apply it, Copy changes staying as the fallback.
 function applyQueued(source) {
   const n = source ? source.queued : 0;
   $('#queued-pill').textContent = `${n} queued`;
   $('#queued-pill').classList.toggle('hidden', n === 0);
   $('#copy-changes-btn').classList.toggle('hidden', n === 0);
+  $('#apply-hint').classList.toggle('hidden', n === 0 || source.kind !== 'artifact');
 }
 
 function applyHomeUrl(url) {

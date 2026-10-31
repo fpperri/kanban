@@ -9,7 +9,8 @@
 // reload the card is still in Doing, read back from the stand-in. With `use("db")` answering null the same page
 // queues in browser storage instead and shows none of the stand-in's changes. A document another device
 // writes into the stand-in shows in the header and on the board without a reload, and the documents
-// Claude deletes after an apply take the count to 0. Each step waits on what the page shows, never on a
+// Claude deletes after an apply take the count to 0. While the tray is in the database and holds a change,
+// the header says "Tell Claude: apply the tray" beside Copy changes; in browser storage it does not. Each step waits on what the page shows, never on a
 // fixed sleep.
 
 const fs = require('fs');
@@ -21,6 +22,8 @@ const { buildPage } = require('../../../../plugin/skills/web/scripts/artifact-bu
 const fileUrl = (p) => `file:///${p.replace(/\\/g, '/')}`;
 const NAME = `document.getElementById('project-name').textContent`;
 const PILL = `(()=>{const p=document.getElementById('queued-pill');return p.classList.contains('hidden')?'':p.textContent})()`;
+const HINT = `(()=>{const h=document.getElementById('apply-hint');return !h||h.classList.contains('hidden')?'':h.textContent})()`;
+const COPY_SHOWN = `!document.getElementById('copy-changes-btn').classList.contains('hidden')`;
 const column = (id, col) => `!!document.querySelector('#board .column[data-col="${col}"] .card-el[data-id="${id}"]')`;
 const DRAWN = `document.querySelectorAll('#board .column .card-el').length>0`;
 const STORE = '__standin_db';
@@ -87,12 +90,15 @@ module.exports = {
       check('the page opens with the stand-in database and draws the board', await load());
       check('the board load names the artifact as its source', (await ev(`window.kanbanSourceInUse.request('GET','/api/board').then((r)=>JSON.stringify(r.json.source))`)) === JSON.stringify({ kind: 'artifact', queued: 0 }));
       check('the header shows no queued count yet', (await ev(PILL)) === '');
+      check('and no line telling Claude to apply the tray', (await ev(HINT)) === '');
       check('card 7 starts in Todo', await ev(column('7', 'todo')));
 
       // a move is written at once as one document
       await drop('7', 'doing');
       check('a card dropped on Doing shows there at once', await waitFor(column('7', 'doing'), 6000));
       check('the header reads 1 queued', await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
+      check('the header says to tell Claude: apply the tray', await waitFor(`${HINT}==='Tell Claude: apply the tray'`, 6000), await ev(HINT));
+      check('Copy changes stays beside it as the fallback', await ev(COPY_SHOWN));
       const docs = await standIn();
       const ids = Object.keys(docs);
       check('one document is in the collection tray', ids.length === 1, JSON.stringify(ids));
@@ -105,6 +111,7 @@ module.exports = {
       await send('Page.reload');
       check('after a reload the card is still in Doing', await waitFor(`${NAME}==='fixture'&&${column('7', 'doing')}`, 15000));
       check('and the header still reads 1 queued', await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
+      check('and still says to tell Claude: apply the tray', await waitFor(`${HINT}==='Tell Claude: apply the tray'`, 6000), await ev(HINT));
       check('the reload wrote nothing more', Object.keys(await standIn()).length === 1);
 
       // with the database answering null the same page queues in browser storage
@@ -113,6 +120,7 @@ module.exports = {
       check('the board load names a page as its source', (await ev(`window.kanbanSourceInUse.request('GET','/api/board').then((r)=>r.json.source.kind)`)) === 'page');
       await drop('7', 'done');
       check('it queues its own move', await waitFor(`${column('7', 'done')}&&${PILL}==='1 queued'`, 6000), await ev(PILL));
+      check('a tray in browser storage has no line telling Claude to apply it, only Copy changes', (await ev(HINT)) === '' && (await ev(COPY_SHOWN)));
       check('in browser storage', (await trayKeys()) === 1);
       check('and not in the database', Object.keys(await standIn()).length === 1);
 
@@ -126,6 +134,7 @@ module.exports = {
       // Claude applies the tray and deletes the documents
       await ev('window.__standinClear()');
       check('when the documents are deleted the header shows no count', await waitFor(`${PILL}===''`, 8000), await ev(PILL));
+      check('and the line telling Claude to apply the tray goes', await waitFor(`${HINT}===''`, 8000), await ev(HINT));
     } finally {
       if (injected) { try { await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injected }); } catch (e) { /* the scenario is over */ } }
       fs.rmSync(root, { recursive: true, force: true });

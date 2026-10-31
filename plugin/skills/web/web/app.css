@@ -316,6 +316,7 @@ button:hover { background: var(--btn-hover); }
 .btn-icon { display: inline-flex; flex: none; }
 .btn-icon svg { width: 15px; height: 15px; }
 .queued-pill { align-self: center; font-size: 0.78em; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: .15rem; padding: 0.1em 0.6em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.apply-hint { align-self: center; font-size: 0.85em; white-space: nowrap; }
 .copy-changes-btn { font-size: 0.85em; }
 #stale-indicator { align-self: center; color: var(--warn); font-size: 0.78em; }
 /* The iteration dropdown rides beside the board name and wraps with it on a narrow screen. */

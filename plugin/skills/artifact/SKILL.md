@@ -39,7 +39,7 @@ The collection is `tray`. Each queued change is one document there, its id the r
 
 ## What the page does
 
-- The header shows an **N queued** count whenever changes are queued, and **Copy changes** beside it.
+- The header shows an **N queued** count whenever changes are queued, and **Copy changes** beside it. In a Board artifact it also says "Tell Claude: apply the tray", the way to land the changes without a paste; Copy changes stays as the fallback.
 - A save the board's rules refuse (the `doing` gate, a stale todo list) is refused in the page with the desk's own toast, and is not queued.
 - A reload shows the board with the queued changes applied. In a downloaded file the queue lives in the browser's storage, under a key that names the board and the file's Base, so two files built from two boards never show each other's changes.
 - In a Board artifact a change another device queued shows in the count and on the board within a second or so. A write the database refuses is answered with a toast saying so: the change shows in that page but is not queued, and a reload loses it.
