@@ -107,6 +107,7 @@
     <button type="button" id="copy-changes-btn" class="copy-changes-btn hidden" data-keeps-selection title="Copy the queued saves, for Claude to apply to the board">Copy changes</button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
+  <span id="saving-mark" class="saving-mark hidden" role="status" aria-label="Saving" title="A save is still on its way. Stay on this page until it is gone."></span>
   <!-- The phone header's More button and menu (more-menu.js): the stylesheet draws them under 760 px only. The menu holds what the desktop header shows, so the home link and the iteration picker are hidden unless the board has them. -->
   <button id="more-btn" type="button" class="more-btn" data-keeps-selection aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" aria-label="More" title="More">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
@@ -609,6 +610,7 @@
 </div>
 
 <script src="/board-source.js"></script>
+<script src="/save-guard.js"></script>
 <script src="/ids.js"></script>
 <script src="/explore-sets.js"></script>
 <script src="/hover-show.js"></script>
