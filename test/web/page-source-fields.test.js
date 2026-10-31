@@ -10,6 +10,7 @@ const { routeSources } = require('./helpers/route-sources');
 const SOURCES = routeSources();
 const card = (id, title, extra = '') => `---\nid: ${id}\nstatus: todo\npriority: Normal\n${extra}tags: [a, b]\n---\n\n# ${title}\n\nbody of ${id}\n`;
 const FILES = {
+  '/p/.kanban/0005.five.card.md': card(5, 'Five').replace('status: todo', 'status: backlog').replace('tags: [a, b]', 'tags: []'),
   '/p/.kanban/config.yaml': 'name: alpha\nnextId: 30\n',
   '/p/.kanban/0003.three.card.md': card(3, 'Three'),
   '/p/.kanban/0007.seven.card.md': card(7, 'Seven', 'assignee: "@alex"\nparent: 3\nrank: 5\n'),
@@ -56,6 +57,24 @@ test('a parent or rank the form sends the way the card holds it is not a change'
   const [rec] = src.records();
   assert.deepStrictEqual(rec.change.body, { status: 'doing' });
   assert.deepStrictEqual(rec.before, { status: 'todo' });
+});
+
+test('a field the store changes as a side effect is not queued: a backlog card moved to todo queues the status alone', async () => {
+  const src = open(memoryStorage());
+  const res = await src.request('PATCH', '/api/cards/5', form({ title: 'Five', body: 'body of 5\n', tags: [], status: 'todo' }));
+  assert.strictEqual(res.status, 200);
+  assert.ok(res.json.start_date, 'the move into todo stamped start_date');
+  const [rec] = src.records();
+  assert.deepStrictEqual(rec.change.body, { status: 'todo' });
+  assert.deepStrictEqual(rec.before, { status: 'backlog' });
+});
+
+test('a start_date the person sets in the same edit is queued with the status', async () => {
+  const src = open(memoryStorage());
+  await src.request('PATCH', '/api/cards/5', form({ title: 'Five', body: 'body of 5\n', tags: [], status: 'todo', start_date: '2026-11-02' }));
+  const [rec] = src.records();
+  assert.deepStrictEqual(rec.change.body, { status: 'todo', start_date: '2026-11-02' });
+  assert.deepStrictEqual(rec.before, { status: 'backlog', start_date: null });
 });
 
 test('an edit that changed nothing queues nothing', async () => {

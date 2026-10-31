@@ -53,6 +53,9 @@ const pageSourceModule = (() => {
   // The fields of a card's JSON an edit can set (card-store's toJSON).
   const CARD_FIELDS = ['title', 'status', 'priority', 'parent', 'rank', 'tags', 'waiting_for', 'blocked', 'review', 'prompt', 'assignee', 'type', 'start_date', 'end_date', 'due_date', 'body'];
   const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
+  // A value as a person would call it the same: an empty text, list or nothing at all is one value, and a
+  // number reads as its text (the form sends a parent as text, the card holds it as a number).
+  const plain = (v) => (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) ? null : Array.isArray(v) ? JSON.stringify(v) : String(v));
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 
@@ -247,14 +250,16 @@ const pageSourceModule = (() => {
       return read.body.active.concat(read.body.archived).find((c) => String(c.id) === key) || null;
     }
 
-    // The record of a card edit: only the fields the save changed, as the edit sent them, each with the value
-    // the card had. An edit that changed none queues nothing.
+    // The record of a card edit: only the fields the person changed, as the edit sent them, each with the value
+    // the card had. A field the store changed on its own (a move into todo stamps start_date) or the form sent
+    // as the card already held it is not the person's. An edit that changed none queues nothing.
     function queueEdit(path, sent, held, result) {
       const body = {};
       const before = {};
       for (const key of CARD_FIELDS) {
         if (!Object.prototype.hasOwnProperty.call(sent || {}, key)) continue;
         if (JSON.stringify(valueOf(held, key)) === JSON.stringify(valueOf(result.body, key))) continue;
+        if (plain(sent[key]) === plain(held[key])) continue;
         body[key] = sent[key];
         before[key] = valueOf(held, key);
       }

@@ -109,6 +109,17 @@ test('edits made one on top of the other apply in order when the desk changed no
   assert.strictEqual(read(dir, 3).title, 'C');
 });
 
+test('a status move applies though the desk set start_date since, and keeps the start_date the desk set', () => {
+  const dir = makeBoard();
+  fs.writeFileSync(path.join(dir, '0005.five.card.md'), card(5, 'Five').replace('status: todo', 'status: backlog'));
+  atDesk(dir, 5, { start_date: '2026-11-09' });
+  const report = applyTray({ dir, records: [edit(5, { status: 'todo' }, { status: 'backlog' })] });
+  assert.deepStrictEqual(report.refused, []);
+  const now = read(dir, 5);
+  assert.strictEqual(now.status, 'todo');
+  assert.strictEqual(now.start_date, '2026-11-09');
+});
+
 test('an edit that names several fields is refused when any one changed, and says which', () => {
   const dir = makeBoard();
   atDesk(dir, 3, { priority: 'High', tags: ['x'] });
