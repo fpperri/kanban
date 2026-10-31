@@ -1858,6 +1858,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .prefs-path input:focus { outline: none; border-color: var(--accent); }
 .prefs-path input:disabled { opacity: .6; }
 .prefs-error { padding: 6px 9px; border: 1px solid var(--crit); background: var(--crit-soft); color: var(--ink); border-radius: .15rem; font-size: 0.8em; overflow-wrap: anywhere; }
+.prefs-desk-lock { margin: 0 0 10px; }
 .prefs-note { padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: .15rem; color: var(--mut); font-size: 0.8em; overflow-wrap: anywhere; }
 .prefs-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
 .prefs-table th { text-align: left; color: var(--mut); font-size: 0.82em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
