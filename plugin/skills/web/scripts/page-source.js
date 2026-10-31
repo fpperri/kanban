@@ -42,6 +42,7 @@ const pageSourceModule = (() => {
     for (const key of LOCKED_FEATURES) if (settings[key]) out[key] = { ...settings[key], locked: true, reason: DESK_LOCK };
     return out;
   }
+  const TODO_LIST = /^\/api\/todos\/[^/]+$/;
   const TODO_EDIT = /^\/api\/todos\/([^/]+)(?:\/(?:move|indent|outdent))?$/;
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
@@ -118,18 +119,35 @@ const pageSourceModule = (() => {
   // the board again after a record is removed. `temp` is the allocator the route was made with.
   function makePageSource({ route, tray, board, fresh = null, temp = null, now = () => new Date().toISOString() }) {
     let current = route;
-    const applied = new Set();
+    const applied = new Map(); // record id -> the change as the board last replayed it
     const listeners = [];
 
+    function replayRecord(record) {
+      if (temp) temp.expect(record.temp);
+      current(record.change.method, record.change.path, clone(record.change.body) || {});
+      if (temp) temp.expect(null);
+    }
+
+    // Another device rewrote a whole-list save this page has replayed: its text is put on the list as it
+    // stands in this page, so the next edit here builds on it.
+    function replayRewrite(record) {
+      if (!TODO_LIST.test(record.change.path)) return;
+      const read = current('GET', record.change.path, {});
+      if (!read || read.status !== 200) return;
+      current('PUT', record.change.path, { ...clone(record.change.body), version: read.body.todos.version });
+    }
+
     // Replays every record the board has not seen yet through route, in tray order: all of them at start,
-    // and after that the ones another device wrote.
+    // and after that the ones another device wrote. A record the board has seen whose change differs now
+    // is a list another device rewrote.
     function catchUp() {
       for (const record of tray.records()) {
-        if (applied.has(record.id)) continue;
-        applied.add(record.id);
-        if (temp) temp.expect(record.temp);
-        current(record.change.method, record.change.path, clone(record.change.body) || {});
-        if (temp) temp.expect(null);
+        const key = JSON.stringify(record.change);
+        const had = applied.get(record.id);
+        if (had === key) continue;
+        applied.set(record.id, key);
+        if (had === undefined) replayRecord(record);
+        else replayRewrite(record);
       }
     }
 
@@ -165,7 +183,7 @@ const pageSourceModule = (() => {
       if (result.status >= 200 && result.status < 300 && write) {
         const record = list ? queueList(list[1], folded, result) : queueSave(method, path, sent, result);
         if (record) {
-          applied.add(record.id);
+          applied.set(record.id, JSON.stringify(record.change));
           if (tray.written) {
             try { await tray.written(record.id); } catch (e) {
               const why = [e && e.code, e && e.message].filter(Boolean).join(': ');
