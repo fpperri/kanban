@@ -9,7 +9,7 @@ const { makeRoute } = require('../../plugin/skills/web/scripts/route');
 
 // An edit in the tray names the fields it changed and the value the page had for each (`before`). The apply
 // refuses it only when one of those fields no longer holds that value ("changed at the desk since"), and
-// refuses with it every later edit of the same field, which was made on top of it. A field the edit did not
+// refuses with it every later edit of the same field made on top of it (its before value is what the refused edit set). A field the edit did not
 // name is never compared, so an unrelated desk edit does not block it.
 
 const card = (id, title, extra = '') => `---\nid: ${id}\nstatus: todo\npriority: Normal\n${extra}tags: []\n---\n\n# ${title}\n\nbody of ${id}\n`;
@@ -65,6 +65,26 @@ test('a later edit of the same field, made on top of the refused one, is refused
   assert.deepStrictEqual(report.refused.map((r) => r.id), [first.id, second.id]);
   assert.match(report.refused[1].reason, new RegExp(`${first.id}.*refused`));
   assert.strictEqual(read(dir, 3).title, 'Three at the desk');
+});
+
+test('an edit redone on the refreshed page applies though the edit it redoes was refused', () => {
+  const dir = makeBoard();
+  atDesk(dir, 3, { title: 'Desk' });
+  const first = edit(3, { title: 'B' }, { title: 'Three' }, { refused: 'title changed at the desk since' });
+  const redo = edit(3, { title: 'Redo' }, { title: 'Desk' });
+  const report = applyTray({ dir, records: [first, redo] });
+  assert.deepStrictEqual(report.refused.map((r) => r.id), [first.id]);
+  assert.deepStrictEqual(report.applied.map((a) => a.id), [redo.id]);
+  assert.strictEqual(read(dir, 3).title, 'Redo');
+});
+
+test('a chain of edits, each on top of the one before, is refused from the first refused one on', () => {
+  const dir = makeBoard();
+  atDesk(dir, 3, { title: 'Desk' });
+  const records = [edit(3, { title: 'B' }, { title: 'Three' }), edit(3, { title: 'C' }, { title: 'B' }), edit(3, { title: 'D' }, { title: 'C' })];
+  const report = applyTray({ dir, records });
+  assert.deepStrictEqual(report.refused.map((r) => r.id), records.map((r) => r.id));
+  assert.strictEqual(read(dir, 3).title, 'Desk');
 });
 
 test('a refused edit takes only the edits of its own field: another field of the card, and another card, still apply', () => {
