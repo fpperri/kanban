@@ -20,6 +20,8 @@ A **Private board** (`private: true`) never leaves the desk without the person's
 ## What the page does
 
 - The header shows an **N queued** count whenever changes are queued, and **Copy changes** beside it.
+- A thin mark runs along the header while any save is in flight, and leaving the page asks first; for a file it also asks while queued changes have not been copied.
+- **Refresh** reads **Board as of <time>** (the Base); tapping it says to ask Claude to apply the changes and rebuild the page, since the page cannot read the board again.
 - A save the board's rules refuse (the `doing` gate, a stale todo list) is refused in the page with the desk's own toast, and is not queued.
 - A reload shows the board with the queued changes applied: the queue lives in the browser's storage, under a key that names the board, so two files built from two boards never show each other's changes.
 - Settings and notifications do not save in the page (a desk job).

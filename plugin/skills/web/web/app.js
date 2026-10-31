@@ -562,6 +562,7 @@ const boardSource = window.kanbanSourceInUse || window.kanbanBoardSource.serverS
 const saveGuard = window.kanbanSaveGuard.makeSaveGuard((n) => {
   const mark = $('#saving-mark');
   if (mark) mark.classList.toggle('hidden', n === 0);
+  syncLeaveGuard();
 });
 
 function api(method, path, body) {
@@ -2189,6 +2190,7 @@ function pageHoldsBoard() {
 
 function applyQueued(source) {
   boardSourceInfo = source || null;
+  syncLeaveGuard();
   if (pageHoldsBoard()) {
     const label = window.kanbanSaveGuard.asOfLabel(source.base);
     $('#refresh-btn .btn-label').textContent = label;
@@ -2689,7 +2691,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (pageHoldsBoard()) { toast('This page holds the board as it was when it was built. Ask Claude to apply the changes and rebuild it.'); return; }
     loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message));
   });
-  window.addEventListener('beforeunload', askBeforeLeaving);
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
   clockDay = localTodayStr();
   setInterval(clockTick, CLOCK_TICK_MS);
@@ -3263,6 +3264,13 @@ function copyBoardPath() {
 // Leaving the page asks first while a save is in flight, and for a downloaded file while changes are queued that
 // no copy or save has taken off the page (save-guard.js). A host that does not raise the native prompt (a
 // sandboxed frame) leaves the activity mark as the only cue.
+// The listener is on only while there is something to ask about: a page with a beforeunload listener takes a
+// round trip through the page before it can leave, and some browsers keep it out of their back/forward cache.
+function syncLeaveGuard() {
+  if (saveGuard.leaving(boardSourceInfo)) window.addEventListener('beforeunload', askBeforeLeaving);
+  else window.removeEventListener('beforeunload', askBeforeLeaving);
+}
+
 function askBeforeLeaving(e) {
   if (!saveGuard.leaving(boardSourceInfo)) return;
   e.preventDefault();
@@ -3275,7 +3283,7 @@ function copyChanges() {
   if (!text) return;
   const count = boardSource.records().length;
   const done = (ok) => {
-    if (ok) saveGuard.sent(count);
+    if (ok) { saveGuard.sent(count); syncLeaveGuard(); }
     toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {

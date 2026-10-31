@@ -82,7 +82,7 @@ test('a Base that is no date gives no label, so Refresh keeps its word', () => {
   assert.strictEqual(asOfLabel('soon'), null);
 });
 
-test('the page asks before it goes: its beforeunload listener is the guard, and the script is in the page', () => {
+test('the page asks before it goes: askBeforeLeaving is the beforeunload listener while there is something to ask about, and the script is in the page', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
