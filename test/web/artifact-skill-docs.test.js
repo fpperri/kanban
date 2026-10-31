@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { ROOT, read, fenced } = require('./helpers/doc-text');
+const { ROOT, read, fenced, section } = require('./helpers/doc-text');
 const { makeMemoryRoute } = require('../../plugin/skills/web/scripts/memory-route');
 const { makePageSource, makeTrayStore, boot } = require('../../plugin/skills/web/scripts/page-source');
-const { applyTray } = require('../../plugin/skills/web/scripts/apply-tray');
+const { applyTray, APPLIED_FILE } = require('../../plugin/skills/web/scripts/apply-tray');
 const { routeSources } = require('./helpers/route-sources');
 const { COLLECTION } = require('../../plugin/skills/web/scripts/artifact-tray');
 const { makeFakeDb, claudeWith } = require('./helpers/fake-db');
@@ -139,4 +139,37 @@ test('the build command with a query runs as the skill shows it: --query takes s
     assert.strictEqual(ran.status, 0, ran.stderr);
     assert.match(ran.stdout, /status:todo · with the archive/);
   } finally { fs.rmSync(path.dirname(out), { recursive: true, force: true }); }
+});
+
+test('the apply command in the skill runs: its script is where the doc puts it, and it takes a board folder and a tray file', () => {
+  const command = fenced(DOC, 'bash').map((b) => b.trim()).find((b) => b.includes('apply-tray.js'));
+  assert.ok(command, 'the doc shows the apply command');
+  const m = /^node <skill dir>\/(\.\.\/web\/scripts\/apply-tray\.js) <kanban-directory> <tray-file \| -> \[--json\]$/.exec(command);
+  assert.ok(m, command);
+  const script = path.join(SKILL_DIR, m[1]);
+  assert.ok(fs.existsSync(script), script);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-'));
+  try {
+    const dir = path.join(root, '.kanban');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: n\nnextId: 9\n');
+    fs.writeFileSync(path.join(dir, '0001.one.card.md'), '---\nid: 1\nstatus: todo\n---\n\n# One\n');
+    const tray = path.join(root, 'tray.json');
+    fs.writeFileSync(tray, JSON.stringify([{ id: 'd-1', at: '2026-10-31T00:00:00.000Z', device: 'd', change: { method: 'PATCH', path: '/api/cards/1', body: { status: 'doing' } } }]));
+    const ran = spawnSync(process.execPath, [script, dir, tray, '--json'], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    assert.deepStrictEqual(JSON.parse(ran.stdout).applied.map((a) => a.id), ['d-1']);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the cloud and Cowork steps name the file the apply leaves in the board folder, so a commit takes it along', () => {
+  const cloud = section(DOC, '## Applying from a Claude Code session in the cloud', '## Applying from Cowork');
+  assert.ok(cloud.includes(`\`${APPLIED_FILE}\``), 'the cloud steps name the applied-ids file');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: n\nnextId: 9\n');
+    fs.writeFileSync(path.join(dir, '0001.one.card.md'), '---\nid: 1\nstatus: todo\n---\n\n# One\n');
+    applyTray({ dir, records: [{ id: 'd-1', at: '2026-10-31T00:00:00.000Z', device: 'd', change: { method: 'PATCH', path: '/api/cards/1', body: { status: 'doing' } } }] });
+    assert.ok(fs.existsSync(path.join(dir, APPLIED_FILE)), 'the apply leaves the file in the board folder');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
