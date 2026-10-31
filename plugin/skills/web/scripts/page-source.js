@@ -375,7 +375,7 @@ const pageSourceModule = (() => {
   // tray in browser storage, the downloaded file's way. The collection is owner-only, so a viewer who is
   // told they are not the owner never reaches it (isOwner() answers a promise).
   async function pickTray({ claude, storage, board, device, timeoutMs, retryMs }) {
-    const inStorage = () => makeTrayStore(storage, trayKey(board), device);
+    const inStorage = () => makeTrayStore(storage, trayKey(board), device, artifactTray.makeNumbers({ storage, board, device }));
     try {
       const [db, user] = await artifactTray.withTimeout(Promise.all([claude.use('db'), Promise.resolve(claude.use('user')).catch(() => null)]), timeoutMs);
       if (!db) return inStorage();

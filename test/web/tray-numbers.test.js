@@ -73,6 +73,20 @@ test('a Board artifact starts its numbers past what the board applied, whatever 
   }
 });
 
+test('a Board artifact whose database does not resolve keeps its numbers past what the board applied', async () => {
+  const src = boot(SMALL({ ...MIN, taken: { dev: 3 } }), { storage: memoryStorage(), device: 'dev', claude: { use: async () => null } });
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  assert.deepStrictEqual(src.records().map((r) => r.id), ['dev-4']);
+});
+
+test('a Board artifact viewed by someone who is not its owner keeps its numbers past what the board applied', async () => {
+  const fake = makeFakeDb();
+  const src = boot(SMALL({ ...MIN, taken: { dev: 3 } }), { storage: memoryStorage(), device: 'dev', claude: claudeWith(fake.db, { owner: false }) });
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  assert.deepStrictEqual(src.records().map((r) => r.id), ['dev-4']);
+  assert.strictEqual(fake.docs.size, 0);
+});
+
 test('build, queue, apply, rebuild, queue, apply: the second change lands, with storage the rebuilt page does not share', async () => {
   const dir = makeBoard();
   const one = boot(dataOf(buildPage({ boardDir: dir }).html), { storage: memoryStorage(), device: 'dev' });
