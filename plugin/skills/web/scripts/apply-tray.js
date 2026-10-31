@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 'use strict';
 // apply-tray <board-dir> <tray-file | -> [--json]
 //
