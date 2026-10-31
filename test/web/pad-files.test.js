@@ -64,8 +64,6 @@ test('the folders a file can move into are the parent and the subfolders of the 
   assert.deepStrictEqual(pf.moveTargets('', entries), [{ label: 'sub/', path: 'sub' }, { label: 'shots/', path: 'shots' }]);
   assert.deepStrictEqual(pf.moveTargets('sub', [{ name: 'deeper', dir: true }]), [{ label: '.. (up)', path: '' }, { label: 'deeper/', path: 'sub/deeper' }]);
   assert.deepStrictEqual(pf.moveTargets('a/b', []), [{ label: '.. (up)', path: 'a' }]);
-  assert.strictEqual(pf.moveDest('sub', 'a.md'), 'sub/a.md');
-  assert.strictEqual(pf.moveDest('', 'a.md'), 'a.md');
 });
 
 test('a rename keeps the file in its folder: a blank, an unchanged or a pathy name makes no move', () => {

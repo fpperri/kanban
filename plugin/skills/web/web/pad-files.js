@@ -82,8 +82,6 @@ const padFilesModule = (() => {
     return out;
   }
 
-  const moveDest = (destFolder, name) => joinPath(destFolder, name);
-
   // The path a rename gives a file, or '' when it changes nothing or names a path (that is Move to).
   function renameDest(cwd, oldName, typed) {
     const name = String(typed == null ? '' : typed).trim();
@@ -106,7 +104,7 @@ const padFilesModule = (() => {
     columnState().boardPrefSave(storage, projectName, FOLDED_FEATURE, folded ? '1' : null);
   }
 
-  return { sizeText, dateText, joinPath, parentPath, crumbs, newFileName, joinFolder, absJoin, iconOf, rowTitle, moveTargets, moveDest, renameDest, foldedLoad, foldedSave };
+  return { sizeText, dateText, joinPath, parentPath, crumbs, newFileName, joinFolder, absJoin, iconOf, rowTitle, moveTargets, renameDest, foldedLoad, foldedSave };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

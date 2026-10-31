@@ -12,7 +12,7 @@ const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8');
 
 function on(folder) {
-  const sandbox = { state: { scratchpad: folder === null ? null : { folder, targets: [] } }, document: {}, window: {} };
+  const sandbox = { state: { scratchpad: folder === null ? null : { folder, targets: [] } }, document: { addEventListener() {} }, window: {} };
   vm.createContext(sandbox);
   vm.runInContext(read('scratchpad-folder-ui.js'), sandbox);
   return vm.runInContext('scratchFolderOn()', sandbox);

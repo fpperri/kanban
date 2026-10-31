@@ -56,6 +56,37 @@ function spfIcon(kind) {
   return svg;
 }
 
+// The narrow list that opens over the editor closes on a press outside it and on Esc (which then goes no
+// further, so the palette stays), as well as when a file is chosen. Esc is taken at the document in the
+// capture phase, registered when this script loads so it runs before the palette's own Esc; a name field in
+// the list, or an open row menu, keeps its own Esc.
+function spfOpenList() {
+  return document.querySelector('.spf.open');
+}
+
+function spfCloseList(focusBar) {
+  const open = spfOpenList();
+  if (!open) return;
+  open.classList.remove('open');
+  const bar = open.querySelector('.spf-pick');
+  bar.setAttribute('aria-expanded', 'false');
+  if (focusBar) bar.focus({ preventScroll: true });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !spfOpenList()) return;
+  if (typeof notesUi !== 'undefined' && notesUi.menu) return;
+  if (e.target.closest && e.target.closest('.spf-ask-input, .spf-rename')) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  spfCloseList(true);
+}, true);
+
+document.addEventListener('pointerdown', (e) => {
+  const open = spfOpenList();
+  if (open && !(e.target.closest && e.target.closest('.spf.open'))) spfCloseList(false);
+}, true);
+
 // Copy text through the same clipboard ladder as the path buttons; done(ok) says how it went.
 function spfCopyText(text, done) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -69,6 +100,8 @@ function spfCopyText(text, done) {
 //   renamed(from, to)             a file moved: its unsaved text moves with it;
 //   gone(path, wasSelected)       a file was deleted: drop its unsaved text; show the page if it was selected;
 //   fold()                        the fold button was pressed.
+// The returned markNotText(path, bool) tells the list that the editor found a file not to read as text (its
+// row's menu is then Copy path only).
 // Returns { el, foldButton, refresh(), mark(path|null, label), root() }: refresh reads the folder again (a size and a
 // date moved); mark(path, label) highlights the selected row (null for the page) and names it on the narrow
 // bar; root() is the absolute path of the card's folder.
@@ -106,6 +139,7 @@ function scratchFolderPanel(target, hooks) {
   let selected = null; // the selected file's path; null is the page
   let asking = null; // 'file' | 'folder' while the inline name field is open
   let seq = 0;
+  const notText = new Set(); // paths the editor found not to read as text, whatever the list's hint said
   let armed = null; // the path whose Delete was pressed once
   let armTimer = 0;
   const q = (p) => `?path=${encodeURIComponent(p)}`;
@@ -163,13 +197,18 @@ function scratchFolderPanel(target, hooks) {
   // ---- what a row's menu does ----
   const disarm = () => { clearTimeout(armTimer); armed = null; };
 
+  // One move on the server, then what follows it on the page: the list, the draft's key and the selection.
+  async function moveRequest(from, to) {
+    const moved = await api('POST', `${base}/move`, { from, to });
+    const wasSelected = selected === from;
+    await go(cwd);
+    hooks.renamed(from, moved.file.path);
+    if (wasSelected) hooks.select({ path: moved.file.path });
+  }
+
   async function moveFile(from, to) {
     try {
-      const moved = await api('POST', `${base}/move`, { from, to });
-      const wasSelected = selected === from;
-      await go(cwd);
-      hooks.renamed(from, moved.file.path);
-      if (wasSelected) hooks.select({ path: moved.file.path });
+      await moveRequest(from, to);
     } catch (err) {
       toast(err.message);
       go(cwd);
@@ -199,34 +238,40 @@ function scratchFolderPanel(target, hooks) {
     input.focus();
     const dot = e.name.lastIndexOf('.');
     input.setSelectionRange(0, dot > 0 ? dot : e.name.length);
+    // Enter and a press elsewhere (blur) both commit a name that changed; Esc cancels. A name the server
+    // refuses keeps the field open with the server's message.
     let done = false;
-    const finish = (commit) => {
-      if (done) return;
-      done = true;
-      const to = commit ? pf.renameDest(cwd, e.name, input.value) : '';
-      row.classList.remove('editing');
-      input.replaceWith(nameEl);
-      if (to === '') { row.focus(); return; }
-      moveFile(e.path, to);
+    let sending = false;
+    const close = () => { done = true; row.classList.remove('editing'); input.replaceWith(nameEl); };
+    const commit = async (byKey) => {
+      if (done || sending) return;
+      const to = pf.renameDest(cwd, e.name, input.value);
+      if (to === '') { close(); if (byKey) row.focus(); return; }
+      sending = true;
+      try {
+        await moveRequest(e.path, to);
+        done = true;
+      } catch (err) {
+        toast(err.message);
+        sending = false;
+        if (byKey) input.focus();
+      }
     };
     input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); ev.stopPropagation(); finish(true); }
-      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finish(false); }
+      if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); ev.stopPropagation(); commit(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); if (!done && !sending) { close(); row.focus(); } }
     });
-    input.addEventListener('blur', () => finish(false));
+    input.addEventListener('blur', () => commit(false));
   }
 
   const actsOf = (e, row, nameEl) => {
-    if (!e.readable) {
-      return {
-        menu: [['copy', 'Copy path', '']],
-        copy: () => spfCopyText(e.abs, (ok) => toast(ok ? `Copied: ${e.abs}` : 'Copy failed')),
-        sure: () => false,
-        onSure: null,
-      };
-    }
+    const copyMenu = [['copy', 'Copy path', '']];
+    const textMenu = [['rename', 'Rename', ''], ['move', 'Move to…', ''], ['remove', 'Delete', '']];
+    const copy = () => spfCopyText(e.abs, (ok) => toast(ok ? `Copied: ${e.abs}` : 'Copy failed'));
+    if (!e.readable) return { menu: copyMenu, copy, sure: () => false, onSure: null };
     const acts = {
-      menu: [['rename', 'Rename', ''], ['move', 'Move to…', ''], ['remove', 'Delete', '']],
+      get menu() { return notText.has(e.path) ? copyMenu : textMenu; },
+      copy,
       off: () => hooks.busy(e.path),
       sure: () => armed === e.path,
       onSure: null,
@@ -235,7 +280,7 @@ function scratchFolderPanel(target, hooks) {
         const targets = pf.moveTargets(cwd, listing.entries);
         const over = { menu: targets.map((t, i) => [`d${i}`, t.label, '']), sure: () => false, onSure: null };
         if (targets.length === 0) { over.menu = [['none', 'No other folder', '']]; over.off = () => true; }
-        targets.forEach((t, i) => { over[`d${i}`] = () => moveFile(e.path, pf.moveDest(t.path, e.name)); });
+        targets.forEach((t, i) => { over[`d${i}`] = () => moveFile(e.path, pf.joinPath(t.path, e.name)); });
         notesMenuOpen(row, at.x, at.y, over);
       },
       remove: () => {
@@ -260,6 +305,7 @@ function scratchFolderPanel(target, hooks) {
       const last = i === all.length - 1;
       const b = spfButton(i === 0 ? 'card folder' : c.name, `spf-crumb${last ? ' here' : ''}`);
       b.dataset.path = c.path;
+      b.title = c.path === '' ? 'card folder' : c.path;
       if (last) b.setAttribute('aria-current', 'location');
       else b.addEventListener('click', () => go(c.path));
       if (i > 0) nodes.push(spfEl('span', 'spf-sep', '/'));
@@ -328,6 +374,7 @@ function scratchFolderPanel(target, hooks) {
     el: wrap,
     foldButton: foldBtn,
     refresh: () => go(cwd),
+    markNotText(path, not) { if (not) notText.add(path); else notText.delete(path); },
     root: () => (listing ? listing.folder : ''),
     mark(path, label) {
       selected = path;

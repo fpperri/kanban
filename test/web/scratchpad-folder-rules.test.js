@@ -24,12 +24,15 @@ test('a move never lands on a different file that exists, whatever the case of t
   assert.strictEqual(mayReplace(path.join(d, 'a.md'), path.join(d, 'b.md')), false);
 });
 
-test('a case-only rename is allowed only where the two names are one file', () => {
+test('a case-only rename of a lone file is allowed on either kind of file system; onto a separate file it is not', () => {
   const d = tmp();
   fs.writeFileSync(path.join(d, 'a.md'), 'lower');
+  // With no other A.md present the answer is true everywhere: on a file system that ignores case the two names
+  // are one file (the same dev and ino), and on one that does not the destination is simply absent.
+  assert.strictEqual(mayReplace(path.join(d, 'a.md'), path.join(d, 'A.md')), true);
   const insensitive = fs.existsSync(path.join(d, 'A.md'));
-  assert.strictEqual(mayReplace(path.join(d, 'a.md'), path.join(d, 'A.md')), insensitive);
   if (!insensitive) {
+    // Only a case-sensitive file system can hold a separate A.md; replacing it is refused.
     fs.writeFileSync(path.join(d, 'A.md'), 'upper');
     assert.strictEqual(mayReplace(path.join(d, 'a.md'), path.join(d, 'A.md')), false, 'two files on a case-sensitive file system');
   }

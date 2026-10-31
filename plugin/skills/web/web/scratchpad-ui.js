@@ -235,6 +235,7 @@ function scratchPanel(target) {
     if (!folderOn) return;
     const h = headerOf(cur);
     nameEl.textContent = h.name;
+    nameEl.title = h.name;
     path.textContent = h.where;
     path.title = h.where;
     copy.disabled = !h.name;
@@ -322,6 +323,7 @@ function scratchPanel(target) {
       const file = answer.file;
       if (file.kind === 'markdown' || file.kind === 'text') enterText({ file }, file.text, file.kind === 'markdown');
       else enterViewer(file);
+      folder.markNotText(file.path, file.kind !== 'markdown' && file.kind !== 'text' && file.kind !== 'image');
       folder.mark(file.path, file.name);
       if (focus && !text.disabled) text.focus({ preventScroll: true });
     } catch (e) {
