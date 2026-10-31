@@ -255,6 +255,18 @@ const pageSourceModule = (() => {
       return plan.ids;
     }
 
+    // Discard the whole tray, then show the board as it was built. The ids removed.
+    function clear() {
+      const gone = tray.records().map((r) => r.id);
+      if (!gone.length) return [];
+      if (!fresh) throw new Error('this page source cannot show the board again, so it cannot discard the tray');
+      tray.remove(gone);
+      current = fresh();
+      applied.clear();
+      catchUp();
+      return gone;
+    }
+
     // The id of the record that made temporary id `temp`, or null.
     function recordMaking(temp) {
       const found = tray.records().find((r) => r.temp === temp);
@@ -277,6 +289,7 @@ const pageSourceModule = (() => {
       fingerprint,
       removal,
       remove,
+      clear,
       recordMaking,
       ready: started || Promise.resolve(),
       onChange(fn) { listeners.push(fn); },

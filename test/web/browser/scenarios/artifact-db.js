@@ -10,8 +10,10 @@
 // queues in browser storage instead and shows none of the stand-in's changes. A document another device
 // writes into the stand-in shows in the header and on the board without a reload, and the documents
 // Claude deletes after an apply take the count to 0. While the tray is in the database and holds a change,
-// the header says "Tell Claude: apply the tray" beside Copy changes; in browser storage it does not. Each step waits on what the page shows, never on a
-// fixed sleep.
+// the tray (opened by the header's pill) says "Tell Claude: apply the tray" above Copy changes and offers no
+// Save as file; in browser storage it has no such line and offers Save as file. A change the apply refused shows
+// in the tray with its reason, and removing it deletes its document. Each step waits on what the page shows,
+// never on a fixed sleep.
 
 const fs = require('fs');
 const os = require('os');
@@ -24,6 +26,9 @@ const NAME = `document.getElementById('project-name').textContent`;
 const PILL = `(()=>{const p=document.getElementById('queued-pill');return p.classList.contains('hidden')?'':p.textContent})()`;
 const HINT = `(()=>{const h=document.getElementById('apply-hint');return !h||h.classList.contains('hidden')?'':h.textContent})()`;
 const COPY_SHOWN = `!document.getElementById('copy-changes-btn').classList.contains('hidden')`;
+const SHOWN = (id) => `(()=>{const e=document.getElementById(${JSON.stringify(id)});return !!e&&e.offsetParent!==null})()`;
+const OPEN = `!document.getElementById('tray-sheet').classList.contains('hidden')`;
+const ROWS = `JSON.stringify([...document.querySelectorAll('#tray-list .tray-row')].map((r)=>[r.querySelector('.tray-words').textContent,r.querySelector('.tray-reason')?r.querySelector('.tray-reason').textContent:null]))`;
 const column = (id, col) => `!!document.querySelector('#board .column[data-col="${col}"] .card-el[data-id="${id}"]')`;
 const DRAWN = `document.querySelectorAll('#board .column .card-el').length>0`;
 const STORE = '__standin_db';
@@ -117,6 +122,16 @@ module.exports = {
       check('and still says to tell Claude: apply the tray', await waitFor(`${HINT}==='Tell Claude: apply the tray'`, 6000), await ev(HINT));
       check('the reload wrote nothing more', Object.keys(await standIn()).length === 1);
 
+      // the tray of a Board artifact: the line, Copy changes, no Save as file
+      await ev(`document.getElementById('queued-pill').click()`);
+      check('the pill opens the tray', await waitFor(OPEN, 4000));
+      check('the tray says "Tell Claude: apply the tray"', await ev(SHOWN('apply-hint')) && (await ev(`document.getElementById('apply-hint').textContent`)) === 'Tell Claude: apply the tray');
+      check('with Copy changes kept as the fallback', await ev(SHOWN('copy-changes-btn')));
+      check('and no Save as file, which belongs to the downloaded file', !(await ev(SHOWN('save-changes-btn'))));
+      check('its one row reads in plain words', (await ev(ROWS)) === JSON.stringify([['moved #7 to doing', null]]), await ev(ROWS));
+      await page.key('Escape');
+      check('Esc closes it', await waitFor(`!(${OPEN})`, 4000));
+
       // with the database answering null the same page queues in browser storage
       check('with use("db") answering null the page opens', await load('?nodb=1'));
       check('it shows none of the stand-in\'s changes', (await ev(PILL)) === '' && (await ev(column('7', 'todo'))), await ev(PILL));
@@ -125,6 +140,10 @@ module.exports = {
       check('it queues its own move', await waitFor(`${column('7', 'done')}&&${PILL}==='1 queued'`, 6000), await ev(PILL));
       check('a tray in browser storage has no line telling Claude to apply it, only Copy changes', (await ev(HINT)) === '' && (await ev(COPY_SHOWN)));
       check('in browser storage', (await trayKeys()) === 1);
+      await ev(`document.getElementById('queued-pill').click()`);
+      check('its tray offers Save as file and Copy changes and no "Tell Claude" line', await waitFor(OPEN, 4000) && await ev(SHOWN('save-changes-btn')) && await ev(SHOWN('copy-changes-btn')) && !(await ev(SHOWN('apply-hint'))));
+      await page.key('Escape');
+      await waitFor(`!(${OPEN})`, 4000);
       check('and not in the database', Object.keys(await standIn()).length === 1);
 
       // another device writes a document: the open page hears it
@@ -133,6 +152,17 @@ module.exports = {
       await ev(`window.__standinRemote('phone-1',{id:'phone-1',at:'2099-01-01T00:00:00.000Z',device:'phone',change:{method:'PATCH',path:'/api/cards/7',body:{status:'done'}}})`);
       check('a change written by another device shows in the header without a reload', await waitFor(`${PILL}==='2 queued'`, 8000), await ev(PILL));
       check('and on the board', await waitFor(column('7', 'done'), 8000));
+
+      // a change the apply refused shows with its reason, and Remove deletes its document
+      await ev(`window.__standinRemote('phone-1',{id:'phone-1',at:'2099-01-01T00:00:00.000Z',device:'phone',change:{method:'PATCH',path:'/api/cards/7',body:{status:'done'}},refused:'priority changed at the desk since'})`);
+      await ev(`document.getElementById('queued-pill').click()`);
+      check('the tray opens on both changes', await waitFor(`${OPEN}&&document.querySelectorAll('#tray-list .tray-row').length===2`, 8000), await ev(ROWS));
+      check('the refused one shows its reason', (await ev(ROWS)) === JSON.stringify([['moved #7 to doing', null], ['moved #7 to done', 'Refused: priority changed at the desk since']]), await ev(ROWS));
+      await ev(`document.querySelectorAll('#tray-list .tray-row')[1].querySelector('.tray-remove').click()`);
+      check('Remove takes the refused row out of the tray', await waitFor(`${PILL}==='1 queued'&&document.querySelectorAll('#tray-list .tray-row').length===1`, 8000), await ev(PILL));
+      check('and deletes its document from the database', !('phone-1' in (await standIn())), JSON.stringify(Object.keys(await standIn())));
+      await page.key('Escape');
+      await waitFor(`!(${OPEN})`, 4000);
 
       // Claude applies the tray and deletes the documents
       await ev('window.__standinClear()');

@@ -49,8 +49,8 @@ The collection is `tray`. Each queued change is one document there, its id the r
 
 ## What the page does
 
-- The header shows an **N queued** count whenever changes are queued, and **Copy changes** beside it. In a Board artifact it also says "Tell Claude: apply the tray", the way to land the changes without a paste; Copy changes stays as the fallback.
-- A thin mark runs along the header while any save is in flight, and leaving the page asks first; for a file it also asks while queued changes have not been copied.
+- The header shows an **N queued** pill whenever changes are queued. The pill opens the **tray**: a bottom sheet on a phone, a side panel on a desktop. Each row is one change in plain words, with a **Remove**; **Discard all** asks first. A downloaded file's tray offers **Copy changes** and **Save as file**. A Board artifact's tray shows "Tell Claude: apply the tray", the way to land the changes without a paste, with Copy changes as the fallback. A change the apply refused shows its reason.
+- A thin mark runs along the header while any save is in flight, and leaving the page asks first; for a file it also asks while queued changes have not been copied or saved as a file.
 - **Refresh** reads **Board as of <time>** (the Base); tapping it says to ask Claude to apply the changes and rebuild the page, since the page cannot read the board again.
 - A save the board's rules refuse (the `doing` gate, a stale todo list) is refused in the page with the desk's own toast, and is not queued.
 - A reload shows the board with the queued changes applied. In a downloaded file the queue lives in the browser's storage, under a key that names the board and the file's Base, so two files built from two boards never show each other's changes.

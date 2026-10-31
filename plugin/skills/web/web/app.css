@@ -317,8 +317,10 @@ button:hover { background: var(--btn-hover); }
 .btn-icon svg { width: 15px; height: 15px; }
 .snapshot-query { align-self: center; font-size: 0.78em; color: var(--mut); max-width: 16em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .queued-pill { align-self: center; font-size: 0.78em; font-weight: 600; color: var(--warn); border: 1px solid currentColor; border-radius: .15rem; padding: 0.1em 0.6em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.apply-hint { align-self: center; font-size: 0.85em; white-space: nowrap; }
-.copy-changes-btn { font-size: 0.85em; }
+button.queued-pill { background: none; cursor: pointer; }
+.actions > .queued-pill { padding: 0.1em 0.6em; }
+button.queued-pill:hover, button.queued-pill[aria-expanded="true"] { background: var(--accent-soft); }
+button.queued-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The activity mark: a thin bar along the header's lower edge while any save is in flight, on every board source. */
 .saving-mark { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; overflow: hidden; pointer-events: none; }
 .saving-mark::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--accent); animation: saving-slide 0.9s ease-in-out infinite alternate; }
@@ -1925,6 +1927,35 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .hotkey-what { color: var(--ink); line-height: 1.45; }
 .hotkey-state { grid-column: 2; color: var(--accent); font-size: 0.9em; }
 /* End preferences sheet */
+
+/* The tray (tray-ui.js): the queued saves one plain-words row each. A side panel from 760 px, on the modal
+   backdrop at the right edge like the preferences sheet; under it, a bottom sheet over the page. */
+.tray-backdrop { justify-content: flex-end; align-items: stretch; }
+.tray-sheet { width: min(380px, 100vw); height: 100vh; height: 100dvh; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; animation: prefs-slide 160ms ease-out; }
+@keyframes tray-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (max-width: 759.98px) {
+  .tray-backdrop { justify-content: stretch; align-items: flex-end; }
+  .tray-sheet { width: 100%; height: auto; max-height: 75vh; max-height: 75dvh; border-left: none; border-top: 1px solid var(--line); animation: tray-rise 160ms ease-out; }
+}
+@media (prefers-reduced-motion: reduce) { .tray-sheet { animation: none; } }
+.tray-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); }
+.tray-head h2 { color: var(--ink); font-size: 1.1em; font-weight: 700; letter-spacing: -0.01em; }
+.tray-count { color: var(--warn); font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; }
+.apply-hint { flex: 0 0 auto; margin: 0; padding: 10px 20px; background: var(--accent-soft); color: var(--ink); font-size: 0.9em; font-weight: 600; border-bottom: 1px solid var(--line); }
+.tray-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.tray-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+.tray-main { flex: 1 1 auto; min-width: 0; }
+.tray-words { display: block; color: var(--ink); font-size: 0.9em; overflow-wrap: anywhere; }
+.tray-reason { display: block; margin-top: 3px; color: var(--crit); font-size: 0.8em; overflow-wrap: anywhere; }
+.tray-row.refused { background: var(--crit-soft); }
+.tray-remove { flex: none; font-size: 0.8em; padding: 3px 9px; }
+.tray-confirm { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--crit); background: var(--crit-soft); font-size: 0.9em; }
+.tray-confirm-actions { display: flex; gap: 8px; }
+.tray-confirm-yes { background: var(--crit); border-color: var(--crit); color: var(--on-fill); }
+.tray-foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
+.tray-discard { margin-left: auto; }
+.tray-discard:hover { background: var(--crit-soft); border-color: var(--crit); color: var(--crit); }
+/* End tray */
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
    on any piece of a card lights every piece sharing its id (app.js's
