@@ -4,8 +4,9 @@
 // waiting_for list, in a group's list, as a note's target. A queued change is { method, path, body }. This
 // finds where one names a temporary id (namesIn), puts the real id in its place once the board has
 // allocated it (rewrite), tells which save made an id (createdId), lists what removing a record removes
-// (closure) and gives the next temporary id (nextTemp). Only the places an id goes are read: text that
-// reads "n1" in a title or a note is text. Same dual-environment pattern as ids.js: required by node --test
+// (closure), gives the next temporary id (nextTemp) and, because two devices can take the same one, says
+// which device's card a record means (whoMade) and which records a page leaves out (shadowed). Only the
+// places an id goes are read: text that reads "n1" in a title or a note is text. Same dual-environment pattern as ids.js: required by node --test
 // and apply-tray.js, and loaded as a plain <script> (one global, window.kanbanTempIds).
 
 const tempIdsModule = (() => {
@@ -63,23 +64,81 @@ const tempIdsModule = (() => {
     return typeof made === 'string' || typeof made === 'number' ? String(made) : null;
   }
 
+  // Two devices that each make a card before seeing the other's record both take the same temporary id
+  // (n1). A temporary id a record names means the card its own device made; only when its device made no
+  // card by that id does it mean the card a single other device made, and when several devices made one
+  // and it made none, it does not say which. whoMade(makers, record, temp) answers that device, or null.
+  const madeKey = (device, temp) => `${device}\u0000${temp}`;
+
+  function whoMade(devicesOf, record, temp) {
+    const devices = devicesOf.get(temp) || [];
+    if (devices.includes(record.device)) return record.device;
+    return devices.length === 1 ? devices[0] : null;
+  }
+
+  // temp -> the devices that made a card or group with it, among `records`.
+  function makersOf(records) {
+    const devicesOf = new Map();
+    for (const r of records) {
+      if (!r.temp) continue;
+      const devices = devicesOf.get(r.temp) || [];
+      if (!devices.includes(r.device)) devices.push(r.device);
+      devicesOf.set(r.temp, devices);
+    }
+    return devicesOf;
+  }
+
   // The ids of the records removing `id` removes, in tray order: the record, every record that names a
-  // temporary id a removed record made, and so on. A record is { id, change, temp? }. [] when none has the id.
+  // temporary id a removed record made (as its own device means it), and so on. A record is
+  // { id, device, change, temp? }. [] when none has the id.
   function closure(records, id) {
     const first = records.find((r) => r.id === id);
     if (!first) return [];
+    const devicesOf = makersOf(records);
     const gone = new Set([first.id]);
-    const made = new Set(first.temp ? [first.temp] : []);
+    const made = new Set(first.temp ? [madeKey(first.device, first.temp)] : []);
     for (let grew = true; grew;) {
       grew = false;
       for (const r of records) {
-        if (gone.has(r.id) || !namesIn(r.change).some((t) => made.has(t))) continue;
+        if (gone.has(r.id)) continue;
+        const names = namesIn(r.change).some((t) => {
+          const device = whoMade(devicesOf, r, t);
+          return device !== null && made.has(madeKey(device, t));
+        });
+        if (!names) continue;
         gone.add(r.id);
-        if (r.temp) made.add(r.temp);
+        if (r.temp) made.add(madeKey(r.device, r.temp));
         grew = true;
       }
     }
     return records.filter((r) => gone.has(r.id)).map((r) => r.id);
+  }
+
+  // The ids of the records a page holding `device`'s board leaves out when it replays `records` (in tray
+  // order), because it could not show them without two cards under one id: a record that makes a temporary
+  // id the page already holds for another device's card (the page's own device keeps its card), the
+  // later saves of that device that name it, and a save that names an id several devices made when its own
+  // device made none. They stay in the tray and the apply makes the cards; the page shows its own.
+  function shadowed(records, device) {
+    const holder = new Map(); // temp -> the device whose card the page shows under it
+    for (const r of records) if (r.temp && r.device === device && !holder.has(r.temp)) holder.set(r.temp, device);
+    const lost = new Set(); // madeKey of the cards left out
+    const out = new Set();
+    const seen = [];
+    for (const r of records) {
+      const devicesOf = makersOf(seen);
+      const names = namesIn(r.change);
+      let shows = !names.some((t) => lost.has(madeKey(r.device, t)) || (whoMade(devicesOf, r, t) === null && (devicesOf.get(t) || []).length > 1));
+      if (r.temp) {
+        const held = holder.get(r.temp);
+        if (shows && held === undefined) holder.set(r.temp, r.device);
+        else if (held !== r.device) shows = false;
+        if (!shows) lost.add(madeKey(r.device, r.temp));
+      }
+      if (!shows) out.add(r.id);
+      seen.push(r);
+    }
+    return out;
   }
 
   // The temporary id after the highest one the records made.
@@ -92,7 +151,7 @@ const tempIdsModule = (() => {
     return `n${top + 1}`;
   }
 
-  return { namesIn, rewrite, createdId, closure, nextTemp };
+  return { namesIn, rewrite, createdId, closure, nextTemp, shadowed, whoMade, makersOf };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

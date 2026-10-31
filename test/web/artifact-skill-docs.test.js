@@ -69,6 +69,18 @@ test('the skill shows the temp key a record carries for a card made in the page,
   } finally { fs.rmSync(path.dirname(dir), { recursive: true, force: true }); }
 });
 
+test('the apply names a temporary id two devices took by the device label, as the skill says', () => {
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-')), '.kanban');
+  fs.mkdirSync(dir);
+  try {
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: n\nnextId: 5\n');
+    const made =(device) => ({ id: `${device}-1`, at: '2026-10-31T00:00:00.000Z', device, temp: 'n1', change: { method: 'POST', path: '/api/cards', body: { title: device } } });
+    const report = applyTray({ dir, records: [made('desk'), made('phone')] });
+    assert.deepStrictEqual(report.temp, { 'n1 (desk)': '5', 'n1 (phone)': '6' });
+    for (const key of Object.keys(report.temp)) assert.ok(DOC.includes(`\`${key}\``), `the doc names ${key}`);
+  } finally { fs.rmSync(path.dirname(dir), { recursive: true, force: true }); }
+});
+
 test('the skill description names the header the page copies, so a payload from a file reaches the apply here and not the Snapshot protocol', () => {
   const description = /^description: (.*)$/m.exec(DOC)[1];
   const map = new Map();

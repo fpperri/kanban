@@ -139,13 +139,17 @@ const pageSourceModule = (() => {
 
     // Replays every record the board has not seen yet through route, in tray order: all of them at start,
     // and after that the ones another device wrote. A record the board has seen whose change differs now
-    // is a list another device rewrote.
+    // is a list another device rewrote. A card another device made under a temporary id this page holds
+    // for its own card stays out (temp-ids.js shadowed): the apply makes both.
     function catchUp() {
-      for (const record of tray.records()) {
+      const records = tray.records();
+      const left = tempIds.shadowed(records, tray.device);
+      for (const record of records) {
         const key = JSON.stringify(record.change);
         const had = applied.get(record.id);
         if (had === key) continue;
         applied.set(record.id, key);
+        if (left.has(record.id)) continue;
         if (had === undefined) replayRecord(record);
         else replayRewrite(record);
       }

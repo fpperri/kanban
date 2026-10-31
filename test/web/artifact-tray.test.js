@@ -266,3 +266,19 @@ test('a listener that errors again is subscribed again, with a longer wait each 
     assert.strictEqual(fake.listeners.size, 1, `listening again after error ${i + 1}`);
   }
 });
+
+test('removing a card made in the page from the queue deletes its documents and the ones that name it, and the board shows without them', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  const made = (await src.request('POST', '/api/cards', { title: 'New one' })).json.id;
+  assert.strictEqual(made, 'n1');
+  await src.request('PATCH', '/api/cards/n1', { priority: 'High' });
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  const record = src.recordMaking('n1');
+  assert.deepStrictEqual(src.remove(record), ['phone-1', 'phone-2']);
+  await settle();
+  assert.deepStrictEqual([...fake.docs.keys()], ['phone-3']);
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
+  assert.strictEqual(load.source.queued, 1);
+});
