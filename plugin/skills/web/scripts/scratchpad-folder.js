@@ -95,10 +95,49 @@ function realInside(rootReal, abs) {
   return r;
 }
 
+// What the list's hint for a file reads: names that are binary by extension are never opened, and any other
+// file only as far as a head of HEAD_BYTES. The hint only picks the row's menu; open and every write keep the
+// full check (decodeText over the whole file), so a file the hint called text can still open view only.
+const HEAD_BYTES = 8192;
+const BINARY_EXT = new Set(['.zip', '.gz', '.tgz', '.bz2', '.xz', '.7z', '.rar', '.tar', '.pdf', '.exe', '.dll', '.so', '.dylib', '.bin', '.dat', '.iso', '.img', '.dmg',
+  '.docx', '.xlsx', '.pptx', '.doc', '.xls', '.ppt', '.odt', '.ods', '.jar', '.class', '.o', '.a', '.wasm', '.sqlite', '.db',
+  '.mp3', '.mp4', '.m4a', '.wav', '.flac', '.ogg', '.mov', '.avi', '.mkv', '.webm', '.ttf', '.otf', '.woff', '.woff2', '.ico', '.psd', '.bmp', '.tif', '.tiff',
+  '.png', '.jpg', '.jpeg', '.gif', '.webp']);
+
+const isBinaryName = (name) => BINARY_EXT.has(path.extname(name).toLowerCase());
+
+// Whether a head of a file looks like text: no NUL byte and valid UTF-8. When the head is only the start of a
+// longer file (`truncated`), a multi-byte character cut by its end is allowed.
+function headLooksText(head, truncated) {
+  if (head.includes(0)) return false;
+  const whole = (buf) => { try { UTF8.decode(buf); return true; } catch (_) { return false; } };
+  if (whole(head)) return true;
+  if (!truncated) return false;
+  for (let cut = 1; cut <= 3 && cut < head.length; cut++) {
+    const lead = head[head.length - cut];
+    const need = lead >= 0xf0 && lead <= 0xf4 ? 4 : lead >= 0xe0 ? 3 : lead >= 0xc2 && lead < 0xe0 ? 2 : 0;
+    if (need === 0) { if (lead < 0x80 || lead > 0xbf) return false; continue; } // a continuation byte: look further back for its lead
+    if (need <= cut) return false;
+    for (let i = head.length - cut + 1; i < head.length; i++) if (head[i] < 0x80 || head[i] > 0xbf) return false;
+    return whole(head.subarray(0, head.length - cut));
+  }
+  return false;
+}
+
 // Whether a file in the list reads as text (the menu offers Rename, Move and Delete for those only).
 function readsAsText(abs, kind, size) {
-  if (kind === 'image' || size > MAX_TEXT) return false;
-  try { return decodeText(fs.readFileSync(abs)) !== null; } catch (_) { return false; }
+  if (kind === 'image' || size > MAX_TEXT || isBinaryName(abs)) return false;
+  let fd = null;
+  try {
+    fd = fs.openSync(abs, 'r');
+    const head = Buffer.alloc(Math.min(size, HEAD_BYTES));
+    const got = fs.readSync(fd, head, 0, head.length, 0);
+    return headLooksText(head.subarray(0, got), size > got);
+  } catch (_) {
+    return false;
+  } finally {
+    if (fd !== null) { try { fs.closeSync(fd); } catch (_) { /* gone */ } }
+  }
 }
 
 function entryOf(rootAbs, segs, stat, rootReal) {
@@ -342,4 +381,4 @@ function makeFolder(dir, target, body) {
   return entryOf(root, segs, fs.statSync(abs), rootReal);
 }
 
-module.exports = { list, open, create, save, remove, move, makeFolder, mayReplace, isPageName, isReservedName, MAX_TEXT, PAGE_RE };
+module.exports = { list, open, create, save, remove, move, makeFolder, mayReplace, isPageName, isReservedName, headLooksText, isBinaryName, HEAD_BYTES, MAX_TEXT, PAGE_RE };

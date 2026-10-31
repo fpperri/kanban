@@ -565,3 +565,32 @@ test('a save, delete or move through a link in the folder is a 400 and acts on n
   assert.strictEqual(fs.readFileSync(page, 'utf8'), pageBefore);
   assert.ok(fs.existsSync(path.join(root, 'outside', 'secret.txt')));
 }));
+
+test('a list never reads a whole file: it looks at a bounded head, and skips names that are binary by extension', () => withBoard(async ({ list, mine }) => {
+  fs.writeFileSync(path.join(mine, 'huge.txt'), 'x'.repeat(290000));
+  fs.writeFileSync(path.join(mine, 'late-nul.txt'), Buffer.concat([Buffer.alloc(9000, 0x61), Buffer.from([0])]));
+  fs.writeFileSync(path.join(mine, 'pack.zip'), 'looks like text but is named a zip');
+  const wide = '\u20ac'.repeat(8192);
+  fs.writeFileSync(path.join(mine, 'wide.txt'), wide);
+  const reads = [];
+  const { readFileSync } = fs;
+  fs.readFileSync = (p, ...rest) => { reads.push(String(p)); return readFileSync(p, ...rest); };
+  let r;
+  try { r = await list(1); } finally { fs.readFileSync = readFileSync; }
+  assert.deepStrictEqual(reads.filter((p) => /huge|late-nul|pack|wide/.test(p)), [], 'no whole-file read in a list');
+  const by = Object.fromEntries(r.json.entries.map((e) => [e.name, e]));
+  assert.strictEqual(by['huge.txt'].readable, true);
+  assert.strictEqual(by['wide.txt'].readable, true, 'a character cut at the end of the head is fine');
+  assert.strictEqual(by['late-nul.txt'].readable, true, 'a NUL past the head is only found at open');
+  assert.strictEqual(by['pack.zip'].readable, false);
+  assert.strictEqual(by['blob.bin'].readable, false);
+  assert.strictEqual(by['cafe.txt'], undefined);
+}));
+
+test('a file the hint called text but the full check refuses opens view only', () => withBoard(async ({ open, mine }) => {
+  fs.writeFileSync(path.join(mine, 'late-nul.txt'), Buffer.concat([Buffer.alloc(9000, 0x61), Buffer.from([0])]));
+  const f = (await open(1, 'late-nul.txt')).json.file;
+  assert.strictEqual(f.kind, 'other');
+  assert.strictEqual(f.writable, false);
+  assert.strictEqual(f.text, undefined);
+}));
