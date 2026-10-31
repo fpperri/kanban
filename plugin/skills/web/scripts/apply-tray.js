@@ -4,8 +4,8 @@
 // Applies a tray to a board. The tray is a list of records, each one save the page recorded:
 //   { id, at, device, change: { method, path, body }, temp?, before?, refused? }
 // `temp` is the temporary id (n1) the page gave the card or group the save made; later saves may name it.
-// given as a file (or `-` for stdin) holding a JSON array, one record per line, or a change payload
-// (a header line, then the records as JSON). Steps:
+// The tray is given as a file (or `-` for stdin) holding a JSON array, one record per line, or a change
+// payload (a header line, then the records as JSON). Steps:
 //   1. a record whose id is in the board's hidden `.applied-ids` file is skipped, so a retry or a
 //      double paste changes nothing;
 //   2. every other record is dry-run through route() over an in-memory copy of the board, in tray
@@ -114,13 +114,6 @@ const reasonOf = (res) => (res.body && res.body.error) || `refused with status $
 const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const listOf = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 
-// The real ids of the cards and groups made so far, by the device that made them: { device: { n1: '30' } }.
-// Two devices that each made a card before seeing the other's record both took n1; a save names the one
-// its own device made, else the one the only other device made, and is refused when it cannot tell. Which
-// device's card it means is read from every create of the id in the tray before it (`makers`, a
-// tempIds.makersOf), not from the creates that passed, so a device whose create did not pass never has its
-// later saves land on the card another device made under the same id.
-
 const CARD_EDIT = /^\/api\/cards\/([^/?]+)$/;
 const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
 const same = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
@@ -158,7 +151,12 @@ function staleness(route, record, path, known, poisoned) {
 }
 
 // Run one record through `route`, with the real ids of `made` put where it names a temporary id, and note
-// the id it made. { res } when it ran, { refusal } when it did not or the board refused it. `guard`, when
+// the id it made. `made` holds the real ids of the cards and groups made so far, by the device that made
+// them: { device: { n1: '30' } }. Two devices that each made a card before seeing the other's record both
+// took n1; a save names the one its own device made, else the one the only other device made, and is
+// refused when it cannot tell. Which device's card it means is read from every create of the id in the tray
+// before it (`makers`, a tempIds.makersOf), not from the creates that passed, so a device whose create did
+// not pass never has its later saves land on the card another device made under the same id. { res } when it ran, { refusal } when it did not or the board refused it. `guard`, when
 // given ({ poisoned }), holds a card edit to the value the page had for each field it changed.
 function run(route, record, made, makers, guard = null) {
   const device = String(record.device === undefined ? '' : record.device);
