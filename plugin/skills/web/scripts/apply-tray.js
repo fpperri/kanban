@@ -20,6 +20,7 @@ const { makeRoute } = require('./route');
 const { makeMemoryRoute } = require('./memory-route');
 const { readConfig } = require('./config-store');
 const { findRepo } = require('./path-vars');
+const oldPayload = require('./old-payload');
 
 const APPLIED_FILE = '.applied-ids';
 const WEB = path.join(__dirname, '..');
@@ -44,8 +45,10 @@ function routeSources(entry = 'scripts/route.js') {
 }
 
 // Tray records from text: a JSON array, one JSON record per line, or a payload whose first line is a
-// header. A fence around the records is dropped.
+// header. A fence around the records is dropped. An item that is an op of the old Snapshot page's
+// payload (`{op: 'move', ...}`) becomes the record that op means (old-payload.js).
 function parseTray(text) {
+  const base = oldPayload.baseOf(text);
   const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter((l) => !/^\s*```/.test(l));
   while (lines.length && lines[0].trim() === '') lines.shift();
   if (lines.length && !/^\s*[[{]/.test(lines[0])) lines.shift();
@@ -53,21 +56,23 @@ function parseTray(text) {
   if (body === '') return [];
   try {
     const whole = JSON.parse(body);
-    return Array.isArray(whole) ? whole : [whole];
+    return oldPayload.fromOps(Array.isArray(whole) ? whole : [whole], { base });
   } catch (_) {
-    return lines.filter((l) => l.trim() !== '').map((l, i) => {
+    const items = lines.filter((l) => l.trim() !== '').map((l, i) => {
       try {
         return JSON.parse(l);
       } catch (e) {
         throw new Error(`the tray is not JSON at line ${i + 1}: ${e.message}`);
       }
     });
+    return oldPayload.fromOps(items, { base });
   }
 }
 
 // Why a record cannot be tried at all, or null.
 function malformed(r) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return 'not a tray record';
+  if (typeof r.notRead === 'string') return r.notRead;
   if (typeof r.id !== 'string' || r.id === '') return 'the record has no id';
   const c = r.change;
   if (!c || typeof c !== 'object') return 'the record has no change';
