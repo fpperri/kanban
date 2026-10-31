@@ -120,14 +120,14 @@ test('a record the apply refused is kept with its reason, is not shown as applie
   const board = (await again.request('GET', '/api/board')).json;
   assert.strictEqual(board.active.find((c) => c.id === '3').title, 'Three', 'a refused change is not what the board shows');
   assert.strictEqual(board.active.find((c) => c.id === '7').status, 'doing');
-  assert.deepStrictEqual(board.source, { kind: 'page', queued: 2, refused: [{ id: 'dev-1', reason: 'title changed at the desk since' }], base: BOARD.base });
+  assert.deepStrictEqual(board.source, { kind: 'page', queued: 2, refused: [{ id: 'dev-1', reason: 'title changed at the desk since' }], pictures: false, base: BOARD.base });
   assert.strictEqual(again.records()[0].refused, 'title changed at the desk since');
 });
 
 test('a tray with no refused record names none', async () => {
   const src = open(memoryStorage());
   await src.request('PATCH', '/api/cards/3', form({ title: 'B' }));
-  assert.deepStrictEqual((await src.request('GET', '/api/board')).json.source, { kind: 'page', queued: 1, base: BOARD.base });
+  assert.deepStrictEqual((await src.request('GET', '/api/board')).json.source, { kind: 'page', queued: 1, pictures: false, base: BOARD.base });
 });
 
 function openWatched(storage) {

@@ -3,7 +3,7 @@
 // { status, json, text, statusText }, and call() turns a refusal into the Error the toasts read. The
 // server source is fetch; a page that carries its board answers through route over the board in memory
 // instead (scripts/page-source.js). No feature reads which one it is: the board load says
-// `source: { kind, queued }` for the few things that must (the queued count). Same dual-environment
+// `source: { kind, queued, pictures? }` for the few things that must (the queued count, and `pictures: false` where the board holds no picture files). Same dual-environment
 // pattern as ids.js/nesting.js: loaded as a plain <script> in the browser (one global,
 // window.kanbanBoardSource) AND required directly by node --test.
 

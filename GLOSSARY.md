@@ -72,7 +72,7 @@ The Snapshot — the Web built with the board inside — published as a hosted p
 _Avoid_: "the artifact" unqualified, snapshot artifact, session artifact, a page per session.
 
 **Board source**:
-Where a page's saves are answered and its board comes from: the server (the desk Web, over HTTP), the page itself (the Snapshot, which carries its board and answers through the route code in memory), or the artifact (the page source whose tray is kept in the artifact's database). No feature asks which one it is; the board load says `source: {kind, queued}` for the few things that must read it, such as the count of queued changes. When the artifact's database cannot be reached, the page falls back to the page source and keeps its tray in browser storage.
+Where a page's saves are answered and its board comes from: the server (the desk Web, over HTTP), the page itself (the Snapshot, which carries its board and answers through the route code in memory), or the artifact (the page source whose tray is kept in the artifact's database). No feature asks which one it is; the board load says `source: {kind, queued}` (and `pictures: false` where the board holds no picture files) for the few things that must read it, such as the count of queued changes. When the artifact's database cannot be reached, the page falls back to the page source and keeps its tray in browser storage.
 _Avoid_: mode, backend, environment.
 
 **Tray**:

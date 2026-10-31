@@ -65,7 +65,7 @@ test('the embedded board boots into a page source that answers the board load an
   assert.strictEqual(load.projectName, 'fixture');
   assert.strictEqual(load.active.length, 18);
   assert.ok(load.archived.length > 0);
-  assert.deepStrictEqual(load.source, { kind: 'page', queued: 0, base: data.board.base });
+  assert.deepStrictEqual(load.source, { kind: 'page', queued: 0, pictures: false, base: data.board.base });
   const id = load.active.find((c) => c.status === 'todo').id;
   assert.strictEqual((await src.request('PATCH', `/api/cards/${id}`, { status: 'backlog' })).status, 200);
   assert.strictEqual((await src.request('GET', '/api/board')).json.source.queued, 1);

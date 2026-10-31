@@ -12,17 +12,16 @@ const { mdToHtml } = require('../../plugin/skills/web/web/markdown.js');
 const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (name) => fs.readFileSync(path.join(WEB, name), 'utf8').replace(/\r\n/g, '\n');
 
-function load(extra = {}) {
+function load(source = null) {
   const listeners = [];
   const sandbox = {
-    ...extra,
     document: { addEventListener: (type, fn, capture) => listeners.push({ type, fn, capture }) },
     mdToHtml,
     mdInlineToHtml: () => '',
     console,
     kanbanCodeLibs: {},
     kanbanCodeBlocks: { createCodeBlocks: () => ({ enhance() {} }) },
-    state: { projectName: 'webapp' },
+    state: { projectName: 'webapp', source },
     encodeURIComponent,
   };
   vm.createContext(sandbox);
@@ -40,15 +39,15 @@ test('given a card, markdownInto draws an image as a picture from that card\'s r
   assert.ok(el.innerHTML.includes(`<a class="md-img" href="${src}"`));
 });
 
-test('a board source that holds no pictures (a page that carries its board) draws every card image as its alt label, with no address to load', () => {
-  const { sandbox } = load({ window: { kanbanSourceInUse: { kind: 'page', pictures: false } } });
+test('a board load that says it holds no pictures (a page that carries its board) draws every card image as its alt label, with no address to load', () => {
+  const { sandbox } = load({ kind: 'page', queued: 0, pictures: false });
   const el = { innerHTML: '' };
   sandbox.markdownInto(el, '![shot](a.png)', { card: '25' });
   assert.strictEqual(el.innerHTML, '<p><span class="md-img-alt">shot</span></p>');
 });
 
-test('a board source that says nothing of pictures, as the server does not, still draws them', () => {
-  const { sandbox } = load({ window: { kanbanSourceInUse: { kind: 'page' } } });
+test('a board load that says nothing of pictures, as the server does not, still draws them', () => {
+  const { sandbox } = load({ kind: 'server', queued: 0 });
   const el = { innerHTML: '' };
   sandbox.markdownInto(el, '![shot](a.png)', { card: '25' });
   assert.ok(el.innerHTML.includes('<img class="md-img-pic" src="/api/cards/25/image?path=a.png"'), el.innerHTML);
