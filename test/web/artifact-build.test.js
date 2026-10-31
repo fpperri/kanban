@@ -38,7 +38,7 @@ test('the file is one page: every script and the stylesheet inline, nothing fetc
   assert.ok(!/<(?:script|link)\b[^>]*\s(?:src|href)="\//.test(live), 'no root-relative reference is left');
   assert.ok(!/<link rel="stylesheet"/.test(live));
   assert.ok(/<style>[\s\S]+<\/style>/.test(live));
-  for (const marker of ['async function loadBoard', 'const boardSourceModule', 'const pageSourceModule', 'const memoryFsModule', 'const moduleLoaderModule', 'const memoryRouteModule', 'const bufferShimModule']) assert.ok(html.includes(marker), marker);
+  for (const marker of ['async function loadBoard', 'const boardSourceModule', 'const pageSourceModule', 'const memoryFsModule', 'const moduleLoaderModule', 'const memoryRouteModule', 'const bufferShimModule', 'const artifactTrayModule']) assert.ok(html.includes(marker), marker);
 });
 
 test('the page source is set before app.js runs, and app.js is the last script', () => {
@@ -47,6 +47,8 @@ test('the page source is set before app.js runs, and app.js is the last script',
   assert.ok(at('window.kanbanSourceInUse =') > -1);
   assert.ok(at('window.kanbanSourceInUse =') < at('async function loadBoard'));
   assert.ok(at('pageSourceModule') < at('window.kanbanSourceInUse ='));
+  assert.ok(at('artifactTrayModule') < at('pageSourceModule'));
+  assert.ok(html.includes('claude: window.claude'), 'the page source is given window.claude');
   assert.ok(at('async function loadBoard') > at('window.kanbanSourceInUse ='));
 });
 

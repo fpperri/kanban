@@ -2171,9 +2171,10 @@ function applyProjectName(name) {
 }
 
 // A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
-// header says how many are queued and offers them to be copied. Hidden when none are, and always on the server.
+// header says how many are queued and offers them to be copied. Hidden when none are, and always on the server
+// (its board load names no source).
 function applyQueued(source) {
-  const n = source && source.kind === 'page' ? source.queued : 0;
+  const n = source ? source.queued : 0;
   $('#queued-pill').textContent = `${n} queued`;
   $('#queued-pill').classList.toggle('hidden', n === 0);
   $('#copy-changes-btn').classList.toggle('hidden', n === 0);
@@ -2666,6 +2667,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#refresh-btn').addEventListener('click', () =>
     loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message)));
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
+  if (boardSource.onChange) boardSource.onChange(autoRefreshTick);
   clockDay = localTodayStr();
   setInterval(clockTick, CLOCK_TICK_MS);
   document.addEventListener('visibilitychange', () => {

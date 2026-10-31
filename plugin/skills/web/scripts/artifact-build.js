@@ -17,7 +17,7 @@ const iter = require('./iteration-folders');
 const { makeRoute } = require('./route');
 
 const WEB_ROOT = path.join(__dirname, '..');
-const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'page-source'];
+const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'artifact-tray', 'page-source'];
 const SKIP_NAMES = new Set(['.git', 'node_modules', '.kanban-app.pid']);
 
 const lf = (s) => s.replace(/\r\n?/g, '\n');
@@ -136,7 +136,7 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date() }) {
   const web = path.join(webRoot, 'web');
   const read = (file) => lf(fs.readFileSync(file, 'utf8'));
   const runtime = RUNTIME.map((n) => `<script>${scriptText(n, read(path.join(webRoot, 'scripts', `${n}.js`)))}</script>`).join('\n');
-  const start = "window.kanbanSourceInUse = window.kanbanPageSource.boot(JSON.parse(document.getElementById('kanban-board').textContent), { storage: (function () { try { return window.localStorage; } catch (e) { return null; } })() });";
+  const start = "window.kanbanSourceInUse = window.kanbanPageSource.boot(JSON.parse(document.getElementById('kanban-board').textContent), { storage: (function () { try { return window.localStorage; } catch (e) { return null; } })(), claude: window.claude });";
   const boot = `<script type="application/json" id="kanban-board">${jsonForScript(data)}</script>\n${runtime}\n<script>${start}</script>`;
 
   const html = read(path.join(web, 'app.html'));
