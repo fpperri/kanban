@@ -9,7 +9,7 @@
 // names the board and the Base and whose records hold { method, path, body }. Refresh reads "Board as of
 // <time>" and tapping it says to ask Claude to apply and rebuild, without reloading; leaving the page asks
 // while queued changes have not been copied (the page's askBeforeLeaving, handed a stand-in event, prevents it), and stops asking
-// once Copy changes has put them on the clipboard, and asks again after the next change. The second file shows none
+// once Copy changes has put them on the clipboard, and asks again after the next change, one folded into a todo list's queued change as well. The second file shows none
 // of the first's queued changes and queues its own; each file keeps only its own. Each step waits on what
 // the page shows, never on a fixed sleep. Booting the page here is also the proof that every store runs in a
 // browser, the one thing the Node tests cannot show. On the todos file, an item added, a tick and a move in
@@ -194,6 +194,29 @@ module.exports = {
       check('after Copy changes leaving asks nothing', await waitFor(`typeof window.__copied==='string'&&!(${ASKS})`, 4000));
       await drop('7', 'done');
       check('a change made after the copy asks again', await waitFor(`${PILL}==='2 queued'`, 6000) && (await ev(ASKS)) === true);
+
+      // an edit folded into a todo list's one queued change is still a change since the last copy
+      await ev('localStorage.clear()');
+      check('the todos file opens with no queued change again', await load('todos') && (await ev(PILL)) === '');
+      await clickOn('#board .card-el[data-id="7"] .card-head .card-todos');
+      check('the count opens the Todos tab again', await waitFor(LIST_READY, 6000));
+      const addItem = async (text) => {
+        await ev(`(()=>{const t=document.querySelector('#notes-palette .td-add');t.focus();t.value=${JSON.stringify(text)};t.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+        await idle();
+        await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+        return waitFor(`${LIST_TEXTS}.includes(${JSON.stringify(text)})`, 8000);
+      };
+      check('an item added to the list is queued', await addItem('first copy') && await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
+      await idle();
+      check('leaving asks before the list was copied', (await ev(ASKS)) === true);
+      await ev(`Object.defineProperty(navigator,'clipboard',{value:{writeText:async(t)=>{window.__copied=t}},configurable:true})`);
+      await ev(`document.getElementById('copy-changes-btn').click()`);
+      check('after Copy changes leaving asks nothing', await waitFor(`typeof window.__copied==='string'&&!(${ASKS})`, 4000));
+      check('another item added to the same list', await addItem('after the copy'));
+      await idle();
+      check('the list is still one queued change', (await ev(PILL)) === '1 queued', await ev(PILL));
+      check('and leaving asks again, the count being the same', (await ev(ASKS)) === true);
       await stayPut();
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
