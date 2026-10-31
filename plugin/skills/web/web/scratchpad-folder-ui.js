@@ -73,10 +73,10 @@ function spfCloseList(focusBar) {
   if (focusBar) bar.focus({ preventScroll: true });
 }
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e) => { // key-guard: exempt (acts only on Esc while the narrow file list is open over the editor, and then closes only it)
   if (e.key !== 'Escape' || !spfOpenList()) return;
   if (typeof notesUi !== 'undefined' && notesUi.menu) return;
-  if (e.target.closest && e.target.closest('.spf-ask-input, .spf-rename')) return;
+  if (e.target && e.target.closest && e.target.closest('.spf-ask-input, .spf-rename')) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   spfCloseList(true);
@@ -84,7 +84,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('pointerdown', (e) => {
   const open = spfOpenList();
-  if (open && !(e.target.closest && e.target.closest('.spf.open'))) spfCloseList(false);
+  if (open && !(e.target && e.target.closest && e.target.closest('.spf.open'))) spfCloseList(false);
 }, true);
 
 // Copy text through the same clipboard ladder as the path buttons; done(ok) says how it went.

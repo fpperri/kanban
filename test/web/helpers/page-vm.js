@@ -80,9 +80,9 @@ function searchBox() {
   return box;
 }
 
-// A selector ending :not(.hidden) asks whether a surface is open; the fake page
-// answers that none is, so the key guard sees a quiet page.
-const OPEN_SURFACE_PROBE = /:not\(\.hidden\)$/;
+// A selector ending :not(.hidden) or .open asks whether a surface is open; the fake page
+// answers that none is, so the key guard and the folder list's narrow panel see a quiet page.
+const OPEN_SURFACE_PROBE = /(:not\(\.hidden\)|\.open)$/;
 
 function loadPage({ board, search = '', stored = {}, scripts, elements: more = {}, documentExtras = {} } = {}) {
   const html = fs.readFileSync(path.join(WEB, 'app.html'), 'utf8');
