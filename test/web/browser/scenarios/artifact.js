@@ -216,6 +216,7 @@ module.exports = {
       await ev(`document.querySelector('#notes-palette .np-input').blur()`);
       await page.key('Escape');
 
+      await stayPut();
       await send('Page.reload');
       check('after a reload the card and its child are still n1 and n2', await waitFor(`${NAME}==='notes'&&!!document.querySelector('${TILE('n1')}')&&!!document.querySelector('${TILE('n2')}')&&state.active.find((c)=>c.id==='n2').parent==='n1'`, 15000));
       check('and the note, and the count', await waitFor(`state.logbook.notes.some((n)=>n.target==='n1')&&${PILL}==='3 queued'`, 6000), await ev(PILL));
