@@ -145,3 +145,18 @@ test('a card body that holds script tags, comment openers or line separators sta
     assert.ok(Object.values(dataOf(html).files).some((text) => text.includes(body)));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('what Copy changes copies from a built page is read by the apply, and lands the same save on the board it was built from', async () => {
+  const { applyTray, parseTray } = require('../../plugin/skills/web/scripts/apply-tray');
+  const root = tmpTree({ 'p/.kanban/config.yaml': 'name: round\nnextId: 9\n', 'p/.kanban/0001.one.card.md': card(1, 'One'), 'p/.kanban/0002.two.card.md': card(2, 'Two') });
+  try {
+    const dir = path.join(root, 'p', '.kanban');
+    const src = boot(dataOf(buildPage({ boardDir: dir }).html), { storage: memoryStorage(), device: 'phone' });
+    await src.request('PATCH', '/api/cards/1', { status: 'doing' });
+    await src.request('POST', '/api/cards/2/archive', {});
+    const report = applyTray({ dir, records: parseTray(src.payload()) });
+    assert.strictEqual(report.applied.length, 2, JSON.stringify(report));
+    assert.match(fs.readFileSync(path.join(dir, '0001.one.card.md'), 'utf8'), /^status: doing$/m);
+    assert.ok(fs.existsSync(path.join(dir, 'archived', '0002.two.card.md')));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
