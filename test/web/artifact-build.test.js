@@ -51,11 +51,12 @@ test('the page source is set before app.js runs, and app.js is the last script',
 });
 
 test('the embedded board boots into a page source that answers the board load and queues a save', async () => {
-  const { html, board } = buildPage({ boardDir: FIXTURE, now: () => new Date('2026-10-31T01:02:03.000Z') });
+  const { html, board } = buildPage({ boardDir: FIXTURE, archive: true, now: () => new Date('2026-10-31T01:02:03.000Z') });
   assert.strictEqual(board.name, 'fixture');
   assert.strictEqual(board.base, '2026-10-31T01:02:03.000Z');
   const data = dataOf(html);
   assert.deepStrictEqual(data.board, board);
+  assert.deepStrictEqual(board.snapshot, { query: '', archive: true, label: 'with the archive' });
   const storage = memoryStorage();
   const src = boot(data, { storage, device: 'd1' });
   const load = (await src.request('GET', '/api/board')).json;

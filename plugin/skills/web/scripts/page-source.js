@@ -20,6 +20,18 @@ const pageSourceModule = (() => {
 
   const DESK_JOB = 'That is a desk job: settings and notifications do not save in this page.';
   const DESK_JOB_PATH = /^\/api\/(?:config|notifications)(?:\/|$)/;
+  const DESK_LOCK = 'a desk job';
+  const LOCKED_FEATURES = ['logbook', 'scratchpad', 'todos', 'groups'];
+
+  // The gear's settings as the page shows them: read, never saved. Every feature the gear can switch shows
+  // locked through the gear's own locked path (the reason a folder set by hand outside the board gets), and
+  // `lock` is the same reason for the pages that have no feature to lock.
+  function lockedSettings(settings) {
+    if (!settings) return settings;
+    const out = { ...settings, lock: DESK_LOCK };
+    for (const key of LOCKED_FEATURES) if (settings[key]) out[key] = { ...settings[key], locked: true, reason: DESK_LOCK };
+    return out;
+  }
   const TODO_EDIT = /^\/api\/todos\/([^/]+)(?:\/(?:move|indent|outdent))?$/;
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
@@ -82,7 +94,13 @@ const pageSourceModule = (() => {
       }
       if (bufferShim.isBuffer(result.body) || (typeof Buffer !== 'undefined' && Buffer.isBuffer(result.body))) return { status: result.status, json: null, text: '', statusText: '', bytes: result.body, type: result.type };
       if (method === 'GET' && pathname === '/api/board' && result.status === 200) {
-        return reply(200, { ...result.body, boardDir: '', source: { kind: 'page', queued: tray.records().length } });
+        return reply(200, {
+          ...result.body,
+          boardDir: '',
+          source: { kind: 'page', queued: tray.records().length },
+          ...(board.snapshot ? { snapshot: board.snapshot } : {}),
+          settings: lockedSettings(result.body.settings),
+        });
       }
       return reply(result.status, result.body);
     }
@@ -110,7 +128,7 @@ const pageSourceModule = (() => {
       return `Apply kanban changes (board ${JSON.stringify(board.name)}, base ${board.base}, ${n} change${n === 1 ? '' : 's'}):\n${JSON.stringify(records, null, 2)}`;
     }
 
-    return { kind: 'page', request, records: () => tray.records(), payload };
+    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload };
   }
 
   // A label for this browser, kept in storage so its changes carry one name across reloads.
