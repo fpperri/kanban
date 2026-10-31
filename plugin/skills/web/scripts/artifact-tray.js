@@ -36,13 +36,13 @@ const artifactTrayModule = (() => {
     return { ...data, id };
   };
 
-  function withTimeout(promise, ms) {
+  function withTimeout(promise, ms = 10000) {
     let timer;
     const late = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('the database did not answer in time')), ms); });
     return Promise.race([promise, late]).finally(() => clearTimeout(timer));
   }
 
-  async function openTray({ db, device, board, storage, timeoutMs = 10000, retryMs = 1000 }) {
+  async function openTray({ db, device, board, storage, timeoutMs, retryMs = 1000 }) {
     const collection = db.collection(COLLECTION);
     const first = await withTimeout(collection.get(), timeoutMs);
     const held = new Map();
@@ -154,7 +154,7 @@ const artifactTrayModule = (() => {
     };
   }
 
-  return { openTray, COLLECTION };
+  return { openTray, withTimeout, COLLECTION };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
