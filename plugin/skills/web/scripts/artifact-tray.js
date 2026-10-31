@@ -7,7 +7,7 @@
 // The record is the one the browser-storage tray holds: { id: '<device>-<n>', at, device, change:
 // { method, path, body } }, and the apply adds `refused` (and `before`) to the ones it kept.
 //
-// openTray({ db, device, board, storage, timeoutMs }) reads the collection once and resolves the tray,
+// openTray({ db, device, board, storage, timeoutMs, retryMs }) reads the collection once and resolves the tray,
 // or rejects when the database cannot be read in time (the caller then keeps the queue in browser
 // storage). The tray has the same face as the browser-storage tray (records(), add(at, change)) plus
 // written(id), a promise for the write of a record that add() returned, and subscribe(fn), told when the
@@ -17,6 +17,7 @@
 
 const artifactTrayModule = (() => {
   const COLLECTION = 'tray';
+  const MAX_RETRY_MS = 30000;
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const byTime = (a, b) => {
@@ -41,7 +42,7 @@ const artifactTrayModule = (() => {
     return Promise.race([promise, late]).finally(() => clearTimeout(timer));
   }
 
-  async function openTray({ db, device, board, storage, timeoutMs = 10000 }) {
+  async function openTray({ db, device, board, storage, timeoutMs = 10000, retryMs = 1000 }) {
     const collection = db.collection(COLLECTION);
     const first = await withTimeout(collection.get(), timeoutMs);
     const held = new Map();
@@ -93,7 +94,23 @@ const artifactTrayModule = (() => {
       return changed;
     }
 
-    collection.onSnapshot((snapshot) => { if (adopt(snapshot)) for (const fn of listeners.slice()) fn(); }, () => { /* the listener is dead; the tray keeps what it holds */ });
+    // A listener that errors is dead, and only a fresh onSnapshot hears the collection again: it is
+    // subscribed again after a short wait that doubles while the errors go on (and its first snapshot is
+    // the whole collection, so what was written meanwhile arrives with it). Until then the tray keeps what it holds.
+    let wait = retryMs;
+    function listen() {
+      const retry = () => {
+        setTimeout(listen, wait);
+        wait = Math.min(wait * 2, MAX_RETRY_MS);
+      };
+      try {
+        collection.onSnapshot((snapshot) => {
+          wait = retryMs;
+          if (adopt(snapshot)) for (const fn of listeners.slice()) fn();
+        }, retry);
+      } catch (_) { retry(); }
+    }
+    listen();
 
     function put(record) {
       const id = record.id;

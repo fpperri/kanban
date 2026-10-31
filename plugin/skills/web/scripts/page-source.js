@@ -300,13 +300,13 @@ const pageSourceModule = (() => {
   // does not answer in time (a tray the page cannot reach is not worth a page that does not open) leaves the
   // queue in browser storage, the downloaded file's way. The collection is owner-only, so a viewer who is
   // told they are not the owner never reaches it (isOwner() answers a promise).
-  async function pickTray({ claude, storage, board, device, timeoutMs }) {
+  async function pickTray({ claude, storage, board, device, timeoutMs, retryMs }) {
     const inStorage = () => makeTrayStore(storage, trayKey(board), device);
     try {
       const [db, user] = await Promise.all([claude.use('db'), Promise.resolve(claude.use('user')).catch(() => null)]);
       if (!db) return inStorage();
       if (user && typeof user.isOwner === 'function' && !(await user.isOwner())) return inStorage();
-      return await artifactTray.openTray({ db, device, board, storage, timeoutMs });
+      return await artifactTray.openTray({ db, device, board, storage, timeoutMs, retryMs });
     } catch (_) {
       return inStorage();
     }
@@ -335,12 +335,12 @@ const pageSourceModule = (() => {
 
   // The source for the data a built page embeds: { board: { name, id, base }, sources, files, dir }.
   // `claude` is window.claude where the page runs in an artifact; a page opened as a file has none.
-  function boot(data, { storage, device, claude, timeoutMs } = {}) {
+  function boot(data, { storage, device, claude, timeoutMs, retryMs } = {}) {
     ids.acceptTempIds(true); // the page's own id module reads n1 as an id from here on
     const given = typeof Buffer === 'undefined' ? { Buffer: bufferShim } : {};
     const label = device || deviceLabel(storage);
     const tray = claude && typeof claude.use === 'function'
-      ? deferTray(() => pickTray({ claude, storage, board: data.board, device: label, timeoutMs }), label)
+      ? deferTray(() => pickTray({ claude, storage, board: data.board, device: label, timeoutMs, retryMs }), label)
       : makeTrayStore(storage, trayKey(data.board), label);
     const temp = makeTempIds(tray);
     const fresh = () => makeMemoryRoute(data.sources, { files: data.files, dir: data.dir, newId: temp.allocate, ...given }).route;

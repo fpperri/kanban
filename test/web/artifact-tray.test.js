@@ -233,3 +233,36 @@ test("a todo list edited on two devices keeps every edit: another device's rewri
   for (const edit of ['B', 'C', 'D']) assert.ok(texts[0].includes(edit), `the document keeps ${edit}: ${JSON.stringify(texts[0])}`);
   assert.strictEqual((await listOf(phone)).text, texts[0], 'the phone shows all three too');
 });
+
+test('after the database raises an error on the listener the page subscribes again, and a document written meanwhile shows', async () => {
+  const fake = makeFakeDb();
+  const desk = boot(DATA, { storage: memoryStorage(), device: 'desk', claude: claudeWith(fake.db), retryMs: 1 });
+  assert.strictEqual((await desk.request('GET', '/api/board')).json.source.queued, 0);
+  let told = 0;
+  desk.onChange(() => { told += 1; });
+  fake.breakListeners(new Error('the listener died'));
+  assert.strictEqual(fake.listeners.size, 0);
+  fake.change((docs) => docs.set('phone-1', { id: 'phone-1', at: '2026-10-31T02:00:00.000Z', device: 'phone', change: { method: 'PATCH', path: '/api/cards/3', body: { status: 'doing' } } }));
+  await new Promise((r) => setTimeout(r, 30));
+  assert.strictEqual(fake.listeners.size, 1, 'the page listens again');
+  const load = (await desk.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
+  assert.strictEqual(load.source.queued, 1);
+  assert.ok(told >= 1);
+  fake.change((docs) => docs.set('phone-2', { id: 'phone-2', at: '2026-10-31T02:01:00.000Z', device: 'phone', change: { method: 'PATCH', path: '/api/cards/3', body: { priority: 'High' } } }));
+  await settle();
+  const later = (await desk.request('GET', '/api/board')).json;
+  assert.strictEqual(later.source.queued, 2);
+  assert.strictEqual(later.active.find((c) => String(c.id) === '3').priority, 'High');
+});
+
+test('a listener that errors again is subscribed again, with a longer wait each time', async () => {
+  const fake = makeFakeDb();
+  const desk = boot(DATA, { storage: memoryStorage(), device: 'desk', claude: claudeWith(fake.db), retryMs: 1 });
+  await desk.request('GET', '/api/board');
+  for (let i = 0; i < 3; i += 1) {
+    fake.breakListeners(new Error('again'));
+    await new Promise((r) => setTimeout(r, 40));
+    assert.strictEqual(fake.listeners.size, 1, `listening again after error ${i + 1}`);
+  }
+});
