@@ -81,3 +81,11 @@ test('a Base that is no date gives no label, so Refresh keeps its word', () => {
   assert.strictEqual(asOfLabel(undefined), null);
   assert.strictEqual(asOfLabel('soon'), null);
 });
+
+test('the page asks before it goes: its beforeunload listener is the guard, and the script is in the page', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
+  assert.ok(/addEventListener\('beforeunload', askBeforeLeaving\)/.test(fs.readFileSync(path.join(web, 'app.js'), 'utf8')));
+  assert.ok(fs.readFileSync(path.join(web, 'app.html'), 'utf8').includes('<script src="/save-guard.js"></script>'));
+});
