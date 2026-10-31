@@ -17,6 +17,18 @@ const pageSourceModule = (() => {
 
   const DESK_JOB = 'That is a desk job: settings and notifications do not save in this page.';
   const DESK_JOB_PATH = /^\/api\/(?:config|notifications)(?:\/|$)/;
+  const DESK_LOCK = 'a desk job';
+  const LOCKED_FEATURES = ['logbook', 'scratchpad', 'todos', 'groups'];
+
+  // The gear's settings as the page shows them: read, never saved. Every feature the gear can switch shows
+  // locked through the gear's own locked path (the reason a folder set by hand outside the board gets), and
+  // `lock` is the same reason for the pages that have no feature to lock.
+  function lockedSettings(settings) {
+    if (!settings) return settings;
+    const out = { ...settings, lock: DESK_LOCK };
+    for (const key of LOCKED_FEATURES) if (settings[key]) out[key] = { ...settings[key], locked: true, reason: DESK_LOCK };
+    return out;
+  }
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 
@@ -65,7 +77,13 @@ const pageSourceModule = (() => {
       if (result.status >= 200 && result.status < 300 && write) tray.add(now(), { method, path, body: sent === undefined ? {} : sent });
       if (bufferShim.isBuffer(result.body) || (typeof Buffer !== 'undefined' && Buffer.isBuffer(result.body))) return { status: result.status, json: null, text: '', statusText: '', bytes: result.body, type: result.type };
       if (method === 'GET' && pathname === '/api/board' && result.status === 200) {
-        return reply(200, { ...result.body, boardDir: '', source: { kind: 'page', queued: tray.records().length } });
+        return reply(200, {
+          ...result.body,
+          boardDir: '',
+          source: { kind: 'page', queued: tray.records().length },
+          ...(board.snapshot ? { snapshot: board.snapshot } : {}),
+          settings: lockedSettings(result.body.settings),
+        });
       }
       return reply(result.status, result.body);
     }
