@@ -6,7 +6,10 @@
 // dropped on Doing shows there at once and the header reads 1 queued, and after a reload it is still
 // there and still 1 queued; a card that waits on others is refused with the toast the desk gives, and
 // the page source refuses it with the desk's own 422 message; Copy changes copies a payload whose header
-// names the board and the Base and whose records hold { method, path, body }. The second file shows none
+// names the board and the Base and whose records hold { method, path, body }. Refresh reads "Board as of
+// <time>" and tapping it says to ask Claude to apply and rebuild, without reloading; leaving the page asks
+// while queued changes have not been copied (the page's askBeforeLeaving, handed a stand-in event, prevents it), and stops asking
+// once Copy changes has put them on the clipboard, and asks again after the next change, one folded into a todo list's queued change as well. The second file shows none
 // of the first's queued changes and queues its own; each file keeps only its own. Each step waits on what
 // the page shows, never on a fixed sleep. Booting the page here is also the proof that every store runs in a
 // browser, the one thing the Node tests cannot show. On the todos file, an item added, a tick and a move in
@@ -19,7 +22,7 @@
 // note's target. Removing n1 from the queue asks first, naming the 2 more queued changes that name it, and
 // takes all three out of the page.
 //
-// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, todosUi.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): askBeforeLeaving, state, todosUi.
 
 const fs = require('fs');
 const os = require('os');
@@ -61,7 +64,10 @@ module.exports = {
         fs.writeFileSync(file, html);
         built[key] = { dir, file, board, url: fileUrl(file) };
       }
+      // This scenario leaves pages that hold queued changes on purpose; the page's prompt is not what it checks there.
+      const stayPut = () => ev(`window.askBeforeLeaving&&window.removeEventListener('beforeunload',window.askBeforeLeaving)`);
       const load = async (key, query = '', ready = DRAWN) => {
+        await stayPut();
         await send('Page.navigate', { url: built[key].url + query });
         return waitFor(`document.readyState==='complete'&&${NAME}===${JSON.stringify(key)}&&${ready}`, 15000);
       };
@@ -90,6 +96,7 @@ module.exports = {
       check('the header reads 1 queued', await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
 
       // a reload replays the queue
+      await stayPut();
       await send('Page.reload');
       check('after a reload the card is still in Doing', await waitFor(`${NAME}==='fixture'&&${column('7', 'doing')}`, 15000));
       check('and the header still reads 1 queued', await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
@@ -163,6 +170,7 @@ module.exports = {
       check('it is one whole-list save carrying the list as the page showed it and the version read at build time',
         JSON.stringify(queued[0].change) === JSON.stringify({ method: 'PUT', path: '/api/todos/7', body: { text: shown, version: read.version } }), JSON.stringify(queued[0].change).slice(0, 400));
 
+      await stayPut();
       await send('Page.reload');
       check('after a reload the header still reads 1 queued', await waitFor(`${NAME}==='todos'&&${PILL}==='1 queued'`, 15000), await ev(PILL));
       await clickOn('#board .card-el[data-id="7"] .card-head .card-todos');
@@ -234,6 +242,51 @@ module.exports = {
       check('accepting takes n1, its child and its note out of the page', await waitFor(`!document.querySelector('${TILE('n1')}')&&!document.querySelector('${TILE('n2')}')&&!state.logbook.notes.some((n)=>n.target==='n1')`, 6000));
       check('and the queue is empty', await waitFor(`${PILL}===''`, 6000), await ev(PILL));
       check('the details have closed', await ev(`document.getElementById('detail-modal').classList.contains('hidden')`));
+
+      // the cue and the leaving guard: Refresh wears the Base, and a queue that was not copied asks before leaving
+      const ASKS = `(()=>{const e={defaultPrevented:false,returnValue:'',preventDefault(){this.defaultPrevented=true}};askBeforeLeaving(e);return e.defaultPrevented})()`;
+      const REFRESH = `document.querySelector('#refresh-btn .btn-label').textContent`;
+      await ev('localStorage.clear()');
+      await load('fixture');
+      check('a fresh file has no queued change and leaving asks nothing', (await ev(PILL)) === '' && (await ev(ASKS)) === false);
+      await drop('7', 'doing');
+      check('a move is queued', await waitFor(`${PILL}==='1 queued'`, 6000));
+      check('Refresh reads "Board as of <time>"', /^Board as of (\d\d:\d\d|\d{4}-\d\d-\d\d \d\d:\d\d)$/.test(await ev(REFRESH)), await ev(REFRESH));
+      check('the phone menu says the same', (await ev(`document.getElementById('more-refresh').textContent`)) === (await ev(REFRESH)));
+      await ev(`document.getElementById('refresh-btn').click()`);
+      check('tapping it says to ask Claude to apply and rebuild', await waitFor(`/ask claude to apply/i.test(${TOAST})&&/rebuild/i.test(${TOAST})`, 4000), await ev(TOAST));
+      check('and the page is as it was', (await ev(PILL)) === '1 queued' && (await ev(column('7', 'doing'))));
+      check('no save is in flight, so there is no mark', await ev(`document.getElementById('saving-mark').classList.contains('hidden')`));
+      check('leaving asks while a queued change has not been copied', (await ev(ASKS)) === true);
+      await ev(`Object.defineProperty(navigator,'clipboard',{value:{writeText:async(t)=>{window.__copied=t}},configurable:true})`);
+      await ev(`document.getElementById('copy-changes-btn').click()`);
+      check('after Copy changes leaving asks nothing', await waitFor(`typeof window.__copied==='string'&&!(${ASKS})`, 4000));
+      await drop('7', 'done');
+      check('a change made after the copy asks again', await waitFor(`${PILL}==='2 queued'`, 6000) && (await ev(ASKS)) === true);
+
+      // an edit folded into a todo list's one queued change is still a change since the last copy
+      await ev('localStorage.clear()');
+      check('the todos file opens with no queued change again', await load('todos') && (await ev(PILL)) === '');
+      await clickOn('#board .card-el[data-id="7"] .card-head .card-todos');
+      check('the count opens the Todos tab again', await waitFor(LIST_READY, 6000));
+      const addItem = async (text) => {
+        await ev(`(()=>{const t=document.querySelector('#notes-palette .td-add');t.focus();t.value=${JSON.stringify(text)};t.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+        await idle();
+        await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+        return waitFor(`${LIST_TEXTS}.includes(${JSON.stringify(text)})`, 8000);
+      };
+      check('an item added to the list is queued', await addItem('first copy') && await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
+      await idle();
+      check('leaving asks before the list was copied', (await ev(ASKS)) === true);
+      await ev(`Object.defineProperty(navigator,'clipboard',{value:{writeText:async(t)=>{window.__copied=t}},configurable:true})`);
+      await ev(`document.getElementById('copy-changes-btn').click()`);
+      check('after Copy changes leaving asks nothing', await waitFor(`typeof window.__copied==='string'&&!(${ASKS})`, 4000));
+      check('another item added to the same list', await addItem('after the copy'));
+      await idle();
+      check('the list is still one queued change', (await ev(PILL)) === '1 queued', await ev(PILL));
+      check('and leaving asks again, the count being the same', (await ev(ASKS)) === true);
+      await stayPut();
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

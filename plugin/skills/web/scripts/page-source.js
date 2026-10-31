@@ -145,7 +145,7 @@ const pageSourceModule = (() => {
         return reply(200, {
           ...result.body,
           boardDir: '',
-          source: { kind: 'page', queued: tray.records().length },
+          source: { kind: 'page', queued: tray.records().length, base: board.base },
           ...(board.snapshot ? { snapshot: board.snapshot } : {}),
           settings: lockedSettings(result.body.settings),
         });
@@ -200,7 +200,14 @@ const pageSourceModule = (() => {
       return found ? found.id : null;
     }
 
-    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload, removal, remove, recordMaking };
+    // What the tray holds, whole: the leaving guard compares it with the one a copy took, so an edit folded
+    // into a record already copied, or a record gone, counts as a change. Empty when nothing is queued.
+    function fingerprint() {
+      const records = tray.records();
+      return records.length ? JSON.stringify(records) : '';
+    }
+
+    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload, fingerprint, removal, remove, recordMaking };
   }
 
   // A label for this browser, kept in storage so its changes carry one name across reloads.

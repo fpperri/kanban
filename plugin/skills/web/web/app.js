@@ -557,8 +557,17 @@ function openFullscreenModalType() {
 // board, in which case the script that built it set its own source before this one runs.
 const boardSource = window.kanbanSourceInUse || window.kanbanBoardSource.serverSource((...args) => fetch(...args));
 
+// Every write api() sends is a save in flight until it answers: the header's activity mark and the leaving
+// guard read that count (save-guard.js), whichever source answers.
+const saveGuard = window.kanbanSaveGuard.makeSaveGuard((n) => {
+  const mark = $('#saving-mark');
+  if (mark) mark.classList.toggle('hidden', n === 0);
+  syncLeaveGuard();
+});
+
 function api(method, path, body) {
-  return window.kanbanBoardSource.call(boardSource, method, path, body);
+  const asked = window.kanbanBoardSource.call(boardSource, method, path, body);
+  return method === 'GET' ? asked : saveGuard.track(asked);
 }
 
 function toast(msg) {
@@ -2173,7 +2182,22 @@ function applyProjectName(name) {
 
 // A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
 // header says how many are queued and offers them to be copied. Hidden when none are, and always on the server.
+let boardSourceInfo = null;
+// A page that carries its board cannot read the board again: its Refresh says when the board was read
+// (the Base) and, tapped, says to ask Claude to apply the changes and rebuild.
+function pageHoldsBoard() {
+  return !!boardSourceInfo && boardSourceInfo.kind !== 'server' && !!window.kanbanSaveGuard.asOfLabel(boardSourceInfo.base);
+}
+
 function applyQueued(source) {
+  boardSourceInfo = source || null;
+  syncLeaveGuard();
+  if (pageHoldsBoard()) {
+    const label = window.kanbanSaveGuard.asOfLabel(source.base);
+    $('#refresh-btn .btn-label').textContent = label;
+    $('#more-refresh').textContent = label;
+    $('#refresh-btn').title = `${label}. Tap to see how to bring it up to date.`;
+  }
   const n = source && source.kind === 'page' ? source.queued : 0;
   $('#queued-pill').textContent = `${n} queued`;
   $('#queued-pill').classList.toggle('hidden', n === 0);
@@ -2674,8 +2698,10 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   $('#board-copy-btn').addEventListener('click', copyBoardPath);
   $('#copy-changes-btn').addEventListener('click', copyChanges);
-  $('#refresh-btn').addEventListener('click', () =>
-    loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message)));
+  $('#refresh-btn').addEventListener('click', () => {
+    if (pageHoldsBoard()) { toast('This page holds the board as it was when it was built. Ask Claude to apply the changes and rebuild it.'); return; }
+    loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message));
+  });
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
   clockDay = localTodayStr();
   setInterval(clockTick, CLOCK_TICK_MS);
@@ -3259,11 +3285,36 @@ async function unqueueCard(id) {
   await loadBoard();
 }
 
+// Leaving the page asks first while a save is in flight, and for a downloaded file while changes are queued that
+// no copy or save has taken off the page (save-guard.js). A host that does not raise the native prompt (a
+// sandboxed frame) leaves the activity mark as the only cue.
+// The listener is on only while there is something to ask about: a page with a beforeunload listener takes a
+// round trip through the page before it can leave, and some browsers keep it out of their back/forward cache.
+let leaveGuardOn = false;
+const trayFingerprint = () => (boardSource.fingerprint ? boardSource.fingerprint() : '');
+function syncLeaveGuard() {
+  const asks = !!saveGuard.leaving(boardSourceInfo, trayFingerprint());
+  if (asks === leaveGuardOn) return;
+  leaveGuardOn = asks;
+  if (asks) window.addEventListener('beforeunload', askBeforeLeaving);
+  else window.removeEventListener('beforeunload', askBeforeLeaving);
+}
+
+function askBeforeLeaving(e) {
+  if (!saveGuard.leaving(boardSourceInfo, trayFingerprint())) return;
+  e.preventDefault();
+  e.returnValue = 'Changes are not saved yet. Leaving now may lose them.';
+}
+
 // Copy changes: the queued changes as the change payload, for Claude to apply (same clipboard ladder as copyBoardPath).
 function copyChanges() {
   const text = boardSource.payload ? boardSource.payload() : '';
   if (!text) return;
-  const done = (ok) => toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
+  const copied = boardSource.fingerprint();
+  const done = (ok) => {
+    if (ok) { saveGuard.sent(copied); syncLeaveGuard(); }
+    toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
+  };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
   } else done(fallbackCopy(text));
