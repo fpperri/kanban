@@ -9,7 +9,7 @@
 // (one global, window.kanbanMemoryFs).
 
 const memoryFsModule = (() => {
-  const posix = typeof module !== 'undefined' && module.exports ? require('./posix-path') : window.kanbanPosixPath;
+  const posixPath = typeof module !== 'undefined' && module.exports ? require('./posix-path') : window.kanbanPosixPath;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
 
@@ -32,7 +32,7 @@ const memoryFsModule = (() => {
     const make = (dir, data) => { const node = { dir, data, ino: nextIno++ }; touch(node); return node; };
     nodes.set('/', make(true));
 
-    const abs = (p) => posix.resolve(String(p));
+    const abs = (p) => posixPath.resolve(String(p));
     const bytesOf = (data) => (typeof data === 'string' ? encoder.encode(data) : Uint8Array.from(data));
     const toBuffer = (u8) => {
       const B = 'Buffer' in options ? options.Buffer : (typeof Buffer !== 'undefined' ? Buffer : null);
@@ -48,7 +48,7 @@ const memoryFsModule = (() => {
       const a = abs(p);
       const node = nodes.get(a);
       if (node) return { a, node };
-      for (let up = posix.dirname(a); up !== '/'; up = posix.dirname(up)) {
+      for (let up = posixPath.dirname(a); up !== '/'; up = posixPath.dirname(up)) {
         const parent = nodes.get(up);
         if (parent && !parent.dir) throw fail('ENOTDIR', syscall, p, 'not a directory');
       }
@@ -57,14 +57,14 @@ const memoryFsModule = (() => {
 
     // The folder a new entry goes in must be there.
     function parentOf(a, p, syscall) {
-      const parent = nodes.get(posix.dirname(a));
+      const parent = nodes.get(posixPath.dirname(a));
       if (!parent) throw fail('ENOENT', syscall, p, 'no such file or directory');
       if (!parent.dir) throw fail('ENOTDIR', syscall, p, 'not a directory');
     }
 
     function mkdirAll(a, p) {
       if (nodes.has(a)) return;
-      const up = posix.dirname(a);
+      const up = posixPath.dirname(a);
       mkdirAll(up, p);
       if (!nodes.get(up).dir) throw fail('ENOTDIR', 'mkdir', p, 'not a directory');
       nodes.set(a, make(true));
@@ -146,7 +146,7 @@ const memoryFsModule = (() => {
           if (existing && !existing.dir) throw fail('EEXIST', 'mkdir', p, 'file already exists');
           if (existing) return undefined;
           let first = a;
-          while (!nodes.has(posix.dirname(first))) first = posix.dirname(first);
+          while (!nodes.has(posixPath.dirname(first))) first = posixPath.dirname(first);
           mkdirAll(a, p);
           return first;
         }
@@ -161,12 +161,12 @@ const memoryFsModule = (() => {
         if (!node.dir) throw fail('ENOTDIR', 'scandir', p, 'not a directory');
         const names = [];
         for (const other of nodes.keys()) {
-          if (other !== a && posix.dirname(other) === a) names.push(posix.basename(other));
+          if (other !== a && posixPath.dirname(other) === a) names.push(posixPath.basename(other));
         }
         names.sort();
         if (!(opts && opts.withFileTypes)) return names;
         return names.map((name) => {
-          const child = nodes.get(posix.join(a, name));
+          const child = nodes.get(posixPath.join(a, name));
           return { name, parentPath: a, path: a, isFile: () => !child.dir, isDirectory: () => child.dir, isSymbolicLink: () => false };
         });
       },
@@ -230,7 +230,7 @@ const memoryFsModule = (() => {
     memory.realpathSync.native = memory.realpathSync;
 
     for (const [p, data] of Object.entries(files)) {
-      mkdirAll(posix.dirname(abs(p)), p);
+      mkdirAll(posixPath.dirname(abs(p)), p);
       nodes.set(abs(p), make(false, bytesOf(data)));
     }
     return memory;

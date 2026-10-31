@@ -10,7 +10,7 @@
 // (one global, window.kanbanModuleLoader).
 
 const moduleLoaderModule = (() => {
-  const posix = typeof module !== 'undefined' && module.exports ? require('./posix-path') : window.kanbanPosixPath;
+  const posixPath = typeof module !== 'undefined' && module.exports ? require('./posix-path') : window.kanbanPosixPath;
 
   const defaultProcess = () => ({ platform: 'linux', pid: 1, env: {}, cwd: () => '/' });
 
@@ -22,7 +22,7 @@ const moduleLoaderModule = (() => {
     };
 
     function resolve(from, request) {
-      const base = posix.join(posix.dirname(from), request);
+      const base = posixPath.join(posixPath.dirname(from), request);
       for (const candidate of [base, `${base}.js`, `${base}/index.js`]) {
         if (Object.prototype.hasOwnProperty.call(sources, candidate)) return candidate;
       }
@@ -42,7 +42,7 @@ const moduleLoaderModule = (() => {
       };
       const run = new Function('exports', 'require', 'module', '__filename', '__dirname', 'process', 'Buffer', `${sources[file]}\n//# sourceURL=${file}`);
       try {
-        run.call(mod.exports, mod.exports, require, mod, file, posix.dirname(file), sandbox.process, sandbox.Buffer);
+        run.call(mod.exports, mod.exports, require, mod, file, posixPath.dirname(file), sandbox.process, sandbox.Buffer);
       } catch (err) {
         cache.delete(file);
         throw err;
