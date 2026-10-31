@@ -282,3 +282,14 @@ test('removing a card made in the page from the queue deletes its documents and 
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
   assert.strictEqual(load.source.queued, 1);
 });
+
+test('a database whose use("db") or use("user") never settles falls back to browser storage, and the board load answers', async () => {
+  for (const hangs of ['db', 'user']) {
+    const fake = makeFakeDb();
+    const real = claudeWith(fake.db);
+    const claude = { use: (name) => (name === hangs ? new Promise(() => {}) : real.use(name)) };
+    const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude, timeoutMs: 20 });
+    const load = (await src.request('GET', '/api/board')).json;
+    assert.strictEqual(load.source.kind, 'page', hangs);
+  }
+});

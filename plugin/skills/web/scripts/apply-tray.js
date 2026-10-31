@@ -147,20 +147,25 @@ const listOf = (names) => (names.length < 2 ? names.join('') : `${names.slice(0,
 
 // The real ids of the cards and groups made so far, by the device that made them: { device: { n1: '30' } }.
 // Two devices that each made a card before seeing the other's record both took n1; a save names the one
-// its own device made, else the one the only other device made, and is refused when it cannot tell.
+// its own device made, else the one the only other device made, and is refused when it cannot tell. Which
+// device's card it means is read from every create of the id in the tray before it (`makers`, a
+// tempIds.makersOf), not from the creates that passed, so a device whose create did not pass never has its
+// later saves land on the card another device made under the same id.
 
 // Run one record through `route`, with the real ids of `made` put where it names a temporary id, and note
 // the id it made. { res } when it ran, { refusal } when it did not or the board refused it.
-function run(route, record, made) {
+function run(route, record, made, makers) {
   const device = String(record.device === undefined ? '' : record.device);
   const known = {};
   const missing = [];
   for (const temp of tempIds.namesIn(record.change)) {
-    if (made[device] && has(made[device], temp)) { known[temp] = made[device][temp]; continue; }
-    const makers = Object.keys(made).filter((d) => has(made[d], temp));
-    if (makers.length === 1) known[temp] = made[makers[0]][temp];
-    else if (makers.length > 1) return { refusal: `it names ${temp}, which ${listOf(makers.sort())} each made, so it does not say which card it means` };
-    else missing.push(temp);
+    const who = tempIds.whoMade(makers, record, temp);
+    const all = (makers.get(temp) || []).map(String);
+    if (who === null && all.length > 1) return { refusal: `it names ${temp}, which ${listOf(all.sort())} each made, so it does not say which card it means` };
+    if (who === null) { missing.push(temp); continue; }
+    const owner = String(who);
+    if (!(made[owner] && has(made[owner], temp))) return { refusal: `it names ${temp}, which ${owner} made in a save not applied in this run` };
+    known[temp] = made[owner][temp];
   }
   if (missing.length) return { refusal: `it names ${missing.join(', ')}, which no save applied before it made` };
   if (record.temp && made[device] && has(made[device], record.temp)) return { refusal: `it makes ${record.temp} again, which an earlier save from the same device made` };
@@ -204,18 +209,27 @@ function applyTray({ dir, records }) {
     }
   }
 
+  // Who made each temporary id, among the records before each one, whatever became of their saves.
+  const makersBefore = new Map();
+  const seenBefore = [];
+  for (const r of records) {
+    if (!r || typeof r !== 'object') continue;
+    makersBefore.set(r, tempIds.makersOf(seenBefore));
+    seenBefore.push(r);
+  }
+
   const rehearsal = memoryCopy(dir);
   const rehearsed = {};
   const passing = [];
   for (const r of todo) {
-    const { refusal } = run(rehearsal, r, rehearsed);
+    const { refusal } = run(rehearsal, r, rehearsed, makersBefore.get(r));
     if (refusal !== undefined) report.refused.push({ id: r.id, reason: refusal });
     else passing.push(r);
   }
 
   const real = makeRoute(dir);
   for (const r of passing) {
-    const { refusal } = run(real, r, made);
+    const { refusal } = run(real, r, made, makersBefore.get(r));
     if (refusal !== undefined) {
       report.refused.push({ id: r.id, reason: refusal });
       continue;

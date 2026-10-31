@@ -125,3 +125,24 @@ test("a device that has seen the other's card takes the next temporary id for it
   const board = (await desk.request('GET', '/api/board')).json;
   assert.deepStrictEqual(board.active.filter((c) => /^n/.test(String(c.id))).map((c) => `${c.id}:${c.title}`).sort(), ['n1:Desk card', 'n2:Phone card']);
 });
+
+test("a device's save naming a temporary id its own create did not pass is refused, never put on the card another device made under that id", async () => {
+  const r = (id, device, at, method, p, body, extra = {}) => ({ id, device, at, change: { method, path: p, body }, ...extra });
+  const records = [
+    r('desk-1', 'desk', '2026-10-31T09:00:00.000Z', 'POST', '/api/cards', { title: 'Desk card', status: 'doing', waiting_for: ['3'] }, { temp: 'n1' }),
+    r('phone-1', 'phone', '2026-10-31T09:00:01.000Z', 'POST', '/api/cards', { title: 'Phone card' }, { temp: 'n1' }),
+    r('desk-2', 'desk', '2026-10-31T09:00:02.000Z', 'PATCH', '/api/cards/n1', { title: 'Desk card renamed', priority: 'High' }),
+  ];
+  const dir = makeBoardDir();
+  const report = applyTray({ dir, records });
+  assert.deepStrictEqual(report.applied.map((a) => a.id), ['phone-1']);
+  assert.deepStrictEqual(report.refused.map((x) => x.id).sort(), ['desk-1', 'desk-2']);
+  const why = report.refused.find((x) => x.id === 'desk-2').reason;
+  assert.match(why, /n1/);
+  assert.match(why, /not applied/);
+  const phone = cardTitled(dir, 'Phone card');
+  assert.ok(phone, 'the phone card keeps its title');
+  assert.match(phone, /priority: Normal/);
+  assert.strictEqual(cardTitled(dir, 'Desk card renamed'), undefined);
+  assert.deepStrictEqual(report.temp, { n1: '30' });
+});
