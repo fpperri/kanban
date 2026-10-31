@@ -18,9 +18,13 @@ const idsModule = (() => {
   // so the shape of an id is written once: ID_SOURCE has no groups.
   const PREFIX_SOURCE = '_?[A-Z]*';
   const DIGITS_SOURCE = '[0-9]{1,15}';
-  const ID_SOURCE = PREFIX_SOURCE + DIGITS_SOURCE;
-  const ID_RE = new RegExp(`^(${PREFIX_SOURCE})(${DIGITS_SOURCE})$`);
-  const PREFIX_RE = new RegExp(`^${PREFIX_SOURCE}$`);
+  // A temporary id, `n1`: what a page that carries its board gives a card or group made in it until the
+  // board allocates the real id. Its prefix is lowercase, so no board ever allocates one like it.
+  const TEMP_PREFIX = 'n';
+  const ID_SOURCE = `(?:${PREFIX_SOURCE}|${TEMP_PREFIX})${DIGITS_SOURCE}`;
+  const ID_RE = new RegExp(`^(${PREFIX_SOURCE}|${TEMP_PREFIX})(${DIGITS_SOURCE})$`);
+  const PREFIX_RE = new RegExp(`^(?:${PREFIX_SOURCE}|${TEMP_PREFIX})$`);
+  const TEMP_RE = new RegExp(`^${TEMP_PREFIX}${DIGITS_SOURCE}$`);
 
   // `board#G3`, `#G3`: the board token (when there is one) is the run of name
   // characters just before the `#`; the id is `#`, a prefix, digits and a word
@@ -46,6 +50,10 @@ const idsModule = (() => {
       return ok ? { prefix, number } : null;
     }
     return null;
+  }
+
+  function isTempId(value) {
+    return typeof value === 'string' && TEMP_RE.test(value);
   }
 
   function idKey(value) {
@@ -99,7 +107,7 @@ const idsModule = (() => {
     return found;
   }
 
-  return { parseId, idKey, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, ID_SOURCE, PREFIX_SOURCE };
+  return { parseId, idKey, isTempId, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, ID_SOURCE, PREFIX_SOURCE };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
