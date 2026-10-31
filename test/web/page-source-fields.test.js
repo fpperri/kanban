@@ -129,3 +129,37 @@ test('a tray with no refused record names none', async () => {
   await src.request('PATCH', '/api/cards/3', form({ title: 'B' }));
   assert.deepStrictEqual((await src.request('GET', '/api/board')).json.source, { kind: 'page', queued: 1, base: BOARD.base });
 });
+
+function openWatched(storage) {
+  let calls = 0;
+  let echo = null;
+  const fresh = () => { calls += 1; return makeMemoryRoute(SOURCES, { files: FILES, dir: '/p/.kanban' }).route; };
+  const inner = makeTrayStore(storage, `kanban-tray:${BOARD.id}`, 'dev');
+  const tray = Object.assign(Object.create(Object.getPrototypeOf(inner)), inner, { ready: Promise.resolve(), records: () => inner.latest(), subscribe: (fn) => { echo = fn; } });
+  const src = makePageSource({ route: fresh(), fresh, tray, board: BOARD });
+  return { src, echo: () => echo(), rebuilds: () => calls - 1 };
+}
+
+test('a tray change that refuses nothing leaves the board as it is, after a save made on this page', async () => {
+  const w = openWatched(memoryStorage());
+  await w.src.request('GET', '/api/board');
+  await w.src.request('PATCH', '/api/cards/3', form({ title: 'B' }));
+  w.echo();
+  w.echo();
+  assert.strictEqual(w.rebuilds(), 0);
+  assert.strictEqual((await w.src.request('GET', '/api/board')).json.active.find((c) => c.id === '3').title, 'B');
+});
+
+test('a record marked refused after this page saved it rebuilds the board once, without it', async () => {
+  const storage = memoryStorage();
+  const w = openWatched(storage);
+  await w.src.request('GET', '/api/board');
+  await w.src.request('PATCH', '/api/cards/3', form({ title: 'B' }));
+  const held = JSON.parse(storage.getItem(`kanban-tray:${BOARD.id}`));
+  held.records[0].refused = 'title changed at the desk since';
+  storage.setItem(`kanban-tray:${BOARD.id}`, JSON.stringify(held));
+  w.echo();
+  w.echo();
+  assert.strictEqual(w.rebuilds(), 1);
+  assert.strictEqual((await w.src.request('GET', '/api/board')).json.active.find((c) => c.id === '3').title, 'Three');
+});

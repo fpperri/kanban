@@ -211,6 +211,7 @@ const pageSourceModule = (() => {
         const record = list ? queueList(list[1], folded, result) : edit && held ? queueEdit(path, sent, held, result) : queueSave(method, path, sent, result);
         if (record) {
           applied.set(record.id, JSON.stringify(record.change));
+          refusedSeen.set(record.id, !!record.refused);
           if (tray.written) {
             try { await tray.written(record.id); } catch (e) {
               const why = [e && e.code, e && e.message].filter(Boolean).join(': ');
