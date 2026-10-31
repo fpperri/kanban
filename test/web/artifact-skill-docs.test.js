@@ -6,11 +6,10 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { ROOT, read, fenced } = require('./helpers/doc-text');
 const { makeMemoryRoute } = require('../../plugin/skills/web/scripts/memory-route');
-const { makePageSource, makeTrayStore } = require('../../plugin/skills/web/scripts/page-source');
-const { routeSources } = require('./helpers/route-sources');
-const { boot } = require('../../plugin/skills/web/scripts/page-source');
-const { COLLECTION } = require('../../plugin/skills/web/scripts/artifact-tray');
+const { makePageSource, makeTrayStore, boot } = require('../../plugin/skills/web/scripts/page-source');
 const { applyTray } = require('../../plugin/skills/web/scripts/apply-tray');
+const { routeSources } = require('./helpers/route-sources');
+const { COLLECTION } = require('../../plugin/skills/web/scripts/artifact-tray');
 const { makeFakeDb, claudeWith } = require('./helpers/fake-db');
 
 // What the artifact skill's SKILL.md tells a person or an agent to run or parse: the build command, with
@@ -48,6 +47,26 @@ test('the change payload the skill shows is the one the page copies: its header 
   assert.strictEqual(shape(realHead), docHead);
   const keysOf = (records) => records.map((r) => [Object.keys(r).sort(), Object.keys(r.change).sort()]);
   assert.deepStrictEqual(keysOf(JSON.parse(docRest.join('\n'))), keysOf(JSON.parse(realRest.join('\n'))));
+});
+
+test('the skill shows the temp key a record carries for a card made in the page, and the apply reports its temp map', async () => {
+  const map = new Map();
+  const storage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, v); } };
+  const src = boot({ board: { name: 'n', id: 'x', base: '2026-10-31T00:00:00.000Z' }, sources: routeSources(), files: { '/p/.kanban/config.yaml': 'name: n\nnextId: 5\n' }, dir: '/p/.kanban' }, { storage, device: 'dev' });
+  await src.request('POST', '/api/cards', { title: 'Made in the page' });
+  const [record] = src.records();
+  assert.strictEqual(record.temp, 'n1');
+  const [shape] = /`(\{id, [^`]*)`/.exec(DOC).slice(1);
+  for (const key of Object.keys(record)) assert.ok(new RegExp(`\\b${key}\\b`).test(shape), `the doc's record shape names ${key}`);
+  assert.ok(DOC.includes(`"temp": ${JSON.stringify(record.temp)}`), 'the doc shows the key as the page writes it');
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-')), '.kanban');
+  fs.mkdirSync(dir);
+  try {
+    fs.writeFileSync(path.join(dir, 'config.yaml'), 'name: n\nnextId: 5\n');
+    const report = applyTray({ dir, records: src.records() });
+    assert.ok(Object.keys(report).includes('temp'), 'the apply reports a temp map');
+    assert.deepStrictEqual(report.temp, { [record.temp]: '5' });
+  } finally { fs.rmSync(path.dirname(dir), { recursive: true, force: true }); }
 });
 
 test('the skill description names the header the page copies, so a payload from a file reaches the apply here and not the Snapshot protocol', () => {
@@ -88,10 +107,24 @@ test('the apply report the skill reads has the keys it names: applied with ids, 
     const rec = (id, change) => ({ id, at: '2026-10-31T00:00:00.000Z', device: 'd', change });
     const report = applyTray({ dir, records: [rec('d-1', { method: 'PATCH', path: '/api/cards/1', body: { status: 'doing' } }), rec('d-2', { method: 'PATCH', path: '/api/cards/99', body: { status: 'doing' } })] });
     const again = applyTray({ dir, records: [rec('d-1', { method: 'PATCH', path: '/api/cards/1', body: { status: 'doing' } })] });
-    assert.deepStrictEqual(Object.keys(report).sort(), ['applied', 'refused', 'skipped']);
+    assert.deepStrictEqual(Object.keys(report).sort(), ['applied', 'refused', 'skipped', 'temp']);
     assert.ok(report.applied[0].id && report.refused[0].id && report.refused[0].reason);
     assert.deepStrictEqual(again.skipped, ['d-1']);
     const claim = /`applied` \(each with its `id`\), `refused` \(each with its `id` and `reason`\) and `skipped` \(ids\)/;
     assert.match(DOC, claim);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the build command with a query runs as the skill shows it: --query takes search words and --archive adds the archive', () => {
+  const shown = fenced(DOC, 'bash').map((b) => b.trim()).filter((b) => b.startsWith('node '));
+  const command = shown.find((b) => b.includes('--query'));
+  assert.ok(command, 'the doc shows a build with a query');
+  const m = /^node <skill dir>\/(\.\.\/web\/scripts\/artifact-build\.js) <board dir> --out <file\.html> --query "<search words>" --archive$/.exec(command);
+  assert.ok(m, command);
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-')), 'board.html');
+  try {
+    const ran = spawnSync(process.execPath, [path.join(SKILL_DIR, m[1]), path.join(ROOT, 'test', 'web', 'browser', 'fixture'), '--out', out, '--query', 'status:todo', '--archive'], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    assert.match(ran.stdout, /status:todo · with the archive/);
+  } finally { fs.rmSync(path.dirname(out), { recursive: true, force: true }); }
 });

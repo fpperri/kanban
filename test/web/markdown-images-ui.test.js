@@ -12,9 +12,10 @@ const { mdToHtml } = require('../../plugin/skills/web/web/markdown.js');
 const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (name) => fs.readFileSync(path.join(WEB, name), 'utf8').replace(/\r\n/g, '\n');
 
-function load() {
+function load(extra = {}) {
   const listeners = [];
   const sandbox = {
+    ...extra,
     document: { addEventListener: (type, fn, capture) => listeners.push({ type, fn, capture }) },
     mdToHtml,
     mdInlineToHtml: () => '',
@@ -37,6 +38,20 @@ test('given a card, markdownInto draws an image as a picture from that card\'s r
   const src = '/api/cards/G3/image?path=..%2Fa%20b%2Fc%2520d.png';
   assert.ok(el.innerHTML.includes(`<img class="md-img-pic" src="${src}" alt="shot"`), el.innerHTML);
   assert.ok(el.innerHTML.includes(`<a class="md-img" href="${src}"`));
+});
+
+test('a board source that holds no pictures (a page that carries its board) draws every card image as its alt label, with no address to load', () => {
+  const { sandbox } = load({ window: { kanbanSourceInUse: { kind: 'page', pictures: false } } });
+  const el = { innerHTML: '' };
+  sandbox.markdownInto(el, '![shot](a.png)', { card: '25' });
+  assert.strictEqual(el.innerHTML, '<p><span class="md-img-alt">shot</span></p>');
+});
+
+test('a board source that says nothing of pictures, as the server does not, still draws them', () => {
+  const { sandbox } = load({ window: { kanbanSourceInUse: { kind: 'page' } } });
+  const el = { innerHTML: '' };
+  sandbox.markdownInto(el, '![shot](a.png)', { card: '25' });
+  assert.ok(el.innerHTML.includes('<img class="md-img-pic" src="/api/cards/25/image?path=a.png"'), el.innerHTML);
 });
 
 test('given no card, markdownInto draws the plain label', () => {

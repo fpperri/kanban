@@ -110,9 +110,20 @@ const artifactTrayModule = (() => {
     return {
       kind: 'artifact',
       records: () => [...held.values()].sort(byTime),
-      add(at, change) {
+      device,
+      latest: () => [...held.values()].sort(byTime),
+      add(at, change, temp) {
         const id = `${device}-${take()}`;
-        return put({ id, at, device, change });
+        return put({ id, at, device, change, ...(temp ? { temp } : {}) });
+      },
+      // The records `gone` leave the tray, and their documents are deleted.
+      remove(gone) {
+        for (const id of gone) {
+          held.delete(id);
+          unsynced.delete(id);
+          writes.delete(id);
+          Promise.resolve().then(() => collection.doc(id).delete()).catch(() => { /* the document stays until Claude deletes it */ });
+        }
       },
       // The record `id` takes `change`, keeping its id and its time, so its place in the tray: its
       // document is written again. A record that is no longer held (the apply deleted it) is added as a new one.

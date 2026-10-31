@@ -35,7 +35,7 @@ test('the board load is the embedded board, with its source named and no build-m
   const src = open(memoryStorage());
   const res = await src.request('GET', '/api/board');
   assert.strictEqual(res.status, 200);
-  assert.deepStrictEqual(res.json.source, { kind: 'page', queued: 0 });
+  assert.deepStrictEqual(res.json.source, { kind: 'page', queued: 0, base: BOARD.base });
   assert.strictEqual(res.json.projectName, 'alpha');
   assert.strictEqual(res.json.boardDir, '');
   assert.deepStrictEqual(ids(res.json), ['3:todo', '7:todo']);
@@ -47,7 +47,7 @@ test('a save that works shows at once and is queued as the server save it was', 
   assert.strictEqual(res.status, 200);
   const board = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(ids(board), ['3:doing', '7:todo']);
-  assert.deepStrictEqual(board.source, { kind: 'page', queued: 1 });
+  assert.deepStrictEqual(board.source, { kind: 'page', queued: 1, base: BOARD.base });
   const [rec] = src.records();
   assert.deepStrictEqual(rec.change, { method: 'PATCH', path: '/api/cards/3', body: { status: 'doing' } });
   assert.strictEqual(rec.id, 'dev-1');
@@ -114,6 +114,10 @@ test('settings and notifications are a desk job: refused, and not queued', async
   assert.deepStrictEqual(src.records(), []);
 });
 
+test('the page source says it holds no pictures: a binary file of the board is not in the page', () => {
+  assert.strictEqual(open(memoryStorage()).pictures, false);
+});
+
 test('a path that is no route answers 404', async () => {
   const res = await open(memoryStorage()).request('GET', '/api/nothing-here');
   assert.strictEqual(res.status, 404);
@@ -150,6 +154,36 @@ test('boot makes a page source from the data a built page embeds, over the brows
   await src.request('PATCH', '/api/cards/3', { status: 'doing' });
   assert.ok([...storage.map.keys()].includes(`kanban-tray:${BOARD.id}:${BOARD.base}`));
   assert.strictEqual(boot(data, { storage, device: 'phone' }).records().length, 1);
+});
+
+test('the board load names the Snapshot query the page was built with, when the board carries one', async () => {
+  const snapshot = { query: 'tags:ui', archive: false, label: 'tags:ui · live cards only' };
+  assert.deepStrictEqual((await open(memoryStorage(), { board: { ...BOARD, snapshot } }).request('GET', '/api/board')).json.snapshot, snapshot);
+  assert.strictEqual('snapshot' in (await open(memoryStorage()).request('GET', '/api/board')).json, false);
+});
+
+test('the settings of the board load show locked with the reason "a desk job", and nothing else about them changes', async () => {
+  const files = { ...FILES, '/p/.kanban/config.yaml': 'name: alpha\nnextId: 30\ntodos: .todos\nlogbook: logbook\n' };
+  const { route } = makeMemoryRoute(SOURCES, { files, dir: '/p/.kanban' });
+  const desk = route('GET', '/api/board').body.settings;
+  const page = (await open(memoryStorage(), { files }).request('GET', '/api/board')).json.settings;
+  assert.strictEqual(page.lock, 'a desk job');
+  for (const key of ['logbook', 'scratchpad', 'todos', 'groups']) {
+    assert.strictEqual(page[key].locked, true, key);
+    assert.strictEqual(page[key].reason, 'a desk job', key);
+    assert.strictEqual(page[key].on, desk[key].on, key);
+    assert.strictEqual(page[key].folder, desk[key].folder, key);
+  }
+  assert.deepStrictEqual({ ...page, lock: undefined, logbook: 0, scratchpad: 0, todos: 0, groups: 0 }, { ...desk, lock: undefined, logbook: 0, scratchpad: 0, todos: 0, groups: 0 });
+  assert.strictEqual(desk.logbook.locked, false);
+});
+
+test('marking a notification read is refused and queues nothing, and the notification stays unread', async () => {
+  const src = open(memoryStorage());
+  const res = await src.request('POST', '/api/notifications/mark-read', {});
+  assert.strictEqual(res.status, 403);
+  assert.deepStrictEqual(src.records(), []);
+  assert.strictEqual((await src.request('GET', '/api/board')).json.notifications[0].read, false);
 });
 
 const todos = (src, target) => src.request('GET', `/api/todos/${target}`).then((r) => r.json.todos);
@@ -231,4 +265,32 @@ test('a todo save the list refuses is refused as the desk refuses it, and leaves
   const res = await src.request('POST', '/api/todos/7', { text: 'd', version: built.version });
   assert.strictEqual(res.status, 409);
   assert.strictEqual(JSON.stringify(src.records()), before);
+});
+
+test('the fingerprint of the tray is empty with nothing queued and changes with every edit, including one folded into a record already there', async () => {
+  const src = open(memoryStorage());
+  assert.strictEqual(src.fingerprint(), '');
+  const built = await todos(src, 7);
+  await src.request('POST', '/api/todos/7', { text: 'c', version: built.version });
+  const afterFirst = src.fingerprint();
+  assert.notStrictEqual(afterFirst, '');
+  assert.strictEqual(afterFirst, src.fingerprint());
+  await src.request('POST', '/api/todos/7', { text: 'd', version: (await todos(src, 7)).version });
+  assert.strictEqual(src.records().length, 1);
+  assert.notStrictEqual(src.fingerprint(), afterFirst);
+});
+
+test('a copy of one todo list edit, then another edit to the same list, leaves the guard asking', async () => {
+  const { makeSaveGuard } = require('../../plugin/skills/web/web/save-guard');
+  const src = open(memoryStorage());
+  const guard = makeSaveGuard();
+  await src.request('POST', '/api/todos/7', { text: 'c', version: (await todos(src, 7)).version });
+  const source = (await src.request('GET', '/api/board')).json.source;
+  assert.strictEqual(guard.leaving(source, src.fingerprint()), 'unsent');
+  guard.sent(src.fingerprint());
+  assert.strictEqual(guard.leaving(source, src.fingerprint()), null);
+  await src.request('POST', '/api/todos/7', { text: 'd', version: (await todos(src, 7)).version });
+  const after = (await src.request('GET', '/api/board')).json.source;
+  assert.strictEqual(after.queued, 1);
+  assert.strictEqual(guard.leaving(after, src.fingerprint()), 'unsent');
 });

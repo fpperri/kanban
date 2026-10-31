@@ -557,8 +557,17 @@ function openFullscreenModalType() {
 // board, in which case the script that built it set its own source before this one runs.
 const boardSource = window.kanbanSourceInUse || window.kanbanBoardSource.serverSource((...args) => fetch(...args));
 
+// Every write api() sends is a save in flight until it answers: the header's activity mark and the leaving
+// guard read that count (save-guard.js), whichever source answers.
+const saveGuard = window.kanbanSaveGuard.makeSaveGuard((n) => {
+  const mark = $('#saving-mark');
+  if (mark) mark.classList.toggle('hidden', n === 0);
+  syncLeaveGuard();
+});
+
 function api(method, path, body) {
-  return window.kanbanBoardSource.call(boardSource, method, path, body);
+  const asked = window.kanbanBoardSource.call(boardSource, method, path, body);
+  return method === 'GET' ? asked : saveGuard.track(asked);
 }
 
 function toast(msg) {
@@ -659,7 +668,8 @@ function cardEl(card) {
   // status) — status is already implied
   // by column placement here, but the dot renders on every surface
   // regardless, so board tiles get it too, same helper as everywhere else.
-  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (paintsSelected(card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
+  const queuedNew = kanbanIds.isTempId(card.id); // made in this page, not on the board yet (its id is temporary)
+  el.className = 'card card-el' + (pb.className ? ` ${pb.className}` : '') + (isWaiting(card) ? ' waiting' : '') + (queuedNew ? ' queued-new' : '') + (paintsSelected(card.id) ? ' selected' : '') + (isHoverHighlighted(hoverLit, card.id) ? ' hover-highlight' : '');
   el.draggable = !onPhoneLayout(); // a phone swipes between statuses; a touch never starts a native drag
   el.tabIndex = 0; // reachable by Tab so the hover cue isn't pointer-only (kanban.proj#261)
   el.dataset.id = card.id;
@@ -695,7 +705,7 @@ function cardEl(card) {
   // is a nowrap flex row and three stacked lines would stretch it.
   el.innerHTML =
     `<div class="card-main">` +
-      `<div class="card-head"><span class="card-id">#${card.id}${pb.label ? ` ${pb.label}` : ''}</span>${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types, state.typesOn)}${parent.badge}</div>` +
+      `<div class="card-head"><span class="card-id">${queuedNew ? card.id : `#${card.id}`}${pb.label ? ` ${pb.label}` : ''}</span>${queuedNew ? '<span class="new-mark" title="Made in this page: not on the board until Claude applies it">new</span>' : ''}${statusBadge(card)}${statusChip}${assigneeBadge(card, state.assignees)}${typeBadge(card, state.types, state.typesOn)}${parent.badge}</div>` +
       `<div class="card-title${titleDisplay.isPromptFallback ? ' card-title--prompt-fallback' : ''}">${titleHtml}</div>` +
       (tags ? `<div class="card-tags">${tags}</div>` : '') + waiting + parent.bar +
     `</div>` +
@@ -2172,14 +2182,38 @@ function applyProjectName(name) {
 
 // A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
 // header says how many are queued and offers them to be copied. Hidden when none are, and always on the server
-// (its board load names no source). In a Board artifact, where the tray is in the artifact's database, it
-// also says to tell Claude to apply it, Copy changes staying as the fallback.
+// (its board load answers source {kind: 'server', queued: 0}). In a Board artifact, where the tray is in the
+// artifact's database, it also says to tell Claude to apply it, Copy changes staying as the fallback.
+let boardSourceInfo = null;
+// A page that carries its board cannot read the board again: its Refresh says when the board was read
+// (the Base) and, tapped, says to ask Claude to apply the changes and rebuild.
+function pageHoldsBoard() {
+  return !!boardSourceInfo && boardSourceInfo.kind !== 'server' && !!window.kanbanSaveGuard.asOfLabel(boardSourceInfo.base);
+}
+
 function applyQueued(source) {
-  const n = source ? source.queued : 0;
+  boardSourceInfo = source || null;
+  syncLeaveGuard();
+  if (pageHoldsBoard()) {
+    const label = window.kanbanSaveGuard.asOfLabel(source.base);
+    $('#refresh-btn .btn-label').textContent = label;
+    $('#more-refresh').textContent = label;
+    $('#refresh-btn').title = `${label}. Tap to see how to bring it up to date.`;
+  }
+  const n = source && source.kind !== 'server' ? source.queued : 0;
   $('#queued-pill').textContent = `${n} queued`;
   $('#queued-pill').classList.toggle('hidden', n === 0);
   $('#copy-changes-btn').classList.toggle('hidden', n === 0);
   $('#apply-hint').classList.toggle('hidden', n === 0 || source.kind !== 'artifact');
+}
+
+// A page built with a Snapshot query says it in the header, so it is plain which cards it carries. The server's
+// board load has no such field and the label stays hidden.
+function applySnapshotQuery(snapshot) {
+  const el = $('#snapshot-query');
+  const label = snapshot && snapshot.label ? snapshot.label : '';
+  el.textContent = label;
+  el.classList.toggle('hidden', label === '');
 }
 
 function applyHomeUrl(url) {
@@ -2236,6 +2270,7 @@ function applyBoardData(data) {
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
   state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
   applyQueued(data.source);
+  applySnapshotQuery(data.snapshot);
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
   state.scratchpad = data.scratchpad || null; // { folder, targets } when config.yaml has a scratchpad: line, else null and nothing of it shows (scratchpad-ui.js); targets are the ids that have a page
   state.todos = data.todos || null; // { folder, targets, counts } when config.yaml has a todos: line, else null and nothing of it shows (todos-ui.js); counts are { id: { open, total } }, read by the card tiles
@@ -2666,8 +2701,10 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   $('#board-copy-btn').addEventListener('click', copyBoardPath);
   $('#copy-changes-btn').addEventListener('click', copyChanges);
-  $('#refresh-btn').addEventListener('click', () =>
-    loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message)));
+  $('#refresh-btn').addEventListener('click', () => {
+    if (pageHoldsBoard()) { toast('This page holds the board as it was when it was built. Ask Claude to apply the changes and rebuild it.'); return; }
+    loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message));
+  });
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
   if (boardSource.onChange) boardSource.onChange(autoRefreshTick);
   clockDay = localTodayStr();
@@ -3239,11 +3276,49 @@ function copyBoardPath() {
   } else done(fallbackCopy(text));
 }
 
+// Remove a card made in this page from the queue, with the queued changes that name its temporary id
+// (a child, a note, a group, an archive): the confirm says how many go with it.
+async function unqueueCard(id) {
+  const record = boardSource.recordMaking ? boardSource.recordMaking(id) : null;
+  const plan = record === null ? null : boardSource.removal(record);
+  if (!plan) return;
+  const more = plan.more === 0 ? '' : ` ${plan.more} more queued change${plan.more === 1 ? ' names' : 's name'} it and ${plan.more === 1 ? 'goes' : 'go'} too.`;
+  if (!confirm(`Remove ${id} from the queue?${more}`)) return;
+  boardSource.remove(record);
+  closeCard();
+  await loadBoard();
+}
+
+// Leaving the page asks first while a save is in flight, and for a downloaded file while changes are queued that
+// no copy or save has taken off the page (save-guard.js). A host that does not raise the native prompt (a
+// sandboxed frame) leaves the activity mark as the only cue.
+// The listener is on only while there is something to ask about: a page with a beforeunload listener takes a
+// round trip through the page before it can leave, and some browsers keep it out of their back/forward cache.
+let leaveGuardOn = false;
+const trayFingerprint = () => (boardSource.fingerprint ? boardSource.fingerprint() : '');
+function syncLeaveGuard() {
+  const asks = !!saveGuard.leaving(boardSourceInfo, trayFingerprint());
+  if (asks === leaveGuardOn) return;
+  leaveGuardOn = asks;
+  if (asks) window.addEventListener('beforeunload', askBeforeLeaving);
+  else window.removeEventListener('beforeunload', askBeforeLeaving);
+}
+
+function askBeforeLeaving(e) {
+  if (!saveGuard.leaving(boardSourceInfo, trayFingerprint())) return;
+  e.preventDefault();
+  e.returnValue = 'Changes are not saved yet. Leaving now may lose them.';
+}
+
 // Copy changes: the queued changes as the change payload, for Claude to apply (same clipboard ladder as copyBoardPath).
 function copyChanges() {
   const text = boardSource.payload ? boardSource.payload() : '';
   if (!text) return;
-  const done = (ok) => toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
+  const copied = boardSource.fingerprint();
+  const done = (ok) => {
+    if (ok) { saveGuard.sent(copied); syncLeaveGuard(); }
+    toast(ok ? 'Copied the changes. Paste them to Claude to apply.' : 'Copy failed. The changes are still queued.');
+  };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
   } else done(fallbackCopy(text));
@@ -3316,6 +3391,9 @@ async function openDetailModal(id, { quiet, onFail } = {}) {
   $('#detail-copy-btn').dataset.path = data.path || '';
   resetCopyState();
   $('#detail-modified').innerHTML = formatDetailModified(data);
+  const queuedNew = kanbanIds.isTempId(data.id) && !!boardSource.recordMaking && boardSource.recordMaking(data.id) !== null;
+  $('#detail-queued').classList.toggle('hidden', !queuedNew);
+  $('#detail-queued-id').textContent = data.id;
   $('#detail-frontmatter').innerHTML = renderFrontmatterTable(parseFrontmatter(data.frontmatter));
   paintAssigneeColors($('#detail-frontmatter')); // reserved custom colors need a CSSOM pass, see helper
   paintTypeColors($('#detail-frontmatter'));
@@ -3493,6 +3571,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#detail-delete-btn').addEventListener('click', () => {
     if (currentDetailId != null) doDelete(currentDetailId, { onSuccess: closeCard });
   });
+  $('#detail-unqueue-btn').addEventListener('click', () => { if (currentDetailId != null) unqueueCard(currentDetailId); });
   $('#detail-fullscreen-btn').addEventListener('click', () => toggleModalFullscreen('detail'));
   $('#detail-modal').addEventListener('click', (e) => { if (e.target.id === 'detail-modal') closeCard(); });
   // Esc priority: fullscreen is out of the Esc picture entirely.

@@ -36,7 +36,7 @@ test('a move writes one document in the collection tray holding the server save,
   assert.strictEqual(doc.device, 'phone');
   assert.match(doc.at, /^\d{4}-\d{2}-\d{2}T/);
   const load = (await src.request('GET', '/api/board')).json;
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1 });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, base: DATA.board.base });
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
 });
 
@@ -47,7 +47,7 @@ test('a reload reads the tray back from the database and shows the board with it
   const again = boot(DATA, { storage, device: 'phone', claude: claudeWith(fake.db) });
   const load = (await again.request('GET', '/api/board')).json;
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1 });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, base: DATA.board.base });
   assert.strictEqual(fake.docs.size, 1);
 });
 
@@ -56,7 +56,7 @@ test('a database that resolves null falls back to browser storage, the file\'s b
   const src = boot(DATA, { storage, device: 'phone', claude: { use: async () => null } });
   assert.strictEqual((await src.request('PATCH', '/api/cards/3', { status: 'doing' })).status, 200);
   const load = (await src.request('GET', '/api/board')).json;
-  assert.deepStrictEqual(load.source, { kind: 'page', queued: 1 });
+  assert.deepStrictEqual(load.source, { kind: 'page', queued: 1, base: DATA.board.base });
   assert.ok([...storage.map.keys()].includes(`kanban-tray:${DATA.board.id}:${DATA.board.base}`));
   const again = boot(DATA, { storage, device: 'phone', claude: { use: async () => null } });
   assert.strictEqual((await again.request('GET', '/api/board')).json.source.queued, 1);
@@ -102,7 +102,7 @@ test('a change made on another device shows in the tray and on the board without
   await phone.request('PATCH', '/api/cards/3', { status: 'doing' });
   await settle();
   const load = (await desktop.request('GET', '/api/board')).json;
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1 });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, base: DATA.board.base });
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
   assert.ok(told >= 1);
 });
@@ -210,4 +210,26 @@ test('edits to one todo list leave one document in the database, rewritten in pl
   assert.deepStrictEqual([...fake.docs.keys()], ['phone-1']);
   assert.deepStrictEqual(fake.docs.get('phone-1').change, { method: 'PUT', path: '/api/todos/7', body: { text: shown.text, version: built.version } });
   assert.strictEqual((await src.request('GET', '/api/board')).json.source.queued, 1);
+});
+
+const TODO_DATA = { ...DATA, files: { ...FILES, '/p/.kanban/config.yaml': 'name: alpha\nnextId: 30\ntodos: .todos\n', '/p/.kanban/.todos/0007.todo.md': '- [ ] a\n' } };
+const listOf = async (src) => (await src.request('GET', '/api/todos/7')).json.todos;
+const addTodo = async (src, text) => assert.strictEqual((await src.request('POST', '/api/todos/7', { text, version: (await listOf(src)).version })).status, 201);
+
+test("a todo list edited on two devices keeps every edit: another device's rewrite of the list is replayed, and the next edit builds on it", async () => {
+  const fake = makeFakeDb();
+  const desk = boot(TODO_DATA, { storage: memoryStorage(), device: 'desk', claude: claudeWith(fake.db) });
+  const phone = boot(TODO_DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  await desk.request('GET', '/api/board');
+  await addTodo(phone, 'B');
+  await settle();
+  await addTodo(phone, 'C');
+  await settle();
+  assert.strictEqual((await listOf(desk)).text, (await listOf(phone)).text, "the desk shows the phone's second edit");
+  await addTodo(desk, 'D');
+  await settle();
+  const texts = [...fake.docs.values()].map((d) => d.change.body.text);
+  assert.strictEqual(texts.length, 1, 'one document for the list');
+  for (const edit of ['B', 'C', 'D']) assert.ok(texts[0].includes(edit), `the document keeps ${edit}: ${JSON.stringify(texts[0])}`);
+  assert.strictEqual((await listOf(phone)).text, texts[0], 'the phone shows all three too');
 });
