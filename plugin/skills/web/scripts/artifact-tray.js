@@ -42,6 +42,31 @@ const artifactTrayModule = (() => {
     return Promise.race([promise, late]).finally(() => clearTimeout(timer));
   }
 
+  // The numbers a device gives its changes. A number only goes up, for the device and the board: past what
+  // the caller holds (`atLeast`), past what an earlier visit stored under a key that names the board and not
+  // the build, and past what the board has applied for the device (`board.taken`, embedded by the build). A
+  // number the apply already took must never come round again, whatever the storage or the board id the
+  // page was built with. A storage that throws or is missing leaves the counter in memory.
+  function makeNumbers({ storage, board, device }) {
+    const counterKey = `kanban-tray-next:${board.id}`;
+    const floor = Number((board.taken || {})[device]) || 0;
+    const stored = () => {
+      try {
+        const n = Number(storage && storage.getItem(counterKey));
+        return Number.isInteger(n) && n > 0 ? n : 0;
+      } catch (_) { return 0; }
+    };
+    let next = 0;
+    return {
+      take(atLeast = 1) {
+        const n = Math.max(atLeast, floor + 1, next, stored());
+        next = n + 1;
+        try { if (storage) storage.setItem(counterKey, String(next)); } catch (_) { /* in memory */ }
+        return n;
+      },
+    };
+  }
+
   async function openTray({ db, device, board, storage, timeoutMs, retryMs = 1000 }) {
     const collection = db.collection(COLLECTION);
     const first = await withTimeout(collection.get(), timeoutMs);
@@ -55,21 +80,11 @@ const artifactTrayModule = (() => {
       if (record) held.set(record.id, record);
     }
 
-    // The number a change takes only goes up, for the device and the board, past what the database holds
-    // and what an earlier visit stored: a number the apply already took (it keeps every applied id) must
-    // never come round again after the applied documents were deleted.
-    const counterKey = `kanban-tray-next:${board.id}`;
-    const stored = () => {
-      try {
-        const n = Number(storage && storage.getItem(counterKey));
-        return Number.isInteger(n) && n > 0 ? n : 0;
-      } catch (_) { return 0; }
-    };
+    const numbers = makeNumbers({ storage, board, device });
     let next = 1 + Math.max(0, ...[...held.keys()].map((id) => numberOf(device, id)));
     const take = () => {
-      const n = Math.max(next, stored());
+      const n = numbers.take(next);
       next = n + 1;
-      try { if (storage) storage.setItem(counterKey, String(next)); } catch (_) { /* in memory */ }
       return n;
     };
 
@@ -154,7 +169,7 @@ const artifactTrayModule = (() => {
     };
   }
 
-  return { openTray, withTimeout, COLLECTION };
+  return { openTray, withTimeout, makeNumbers, COLLECTION };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

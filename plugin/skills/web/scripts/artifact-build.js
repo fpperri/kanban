@@ -27,6 +27,7 @@ const ids = require('../web/ids');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { makeRoute } = require('./route');
 const { routeSources, configFolders, folderBefore } = require('./route-sources');
+const { readApplied, takenBy } = require('./applied-ids');
 
 const WEB_ROOT = path.join(__dirname, '..');
 const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'artifact-tray', 'page-source'];
@@ -176,6 +177,8 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
     base: now().toISOString(),
     snapshot: { query: asked, archive: !!archive, label: snapshotLabel(asked, !!archive) },
   };
+  const taken = takenBy(readApplied(dir));
+  if (Object.keys(taken).length) board.taken = taken;
   const picked = pickCards(dir, name, { query: asked, archive: !!archive });
   const ownerOf = ownerOfFile(dir);
   const placed = boardFiles(dir, (abs) => {

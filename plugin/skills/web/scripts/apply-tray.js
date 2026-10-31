@@ -24,11 +24,11 @@ const path = require('path');
 const { makeRoute } = require('./route');
 const { makeMemoryRoute } = require('./memory-route');
 const { routeSources, configFolders } = require('./route-sources');
+const { APPLIED_FILE, readApplied } = require('./applied-ids');
 const { findRepo } = require('./path-vars');
 const oldPayload = require('./old-payload');
 const tempIds = require('./temp-ids');
 
-const APPLIED_FILE = '.applied-ids';
 const WEB = path.join(__dirname, '..');
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -102,12 +102,6 @@ function memoryCopy(dir) {
   if (repo) files[`${toVirtual(repo)}/.git/HEAD`] = '';
   return makeMemoryRoute(routeSources(WEB), { files, dir: toVirtual(dir) }).route;
 }
-
-const readApplied = (dir) => {
-  const file = path.join(dir, APPLIED_FILE);
-  if (!fs.existsSync(file)) return new Set();
-  return new Set(fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
-};
 
 const reasonOf = (res) => (res.body && res.body.error) || `refused with status ${res.status}`;
 

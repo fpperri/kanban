@@ -64,7 +64,7 @@ const pageSourceModule = (() => {
   // storage that throws or is missing leaves the tray in memory for as long as the page is open. A change
   // is added to what storage holds now, not to what this page last read, so two tabs of one board
   // each keep what they queued.
-  function makeTrayStore(storage, key, device) {
+  function makeTrayStore(storage, key, device, numbers = null) {
     const read = () => {
       try {
         const stored = JSON.parse(storage.getItem(key));
@@ -84,8 +84,9 @@ const pageSourceModule = (() => {
       latest: () => (read() || held).records.slice(),
       add(at, change, temp, before) {
         const stored = read() || held;
-        const record = { id: `${device}-${stored.next}`, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) };
-        held = { records: [...stored.records, record], next: stored.next + 1 };
+        const n = numbers ? numbers.take(stored.next) : stored.next;
+        const record = { id: `${device}-${n}`, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) };
+        held = { records: [...stored.records, record], next: n + 1 };
         write();
         return record;
       },
@@ -413,7 +414,7 @@ const pageSourceModule = (() => {
     const label = device || deviceLabel(storage);
     const tray = claude && typeof claude.use === 'function'
       ? deferTray(() => pickTray({ claude, storage, board: data.board, device: label, timeoutMs, retryMs }), label)
-      : makeTrayStore(storage, trayKey(data.board), label);
+      : makeTrayStore(storage, trayKey(data.board), label, artifactTray.makeNumbers({ storage, board: data.board, device: label }));
     const temp = makeTempIds(tray);
     const fresh = () => makeMemoryRoute(data.sources, { files: data.files, dir: data.dir, newId: temp.allocate, ...given }).route;
     return makePageSource({ route: fresh(), fresh, tray, board: data.board, temp });
