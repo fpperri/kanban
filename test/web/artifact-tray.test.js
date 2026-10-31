@@ -36,7 +36,7 @@ test('a move writes one document in the collection tray holding the server save,
   assert.strictEqual(doc.device, 'phone');
   assert.match(doc.at, /^\d{4}-\d{2}-\d{2}T/);
   const load = (await src.request('GET', '/api/board')).json;
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, base: DATA.board.base });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, pictures: false, base: DATA.board.base });
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
 });
 
@@ -47,7 +47,7 @@ test('a reload reads the tray back from the database and shows the board with it
   const again = boot(DATA, { storage, device: 'phone', claude: claudeWith(fake.db) });
   const load = (await again.request('GET', '/api/board')).json;
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, base: DATA.board.base });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, pictures: false, base: DATA.board.base });
   assert.strictEqual(fake.docs.size, 1);
 });
 
@@ -56,7 +56,7 @@ test('a database that resolves null falls back to browser storage, the file\'s b
   const src = boot(DATA, { storage, device: 'phone', claude: { use: async () => null } });
   assert.strictEqual((await src.request('PATCH', '/api/cards/3', { status: 'doing' })).status, 200);
   const load = (await src.request('GET', '/api/board')).json;
-  assert.deepStrictEqual(load.source, { kind: 'page', queued: 1, base: DATA.board.base });
+  assert.deepStrictEqual(load.source, { kind: 'page', queued: 1, pictures: false, base: DATA.board.base });
   assert.ok([...storage.map.keys()].includes(`kanban-tray:${DATA.board.id}:${DATA.board.base}`));
   const again = boot(DATA, { storage, device: 'phone', claude: { use: async () => null } });
   assert.strictEqual((await again.request('GET', '/api/board')).json.source.queued, 1);
@@ -67,7 +67,7 @@ test('a page with no window.claude at all uses browser storage', async () => {
   assert.strictEqual((await src.request('GET', '/api/board')).json.source.kind, 'page');
 });
 
-test('a viewer who is not the owner cannot reach the owner-only tray, so the page keeps its queue in browser storage', async () => {
+test('a viewer who is not the owner cannot reach the owner-only tray, so the page keeps its tray in browser storage', async () => {
   const fake = makeFakeDb();
   const src = boot(DATA, { storage: memoryStorage(), device: 'guest', claude: claudeWith(fake.db, { owner: false }) });
   await src.request('PATCH', '/api/cards/3', { status: 'doing' });
@@ -102,7 +102,7 @@ test('a change made on another device shows in the tray and on the board without
   await phone.request('PATCH', '/api/cards/3', { status: 'doing' });
   await settle();
   const load = (await desktop.request('GET', '/api/board')).json;
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, base: DATA.board.base });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, pictures: false, base: DATA.board.base });
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
   assert.ok(told >= 1);
 });
@@ -182,6 +182,19 @@ test('a write the database refuses is answered as an error that says so, and the
   const load = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
   assert.strictEqual(load.source.queued, 1);
+});
+
+test('a write the database never settles is answered as an error once the wait is over, and the change stays in this page', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db), timeoutMs: 30 });
+  await src.request('GET', '/api/board');
+  fake.fail.set = 'hang';
+  const res = await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  assert.strictEqual(res.status, 500);
+  assert.match(res.json.error, /not queued in the artifact's database/);
+  assert.match(res.json.error, /did not answer in time/);
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
 });
 
 test('a save the board refuses queues nothing in the database', async () => {
@@ -267,7 +280,7 @@ test('a listener that errors again is subscribed again, with a longer wait each 
   }
 });
 
-test('removing a card made in the page from the queue deletes its documents and the ones that name it, and the board shows without them', async () => {
+test('removing a card made in the page from the tray deletes its documents and the ones that name it, and the board shows without them', async () => {
   const fake = makeFakeDb();
   const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
   const made = (await src.request('POST', '/api/cards', { title: 'New one' })).json.id;
@@ -281,6 +294,22 @@ test('removing a card made in the page from the queue deletes its documents and 
   const load = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
   assert.strictEqual(load.source.queued, 1);
+});
+
+test('discarding the whole tray deletes every document and shows the board as it was built', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  await src.request('POST', '/api/cards', { title: 'New one' });
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  await src.request('PATCH', '/api/cards/7', { status: 'done' });
+  assert.strictEqual(fake.docs.size, 3);
+  assert.deepStrictEqual(src.clear(), ['phone-1', 'phone-2', 'phone-3']);
+  await settle();
+  assert.strictEqual(fake.docs.size, 0);
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:todo', '7:todo']);
+  assert.strictEqual(load.source.queued, 0);
+  assert.strictEqual(src.fingerprint(), '');
 });
 
 test('a database whose use("db") or use("user") never settles falls back to browser storage, and the board load answers', async () => {
@@ -322,7 +351,7 @@ test('a record Claude marks refused stops showing on the board at once, and a pa
   await settle();
   const load = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(states(load), ['3:todo', '7:todo']);
-  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, refused: [{ id: 'phone-1', reason: 'status changed at the desk since' }], base: DATA.board.base });
+  assert.deepStrictEqual(load.source, { kind: 'artifact', queued: 1, refused: [{ id: 'phone-1', reason: 'status changed at the desk since' }], pictures: false, base: DATA.board.base });
   assert.ok(told >= 1);
 
   const later = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });

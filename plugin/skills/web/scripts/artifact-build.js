@@ -26,49 +26,15 @@ const iter = require('./iteration-folders');
 const ids = require('../web/ids');
 const { parseSearchQuery, filterCards } = require('../web/search');
 const { makeRoute } = require('./route');
+const { routeSources, configFolders, folderBefore } = require('./route-sources');
+const { readApplied, takenBy } = require('./applied-ids');
 
 const WEB_ROOT = path.join(__dirname, '..');
-const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'artifact-tray', 'page-source'];
+const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'artifact-tray', 'field-value', 'page-source'];
 const SKIP_NAMES = new Set(['.git', 'node_modules', '.kanban-app.pid']);
 const MAX_BYTES = 16 * 1024 * 1024;
 
 const lf = (s) => s.replace(/\r\n?/g, '\n');
-
-// route.js and every file it requires on the way, as the module loader takes them: a path under the web
-// skill ('scripts/route.js', 'web/ids.js') to its text.
-function routeSources(webRoot, entry = 'scripts/route.js') {
-  const sources = {};
-  const pending = [entry];
-  while (pending.length) {
-    const file = pending.pop();
-    if (Object.prototype.hasOwnProperty.call(sources, file)) continue;
-    const text = lf(fs.readFileSync(path.join(webRoot, file), 'utf8'));
-    sources[file] = text;
-    for (const m of text.matchAll(/require\('(\.[^']*)'\)/g)) {
-      const base = path.posix.join(path.posix.dirname(file), m[1]);
-      pending.push(base.endsWith('.js') ? base : `${base}.js`);
-    }
-  }
-  return sources;
-}
-
-// The folders outside (or beside) the board folder that the config's paths name, cut before the first
-// placeholder segment, that exist.
-function configFolders(dir) {
-  const config = cfg.readConfig(dir);
-  const out = [];
-  for (const value of [config.paths.logbook, config.paths.scratchpad, config.paths.todos, config.groups]) {
-    if (!value) continue;
-    const kept = [];
-    for (const seg of iter.segmentsOf(value)) {
-      if (seg === iter.PLACEHOLDER || seg === iter.CARD) break;
-      kept.push(seg);
-    }
-    const abs = path.resolve(dir, kept.join('/') || '.');
-    if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) out.push(abs);
-  }
-  return out;
-}
 
 const within = (root, p) => p === root || p.startsWith(root.endsWith(path.sep) ? root : root + path.sep);
 
@@ -159,15 +125,6 @@ function pickCards(dir, name, { query, archive }) {
 
 const LOGBOOK_FILE = /^\d{4}\.\d{2}\.\d{2}\.(?:([^.]+)\.)?logbook\.md$/;
 
-function logbookRoot(dir, value) {
-  const kept = [];
-  for (const seg of iter.segmentsOf(value)) {
-    if (seg === iter.PLACEHOLDER || seg === iter.CARD) break;
-    kept.push(seg);
-  }
-  return path.resolve(dir, kept.join('/') || '.');
-}
-
 // Who a file in a scratchpad, todos or logbook folder was made for: the card id, or null. A scratchpad
 // path with `<card>` in it keeps a folder per card (named by its id) and everything under it is that
 // card's; any other file is `<id>.scratchpad.md` or `<id>.todo.md`. A logbook day file names its target
@@ -176,14 +133,13 @@ function logbookRoot(dir, value) {
 function ownerOfFile(dir) {
   const config = cfg.readConfig(dir);
   const places = [];
-  const logbook = config.paths.logbook ? logbookRoot(dir, config.paths.logbook) : null;
+  const logbook = config.paths.logbook ? folderBefore(dir, config.paths.logbook) : null;
   for (const key of ['scratchpad', 'todos']) {
     const value = config.paths[key];
     if (!value) continue;
     const segs = iter.segmentsOf(value);
     const first = segs.findIndex((s) => s === iter.PLACEHOLDER || s === iter.CARD);
-    const kept = first < 0 ? segs : segs.slice(0, first);
-    places.push({ root: path.resolve(dir, kept.join('/') || '.'), cardAt: first < 0 ? -1 : segs.slice(first).indexOf(iter.CARD) });
+    places.push({ root: folderBefore(dir, value), cardAt: first < 0 ? -1 : segs.slice(first).indexOf(iter.CARD) });
   }
   return (abs) => {
     const day = logbook && within(logbook, abs) ? LOGBOOK_FILE.exec(path.basename(abs)) : null;
@@ -221,6 +177,8 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
     base: now().toISOString(),
     snapshot: { query: asked, archive: !!archive, label: snapshotLabel(asked, !!archive) },
   };
+  const taken = takenBy(readApplied(dir));
+  if (Object.keys(taken).length) board.taken = taken;
   const picked = pickCards(dir, name, { query: asked, archive: !!archive });
   const ownerOf = ownerOfFile(dir);
   const placed = boardFiles(dir, (abs) => {
@@ -301,4 +259,4 @@ function usage(message) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { buildPage, routeSources, boardFiles };
+module.exports = { buildPage, boardFiles };

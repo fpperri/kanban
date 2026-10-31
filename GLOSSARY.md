@@ -72,7 +72,7 @@ The Snapshot — the Web built with the board inside — published as a hosted p
 _Avoid_: "the artifact" unqualified, snapshot artifact, session artifact, a page per session.
 
 **Board source**:
-Where a page's saves are answered and its board comes from: the server (the desk Web, over HTTP), the page itself (the Snapshot, which carries its board and answers through the route code in memory), or the artifact (the page source whose tray is kept in the artifact's database). No feature asks which one it is; the board load says `source: {kind, queued}` for the few things that must read it, such as the count of queued changes. When the artifact's database cannot be reached, the page falls back to the page source and keeps its tray in browser storage.
+Where a page's saves are answered and its board comes from: the server (the desk Web, over HTTP), the page itself (the Snapshot, which carries its board and answers through the route code in memory), or the artifact (the page source whose tray is kept in the artifact's database). No feature asks which one it is; the board load says `source: {kind, queued}` (and `pictures: false` where the board holds no picture files) for the few things that must read it, such as the count of queued changes. When the artifact's database cannot be reached, the page falls back to the page source and keeps its tray in browser storage.
 _Avoid_: mode, backend, environment.
 
 **Tray**:
@@ -80,7 +80,7 @@ The list of **queued changes** a Snapshot holds and has not yet applied to the b
 _Avoid_: queue (the pill says "N queued", but the thing is a tray), outbox, drafts.
 
 **Queued change**:
-One save the Snapshot recorded instead of writing: `{id, at, device, change: {method, path, body}}`, where `change` is the server save exactly as the desk Web would send it, `id` is `<device>-<counter>` and so unique across devices, and a record the apply kept out also carries `refused`, its reason. A **change payload** is a list of queued changes (one header line naming the board, the Base and the count, then the records as JSON); Claude replays each through the route code against the real board.
+One save the Snapshot recorded instead of writing: `{id, at, device, change: {method, path, body}, temp?, before?, refused?}`, where `change` is the server save exactly as the desk Web would send it, `id` is `<device>-<counter>` and so unique across devices (a page built later starts its counter past the numbers the board has applied for the device), `temp`, on a save that made a card or group, is the temporary id the page gave it, `before`, on a card edit, is the page's value of each field the edit changed, and a record the apply kept out also carries `refused`, its reason. A **change payload** is a list of queued changes (one header line naming the board, the Base and the count, then the records as JSON); Claude replays each through the route code against the real board.
 _Avoid_: op, command, edit (an edit is one kind of save), patch.
 
 **Snapshot query**:
@@ -336,13 +336,14 @@ surface suggests exactly this trio as its default.
 
 ## Surfaces and parity
 
-Three skills, one board:
+Four skills, one board (`kanban-artifact` is new and waits for the switch, which retires `kanban-snapshot`; the three-skill wording in `docs/cross-harness.md` and the plugin manifests changes with it):
 
 | Surface | For | Medium |
 | --- | --- | --- |
 | `kanban` | the AI | file contracts + scripts; also defines `config.yaml` and `notifications.md` and when the AI must notify |
 | `kanban-web` | the human, desktop | live browser editor |
-| `kanban-snapshot` | the human, phone/tablet/Cowork | generated single-file HTML, edits queue as a change payload |
+| `kanban-artifact` | the human, phone/tablet/Cowork | the Web built with the board inside (the **Snapshot** above), a **Board artifact** or a file; saves are queued changes in a tray that Claude applies |
+| `kanban-snapshot` | the human, phone/tablet/Cowork, until the switch | the older generated single-file HTML, edits queue as a change payload |
 
 **Parity rule:** every surface writes under the *same board contracts* — the
 hard `doing` entry gate (waiting + blocked), archive-as-location, id

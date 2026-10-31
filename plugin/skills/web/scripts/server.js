@@ -1,6 +1,7 @@
 'use strict';
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const cfg = require('./config-store');
 const { StatusError } = require('./store-common');
@@ -245,6 +246,14 @@ function readBody(req) {
   });
 }
 
+// Whether the route table has a route for a request, asked of an empty board in a folder of its own so that
+// nothing real is read or written. For a body that is not JSON: that is the caller's mistake on a route
+// that reads it, and nothing at all on a path that is no route.
+function routeExists(method, rawUrl) {
+  const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-route-probe-'));
+  try { return makeRoute(probe)(method, rawUrl, {}) !== null; } finally { fs.rmSync(probe, { recursive: true, force: true }); }
+}
+
 // The page names every file it loads (the scripts, the stylesheet, the tab
 // icon) and the server serves those files and no others: one list, so adding a
 // module takes its tag in app.html and nothing here. Only plain top-level
@@ -279,7 +288,13 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       }
       // every /api request, reads included, is answered by the route module
       if (p.startsWith('/api/')) {
-        const body = req.method === 'GET' ? {} : await readBody(req);
+        let body = {};
+        if (req.method !== 'GET') {
+          try { body = await readBody(req); } catch (err) {
+            if (!(err instanceof SyntaxError) || routeExists(req.method, req.url)) throw err;
+            res.writeHead(404); res.end('not found'); return;
+          }
+        }
         const answer = route(req.method, req.url, body);
         if (answer === null) { res.writeHead(404); res.end('not found'); return; }
         if (Buffer.isBuffer(answer.body)) {

@@ -43,9 +43,24 @@ loader refuses a built-in with no shim and names it, and the test loads every
 script of the web skill but the launcher and the server through it, so the
 change that forgets fails there and not in a page.
 
-The stores, `route.js` and `server.js` are not changed by this. The shims and
-the loader are dual-environment modules like the others: required by
-`node --test`, and loadable as a plain `<script>`.
+`route.js` is the server's route table moved out of `server.js` unchanged, and
+`server.js` calls it. The stores' logic is not rewritten, but two things change
+so that a page can run them:
+
+- **An id source.** A card or group takes its id from one place,
+  `card-store.newId`, which on a board is the next number of the prefix's
+  counter in `config.yaml`, as before. A page has no counter of its own to
+  write, so `useIdSource(fn)` lets it answer the whole id instead; the page
+  hands out temporary ids (`n1`) and the apply maps each to the real id the
+  board allocates.
+- **A temporary-id mode in `ids.js`.** `acceptTempIds(true)` makes `parseId`,
+  `idKey` and `ID_SOURCE` take `n1` as an id, so the stores and the route's
+  patterns accept it. It is off by default: on the server, and for every other
+  caller, `n1` is still text that is not an id, and `isTempId` alone tells it
+  apart.
+
+The shims and the loader are dual-environment modules like the others:
+required by `node --test`, and loadable as a plain `<script>`.
 
 ## Considered options
 

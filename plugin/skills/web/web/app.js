@@ -2180,7 +2180,7 @@ function applyProjectName(name) {
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 
-// A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
+// A page that carries its board records its saves in the tray in place of writing them (scripts/page-source.js): the
 // header says how many are queued, and its pill opens the tray (tray-ui.js). Hidden when none are, and always on
 // the server (its board load answers source {kind: 'server', queued: 0}).
 let boardSourceInfo = null;
@@ -2270,6 +2270,7 @@ function applyBoardData(data) {
   state.archivePackages = data.archivePackages || []; // archive popup's combobox reads it live; defensive || for an old server without the field
   state.groups = data.groups || null; // { folder, list, skipped, folders, prefixes } when config.yaml has a groups: line, else null and nothing of it shows (groups.js, groups-ui.js); read by the card tiles and the search, so before renderBoard
   state.settings = data.settings || null; // the config the gear's This board pages show (settings-ui.js); null until the first payload
+  state.source = data.source || null; // where the board is answered from, and whether it holds pictures (markdown-images.js)
   applyQueued(data.source);
   applySnapshotQuery(data.snapshot);
   state.iterations = !!data.iterations; // iterations: true over a groups: line adds the header's dropdown (iterations-ui.js)
@@ -3278,17 +3279,14 @@ function copyBoardPath() {
   } else done(fallbackCopy(text));
 }
 
-// Remove a card made in this page from the queue, with the queued changes that name its temporary id
-// (a child, a note, a group, an archive): the confirm says how many go with it.
-async function unqueueCard(id) {
+// Remove a card made in this page from the tray, with the queued changes that name its temporary id
+// (a child, a note, a group, an archive). The tray's own sheet asks first and says how many go with it
+// (tray-ui.js): a sandboxed host answers a window.confirm with no. The details close once the card is gone.
+function unqueueCard(id) {
   const record = boardSource.recordMaking ? boardSource.recordMaking(id) : null;
-  const plan = record === null ? null : boardSource.removal(record);
-  if (!plan) return;
-  const more = plan.more === 0 ? '' : ` ${plan.more} more queued change${plan.more === 1 ? ' names' : 's name'} it and ${plan.more === 1 ? 'goes' : 'go'} too.`;
-  if (!confirm(`Remove ${id} from the queue?${more}`)) return;
-  boardSource.remove(record);
-  closeCard();
-  await loadBoard();
+  if (record === null || !boardSource.removal(record)) return;
+  trayOpen();
+  trayAskRemove(record, true);
 }
 
 // Leaving the page asks first while a save is in flight, and for a downloaded file while changes are queued that

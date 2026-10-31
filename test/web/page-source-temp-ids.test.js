@@ -62,7 +62,7 @@ test('a child of n1 and a note on it both queue, and the page shows them', async
   assert.strictEqual(child.json.parent, 'n1');
   assert.strictEqual(filed.status, 201);
   const board = await load(src);
-  assert.deepStrictEqual(board.source, { kind: 'page', queued: 3, base: BOARD.base });
+  assert.deepStrictEqual(board.source, { kind: 'page', queued: 3, pictures: false, base: BOARD.base });
   assert.strictEqual(board.logbook.notes.filter((n) => n.target === 'n1').length, 1);
 });
 

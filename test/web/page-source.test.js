@@ -35,7 +35,7 @@ test('the board load is the embedded board, with its source named and no build-m
   const src = open(memoryStorage());
   const res = await src.request('GET', '/api/board');
   assert.strictEqual(res.status, 200);
-  assert.deepStrictEqual(res.json.source, { kind: 'page', queued: 0, base: BOARD.base });
+  assert.deepStrictEqual(res.json.source, { kind: 'page', queued: 0, pictures: false, base: BOARD.base });
   assert.strictEqual(res.json.projectName, 'alpha');
   assert.strictEqual(res.json.boardDir, '');
   assert.deepStrictEqual(ids(res.json), ['3:todo', '7:todo']);
@@ -47,7 +47,7 @@ test('a save that works shows at once and is queued as the server save it was', 
   assert.strictEqual(res.status, 200);
   const board = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(ids(board), ['3:doing', '7:todo']);
-  assert.deepStrictEqual(board.source, { kind: 'page', queued: 1, base: BOARD.base });
+  assert.deepStrictEqual(board.source, { kind: 'page', queued: 1, pictures: false, base: BOARD.base });
   const [rec] = src.records();
   assert.deepStrictEqual(rec.change, { method: 'PATCH', path: '/api/cards/3', body: { status: 'doing' } });
   assert.strictEqual(rec.id, 'dev-1');
@@ -114,8 +114,8 @@ test('settings and notifications are a desk job: refused, and not queued', async
   assert.deepStrictEqual(src.records(), []);
 });
 
-test('the page source says it holds no pictures: a binary file of the board is not in the page', () => {
-  assert.strictEqual(open(memoryStorage()).pictures, false);
+test('the board load says the page holds no pictures: a binary file of the board is not in the page', async () => {
+  assert.strictEqual((await open(memoryStorage()).request('GET', '/api/board')).json.source.pictures, false);
 });
 
 test('a path that is no route answers 404', async () => {

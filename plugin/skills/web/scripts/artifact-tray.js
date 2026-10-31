@@ -8,8 +8,8 @@
 // { method, path, body } }, and the apply adds `refused` (and `before`) to the ones it kept.
 //
 // openTray({ db, device, board, storage, timeoutMs, retryMs }) reads the collection once and resolves the tray,
-// or rejects when the database cannot be read in time (the caller then keeps the queue in browser
-// storage). The tray has the same face as the browser-storage tray (records(), add(at, change)) plus
+// or rejects when the database cannot be read in time (the caller then keeps the tray in browser
+// storage). The tray has the same face as the browser-storage tray (records(), add({ at, change, temp, before })) plus
 // written(id), a promise for the write of a record that add() returned, and subscribe(fn), told when the
 // set of records changed from outside this page (another device wrote one, Claude deleted the applied
 // ones, the apply marked one refused). Same dual-environment pattern as ids.js: required by node --test,
@@ -42,6 +42,37 @@ const artifactTrayModule = (() => {
     return Promise.race([promise, late]).finally(() => clearTimeout(timer));
   }
 
+  // The numbers a device gives its changes. A number only goes up, for the device and the board: past what
+  // the caller holds (`atLeast`), past what an earlier visit stored under a key that names the board and not
+  // the build, and past what the board has applied for the device (`board.taken`, embedded by the build). A
+  // number the apply already took must never come round again, whatever the storage or the board id the
+  // page was built with. A storage that throws or is missing leaves the counter in memory.
+  function makeNumbers({ storage, board, device }) {
+    const counterKey = `kanban-tray-next:${board.id}`;
+    const floor = Number((board.taken || {})[device]) || 0;
+    const stored = () => {
+      try {
+        const n = Number(storage && storage.getItem(counterKey));
+        return Number.isInteger(n) && n > 0 ? n : 0;
+      } catch (_) { return 0; }
+    };
+    let next = 0;
+    return {
+      take(atLeast = 1) {
+        const n = Math.max(atLeast, floor + 1, next, stored());
+        next = n + 1;
+        try { if (storage) storage.setItem(counterKey, String(next)); } catch (_) { /* in memory */ }
+        return n;
+      },
+    };
+  }
+
+  // The record a tray holds for a change: { id, at, device, change, temp?, before? }, the same in browser
+  // storage and in the database.
+  function makeRecord(id, device, { at, change, temp, before }) {
+    return { id, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) };
+  }
+
   async function openTray({ db, device, board, storage, timeoutMs, retryMs = 1000 }) {
     const collection = db.collection(COLLECTION);
     const first = await withTimeout(collection.get(), timeoutMs);
@@ -55,21 +86,11 @@ const artifactTrayModule = (() => {
       if (record) held.set(record.id, record);
     }
 
-    // The number a change takes only goes up, for the device and the board, past what the database holds
-    // and what an earlier visit stored: a number the apply already took (it keeps every applied id) must
-    // never come round again after the applied documents were deleted.
-    const counterKey = `kanban-tray-next:${board.id}`;
-    const stored = () => {
-      try {
-        const n = Number(storage && storage.getItem(counterKey));
-        return Number.isInteger(n) && n > 0 ? n : 0;
-      } catch (_) { return 0; }
-    };
+    const numbers = makeNumbers({ storage, board, device });
     let next = 1 + Math.max(0, ...[...held.keys()].map((id) => numberOf(device, id)));
     const take = () => {
-      const n = Math.max(next, stored());
+      const n = numbers.take(next);
       next = n + 1;
-      try { if (storage) storage.setItem(counterKey, String(next)); } catch (_) { /* in memory */ }
       return n;
     };
 
@@ -129,9 +150,8 @@ const artifactTrayModule = (() => {
       records: () => [...held.values()].sort(byTime),
       device,
       latest: () => [...held.values()].sort(byTime),
-      add(at, change, temp, before) {
-        const id = `${device}-${take()}`;
-        return put({ id, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) });
+      add(change) {
+        return put(makeRecord(`${device}-${take()}`, device, change));
       },
       // The records `gone` leave the tray, and their documents are deleted.
       remove(gone) {
@@ -146,7 +166,7 @@ const artifactTrayModule = (() => {
       // document is written again. A record that is no longer held (the apply deleted it) is added as a new one.
       replace(id, at, change) {
         const had = held.get(id);
-        if (!had) return this.add(at, change);
+        if (!had) return this.add({ at, change });
         return put({ ...had, change });
       },
       written: (id) => writes.get(id) || Promise.resolve(),
@@ -154,7 +174,7 @@ const artifactTrayModule = (() => {
     };
   }
 
-  return { openTray, withTimeout, COLLECTION };
+  return { openTray, withTimeout, makeNumbers, makeRecord, COLLECTION };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
