@@ -9,9 +9,11 @@
 // names the board and the Base and whose records hold { method, path, body }. The second file shows none
 // of the first's queued changes and queues its own; each file keeps only its own. Each step waits on what
 // the page shows, never on a fixed sleep. Booting the page here is also the proof that every store runs in a
-// browser, the one thing the Node tests cannot show.
+// browser, the one thing the Node tests cannot show. On the todos file, an item added, a tick and a move in
+// one list leave 1 queued: one whole-list save carrying the list as the page shows it and the version of the
+// list at build time; it survives a reload, and the apply writes the list as the page showed it.
 //
-// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, todosUi.
 
 const fs = require('fs');
 const os = require('os');
@@ -19,6 +21,7 @@ const path = require('path');
 const { materialize } = require('../boards');
 const { buildPage } = require('../../../../plugin/skills/web/scripts/artifact-build');
 const { makeRoute } = require('../../../../plugin/skills/web/scripts/route');
+const { applyTray } = require('../../../../plugin/skills/web/scripts/apply-tray');
 const { VIEWS } = require('./smoke');
 
 const fileUrl = (p) => `file:///${p.replace(/\\/g, '/')}`;
@@ -26,6 +29,8 @@ const NAME = `document.getElementById('project-name').textContent`;
 const PILL = `(()=>{const p=document.getElementById('queued-pill');return p.classList.contains('hidden')?'':p.textContent})()`;
 const TOAST = `document.getElementById('toast').textContent`;
 const column = (id, col) => `!!document.querySelector('#board .column[data-col="${col}"] .card-el[data-id="${id}"]')`;
+const LIST_READY = `(()=>{const a=document.querySelector('#notes-palette .td-add');return !!a&&!a.disabled})()`;
+const LIST_TEXTS = `[...document.querySelectorAll('#notes-palette .td-row')].map((r)=>r.querySelector('.td-text')?r.querySelector('.td-text').textContent:'(editing)')`;
 const DRAWN = `document.querySelectorAll('#board .column .card-el').length>0`;
 
 module.exports = {
@@ -33,7 +38,13 @@ module.exports = {
   board: 'fixture',
   timeoutMs: 100000,
   async run(page) {
-    const { ev, waitFor, check, send } = page;
+    const { ev, waitFor, check, send, centre, click } = page;
+    const clickOn = async (sel) => {
+      await ev(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({block:'nearest'})`);
+      const p = await centre(sel);
+      if (!p) throw new Error(`nothing matches ${sel}`);
+      await click(p.x, p.y);
+    };
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-scenario-'));
     try {
       const built = {};
@@ -111,6 +122,49 @@ module.exports = {
       await load('todos');
       const counts = await waitFor(`(()=>{const b=document.querySelector('#board .card-el[data-id="7"] .card-head .card-todos');return !!b&&b.textContent==='3/4'})()`, 8000);
       check('a todo list on the todos board counts on the tile of its card, read through the Buffer shim', counts);
+
+      // three edits to one todo list queue as one whole-list save, which the apply lands as the page showed it
+      await load('todos');
+      await ev('localStorage.clear()');
+      check('the todos file opens with no queued change', await load('todos') && (await ev(PILL)) === '');
+      await clickOn('#board .card-el[data-id="7"] .card-head .card-todos');
+      check('the count opens the Todos tab', await waitFor(LIST_READY, 6000));
+      const textsAre = (list, ms) => waitFor(`JSON.stringify(${LIST_TEXTS})===${JSON.stringify(JSON.stringify(list))}`, ms || 8000);
+      const idle = () => waitFor('todosUi.pending===0', 8000);
+      await ev(`(()=>{const t=document.querySelector('#notes-palette .td-add');t.focus();t.value='write the release note';t.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+      await idle();
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      check('edit 1: an added item shows in the list', await textsAre(['check the enum renames', 'run the migration dry run', 'update the changelog', 'note the breaking rename', 'write the release note']));
+      check('after the first edit the header reads 1 queued', await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
+      await idle();
+      await page.key('ArrowDown');
+      await idle();
+      await page.key(' ');
+      check('edit 2: a ticked item is struck', await waitFor(`document.querySelector('#notes-palette .td-row').classList.contains('done')`, 6000));
+      await idle();
+      await page.key('ArrowDown', { alt: true });
+      check('edit 3: the moved item sits below its sibling', await textsAre(['run the migration dry run', 'check the enum renames', 'update the changelog', 'note the breaking rename', 'write the release note']));
+      await idle();
+      check('three edits to the list leave 1 queued', (await ev(PILL)) === '1 queued', await ev(PILL));
+
+      const shown = '# Before the handoff\n- [x] run the migration dry run\n- [x] check the enum renames\n- [ ] update the changelog\n  - [ ] note the breaking rename\n- [ ] write the release note\n';
+      const trayKey = `kanban-tray:${built.todos.board.id}:${built.todos.board.base}`;
+      const trayRecords = async () => JSON.parse(await ev(`localStorage.getItem(${JSON.stringify(trayKey)})`)).records;
+      const read = makeRoute(built.todos.dir)('GET', '/api/todos/7').body.todos;
+      const queued = await trayRecords();
+      check('the tray holds one record for the list', queued.length === 1, JSON.stringify(queued).slice(0, 300));
+      check('it is one whole-list save carrying the list as the page showed it and the version read at build time',
+        JSON.stringify(queued[0].change) === JSON.stringify({ method: 'PUT', path: '/api/todos/7', body: { text: shown, version: read.version } }), JSON.stringify(queued[0].change).slice(0, 400));
+
+      await send('Page.reload');
+      check('after a reload the header still reads 1 queued', await waitFor(`${NAME}==='todos'&&${PILL}==='1 queued'`, 15000), await ev(PILL));
+      await clickOn('#board .card-el[data-id="7"] .card-head .card-todos');
+      check('and the list is as the page showed it', await waitFor(LIST_READY, 6000) && await textsAre(['run the migration dry run', 'check the enum renames', 'update the changelog', 'note the breaking rename', 'write the release note']));
+
+      const applied = applyTray({ dir: built.todos.dir, records: await trayRecords() });
+      const onDisk = fs.readFileSync(path.join(built.todos.dir, '.scratchpad', '0007.todo.md'), 'utf8').replace(/\r\n/g, '\n');
+      check('the apply writes the list as the page showed it', applied.refused.length === 0 && applied.applied.length === 1 && onDisk === shown, JSON.stringify(applied));
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
