@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const { makeRoute } = require('./route');
 const { makeMemoryRoute } = require('./memory-route');
-const { readConfig } = require('./config-store');
+const { routeSources, configFolders } = require('./route-sources');
 const { findRepo } = require('./path-vars');
 const oldPayload = require('./old-payload');
 const tempIds = require('./temp-ids');
@@ -31,24 +31,6 @@ const tempIds = require('./temp-ids');
 const APPLIED_FILE = '.applied-ids';
 const WEB = path.join(__dirname, '..');
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-// The source text of route.js and every file it requires on the way, as the module loader takes it
-// ('scripts/route.js', 'web/ids.js').
-function routeSources(entry = 'scripts/route.js') {
-  const sources = {};
-  const pending = [entry];
-  while (pending.length) {
-    const file = pending.pop();
-    if (Object.prototype.hasOwnProperty.call(sources, file)) continue;
-    const text = fs.readFileSync(path.join(WEB, file), 'utf8');
-    sources[file] = text;
-    for (const m of text.matchAll(/require\('(\.[^']*)'\)/g)) {
-      const base = path.posix.join(path.posix.dirname(file), m[1]);
-      pending.push(base.endsWith('.js') ? base : `${base}.js`);
-    }
-  }
-  return sources;
-}
 
 // Tray records from text: a JSON array, one JSON record per line, or a payload whose first line is a
 // header. A fence around the records is dropped. An item that is an op of the old Snapshot page's
@@ -96,23 +78,10 @@ function toVirtual(p) {
   return /^[A-Za-z]:/.test(f) ? `/${f[0]}${f.slice(2)}` : f;
 }
 
-// The folders a save may touch: the board folder and, when a path in config.yaml leads outside it,
-// that folder (the part before the first <iteration> or <card>).
+// The folders a save may touch: the board folder and the folders the config's paths lead to outside it.
 function boardRoots(dir) {
-  const config = readConfig(dir);
   const roots = [path.resolve(dir)];
-  const extra = [];
-  for (const key of ['logbook', 'scratchpad', 'todos']) {
-    const filled = config.paths[key];
-    if (!filled) continue;
-    const parts = forward(filled).split('/');
-    const cut = parts.findIndex((s) => s === '<iteration>' || s === '<card>');
-    extra.push(path.resolve(dir, (cut < 0 ? parts : parts.slice(0, cut)).join('/') || '.'));
-  }
-  if (config.groups) extra.push(path.resolve(dir, config.groups));
-  for (const e of extra) {
-    if (!roots.some((r) => inside(e, r)) && fs.existsSync(e)) roots.push(e);
-  }
+  for (const e of configFolders(dir)) if (!roots.some((r) => inside(e, r))) roots.push(e);
   return roots;
 }
 
@@ -131,7 +100,7 @@ function memoryCopy(dir) {
   for (const root of boardRoots(dir)) copyInto(files, root);
   const repo = findRepo(dir);
   if (repo) files[`${toVirtual(repo)}/.git/HEAD`] = '';
-  return makeMemoryRoute(routeSources(), { files, dir: toVirtual(dir) }).route;
+  return makeMemoryRoute(routeSources(WEB), { files, dir: toVirtual(dir) }).route;
 }
 
 const readApplied = (dir) => {
