@@ -142,23 +142,59 @@ const readApplied = (dir) => {
 
 const reasonOf = (res) => (res.body && res.body.error) || `refused with status ${res.status}`;
 
-// Run one record through `route`, with the real ids of `made` (temporary to real) put where it names a
-// temporary id, and note the id it made. { res } when it ran, { refusal } when it did not or the board
-// refused it.
-function run(route, record, made) {
-  const { change, missing } = tempIds.rewrite(record.change, made);
+const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const listOf = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+
+// The real ids of the cards and groups made so far, by the device that made them: { device: { n1: '30' } }.
+// Two devices that each made a card before seeing the other's record both took n1; a save names the one
+// its own device made, else the one the only other device made, and is refused when it cannot tell. Which
+// device's card it means is read from every create of the id in the tray before it (`makers`, a
+// tempIds.makersOf), not from the creates that passed, so a device whose create did not pass never has its
+// later saves land on the card another device made under the same id.
+
+// Run one record through `route`, with the real ids of `made` put where it names a temporary id, and note
+// the id it made. { res } when it ran, { refusal } when it did not or the board refused it.
+function run(route, record, made, makers) {
+  const device = String(record.device === undefined ? '' : record.device);
+  const known = {};
+  const missing = [];
+  for (const temp of tempIds.namesIn(record.change)) {
+    const who = tempIds.whoMade(makers, record, temp);
+    const all = (makers.get(temp) || []).map(String);
+    if (who === null && all.length > 1) return { refusal: `it names ${temp}, which ${listOf(all.sort())} each made, so it does not say which card it means` };
+    if (who === null) { missing.push(temp); continue; }
+    const owner = String(who);
+    if (!(made[owner] && has(made[owner], temp))) return { refusal: `it names ${temp}, which ${owner} made in a save not applied in this run` };
+    known[temp] = made[owner][temp];
+  }
   if (missing.length) return { refusal: `it names ${missing.join(', ')}, which no save applied before it made` };
+  if (record.temp && made[device] && has(made[device], record.temp)) return { refusal: `it makes ${record.temp} again, which an earlier save from the same device made` };
+  const { change } = tempIds.rewrite(record.change, known);
   const method = change.method.toUpperCase();
   const res = route(method, change.path, change.body || {});
   if (res.status >= 400) return { refusal: reasonOf(res) };
   const id = record.temp ? tempIds.createdId(method, change.path, res.body) : null;
-  if (id !== null) made[record.temp] = id;
+  if (id !== null) made[device] = { ...made[device], [record.temp]: id };
   return { res };
+}
+
+// The report's map of temporary ids to real ones: { n1: '30' }, and, for an id two devices took,
+// { 'n1 (desk)': '30', 'n1 (phone)': '31' }.
+function tempReport(made) {
+  const out = {};
+  for (const [device, map] of Object.entries(made)) {
+    for (const [temp, id] of Object.entries(map)) {
+      const shared = Object.values(made).filter((m) => has(m, temp)).length > 1;
+      out[shared ? `${temp} (${device})` : temp] = id;
+    }
+  }
+  return out;
 }
 
 function applyTray({ dir, records }) {
   const applied = readApplied(dir);
   const report = { applied: [], refused: [], skipped: [], temp: {} };
+  const made = {};
   const todo = [];
   const seen = new Set();
   for (const r of records) {
@@ -173,18 +209,27 @@ function applyTray({ dir, records }) {
     }
   }
 
+  // Who made each temporary id, among the records before each one, whatever became of their saves.
+  const makersBefore = new Map();
+  const seenBefore = [];
+  for (const r of records) {
+    if (!r || typeof r !== 'object') continue;
+    makersBefore.set(r, tempIds.makersOf(seenBefore));
+    seenBefore.push(r);
+  }
+
   const rehearsal = memoryCopy(dir);
   const rehearsed = {};
   const passing = [];
   for (const r of todo) {
-    const { refusal } = run(rehearsal, r, rehearsed);
+    const { refusal } = run(rehearsal, r, rehearsed, makersBefore.get(r));
     if (refusal !== undefined) report.refused.push({ id: r.id, reason: refusal });
     else passing.push(r);
   }
 
   const real = makeRoute(dir);
   for (const r of passing) {
-    const { refusal } = run(real, r, report.temp);
+    const { refusal } = run(real, r, made, makersBefore.get(r));
     if (refusal !== undefined) {
       report.refused.push({ id: r.id, reason: refusal });
       continue;
@@ -192,6 +237,7 @@ function applyTray({ dir, records }) {
     fs.appendFileSync(path.join(dir, APPLIED_FILE), `${r.id}\n`);
     report.applied.push({ id: r.id, method: r.change.method.toUpperCase(), path: r.change.path });
   }
+  report.temp = tempReport(made);
   return report;
 }
 

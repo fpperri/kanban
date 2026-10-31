@@ -11,6 +11,9 @@
 // name it (scripts/temp-ids.js), and a reload gives the same card the same id. Removing a record removes
 // the records that name the temporary id it made. The apply maps each to the real id (scripts/apply-tray.js).
 // Settings and notifications do not save in a page (a desk job); they answer 403 and queue nothing.
+// A page inside a Board artifact whose database resolves keeps the tray there instead, one document per
+// change (scripts/artifact-tray.js); a database that is absent, not the owner's to use or silent
+// leaves the tray in browser storage, so the page behaves as the downloaded file does.
 // Every edit to one todo list folds into one queued change for that list, a whole-list save
 // (PUT /api/todos/<target>) carrying the version of the list as the page was built, so the apply checks
 // the list once and refuses it as stale when the list changed at the desk since.
@@ -21,6 +24,7 @@ const pageSourceModule = (() => {
   const node = typeof module !== 'undefined' && module.exports;
   const { makeMemoryRoute } = node ? require('./memory-route') : window.kanbanMemoryRoute;
   const bufferShim = node ? require('./buffer-shim') : window.kanbanBufferShim;
+  const artifactTray = node ? require('./artifact-tray') : window.kanbanArtifactTray;
   const tempIds = node ? require('./temp-ids') : window.kanbanTempIds;
   const ids = node ? require('../web/ids') : window.kanbanIds;
 
@@ -38,6 +42,7 @@ const pageSourceModule = (() => {
     for (const key of LOCKED_FEATURES) if (settings[key]) out[key] = { ...settings[key], locked: true, reason: DESK_LOCK };
     return out;
   }
+  const TODO_LIST = /^\/api\/todos\/[^/]+$/;
   const TODO_EDIT = /^\/api\/todos\/([^/]+)(?:\/(?:move|indent|outdent))?$/;
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
@@ -60,6 +65,8 @@ const pageSourceModule = (() => {
       try { storage.setItem(key, JSON.stringify(held)); } catch (_) { /* kept in memory */ }
     };
     return {
+      kind: 'page',
+      device,
       records: () => held.records.slice(),
       // What storage holds now, which another tab of the board may have added to since this page last read.
       latest: () => (read() || held).records.slice(),
@@ -106,24 +113,69 @@ const pageSourceModule = (() => {
     };
   }
 
+  // A tray that has to be found first (the artifact's database answers later than the page starts) says so
+  // with `ready`; the board is replayed over the tray once it is found, before the first request is answered.
   // `fresh`, when given, makes a route over the embedded board as it was built: the page uses it to show
   // the board again after a record is removed. `temp` is the allocator the route was made with.
   function makePageSource({ route, tray, board, fresh = null, temp = null, now = () => new Date().toISOString() }) {
     let current = route;
-    const replay = () => {
-      for (const { change, temp: made } of tray.records()) {
-        if (temp) temp.expect(made);
-        current(change.method, change.path, clone(change.body) || {});
-      }
-      if (temp) temp.expect(null);
-    };
-    replay();
+    const applied = new Map(); // record id -> the change as the board last replayed it
+    const listeners = [];
 
-    function request(method, path, body) {
-      return Promise.resolve(answer(method, path, body));
+    function replayRecord(record) {
+      if (temp) temp.expect(record.temp);
+      current(record.change.method, record.change.path, clone(record.change.body) || {});
+      if (temp) temp.expect(null);
     }
 
-    function answer(method, path, body) {
+    // Another device rewrote a whole-list save this page has replayed: its text is put on the list as it
+    // stands in this page, so the next edit here builds on it.
+    function replayRewrite(record) {
+      if (!TODO_LIST.test(record.change.path)) return;
+      const read = current('GET', record.change.path, {});
+      if (!read || read.status !== 200) return;
+      current('PUT', record.change.path, { ...clone(record.change.body), version: read.body.todos.version });
+    }
+
+    // Replays every record the board has not seen yet through route, in tray order: all of them at start,
+    // and after that the ones another device wrote. A record the board has seen whose change differs now
+    // is a list another device rewrote. A card another device made under a temporary id this page holds
+    // for its own card stays out (temp-ids.js shadowed): the apply makes both.
+    function catchUp() {
+      const records = tray.records();
+      const left = tempIds.shadowed(records, tray.device);
+      for (const record of records) {
+        const key = JSON.stringify(record.change);
+        const had = applied.get(record.id);
+        if (had === key) continue;
+        applied.set(record.id, key);
+        if (left.has(record.id)) continue;
+        if (had === undefined) replayRecord(record);
+        else replayRewrite(record);
+      }
+    }
+
+    let started = null;
+    if (tray.ready) {
+      started = Promise.resolve(tray.ready).then(() => {
+        catchUp();
+        if (tray.subscribe) {
+          tray.subscribe(() => {
+            catchUp();
+            for (const fn of listeners.slice()) fn();
+          });
+        }
+      });
+    } else {
+      catchUp();
+    }
+
+    async function request(method, path, body) {
+      if (started) await started;
+      return answer(method, path, body);
+    }
+
+    async function answer(method, path, body) {
       const pathname = path.split('?')[0];
       const write = method !== 'GET';
       if (write && DESK_JOB_PATH.test(pathname)) return reply(403, { error: DESK_JOB });
@@ -133,11 +185,15 @@ const pageSourceModule = (() => {
       const result = current(method, path, clone(body) || {});
       if (result === null) return { status: 404, json: null, text: 'not found', statusText: 'Not Found' };
       if (result.status >= 200 && result.status < 300 && write) {
-        if (list) {
-          queueList(list[1], folded, result);
-        } else {
-          const made = tempIds.createdId(method, path, result.body);
-          tray.add(now(), { method, path, body: sent === undefined ? {} : sent }, ids.isTempId(made) ? made : undefined);
+        const record = list ? queueList(list[1], folded, result) : queueSave(method, path, sent, result);
+        if (record) {
+          applied.set(record.id, JSON.stringify(record.change));
+          if (tray.written) {
+            try { await tray.written(record.id); } catch (e) {
+              const why = [e && e.code, e && e.message].filter(Boolean).join(': ');
+              return reply(500, { error: `The change shows here but is not queued in the artifact's database (${why || 'no reason given'}); reloading this page would lose it.` });
+            }
+          }
         }
       }
       if (bufferShim.isBuffer(result.body) || (typeof Buffer !== 'undefined' && Buffer.isBuffer(result.body))) return { status: result.status, json: null, text: '', statusText: '', bytes: result.body, type: result.type };
@@ -145,7 +201,7 @@ const pageSourceModule = (() => {
         return reply(200, {
           ...result.body,
           boardDir: '',
-          source: { kind: 'page', queued: tray.records().length, base: board.base },
+          source: { kind: tray.kind, queued: tray.records().length, base: board.base },
           ...(board.snapshot ? { snapshot: board.snapshot } : {}),
           settings: lockedSettings(result.body.settings),
         });
@@ -163,11 +219,15 @@ const pageSourceModule = (() => {
       return { id: null, version: read && read.status === 200 ? read.body.todos.version : null };
     }
 
+    function queueSave(method, path, sent, result) {
+      const made = tempIds.createdId(method, path, result.body);
+      return tray.add(now(), { method, path, body: sent === undefined ? {} : sent }, ids.isTempId(made) ? made : undefined);
+    }
+
     function queueList(target, folded, result) {
-      if (folded.version === null || !result.body || !result.body.todos) return;
+      if (folded.version === null || !result.body || !result.body.todos) return null;
       const change = { method: 'PUT', path: `/api/todos/${target}`, body: { text: result.body.todos.text, version: folded.version } };
-      if (folded.id === null) tray.add(now(), change);
-      else tray.replace(folded.id, now(), change);
+      return folded.id === null ? tray.add(now(), change) : tray.replace(folded.id, now(), change);
     }
 
     function payload() {
@@ -190,7 +250,8 @@ const pageSourceModule = (() => {
       if (!fresh) throw new Error('this page source cannot show the board again, so it cannot remove a record');
       tray.remove(plan.ids);
       current = fresh();
-      replay();
+      applied.clear();
+      catchUp();
       return plan.ids;
     }
 
@@ -207,7 +268,19 @@ const pageSourceModule = (() => {
       return records.length ? JSON.stringify(records) : '';
     }
 
-    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload, fingerprint, removal, remove, recordMaking };
+    return {
+      kind: 'page',
+      pictures: false,
+      request,
+      records: () => tray.records(),
+      payload,
+      fingerprint,
+      removal,
+      remove,
+      recordMaking,
+      ready: started || Promise.resolve(),
+      onChange(fn) { listeners.push(fn); },
+    };
   }
 
   // A label for this browser, kept in storage so its changes carry one name across reloads.
@@ -226,11 +299,53 @@ const pageSourceModule = (() => {
   // was applied to the board never replays into a newer build, and each build keeps its own queue.
   const trayKey = (board) => `kanban-tray:${board.id}:${board.base}`;
 
+  // Where this page keeps its tray: the artifact's database when `claude.use("db")` resolves and the viewer
+  // may use it, else browser storage. Never rejects: a database that is missing, refuses, cannot be read or
+  // does not answer in time (a tray the page cannot reach is not worth a page that does not open) leaves the
+  // queue in browser storage, the downloaded file's way. The collection is owner-only, so a viewer who is
+  // told they are not the owner never reaches it (isOwner() answers a promise).
+  async function pickTray({ claude, storage, board, device, timeoutMs, retryMs }) {
+    const inStorage = () => makeTrayStore(storage, trayKey(board), device);
+    try {
+      const [db, user] = await artifactTray.withTimeout(Promise.all([claude.use('db'), Promise.resolve(claude.use('user')).catch(() => null)]), timeoutMs);
+      if (!db) return inStorage();
+      if (user && typeof user.isOwner === 'function' && !(await artifactTray.withTimeout(Promise.resolve(user.isOwner()), timeoutMs))) return inStorage();
+      return await artifactTray.openTray({ db, device, board, storage, timeoutMs, retryMs });
+    } catch (_) {
+      return inStorage();
+    }
+  }
+
+  function deferTray(find, device) {
+    let found = null;
+    const listeners = [];
+    const ready = find().then((tray) => {
+      found = tray;
+      if (tray.subscribe) tray.subscribe(() => { for (const fn of listeners.slice()) fn(); });
+    });
+    return {
+      ready,
+      device,
+      get kind() { return found ? found.kind : 'page'; },
+      records: () => (found ? found.records() : []),
+      latest: () => (found ? found.latest() : []),
+      add: (at, change, temp) => found.add(at, change, temp),
+      remove: (gone) => found.remove(gone),
+      replace: (id, at, change) => found.replace(id, at, change),
+      written: (id) => (found.written ? found.written(id) : Promise.resolve()),
+      subscribe(fn) { listeners.push(fn); },
+    };
+  }
+
   // The source for the data a built page embeds: { board: { name, id, base }, sources, files, dir }.
-  function boot(data, { storage, device } = {}) {
+  // `claude` is window.claude where the page runs in an artifact; a page opened as a file has none.
+  function boot(data, { storage, device, claude, timeoutMs, retryMs } = {}) {
     ids.acceptTempIds(true); // the page's own id module reads n1 as an id from here on
     const given = typeof Buffer === 'undefined' ? { Buffer: bufferShim } : {};
-    const tray = makeTrayStore(storage, trayKey(data.board), device || deviceLabel(storage));
+    const label = device || deviceLabel(storage);
+    const tray = claude && typeof claude.use === 'function'
+      ? deferTray(() => pickTray({ claude, storage, board: data.board, device: label, timeoutMs, retryMs }), label)
+      : makeTrayStore(storage, trayKey(data.board), label);
     const temp = makeTempIds(tray);
     const fresh = () => makeMemoryRoute(data.sources, { files: data.files, dir: data.dir, newId: temp.allocate, ...given }).route;
     return makePageSource({ route: fresh(), fresh, tray, board: data.board, temp });

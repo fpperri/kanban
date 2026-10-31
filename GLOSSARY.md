@@ -63,13 +63,29 @@ _Avoid_: column, lane (it is a sticker, not a status); approved, done (a review 
 The human's live editor — localhost Node server + browser SPA, reached from a phone through a VS Code tunnel. "App" and "dashboard" in older writing both refer to this skill (the static `kanban-dashboard` skill is deleted).
 _Avoid_: app, dashboard (in new writing).
 
-**Snapshot** (skill `kanban-snapshot`):
-The human's tap surface — a generated single-file HTML board that works where web can't reach (phone, tablet, Cowork). Changes don't touch disk: they queue in a tray and come back as an "Apply kanban changes" payload that Claude applies under the `kanban` skill's write contracts.
+**Snapshot** (skills `kanban-artifact`, and `kanban-snapshot` until the switch):
+The human's tap surface — the **Web** built with the board inside it: one page that opens where the Web's server can't reach (phone, tablet, Cowork), with the cards a **Snapshot query** picks. It answers its own saves with the server's own route code over the board held in memory, so a save shows at once; nothing touches disk. Each save is recorded as a **queued change** in a **tray**, and Claude applies the tray to the board's files under the `kanban` skill's write contracts. The older single-file board of `kanban-snapshot` stays, unchanged, until the new page passes its ready check.
 _Avoid_: remote, editor (it renders and queues; Claude writes).
 
 **Board artifact** (delivery of the **Snapshot**):
-The Snapshot published as a hosted page at one stable URL: exactly one per board, refreshed in place by whichever session next builds the Snapshot, never a new page per session or per request. Each refresh is stamped with its own base moment; earlier refreshes stay in the page's version history. It is board-keyed, not session-keyed: the URL is recorded on the board itself (`config.yaml`), seeded by the session that first publishes and announced by notification, the same way a board name is seeded. Not a surface: it is the Snapshot, delivered where the harness can host a page.
+The Snapshot — the Web built with the board inside — published as a hosted page at one stable URL: exactly one per board, refreshed in place by whichever session next builds the Snapshot, never a new page per session or per request. Each refresh is stamped with its own base moment; earlier refreshes stay in the page's version history. It is board-keyed, not session-keyed: the URL is recorded on the board itself (`config.yaml`), seeded by the session that first publishes and announced by notification, the same way a board name is seeded. Its tray lives in the artifact's own database, readable and writable only by the owner, so it survives a reload and a refresh and is seen by every device that has the page open. Not a surface: it is the Snapshot, delivered where the harness can host a page.
 _Avoid_: "the artifact" unqualified, snapshot artifact, session artifact, a page per session.
+
+**Board source**:
+Where a page's saves are answered and its board comes from: the server (the desk Web, over HTTP), the page itself (the Snapshot, which carries its board and answers through the route code in memory), or the artifact (the page source whose tray is kept in the artifact's database). No feature asks which one it is; the board load says `source: {kind, queued}` for the few things that must read it, such as the count of queued changes. When the artifact's database cannot be reached, the page falls back to the page source and keeps its tray in browser storage.
+_Avoid_: mode, backend, environment.
+
+**Tray**:
+The list of **queued changes** a Snapshot holds and has not yet applied to the board. In a Board artifact it is one document per change in the artifact's database; in a downloaded file it is kept in browser storage under a key that names the board and its **Base**. A reload shows the board with the tray applied. Claude applies the tray to the board's files, then removes the applied changes and refreshes the page.
+_Avoid_: queue (the pill says "N queued", but the thing is a tray), outbox, drafts.
+
+**Queued change**:
+One save the Snapshot recorded instead of writing: `{id, at, device, change: {method, path, body}}`, where `change` is the server save exactly as the desk Web would send it, `id` is `<device>-<counter>` and so unique across devices, and a record the apply kept out also carries `refused`, its reason. A **change payload** is a list of queued changes (one header line naming the board, the Base and the count, then the records as JSON); Claude replays each through the route code against the real board.
+_Avoid_: op, command, edit (an edit is one kind of save), patch.
+
+**Snapshot query**:
+The Web's own search words, used to say which cards a Snapshot is built with (one group, one iteration, one tag), so a person can take part of a board with them.
+_Avoid_: filter, scope, export.
 
 **Base**:
 The moment a Snapshot build embeds: the base timestamp shown in the page header and carried in every change payload, so Claude can tell whether the board moved after the human looked at it. A Board artifact refresh replaces one base with a newer one; earlier bases remain as the page history.

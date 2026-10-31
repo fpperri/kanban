@@ -2181,7 +2181,9 @@ function applyProjectName(name) {
 }
 
 // A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
-// header says how many are queued and offers them to be copied. Hidden when none are, and always on the server.
+// header says how many are queued and offers them to be copied. Hidden when none are, and always on the server
+// (its board load answers source {kind: 'server', queued: 0}). In a Board artifact, where the tray is in the
+// artifact's database, it also says to tell Claude to apply it, Copy changes staying as the fallback.
 let boardSourceInfo = null;
 // A page that carries its board cannot read the board again: its Refresh says when the board was read
 // (the Base) and, tapped, says to ask Claude to apply the changes and rebuild.
@@ -2198,10 +2200,11 @@ function applyQueued(source) {
     $('#more-refresh').textContent = label;
     $('#refresh-btn').title = `${label}. Tap to see how to bring it up to date.`;
   }
-  const n = source && source.kind === 'page' ? source.queued : 0;
+  const n = source && source.kind !== 'server' ? source.queued : 0;
   $('#queued-pill').textContent = `${n} queued`;
   $('#queued-pill').classList.toggle('hidden', n === 0);
   $('#copy-changes-btn').classList.toggle('hidden', n === 0);
+  $('#apply-hint').classList.toggle('hidden', n === 0 || source.kind !== 'artifact');
 }
 
 // A page built with a Snapshot query says it in the header, so it is plain which cards it carries. The server's
@@ -2703,6 +2706,7 @@ window.addEventListener('DOMContentLoaded', () => {
     loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message));
   });
   setInterval(autoRefreshTick, AUTO_REFRESH_MS);
+  if (boardSource.onChange) boardSource.onChange(autoRefreshTick);
   clockDay = localTodayStr();
   setInterval(clockTick, CLOCK_TICK_MS);
   document.addEventListener('visibilitychange', () => {

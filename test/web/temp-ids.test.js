@@ -92,3 +92,59 @@ test('nextTemp is one past the highest temporary id the records made', () => {
   assert.strictEqual(tempIds.nextTemp([]), 'n1');
   assert.strictEqual(tempIds.nextTemp([{ temp: 'n1' }, { id: 'x' }, { temp: 'n4' }, { temp: 'n2' }]), 'n5');
 });
+
+const made = (id, device, temp, c = change('POST', '/api/cards', { title: id })) => ({ id, device, change: c, temp });
+const saved = (id, device, c) => ({ id, device, change: c });
+
+test('closure removes only the later saves of the device that made the card when two devices took the same temporary id', () => {
+  const tray = [
+    made('desk-1', 'desk', 'n1'),
+    made('phone-1', 'phone', 'n1'),
+    saved('desk-2', 'desk', change('PATCH', '/api/cards/n1', { priority: 'High' })),
+    saved('phone-2', 'phone', change('PATCH', '/api/cards/n1', { priority: 'Low' })),
+  ];
+  assert.deepStrictEqual(tempIds.closure(tray, 'desk-1'), ['desk-1', 'desk-2']);
+  assert.deepStrictEqual(tempIds.closure(tray, 'phone-1'), ['phone-1', 'phone-2']);
+});
+
+test('whoMade answers the record own device, else the only device that made the id, else null', () => {
+  const devicesOf = tempIds.makersOf([made('a-1', 'a', 'n1'), made('b-1', 'b', 'n1'), made('a-2', 'a', 'n2')]);
+  assert.strictEqual(tempIds.whoMade(devicesOf, { device: 'b' }, 'n1'), 'b');
+  assert.strictEqual(tempIds.whoMade(devicesOf, { device: 'c' }, 'n1'), null);
+  assert.strictEqual(tempIds.whoMade(devicesOf, { device: 'c' }, 'n2'), 'a');
+  assert.strictEqual(tempIds.whoMade(devicesOf, { device: 'c' }, 'n9'), null);
+});
+
+test('shadowed leaves out the other device card made under a temporary id the page holds, and that device later saves that name it', () => {
+  const tray = [
+    made('desk-1', 'desk', 'n1'),
+    made('phone-1', 'phone', 'n1'),
+    saved('phone-2', 'phone', change('PATCH', '/api/cards/n1', { priority: 'Low' })),
+    saved('desk-2', 'desk', change('PATCH', '/api/cards/n1', { priority: 'High' })),
+    saved('phone-3', 'phone', change('PATCH', '/api/cards/7', { priority: 'Low' })),
+  ];
+  assert.deepStrictEqual([...tempIds.shadowed(tray, 'desk')], ['phone-1', 'phone-2']);
+  assert.deepStrictEqual([...tempIds.shadowed(tray, 'phone')], ['desk-1', 'desk-2']);
+});
+
+test('shadowed keeps the page own card whichever record comes first in the tray, and the first of two foreign cards otherwise', () => {
+  const tray = [made('a-1', 'a', 'n1'), made('b-1', 'b', 'n1'), made('c-1', 'c', 'n1')];
+  assert.deepStrictEqual([...tempIds.shadowed(tray, 'c')], ['a-1', 'b-1']);
+  assert.deepStrictEqual([...tempIds.shadowed(tray, 'd')], ['b-1', 'c-1']);
+});
+
+test('shadowed leaves out a save that names an id several devices made when its own device made none, and keeps one that names a single maker', () => {
+  const tray = [
+    made('a-1', 'a', 'n1'),
+    made('b-1', 'b', 'n1'),
+    made('a-2', 'a', 'n2'),
+    saved('c-1', 'c', change('PATCH', '/api/cards/n1', { priority: 'Low' })),
+    saved('c-2', 'c', change('PATCH', '/api/cards/n2', { priority: 'Low' })),
+  ];
+  assert.deepStrictEqual([...tempIds.shadowed(tray, 'a')], ['b-1', 'c-1']);
+});
+
+test('shadowed leaves out nothing when no two devices took the same temporary id', () => {
+  const tray = [made('a-1', 'a', 'n1'), made('b-1', 'b', 'n2'), saved('b-2', 'b', change('PATCH', '/api/cards/n1', { priority: 'Low' }))];
+  assert.deepStrictEqual([...tempIds.shadowed(tray, 'a')], []);
+});
