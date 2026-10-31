@@ -7,9 +7,9 @@ Date: 2026-10-30 · Status: accepted
 The Web saves through the server: every card, note, scratchpad, todo, group and
 config change is one `/api` request, answered by `route(method, path, body)`
 (`route.js`) over the stores that read and write the board's files. The
-Snapshot is a different program: a generated page with its own editor and a
+Snapshot is a different program: a generated page with its own save rules and a
 Python builder, whose saves are a list of changes applied to the board later.
-Two editors with two sets of rules for the same board drift, and the Snapshot's
+Two sets of save rules for one board drift, and the Snapshot's
 rules are the smaller and the older set.
 
 A page that is the Web, with the board's files inside it, can answer its own
@@ -55,7 +55,7 @@ the loader are dual-environment modules like the others: required by
 - **Run the server in a service worker or a WebAssembly Node.** Rejected: far
   more than the dozen file calls the stores make, and a page that must start
   from one file cannot carry it.
-- **Keep the Snapshot's editor and have the apply translate its changes.**
+- **Keep the Snapshot's save rules and have the apply translate its changes.**
   Rejected: it leaves two sets of rules for one board.
 - **A browser sha256 from `crypto.subtle`.** Rejected: it is asynchronous, and
   the stores take a file's version synchronously to refuse a stale save.
