@@ -85,6 +85,9 @@ function scratchPanel(target) {
   const pf = kanbanPadFiles;
   const path = scratchEl('p', 'sp-path', `${state.scratchpad.folder}/…`);
   const nameEl = scratchEl('strong', 'sp-name', ''); // the folder editor's header: the file's name, the folder it is in, Copy path
+  const unfold = scratchEl('button', 'sp-unfold', 'Files \u203a'); // the folded explorer's way back (the folder editor's header)
+  unfold.type = 'button';
+  unfold.title = 'Show the file list';
   const copy = scratchEl('button', 'sp-copy', 'Copy path');
   copy.type = 'button';
   copy.title = 'Copy the full path of this file';
@@ -175,7 +178,8 @@ function scratchPanel(target) {
   if (folderOn) {
     const head = scratchEl('div', 'sp-head');
     const headL = scratchEl('div', 'sp-head-l');
-    headL.append(nameEl, path, copy);
+    unfold.setAttribute('aria-expanded', 'false');
+    headL.append(unfold, nameEl, path, copy);
     head.append(headL, bar);
     main.append(head, refs, boxNode, view, viewer);
   } else {
@@ -183,6 +187,7 @@ function scratchPanel(target) {
   }
 
   let folder = null;
+  let setFolded = () => {};
   if (folderOn) {
     folder = scratchFolderPanel(target, {
       select: (entry) => (entry.page ? selectPage() : selectFile(entry.path, !!entry.edit)),
@@ -193,6 +198,7 @@ function scratchPanel(target) {
         if (scratchUi.drafts.has(old)) { scratchUi.drafts.set(next, scratchUi.drafts.get(old)); scratchUi.drafts.delete(old); }
         if (conflicts.has(old)) { conflicts.set(next, conflicts.get(old)); conflicts.delete(old); }
       },
+      fold: () => setFolded(true),
       gone: (from, wasSelected) => {
         scratchUi.drafts.delete(`${target}\u0000${from}`);
         conflicts.delete(`${target}\u0000${from}`);
@@ -204,6 +210,17 @@ function scratchPanel(target) {
     split.append(folder.el, main);
     cq.append(split);
     wrap.append(cq);
+    // Folding the explorer away (from 600px of tab width up) changes nothing about what is selected, its
+    // draft or its conflict: the list is only hidden. The choice is kept per board in this browser.
+    setFolded = (on, byKey) => {
+      split.classList.toggle('sp-folded', on);
+      folder.foldButton.setAttribute('aria-expanded', String(!on));
+      unfold.setAttribute('aria-expanded', String(!on));
+      kanbanPadFiles.foldedSave(prefsStorage(), state.projectName, on);
+      if (byKey !== false) (on ? unfold : folder.foldButton).focus({ preventScroll: true });
+    };
+    unfold.addEventListener('click', () => setFolded(false));
+    if (kanbanPadFiles.foldedLoad(prefsStorage(), state.projectName)) setFolded(true, false);
   }
 
   // The header of the folder editor: the file's name, the folder it is in (never a doubled slash), and the

@@ -114,6 +114,39 @@ module.exports = {
     await select('notes.txt');
     await typeInto('#notes-palette .sp-text', 'edited note\n');
 
+    // --- the explorer folds away: the editor takes the width; the selection, draft and conflict stay -------------------------------
+    const FOLD = `document.querySelector('#notes-palette .spf-fold')`;
+    const UNFOLD = `document.querySelector('#notes-palette .sp-unfold')`;
+    const LIST_SHOWN = `getComputedStyle(document.querySelector('#notes-palette .spf')).display!=='none'`;
+    const WIDE = `(()=>{const sp=document.querySelector('#notes-palette .sp-split').getBoundingClientRect();const m=document.querySelector('#notes-palette .sp-main').getBoundingClientRect();return Math.abs(m.width-sp.width)<=4&&Math.abs(m.left-sp.left)<=4})()`;
+    await typeInto('#notes-palette .sp-text', 'fold draft');
+    check('scratchpad-folder: the explorer\'s fold button is a small arrow with a title, and says it is expanded', await ev(`${FOLD}.textContent==='‹'&&${FOLD}.title==='Hide the file list'&&${FOLD}.getAttribute('aria-expanded')==='true'&&getComputedStyle(${FOLD}).display!=='none'`));
+    check('scratchpad-folder: the Files button is not shown while the explorer is', await ev(`getComputedStyle(${UNFOLD}).display==='none'&&${UNFOLD}.getAttribute('aria-expanded')==='false'`));
+    await shot('scratchpad-folder-unfolded');
+    await press('#notes-palette .spf-fold');
+    check('scratchpad-folder: folded, the list is gone and the editor takes the tab\'s full width', await waitFor(`!(${LIST_SHOWN})&&${WIDE}`, 3000));
+    check('scratchpad-folder: folded, Files › starts the header line, says collapsed, and the open file\'s name stays', await ev(`(()=>{const u=${UNFOLD};const n=document.querySelector('#notes-palette .sp-name');return getComputedStyle(u).display!=='none'&&u.textContent==='Files ›'&&u.title==='Show the file list'&&u.getAttribute('aria-expanded')==='false'&&n.textContent==='notes.txt'&&u.getBoundingClientRect().right<=n.getBoundingClientRect().left+1&&Math.abs(u.getBoundingClientRect().top-n.getBoundingClientRect().top)<10})()`));
+    check('scratchpad-folder: folding keeps the keyboard on the Files button, and the box keeps its draft', await ev(`document.activeElement===${UNFOLD}&&${BOX}.value==='fold draft'`));
+    await shot('scratchpad-folder-folded');
+    await press('#notes-palette .sp-unfold');
+    check('scratchpad-folder: unfolded, the same folder and file are selected and the draft is still in the box', await waitFor(`${LIST_SHOWN}&&${FOLD}.getAttribute('aria-expanded')==='true'&&${SELECTED}==='notes.txt'&&${NAME}==='notes.txt'&&${BOX}.value==='fold draft'&&document.activeElement===${FOLD}`, 3000));
+    await ev(`${FOLD}.focus()`);
+    await key('Enter');
+    check('scratchpad-folder: Enter on the fold button folds the list', await waitFor(`!(${LIST_SHOWN})&&${UNFOLD}.getAttribute('aria-expanded')==='false'`, 3000));
+    await key(' ');
+    check('scratchpad-folder: Space on the Files button brings it back', await waitFor(`${LIST_SHOWN}&&${FOLD}.getAttribute('aria-expanded')==='true'&&${SELECTED}==='notes.txt'`, 3000));
+    await typeInto('#notes-palette .sp-text', 'edited note\n');
+    await press('#notes-palette .spf-fold');
+    await waitFor(`!(${LIST_SHOWN})`, 3000);
+    await open('/?view=board');
+    await waitFor(`document.querySelectorAll('#board .card-el').length>15&&!!state.scratchpad`, 10000);
+    await rightClick('#board .card-el[data-id="7"]');
+    await menuUp();
+    await press('#ctx-scratch');
+    check('scratchpad-folder: after a reload the explorer is still folded', await waitFor(`${READY}&&!(${LIST_SHOWN})&&${WIDE}&&${UNFOLD}.getAttribute('aria-expanded')==='false'&&${FOLD}.getAttribute('aria-expanded')==='false'`, 6000));
+    await press('#notes-palette .sp-unfold');
+    check('scratchpad-folder: unfolding again leaves it open, and open is what is kept', await waitFor(`${LIST_SHOWN}&&${SELECTED}===${JSON.stringify(PAGE)}`, 3000) && await ev(`localStorage.getItem('kanban.padfolder.scratchpad.folded')===null`));
+
     // --- another extension: a .log opens, edits and saves --------------------------------------------------------------------------
     check('scratchpad-folder: choosing build.log opens it in the box', await select('build.log') && await ev(`${BOX}.value==='build ok\\n'`));
     await typeInto('#notes-palette .sp-text', 'build ok\nbuild again\n');
@@ -132,6 +165,11 @@ module.exports = {
     check('scratchpad-folder: full screen, the list and the editor fill the tab to the foot of the window', await waitFor(`(()=>{const p=${PAL}.getBoundingClientRect();const l=document.querySelector('#notes-palette .spf-list').getBoundingClientRect();const m=${PREVIEW}.getBoundingClientRect();return ${PAL}.classList.contains('fullscreen')&&p.height>=1070&&window.innerHeight-l.bottom<80&&window.innerHeight-m.bottom<80&&m.height>600})()`, 4000), await ev(`JSON.stringify([window.innerHeight,document.querySelector('#notes-palette .spf-list').getBoundingClientRect().bottom,${PREVIEW}.getBoundingClientRect().bottom])`));
     check('scratchpad-folder: full screen, the header is one line', await ev(`document.querySelector('#notes-palette .sp-head').getBoundingClientRect().height<40`));
     await shot('scratchpad-folder-fullscreen');
+    await press('#notes-palette .spf-fold');
+    check('scratchpad-folder: full screen, folded, the editor has the whole tab width', await waitFor(`!(${LIST_SHOWN})&&${WIDE}&&${PREVIEW}.getBoundingClientRect().width>1800`, 3000));
+    await shot('scratchpad-folder-fullscreen-folded');
+    await press('#notes-palette .sp-unfold');
+    await waitFor(`${LIST_SHOWN}`, 3000);
     await press('#notes-palette .sp-mode:first-child');
     check('scratchpad-folder: full screen, the Edit box takes the height too', await waitFor(`${BOX}.getBoundingClientRect().height>600`, 3000));
     await press('#notes-fullscreen-btn');

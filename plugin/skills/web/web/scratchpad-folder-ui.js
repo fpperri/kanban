@@ -15,7 +15,9 @@
 // path only. Each acts on its own row, which need not be the selected file.
 //
 // Under 600px of tab width the list becomes one line above the editor, the selected file's name with a
-// down arrow that opens the list over the editor (the stylesheet's container query).
+// down arrow that opens the list over the editor (the stylesheet's container query). From 600px up a small
+// button at the right of the breadcrumb folds the list away (hooks.fold); the editor then has the width and
+// brings it back with a Files button in its own header (scratchpad-ui.js).
 //
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never when it
 // loads: state, api, toast, fallbackCopy, notesIcon, notesMenuOpen, kanbanPadFiles (pad-files.js).
@@ -65,8 +67,9 @@ function spfCopyText(text, done) {
 //   select({ path, page, edit })  a row was chosen (a file's path, or the page), or a file was just made (edit);
 //   busy(path)                    the editor is still reading that file: its row's menu entries are off;
 //   renamed(from, to)             a file moved: its unsaved text moves with it;
-//   gone(path, wasSelected)       a file was deleted: drop its unsaved text; show the page if it was selected.
-// Returns { el, refresh(), mark(path|null, label), root() }: refresh reads the folder again (a size and a
+//   gone(path, wasSelected)       a file was deleted: drop its unsaved text; show the page if it was selected;
+//   fold()                        the fold button was pressed.
+// Returns { el, foldButton, refresh(), mark(path|null, label), root() }: refresh reads the folder again (a size and a
 // date moved); mark(path, label) highlights the selected row (null for the page) and names it on the narrow
 // bar; root() is the absolute path of the card's folder.
 function scratchFolderPanel(target, hooks) {
@@ -81,15 +84,21 @@ function scratchFolderPanel(target, hooks) {
   const pickName = spfEl('span', 'spf-pick-name', '');
   pick.append(pickName, spfEl('span', 'spf-pick-caret', '▾'));
   const panel = spfEl('div', 'spf-panel');
+  const head = spfEl('div', 'spf-head');
   const crumbs = spfEl('nav', 'spf-crumbs');
   crumbs.setAttribute('aria-label', 'Folder');
+  const foldBtn = spfButton('\u2039', 'spf-fold', 'Hide the file list');
+  foldBtn.setAttribute('aria-label', 'Hide the file list');
+  foldBtn.setAttribute('aria-expanded', 'true');
+  foldBtn.addEventListener('click', () => hooks.fold());
+  head.append(crumbs, foldBtn);
   const tools = spfEl('div', 'spf-tools');
   const newFile = spfButton('+ File', 'spf-btn spf-new-file', 'A new .md or .txt file in this folder');
   const newFolder = spfButton('+ Folder', 'spf-btn spf-new-folder', 'A new folder in this folder');
   tools.append(newFile, newFolder);
   const list = spfEl('ul', 'spf-list');
   const note = spfEl('p', 'np-muted spf-note');
-  panel.append(crumbs, tools, list, note);
+  panel.append(head, tools, list, note);
   wrap.append(pick, panel);
 
   let cwd = '';
@@ -317,6 +326,7 @@ function scratchFolderPanel(target, hooks) {
   go('');
   return {
     el: wrap,
+    foldButton: foldBtn,
     refresh: () => go(cwd),
     root: () => (listing ? listing.folder : ''),
     mark(path, label) {

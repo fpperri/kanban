@@ -2177,9 +2177,17 @@ button.np-note-card:hover { color: var(--accent); }
 .sp-head-r .sp-mode::after { display: none; }
 .sp-main > .sp-refs { font-size: 0.9em; }
 .sp-main .sp-ref-list { flex-direction: row; flex-wrap: wrap; gap: 0 14px; }
+.sp-unfold, .spf-fold { display: none; flex: 0 0 auto; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; font: inherit; line-height: 1.4; }
 @container (min-width: 600px) {
   .sp-split { grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; }
+  .sp-split.sp-folded { grid-template-columns: minmax(0, 1fr); }
+  .sp-split.sp-folded .spf { display: none; }
+  .sp-split.sp-folded .sp-unfold { display: inline-block; }
+  .spf-fold { display: inline-block; }
 }
+.sp-unfold:hover, .spf-fold:hover { border-color: var(--accent); color: var(--accent); }
+.spf-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.spf-head .spf-crumbs { flex: 1 1 auto; }
 .spf { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .spf-pick { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; font: inherit; text-align: left; }
 .spf-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
