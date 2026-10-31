@@ -98,6 +98,31 @@ test('text that reads like a temporary id is not rewritten', () => {
   assert.match(read(dir, cardFile(dir, 30)), /see n1/);
 });
 
+test('a scratchpad move to a path that reads like a temporary id lands on that path, with or without a card made as that id', () => {
+  const withPads = () => {
+    const dir = makeBoard();
+    fs.writeFileSync(path.join(dir, 'config.yaml'), SEED['config.yaml'].replace('scratchpad: .pads', 'scratchpad: ../pads/<card>'));
+    const folder = path.join(dir, '..', 'pads', '3');
+    fs.mkdirSync(folder, { recursive: true });
+    return { dir, folder };
+  };
+  const files = [
+    rec('POST', '/api/scratchpad/3/file', { path: 'a.md', text: 'x' }),
+    rec('POST', '/api/scratchpad/3/move', { from: 'a.md', to: 'n1' }),
+  ];
+  const made = withPads();
+  const report = applyTray({ dir: made.dir, records: [rec('POST', '/api/cards', { title: 'Made on the phone' }, { temp: 'n1' }), ...files] });
+  assert.deepStrictEqual(report.refused, []);
+  assert.strictEqual(report.applied.length, 3);
+  assert.deepStrictEqual(fs.readdirSync(made.folder), ['n1']);
+
+  const alone = withPads();
+  const lone = applyTray({ dir: alone.dir, records: files });
+  assert.deepStrictEqual(lone.refused, []);
+  assert.strictEqual(lone.applied.length, 2);
+  assert.deepStrictEqual(fs.readdirSync(alone.folder), ['n1']);
+});
+
 test('a tray applied twice makes the card once: the second time every record reads as already applied', () => {
   const dir = makeBoard();
   const tray = TRAY();

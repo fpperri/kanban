@@ -26,6 +26,18 @@ test('namesIn lists each id once and ignores text that only reads like one', () 
   assert.deepStrictEqual(tempIds.namesIn(change('PATCH', '/api/cards/7', { status: 'doing' })), []);
 });
 
+test('a scratchpad move to a path that reads like a temporary id is a path, neither found nor rewritten', () => {
+  const move = change('POST', '/api/scratchpad/3/move', { from: 'a.md', to: 'n1' });
+  assert.deepStrictEqual(tempIds.namesIn(move), []);
+  assert.deepStrictEqual(tempIds.rewrite(move, { n1: '31' }), { change: move, missing: [] });
+  assert.deepStrictEqual(tempIds.rewrite(move, {}), { change: move, missing: [] });
+  const tray = [
+    { id: 'd-1', change: change('POST', '/api/cards', { title: 'a' }), temp: 'n1' },
+    { id: 'd-2', change: move },
+  ];
+  assert.deepStrictEqual(tempIds.closure(tray, 'd-1'), ['d-1']);
+});
+
 test('rewrite puts the real id where a temporary one stood and leaves the rest as it was', () => {
   const input = change('PATCH', '/api/cards/n1', { parent: 'n2', waiting_for: ['3', 'n1'], title: 'n1' });
   const out = tempIds.rewrite(input, { n1: '31', n2: 'G4' });

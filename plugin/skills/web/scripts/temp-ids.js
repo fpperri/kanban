@@ -13,16 +13,18 @@ const tempIdsModule = (() => {
   const ids = node ? require('../web/ids') : window.kanbanIds;
 
   // The body fields that hold one id and those that hold a list of them. A note's ref holds a target.
-  const SCALARS = ['parent', 'target', 'to', 'prev', 'next'];
+  const SCALARS = ['parent', 'target', 'prev', 'next'];
+  // `to` is an id only where a note is assigned; on a scratchpad move it is a file path.
+  const ASSIGN = '/api/notes/assign';
   const LISTS = ['waiting_for', 'cards', 'add', 'remove'];
 
   const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-  function mapBody(body, fn) {
+  function mapBody(body, fn, scalars) {
     const out = { ...body };
-    for (const key of SCALARS) if (ids.isTempId(out[key])) out[key] = fn(out[key]);
+    for (const key of scalars) if (ids.isTempId(out[key])) out[key] = fn(out[key]);
     for (const key of LISTS) if (Array.isArray(out[key])) out[key] = out[key].map((v) => (ids.isTempId(v) ? fn(v) : v));
-    if (isObject(out.ref)) out.ref = mapBody(out.ref, fn);
+    if (isObject(out.ref)) out.ref = mapBody(out.ref, fn, scalars);
     return out;
   }
 
@@ -30,7 +32,8 @@ const tempIdsModule = (() => {
   function mapChange(change, fn) {
     const [pathname, ...query] = String(change.path).split('?');
     const path = pathname.split('/').map((seg) => (ids.isTempId(seg) ? fn(seg) : seg)).join('/');
-    return { ...change, path: query.length ? `${path}?${query.join('?')}` : path, body: isObject(change.body) ? mapBody(change.body, fn) : change.body };
+    const scalars = change.method === 'POST' && pathname === ASSIGN ? [...SCALARS, 'to'] : SCALARS;
+    return { ...change, path: query.length ? `${path}?${query.join('?')}` : path, body: isObject(change.body) ? mapBody(change.body, fn, scalars) : change.body };
   }
 
   // The temporary ids a change names, each once, in the order they appear.
