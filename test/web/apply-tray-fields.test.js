@@ -67,6 +67,18 @@ test('a later edit of the same field, made on top of the refused one, is refused
   assert.strictEqual(read(dir, 3).title, 'Three at the desk');
 });
 
+test('a later edit counts as made on top of a refused one when the form sent a number as text and the page held it as a number', () => {
+  const dir = makeBoard();
+  atDesk(dir, 3, { rank: 9 });
+  assert.strictEqual(typeof read(dir, 3).rank, 'number');
+  const first = edit(3, { rank: '5' }, { rank: 3 });
+  const second = edit(3, { rank: '6' }, { rank: 5 });
+  const report = applyTray({ dir, records: [first, second] });
+  assert.deepStrictEqual(report.applied, []);
+  assert.deepStrictEqual(report.refused.map((r) => r.id), [first.id, second.id]);
+  assert.match(report.refused[1].reason, new RegExp(`it depends on ${first.id}, which was refused`));
+});
+
 test('an edit redone on the refreshed page applies though the edit it redoes was refused', () => {
   const dir = makeBoard();
   atDesk(dir, 3, { title: 'Desk' });

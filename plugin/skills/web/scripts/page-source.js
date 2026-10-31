@@ -32,6 +32,7 @@ const pageSourceModule = (() => {
   const artifactTray = node ? require('./artifact-tray') : window.kanbanArtifactTray;
   const tempIds = node ? require('./temp-ids') : window.kanbanTempIds;
   const ids = node ? require('../web/ids') : window.kanbanIds;
+  const { plain } = node ? require('./field-value') : window.kanbanFieldValue;
 
   const DESK_JOB = 'That is a desk job: settings and notifications do not save in this page.';
   const DESK_JOB_PATH = /^\/api\/(?:config|notifications)(?:\/|$)/;
@@ -53,9 +54,6 @@ const pageSourceModule = (() => {
   // The fields of a card's JSON an edit can set (card-store's toJSON).
   const CARD_FIELDS = ['title', 'status', 'priority', 'parent', 'rank', 'tags', 'waiting_for', 'blocked', 'review', 'prompt', 'assignee', 'type', 'start_date', 'end_date', 'due_date', 'body'];
   const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
-  // A value as a person would call it the same: an empty text, list or nothing at all is one value, and a
-  // number reads as its text (the form sends a parent as text, the card holds it as a number).
-  const plain = (v) => (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) ? null : Array.isArray(v) ? JSON.stringify(v) : String(v));
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 

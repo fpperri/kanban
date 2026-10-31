@@ -28,6 +28,7 @@ const { APPLIED_FILE, readApplied } = require('./applied-ids');
 const { findRepo } = require('./path-vars');
 const oldPayload = require('./old-payload');
 const tempIds = require('./temp-ids');
+const { sameValue } = require('./field-value');
 
 const WEB = path.join(__dirname, '..');
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -110,7 +111,6 @@ const listOf = (names) => (names.length < 2 ? names.join('') : `${names.slice(0,
 
 const CARD_EDIT = /^\/api\/cards\/([^/?]+)$/;
 const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
-const same = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
 const poisonKey = (p, field) => `${String(p).split('?')[0].replace(/^(\/api\/cards\/)0+(?=\d)/, '$1')}\u0000${field}`;
 
 // The fields a card edit named a before value for, with the card path they sit on, or null for any other record.
@@ -129,7 +129,7 @@ function staleness(route, record, path, known, poisoned) {
   const fields = editedFields(record);
   if (!fields) return null;
   for (const field of fields) {
-    const on = (poisoned.get(poisonKey(path, field)) || []).find((p) => same(p.value, record.before[field]));
+    const on = (poisoned.get(poisonKey(path, field)) || []).find((p) => sameValue(p.value, record.before[field]));
     if (on) return `it depends on ${on.by}, which was refused`;
   }
   if (tempIds.namesIn({ method: 'PATCH', path: record.change.path, body: {} }).length) return null;
