@@ -126,7 +126,7 @@ test('the change payload names the board, the Base and the count, then holds the
   const [head, ...rest] = src.payload().split('\n');
   assert.strictEqual(head, 'Apply kanban changes (board "alpha", base 2026-10-31T01:00:00.000Z, 2 changes):');
   const records = JSON.parse(rest.join('\n'));
-  assert.deepStrictEqual(records.map((r) => r.change.method), ['PATCH', 'POST']);
+  assert.deepStrictEqual(records.map((r) => r.change.method), ['PATCH', 'PUT']);
   assert.ok(records.every((r) => r.change.path && 'body' in r.change));
 });
 
@@ -150,4 +150,85 @@ test('boot makes a page source from the data a built page embeds, over the brows
   await src.request('PATCH', '/api/cards/3', { status: 'doing' });
   assert.ok([...storage.map.keys()].includes(`kanban-tray:${BOARD.id}:${BOARD.base}`));
   assert.strictEqual(boot(data, { storage, device: 'phone' }).records().length, 1);
+});
+
+const todos = (src, target) => src.request('GET', `/api/todos/${target}`).then((r) => r.json.todos);
+
+test('three edits to one todo list leave one queued change, the whole list carrying the version read at build time', async () => {
+  const src = open(memoryStorage());
+  const built = await todos(src, 7);
+  assert.strictEqual((await src.request('POST', '/api/todos/7', { text: 'c', version: built.version })).status, 201);
+  assert.strictEqual((await src.request('PATCH', '/api/todos/7', { index: 0, done: true, version: (await todos(src, 7)).version })).status, 200);
+  assert.strictEqual((await src.request('POST', '/api/todos/7/move', { index: 2, by: -1, version: (await todos(src, 7)).version })).status, 200);
+  const shown = await todos(src, 7);
+  assert.strictEqual(shown.text, '- [x] a\n- [ ] c\n- [x] b\n');
+  assert.strictEqual(src.records().length, 1);
+  assert.deepStrictEqual(src.records()[0].change, { method: 'PUT', path: '/api/todos/7', body: { text: shown.text, version: built.version } });
+  assert.strictEqual((await src.request('GET', '/api/board')).json.source.queued, 1);
+});
+
+test('the list\'s queued change keeps its place and its id as the list changes again', async () => {
+  const src = open(memoryStorage());
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  const built = await todos(src, 7);
+  await src.request('POST', '/api/todos/7', { text: 'c', version: built.version });
+  await src.request('PATCH', '/api/cards/3', { priority: 'High' });
+  const first = src.records().map((r) => r.id);
+  await src.request('DELETE', '/api/todos/7', { index: 0, version: (await todos(src, 7)).version });
+  const after = src.records();
+  assert.deepStrictEqual(after.map((r) => r.id), first);
+  assert.deepStrictEqual(after.map((r) => r.change.path), ['/api/cards/3', '/api/todos/7', '/api/cards/3']);
+  assert.strictEqual(after[1].change.body.version, built.version);
+  assert.strictEqual(after[1].change.body.text, '- [x] b\n- [ ] c\n');
+});
+
+test('every kind of edit to a list folds: add, edit text, indent, outdent, delete, and the Edit tab\'s whole text', async () => {
+  const src = open(memoryStorage());
+  const built = await todos(src, 7);
+  const v = async () => (await todos(src, 7)).version;
+  await src.request('POST', '/api/todos/7', { text: 'c', version: await v() });
+  await src.request('PATCH', '/api/todos/7', { index: 0, text: 'a2', version: await v() });
+  await src.request('POST', '/api/todos/7/indent', { index: 1, version: await v() });
+  await src.request('POST', '/api/todos/7/outdent', { index: 1, version: await v() });
+  await src.request('DELETE', '/api/todos/7', { index: 2, version: await v() });
+  assert.strictEqual(src.records().length, 1);
+  await src.request('PUT', '/api/todos/7', { text: '- [ ] whole\n', version: await v() });
+  assert.strictEqual(src.records().length, 1);
+  assert.deepStrictEqual(src.records()[0].change.body, { text: '- [ ] whole\n', version: built.version });
+});
+
+test('two lists each keep their own queued change', async () => {
+  const src = open(memoryStorage());
+  const seven = await todos(src, 7);
+  const three = await todos(src, 3);
+  assert.strictEqual(three.exists, false);
+  await src.request('POST', '/api/todos/7', { text: 'c', version: seven.version });
+  await src.request('POST', '/api/todos/3', { text: 'first', version: three.version });
+  await src.request('POST', '/api/todos/7', { text: 'd', version: (await todos(src, 7)).version });
+  assert.deepStrictEqual(src.records().map((r) => [r.change.path, r.change.body.version]), [['/api/todos/7', seven.version], ['/api/todos/3', three.version]]);
+  assert.strictEqual(src.records()[1].change.body.text, '- [ ] first\n');
+});
+
+test('a reload shows the list as the page showed it, and the next edit still folds into the one change', async () => {
+  const storage = memoryStorage();
+  const first = open(storage);
+  const built = await todos(first, 7);
+  await first.request('POST', '/api/todos/7', { text: 'c', version: built.version });
+  const shown = await todos(first, 7);
+  const again = open(storage);
+  assert.strictEqual((await todos(again, 7)).text, shown.text);
+  await again.request('PATCH', '/api/todos/7', { index: 2, done: true, version: (await todos(again, 7)).version });
+  assert.strictEqual(again.records().length, 1);
+  assert.strictEqual(again.records()[0].change.body.version, built.version);
+  assert.strictEqual(open(storage).records()[0].change.body.text, '- [ ] a\n- [x] b\n- [x] c\n');
+});
+
+test('a todo save the list refuses is refused as the desk refuses it, and leaves the queued change as it was', async () => {
+  const src = open(memoryStorage());
+  const built = await todos(src, 7);
+  await src.request('POST', '/api/todos/7', { text: 'c', version: built.version });
+  const before = JSON.stringify(src.records());
+  const res = await src.request('POST', '/api/todos/7', { text: 'd', version: built.version });
+  assert.strictEqual(res.status, 409);
+  assert.strictEqual(JSON.stringify(src.records()), before);
 });

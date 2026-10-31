@@ -250,3 +250,50 @@ test('the board scripts list the same cards with the applied-ids file in the fol
   assert.ok(without.includes('Fifteen'));
   assert.strictEqual(list(), without);
 });
+
+// The queued change a page leaves for edits to the list of card 3, made over the seed board.
+async function pageEdits() {
+  const { makeMemoryRoute } = require('../../plugin/skills/web/scripts/memory-route');
+  const { makePageSource, makeTrayStore } = require('../../plugin/skills/web/scripts/page-source');
+  const { routeSources } = require('./helpers/route-sources');
+  const files = {};
+  for (const [name, text] of Object.entries(SEED)) files[`/p/.kanban/${name}`] = text;
+  const { route } = makeMemoryRoute(routeSources(), { files, dir: '/p/.kanban' });
+  const map = new Map();
+  const storage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, String(v)); } };
+  const src = makePageSource({ route, tray: makeTrayStore(storage, 'tray', 'phone'), board: { name: 't', id: 'b', base: 'x' } });
+  const list = async () => (await src.request('GET', '/api/todos/3')).json.todos;
+  await src.request('POST', '/api/todos/3', { text: 'c', version: (await list()).version });
+  await src.request('PATCH', '/api/todos/3', { index: 0, done: true, version: (await list()).version });
+  await src.request('POST', '/api/todos/3/move', { index: 2, by: -1, version: (await list()).version });
+  return { records: src.records(), shown: (await list()).text };
+}
+
+test('edits to one todo list made in a page land as the list the page showed', async () => {
+  const { records, shown } = await pageEdits();
+  assert.strictEqual(records.length, 1);
+  const board = makeBoard();
+  const report = applyTray({ dir: board, records });
+  assert.deepStrictEqual(report.refused, []);
+  assert.deepStrictEqual(report.applied.map((a) => a.id), [records[0].id]);
+  assert.strictEqual(shown, '- [x] a\n- [ ] c\n- [ ] b\n');
+  assert.strictEqual(fs.readFileSync(path.join(board, '.todos', '0003.todo.md'), 'utf8'), shown);
+});
+
+test('a todo list changed at the desk since the build refuses the page\'s whole-list save as stale, with the desk\'s reason', async () => {
+  const { records } = await pageEdits();
+  const board = makeBoard();
+  const route = makeRoute(board);
+  const read = route('GET', '/api/todos/3').body.todos;
+  assert.strictEqual(route('POST', '/api/todos/3', { text: 'at the desk', version: read.version }).status, 201);
+  const stale = route('POST', '/api/todos/3', { text: 'x', version: read.version });
+  assert.strictEqual(stale.status, 409);
+  const after = fs.readFileSync(path.join(board, '.todos', '0003.todo.md'), 'utf8');
+
+  const report = applyTray({ dir: board, records });
+  assert.deepStrictEqual(report.applied, []);
+  assert.deepStrictEqual(report.refused, [{ id: records[0].id, reason: stale.body.error }]);
+  assert.match(report.refused[0].reason, /changed on disk/);
+  assert.strictEqual(fs.readFileSync(path.join(board, '.todos', '0003.todo.md'), 'utf8'), after);
+  assert.ok(!fs.existsSync(path.join(board, APPLIED_FILE)));
+});
