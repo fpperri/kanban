@@ -83,8 +83,8 @@ const tempIdsModule = (() => {
   function nextTemp(records) {
     let top = 0;
     for (const r of records) {
-      const parsed = r && ids.isTempId(r.temp) ? ids.parseId(r.temp) : null;
-      if (parsed && parsed.number > top) top = parsed.number;
+      const number = r ? ids.tempNumber(r.temp) : null;
+      if (number !== null && number > top) top = number;
     }
     return `n${top + 1}`;
   }

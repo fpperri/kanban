@@ -168,6 +168,7 @@ const pageSourceModule = (() => {
 
   // The source for the data a built page embeds: { board: { name, id, base }, sources, files, dir }.
   function boot(data, { storage, device } = {}) {
+    ids.acceptTempIds(true); // the page's own id module reads n1 as an id from here on
     const given = typeof Buffer === 'undefined' ? { Buffer: bufferShim } : {};
     const tray = makeTrayStore(storage, trayKey(data.board), device || deviceLabel(storage));
     const temp = makeTempIds(tray);

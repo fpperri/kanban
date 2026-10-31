@@ -18,13 +18,18 @@ const idsModule = (() => {
   // so the shape of an id is written once: ID_SOURCE has no groups.
   const PREFIX_SOURCE = '_?[A-Z]*';
   const DIGITS_SOURCE = '[0-9]{1,15}';
+  const REAL_ID_SOURCE = PREFIX_SOURCE + DIGITS_SOURCE;
+  const ID_RE = new RegExp(`^(${PREFIX_SOURCE})(${DIGITS_SOURCE})$`);
+  const PREFIX_RE = new RegExp(`^${PREFIX_SOURCE}$`);
+
   // A temporary id, `n1`: what a page that carries its board gives a card or group made in it until the
-  // board allocates the real id. Its prefix is lowercase, so no board ever allocates one like it.
+  // board allocates the real id. Its prefix is lowercase, so no board ever allocates one like it, and
+  // it is no id unless a page asks: acceptTempIds(true) makes parseId, idKey and ID_SOURCE take it, for
+  // the page and for the stores it runs (scripts/page-source.js). Everywhere else it stays what it always
+  // was, text that is not an id, and isTempId alone tells it from other text.
   const TEMP_PREFIX = 'n';
-  const ID_SOURCE = `(?:${PREFIX_SOURCE}|${TEMP_PREFIX})${DIGITS_SOURCE}`;
-  const ID_RE = new RegExp(`^(${PREFIX_SOURCE}|${TEMP_PREFIX})(${DIGITS_SOURCE})$`);
-  const PREFIX_RE = new RegExp(`^(?:${PREFIX_SOURCE}|${TEMP_PREFIX})$`);
-  const TEMP_RE = new RegExp(`^${TEMP_PREFIX}${DIGITS_SOURCE}$`);
+  const TEMP_RE = new RegExp(`^${TEMP_PREFIX}(${DIGITS_SOURCE})$`);
+  let tempAccepted = false;
 
   // `board#G3`, `#G3`: the board token (when there is one) is the run of name
   // characters just before the `#`; the id is `#`, a prefix, digits and a word
@@ -38,14 +43,15 @@ const idsModule = (() => {
   function parseId(value) {
     if (typeof value === 'string') {
       const m = ID_RE.exec(value);
-      return m ? { prefix: m[1], number: Number(m[2]) } : null;
+      if (m) return { prefix: m[1], number: Number(m[2]) };
+      return tempAccepted && isTempId(value) ? { prefix: TEMP_PREFIX, number: tempNumber(value) } : null;
     }
     if (typeof value === 'number') {
       return Number.isInteger(value) && value >= 0 && value <= MAX_NUMBER ? { prefix: '', number: value } : null;
     }
     if (value && typeof value === 'object') {
       const { prefix, number } = value;
-      const ok = typeof prefix === 'string' && PREFIX_RE.test(prefix)
+      const ok = typeof prefix === 'string' && (PREFIX_RE.test(prefix) || (tempAccepted && prefix === TEMP_PREFIX))
         && Number.isInteger(number) && number >= 0 && number <= MAX_NUMBER;
       return ok ? { prefix, number } : null;
     }
@@ -54,6 +60,16 @@ const idsModule = (() => {
 
   function isTempId(value) {
     return typeof value === 'string' && TEMP_RE.test(value);
+  }
+
+  // The number of a temporary id, null for anything else.
+  function tempNumber(value) {
+    const m = typeof value === 'string' ? TEMP_RE.exec(value) : null;
+    return m ? Number(m[1]) : null;
+  }
+
+  function acceptTempIds(on = true) {
+    tempAccepted = !!on;
   }
 
   function idKey(value) {
@@ -107,7 +123,10 @@ const idsModule = (() => {
     return found;
   }
 
-  return { parseId, idKey, isTempId, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, ID_SOURCE, PREFIX_SOURCE };
+  return {
+    parseId, idKey, isTempId, tempNumber, acceptTempIds, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, PREFIX_SOURCE,
+    get ID_SOURCE() { return tempAccepted ? `(?:${REAL_ID_SOURCE}|${TEMP_PREFIX}${DIGITS_SOURCE})` : REAL_ID_SOURCE; },
+  };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
