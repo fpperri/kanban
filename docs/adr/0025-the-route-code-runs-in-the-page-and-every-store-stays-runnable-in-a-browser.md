@@ -8,7 +8,7 @@ The Web saves through the server: every card, note, scratchpad, todo, group and
 config change is one `/api` request, answered by `route(method, path, body)`
 (`route.js`) over the stores that read and write the board's files. The
 Snapshot is a different program: a generated page with its own editor and a
-Python builder, whose saves are a list of changes that Claude applies later.
+Python builder, whose saves are a list of changes applied to the board later.
 Two editors with two sets of rules for the same board drift, and the Snapshot's
 rules are the smaller and the older set.
 
