@@ -3266,8 +3266,12 @@ function copyBoardPath() {
 // sandboxed frame) leaves the activity mark as the only cue.
 // The listener is on only while there is something to ask about: a page with a beforeunload listener takes a
 // round trip through the page before it can leave, and some browsers keep it out of their back/forward cache.
+let leaveGuardOn = false;
 function syncLeaveGuard() {
-  if (saveGuard.leaving(boardSourceInfo)) window.addEventListener('beforeunload', askBeforeLeaving);
+  const asks = !!saveGuard.leaving(boardSourceInfo);
+  if (asks === leaveGuardOn) return;
+  leaveGuardOn = asks;
+  if (asks) window.addEventListener('beforeunload', askBeforeLeaving);
   else window.removeEventListener('beforeunload', askBeforeLeaving);
 }
 
