@@ -4,7 +4,7 @@
 // what its tray held at the last copy or save (the tray's fingerprint, page-source.js: its records whole, so an
 // edit folded into a record already copied, or a record gone, shows). leaving() says why the page should ask
 // before it goes: 'saving' while any save is in flight; 'unsent' when a file's tray is not what the last copy
-// or save took. A Board artifact keeps its queue in its database and the desk Web writes to the board, so for
+// or save took. A Board artifact keeps its tray in its database and the desk Web writes to the board, so for
 // them only a save in flight asks. asOfLabel is the word Refresh wears in a page that carries its board.
 // Same dual-environment pattern as ids.js/nesting.js: loaded as a plain <script> in the browser (one global,
 // window.kanbanSaveGuard) AND required directly by node --test.

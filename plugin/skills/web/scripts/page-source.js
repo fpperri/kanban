@@ -15,7 +15,7 @@
 // group made in the page takes a temporary id, not the real one the board would allocate; later saves may
 // name it (scripts/temp-ids.js), and a reload gives the same card the same id. Removing a record removes
 // the records that name the temporary id it made. The apply maps each to the real id (scripts/apply-tray.js).
-// Settings and notifications do not save in a page (a desk job); they answer 403 and queue nothing.
+// Settings and notifications do not save in a page (a desk job); they answer 403 and add nothing to the tray.
 // A page inside a Board artifact whose database resolves keeps the tray there instead, one document per
 // change (scripts/artifact-tray.js); a database that is absent, not the owner's to use or silent
 // leaves the tray in browser storage, so the page behaves as the downloaded file does.
@@ -259,7 +259,7 @@ const pageSourceModule = (() => {
 
     // The record of a card edit: only the fields the person changed, as the edit sent them, each with the value
     // the card had. A field the store changed on its own (a move into todo stamps start_date) or the form sent
-    // as the card already held it is not the person's. An edit that changed none queues nothing.
+    // as the card already held it is not the person's. An edit that changed none adds nothing to the tray.
     function queueEdit(path, sent, held, result) {
       const body = {};
       const before = {};
@@ -368,13 +368,13 @@ const pageSourceModule = (() => {
   }
 
   // The tray is keyed by board and Base: a file rebuilt from the same board starts empty, so a tray that
-  // was applied to the board never replays into a newer build, and each build keeps its own queue.
+  // was applied to the board never replays into a newer build, and each build keeps its own tray.
   const trayKey = (board) => `kanban-tray:${board.id}:${board.base}`;
 
   // Where this page keeps its tray: the artifact's database when `claude.use("db")` resolves and the viewer
   // may use it, else browser storage. Never rejects: a database that is missing, refuses, cannot be read or
   // does not answer in time (a tray the page cannot reach is not worth a page that does not open) leaves the
-  // queue in browser storage, the downloaded file's way. The collection is owner-only, so a viewer who is
+  // tray in browser storage, the downloaded file's way. The collection is owner-only, so a viewer who is
   // told they are not the owner never reaches it (isOwner() answers a promise).
   async function pickTray({ claude, storage, board, device, timeoutMs, retryMs }) {
     const inStorage = () => makeTrayStore(storage, trayKey(board), device);

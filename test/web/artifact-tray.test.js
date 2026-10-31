@@ -67,7 +67,7 @@ test('a page with no window.claude at all uses browser storage', async () => {
   assert.strictEqual((await src.request('GET', '/api/board')).json.source.kind, 'page');
 });
 
-test('a viewer who is not the owner cannot reach the owner-only tray, so the page keeps its queue in browser storage', async () => {
+test('a viewer who is not the owner cannot reach the owner-only tray, so the page keeps its tray in browser storage', async () => {
   const fake = makeFakeDb();
   const src = boot(DATA, { storage: memoryStorage(), device: 'guest', claude: claudeWith(fake.db, { owner: false }) });
   await src.request('PATCH', '/api/cards/3', { status: 'doing' });
@@ -267,7 +267,7 @@ test('a listener that errors again is subscribed again, with a longer wait each 
   }
 });
 
-test('removing a card made in the page from the queue deletes its documents and the ones that name it, and the board shows without them', async () => {
+test('removing a card made in the page from the tray deletes its documents and the ones that name it, and the board shows without them', async () => {
   const fake = makeFakeDb();
   const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
   const made = (await src.request('POST', '/api/cards', { title: 'New one' })).json.id;
@@ -281,6 +281,22 @@ test('removing a card made in the page from the queue deletes its documents and 
   const load = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
   assert.strictEqual(load.source.queued, 1);
+});
+
+test('discarding the whole tray deletes every document and shows the board as it was built', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });
+  await src.request('POST', '/api/cards', { title: 'New one' });
+  await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  await src.request('PATCH', '/api/cards/7', { status: 'done' });
+  assert.strictEqual(fake.docs.size, 3);
+  assert.deepStrictEqual(src.clear(), ['phone-1', 'phone-2', 'phone-3']);
+  await settle();
+  assert.strictEqual(fake.docs.size, 0);
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:todo', '7:todo']);
+  assert.strictEqual(load.source.queued, 0);
+  assert.strictEqual(src.fingerprint(), '');
 });
 
 test('a database whose use("db") or use("user") never settles falls back to browser storage, and the board load answers', async () => {

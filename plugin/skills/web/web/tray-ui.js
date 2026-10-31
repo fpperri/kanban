@@ -62,8 +62,8 @@ function trayShowAsk() {
     $('#tray-confirm-text').textContent = `Discard all ${trayAsk.count} queued change${trayAsk.count === 1 ? '' : 's'}? The board in this page goes back to how it was built.`;
     $('#tray-confirm-yes').textContent = 'Discard all';
   } else {
-    const more = trayAsk.more === 1 ? '1 more queued change names it and goes too.' : `${trayAsk.more} more queued changes name it and go too.`;
-    $('#tray-confirm-text').textContent = `Remove "${trayAsk.words}"? ${more}`;
+    const more = trayAsk.more === 0 ? '' : trayAsk.more === 1 ? ' 1 more queued change names it and goes too.' : ` ${trayAsk.more} more queued changes name it and go too.`;
+    $('#tray-confirm-text').textContent = `Remove "${trayAsk.words}"?${more}`;
     $('#tray-confirm-yes').textContent = 'Remove';
   }
 }
@@ -113,11 +113,12 @@ function traySync(source) {
   else trayRender();
 }
 
-function trayAskRemove(id) {
+// Ask before removing record `id`: always when `always`, else only when other saves go with it.
+function trayAskRemove(id, always = false) {
   const record = trayRecords().find((r) => r.id === id);
   const plan = record ? boardSource.removal(id) : null;
   if (!plan) return;
-  if (plan.more === 0) { trayRemoveNow(id); return; }
+  if (plan.more === 0 && !always) { trayRemoveNow(id); return; }
   trayAsk = { kind: 'remove', id, words: trayWords(record), more: plan.more };
   trayShowAsk();
   $('#tray-confirm-no').focus();
@@ -125,8 +126,10 @@ function trayAskRemove(id) {
 
 async function trayRemoveNow(id) {
   trayAsk = null;
-  boardSource.remove(id);
-  await loadBoard();
+  try {
+    boardSource.remove(id);
+    await loadBoard();
+  } catch (e) { toast('Remove failed: ' + e.message); }
   trayRender();
 }
 
@@ -140,8 +143,10 @@ function trayAskDiscard() {
 
 async function trayDiscardNow() {
   trayAsk = null;
-  boardSource.clear();
-  await loadBoard();
+  try {
+    boardSource.clear();
+    await loadBoard();
+  } catch (e) { toast('Discard failed: ' + e.message); }
   trayRender();
 }
 

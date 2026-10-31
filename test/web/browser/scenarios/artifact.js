@@ -19,7 +19,7 @@
 // A fourth file, built from the notes board, makes a card in the page: its tile reads n1 with a new mark and a
 // dashed outline, a child of n1 and a note on it both queue, a reload shows all three under the same ids, and
 // applying the copied payload to the board gives the card a real id and puts it in the child's parent and the
-// note's target. Removing n1 from the queue asks first, naming the 2 more queued changes that name it, and
+// note's target. Removing n1 from the tray asks first, naming the 2 more queued changes that name it, and
 // takes all three out of the page.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): askBeforeLeaving, state, todosUi.
@@ -231,15 +231,20 @@ module.exports = {
       check('the child on the board has the real id of the card as its parent', board.active.some((c) => c.id === realChild && c.parent === realParent && c.title === 'A child of n1'));
       check('the note is filed under the real id', board.logbook.notes.some((n) => n.target === realParent && n.note === 'a note on n1'));
 
-      // removing n1 from the queue takes what names it along, after a confirm that says how many
+      // removing n1 from the tray takes what names it along, after a question in the tray's own sheet that says how many
       await ev(`document.querySelector('${TILE('n1')}').click()`);
       check('the details of n1 say it is queued and offer to remove it', await waitFor(`!document.getElementById('detail-modal').classList.contains('hidden')&&!document.getElementById('detail-queued').classList.contains('hidden')&&document.getElementById('detail-queued-id').textContent==='n1'`, 4000));
-      await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false};return true})()`);
+      await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return true};return true})()`);
       await ev(`document.getElementById('detail-unqueue-btn').click()`);
-      check('the confirm names the 2 more changes that name n1', await waitFor(`window.__asked.length===1`, 3000) && JSON.stringify(await ev('window.__asked')) === JSON.stringify(['Remove n1 from the queue? 2 more queued changes name it and go too.']), JSON.stringify(await ev('window.__asked')));
-      check('declining removes nothing', (await ev(PILL)) === '3 queued' && (await ev(`!!document.querySelector('${TILE('n1')}')`)));
-      await ev(`window.confirm=(m)=>{window.__asked.push(m);return true}`);
+      const ASK = `document.getElementById('tray-confirm-text').textContent`;
+      check('the tray opens and asks, naming the 2 more changes that name n1', await waitFor(`!document.getElementById('tray-sheet').classList.contains('hidden')&&!document.getElementById('tray-confirm').classList.contains('hidden')`, 3000) && /2 more queued changes name it and go too\.$/.test(await ev(ASK)), await ev(ASK));
+      check('without a window.confirm', (await ev('window.__asked.length')) === 0);
+      await ev(`document.getElementById('tray-confirm-no').click()`);
+      check('keeping removes nothing', (await ev(PILL)) === '3 queued' && (await ev(`!!document.querySelector('${TILE('n1')}')`)));
+      await ev(`document.getElementById('tray-close').click()`);
       await ev(`document.getElementById('detail-unqueue-btn').click()`);
+      check('and the question comes again', await waitFor(`!document.getElementById('tray-confirm').classList.contains('hidden')`, 3000));
+      await ev(`document.getElementById('tray-confirm-yes').click()`);
       check('accepting takes n1, its child and its note out of the page', await waitFor(`!document.querySelector('${TILE('n1')}')&&!document.querySelector('${TILE('n2')}')&&!state.logbook.notes.some((n)=>n.target==='n1')`, 6000));
       check('and the queue is empty', await waitFor(`${PILL}===''`, 6000), await ev(PILL));
       check('the details have closed', await ev(`document.getElementById('detail-modal').classList.contains('hidden')`));

@@ -3,7 +3,7 @@
 // the switch to kanban:artifact, with its call in apply-tray.js and its test; until then a change queued
 // on an old page is applied like any tray.
 //
-// The old page queues ops, not saves:
+// The old page records ops, not saves:
 //   Apply kanban changes (N ops, base <ISO>):
 //   [{"op":"move","id":"7","to":"done"}, {"op":"edit","id":"7",...}, {"op":"create",...},
 //    {"op":"archive","id":"7"}, {"op":"delete","id":"7"}]

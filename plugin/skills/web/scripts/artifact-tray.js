@@ -8,7 +8,7 @@
 // { method, path, body } }, and the apply adds `refused` (and `before`) to the ones it kept.
 //
 // openTray({ db, device, board, storage, timeoutMs, retryMs }) reads the collection once and resolves the tray,
-// or rejects when the database cannot be read in time (the caller then keeps the queue in browser
+// or rejects when the database cannot be read in time (the caller then keeps the tray in browser
 // storage). The tray has the same face as the browser-storage tray (records(), add({ at, change, temp, before })) plus
 // written(id), a promise for the write of a record that add() returned, and subscribe(fn), told when the
 // set of records changed from outside this page (another device wrote one, Claude deleted the applied

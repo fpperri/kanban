@@ -12,7 +12,7 @@
 // Claude deletes after an apply take the count to 0. While the tray is in the database and holds a change,
 // the tray (opened by the header's pill) says "Tell Claude: apply the tray" above Copy changes and offers no
 // Save as file; in browser storage it has no such line and offers Save as file. A change the apply refused shows
-// in the tray with its reason, and removing it deletes its document. Each step waits on what the page shows,
+// in the tray with its reason, and removing it deletes its document. A card made on another device is removed from its details through the tray's own question, with no window.confirm, and its documents are deleted. Each step waits on what the page shows,
 // never on a fixed sleep.
 
 const fs = require('fs');
@@ -161,6 +161,24 @@ module.exports = {
       await ev(`document.querySelectorAll('#tray-list .tray-row')[1].querySelector('.tray-remove').click()`);
       check('Remove takes the refused row out of the tray', await waitFor(`${PILL}==='1 queued'&&document.querySelectorAll('#tray-list .tray-row').length===1`, 8000), await ev(PILL));
       check('and deletes its document from the database', !('phone-1' in (await standIn())), JSON.stringify(Object.keys(await standIn())));
+      await page.key('Escape');
+      await waitFor(`!(${OPEN})`, 4000);
+
+      // a card made on another device: its details remove it through the tray's own question, where a sandboxed host's confirm would say no
+      const TILE = (id) => `#board .card-el[data-id="${id}"]`;
+      const ASK = `document.getElementById('tray-confirm-text').textContent`;
+      await ev(`window.__standinRemote('phone-2',{id:'phone-2',at:'2099-01-02T00:00:00.000Z',device:'phone',change:{method:'POST',path:'/api/cards',body:{title:'Made on the phone',status:'todo'}},temp:'n1'})`);
+      await ev(`window.__standinRemote('phone-3',{id:'phone-3',at:'2099-01-02T00:00:01.000Z',device:'phone',change:{method:'PATCH',path:'/api/cards/n1',body:{status:'doing'}},before:{status:'todo'}})`);
+      check('a card made on the phone shows as n1', await waitFor(`${PILL}==='3 queued'&&!!document.querySelector('${TILE('n1')}')`, 8000), await ev(PILL));
+      await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false};return true})()`);
+      await ev(`document.querySelector('${TILE('n1')}').click()`);
+      check('its details offer to remove it from the tray', await waitFor(`!document.getElementById('detail-modal').classList.contains('hidden')&&!document.getElementById('detail-queued').classList.contains('hidden')`, 4000));
+      await ev(`document.getElementById('detail-unqueue-btn').click()`);
+      check('the tray opens and asks, naming the 1 more change that names it', await waitFor(`${OPEN}&&!document.getElementById('tray-confirm').classList.contains('hidden')`, 4000) && /1 more queued change names it and goes too\.$/.test(await ev(ASK)), await ev(ASK));
+      check('and no window.confirm was raised', (await ev('window.__asked.length')) === 0);
+      await ev(`document.getElementById('tray-confirm-yes').click()`);
+      check('Remove takes the card out of the page and its details close', await waitFor(`!document.querySelector('${TILE('n1')}')&&document.getElementById('detail-modal').classList.contains('hidden')`, 8000));
+      check('and its two documents out of the database', await waitFor(`${PILL}==='1 queued'`, 8000) && !('phone-2' in (await standIn())) && !('phone-3' in (await standIn())), JSON.stringify(Object.keys(await standIn())));
       await page.key('Escape');
       await waitFor(`!(${OPEN})`, 4000);
 
