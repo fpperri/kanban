@@ -28,18 +28,18 @@ test('the marketplace entry points at plugin/ and the marketplace file stays at 
   assert.strictEqual(JSON.parse(read('plugin', '.claude-plugin', 'plugin.json')).skills, './skills/');
 });
 
-test('plugin/ holds the three skills and nothing a test, a doc or a sample board owns', () => {
+test('plugin/ holds the four skills and nothing a test, a doc or a sample board owns', () => {
   const inside = walk(path.join(root, 'plugin')).map((p) => path.relative(path.join(root, 'plugin'), p).split(path.sep).join('/'));
-  assert.deepStrictEqual(fs.readdirSync(path.join(root, 'plugin', 'skills')).sort(), ['kanban', 'snapshot', 'web']);
-  for (const name of ['kanban', 'snapshot', 'web']) assert.ok(inside.includes(`skills/${name}/SKILL.md`), name);
+  assert.deepStrictEqual(fs.readdirSync(path.join(root, 'plugin', 'skills')).sort(), ['artifact', 'kanban', 'snapshot', 'web']);
+  for (const name of ['artifact', 'kanban', 'snapshot', 'web']) assert.ok(inside.includes(`skills/${name}/SKILL.md`), name);
   const offenders = inside.filter((p) => /(^|\/)(test|tests|docs|examples)$/.test(p) || /\.test\.js$/.test(p) || /(^|\/)fixture[\w-]*$/.test(p));
   assert.deepStrictEqual(offenders, []);
 });
 
-test('the repo tracks exactly three SKILL.md files, so the skills installer lists three skills and no fixture', () => {
+test('the repo tracks exactly four SKILL.md files, so the skills installer lists four skills and no fixture', () => {
   const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).split(/\r?\n/);
   const found = tracked.filter((f) => f.toLowerCase().endsWith('skill.md'));
-  assert.deepStrictEqual(found.sort(), ['plugin/skills/kanban/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'plugin/skills/web/SKILL.md']);
+  assert.deepStrictEqual(found.sort(), ['plugin/skills/artifact/SKILL.md', 'plugin/skills/kanban/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'plugin/skills/web/SKILL.md']);
 });
 
 test('the tests, the docs and the examples sit outside plugin/', () => {

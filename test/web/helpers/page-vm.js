@@ -124,6 +124,7 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
     innerWidth: 1600,
     innerHeight: 1000,
     addEventListener: (type, fn) => { (windowListeners[type] = windowListeners[type] || []).push(fn); },
+    removeEventListener: (type, fn) => { windowListeners[type] = (windowListeners[type] || []).filter((f) => f !== fn); },
     setInterval: () => 0,
     clearInterval: () => {},
     setTimeout: () => 0,
