@@ -234,7 +234,7 @@ test('the skill\'s command and the hidden file it names are the script\'s own', 
   const skill = read('plugin', 'skills', 'artifact', 'SKILL.md');
   const usage = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8' }).stderr.trim();
   assert.strictEqual(usage, 'usage: apply-tray <board-dir> <tray-file | -> [--json]');
-  assert.ok(skill.includes('node skills/web/scripts/apply-tray.js <kanban-directory> <tray-file | -> [--json]'));
+  assert.ok(skill.includes('node <skill dir>/../web/scripts/apply-tray.js <kanban-directory> <tray-file | -> [--json]'));
   assert.ok(skill.includes(`\`${APPLIED_FILE}\``));
   assert.ok(fs.existsSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'apply-tray.js')));
 });
