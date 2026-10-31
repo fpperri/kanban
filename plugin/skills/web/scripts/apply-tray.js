@@ -2,16 +2,21 @@
 // apply-tray <board-dir> <tray-file | -> [--json]
 //
 // Applies a tray to a board. The tray is a list of records, each one save the page recorded:
-//   { id, at, device, change: { method, path, body }, before?, refused? }
+//   { id, at, device, change: { method, path, body }, temp?, before?, refused? }
+// `temp` is the temporary id (n1) the page gave the card or group the save made; later saves may name it.
 // given as a file (or `-` for stdin) holding a JSON array, one record per line, or a change payload
 // (a header line, then the records as JSON). Steps:
 //   1. a record whose id is in the board's hidden `.applied-ids` file is skipped, so a retry or a
 //      double paste changes nothing;
 //   2. every other record is dry-run through route() over an in-memory copy of the board, in tray
-//      order; one the board's rules refuse is set aside with the reason the desk gives;
-//   3. the passing records are replayed through route() over the real board, in tray order, and each
-//      id is appended to `.applied-ids` as it lands;
-//   4. a report says what was applied, what was refused and why, and what was skipped.
+//      order; one the board's rules refuse is set aside with the reason the desk gives. A save that made a
+//      card or group with a temporary id maps it to the real id the board allocated, and each later save
+//      is run with the real id where it named the temporary one; one that names a temporary id nothing
+//      before it made is set aside;
+//   3. the passing records are replayed through route() over the real board, in tray order, mapped the
+//      same way, and each id is appended to `.applied-ids` as it lands;
+//   4. a report says what was applied, what was refused and why, what was skipped, and which real id each
+//      temporary id became.
 // Nothing is written to the board unless the dry run finished. Exit 0 whatever was refused; 2 when the
 // tray cannot be read or the dry run cannot be made.
 const fs = require('fs');
@@ -21,6 +26,7 @@ const { makeMemoryRoute } = require('./memory-route');
 const { readConfig } = require('./config-store');
 const { findRepo } = require('./path-vars');
 const oldPayload = require('./old-payload');
+const tempIds = require('./temp-ids');
 
 const APPLIED_FILE = '.applied-ids';
 const WEB = path.join(__dirname, '..');
@@ -135,11 +141,24 @@ const readApplied = (dir) => {
 };
 
 const reasonOf = (res) => (res.body && res.body.error) || `refused with status ${res.status}`;
-const dryRun = (route, change) => route(change.method.toUpperCase(), change.path, change.body || {});
+
+// Run one record through `route`, with the real ids of `made` (temporary to real) put where it names a
+// temporary id, and note the id it made. { res } when it ran, { refusal } when it did not or the board
+// refused it.
+function run(route, record, made) {
+  const { change, missing } = tempIds.rewrite(record.change, made);
+  if (missing.length) return { refusal: `it names ${missing.join(', ')}, which no save applied before it made` };
+  const method = change.method.toUpperCase();
+  const res = route(method, change.path, change.body || {});
+  if (res.status >= 400) return { refusal: reasonOf(res) };
+  const id = record.temp ? tempIds.createdId(method, change.path, res.body) : null;
+  if (id !== null) made[record.temp] = id;
+  return { res };
+}
 
 function applyTray({ dir, records }) {
   const applied = readApplied(dir);
-  const report = { applied: [], refused: [], skipped: [] };
+  const report = { applied: [], refused: [], skipped: [], temp: {} };
   const todo = [];
   const seen = new Set();
   for (const r of records) {
@@ -155,18 +174,19 @@ function applyTray({ dir, records }) {
   }
 
   const rehearsal = memoryCopy(dir);
+  const rehearsed = {};
   const passing = [];
   for (const r of todo) {
-    const res = dryRun(rehearsal, r.change);
-    if (res.status >= 400) report.refused.push({ id: r.id, reason: reasonOf(res) });
+    const { refusal } = run(rehearsal, r, rehearsed);
+    if (refusal !== undefined) report.refused.push({ id: r.id, reason: refusal });
     else passing.push(r);
   }
 
   const real = makeRoute(dir);
   for (const r of passing) {
-    const res = dryRun(real, r.change);
-    if (res.status >= 400) {
-      report.refused.push({ id: r.id, reason: reasonOf(res) });
+    const { refusal } = run(real, r, report.temp);
+    if (refusal !== undefined) {
+      report.refused.push({ id: r.id, reason: refusal });
       continue;
     }
     fs.appendFileSync(path.join(dir, APPLIED_FILE), `${r.id}\n`);
@@ -180,6 +200,7 @@ function formatReport(report) {
   for (const a of report.applied) out.push(`  applied ${a.id}: ${a.method} ${a.path}`);
   for (const r of report.refused) out.push(`  refused ${r.id === null ? '(no id)' : r.id}: ${r.reason}`);
   for (const id of report.skipped) out.push(`  already applied ${id}`);
+  for (const [temp, real] of Object.entries(report.temp)) out.push(`  ${temp} is now #${real}`);
   return out.join('\n');
 }
 
