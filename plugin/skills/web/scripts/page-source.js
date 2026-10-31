@@ -65,7 +65,7 @@ const pageSourceModule = (() => {
       if (result.status >= 200 && result.status < 300 && write) tray.add(now(), { method, path, body: sent === undefined ? {} : sent });
       if (bufferShim.isBuffer(result.body) || (typeof Buffer !== 'undefined' && Buffer.isBuffer(result.body))) return { status: result.status, json: null, text: '', statusText: '', bytes: result.body, type: result.type };
       if (method === 'GET' && pathname === '/api/board' && result.status === 200) {
-        return reply(200, { ...result.body, boardDir: '', source: { kind: 'page', queued: tray.records().length } });
+        return reply(200, { ...result.body, boardDir: '', source: { kind: 'page', queued: tray.records().length, base: board.base } });
       }
       return reply(result.status, result.body);
     }

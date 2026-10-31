@@ -35,7 +35,7 @@ test('the board load is the embedded board, with its source named and no build-m
   const src = open(memoryStorage());
   const res = await src.request('GET', '/api/board');
   assert.strictEqual(res.status, 200);
-  assert.deepStrictEqual(res.json.source, { kind: 'page', queued: 0 });
+  assert.deepStrictEqual(res.json.source, { kind: 'page', queued: 0, base: BOARD.base });
   assert.strictEqual(res.json.projectName, 'alpha');
   assert.strictEqual(res.json.boardDir, '');
   assert.deepStrictEqual(ids(res.json), ['3:todo', '7:todo']);
@@ -47,7 +47,7 @@ test('a save that works shows at once and is queued as the server save it was', 
   assert.strictEqual(res.status, 200);
   const board = (await src.request('GET', '/api/board')).json;
   assert.deepStrictEqual(ids(board), ['3:doing', '7:todo']);
-  assert.deepStrictEqual(board.source, { kind: 'page', queued: 1 });
+  assert.deepStrictEqual(board.source, { kind: 'page', queued: 1, base: BOARD.base });
   const [rec] = src.records();
   assert.deepStrictEqual(rec.change, { method: 'PATCH', path: '/api/cards/3', body: { status: 'doing' } });
   assert.strictEqual(rec.id, 'dev-1');
