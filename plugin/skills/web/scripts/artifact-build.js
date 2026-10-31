@@ -17,7 +17,7 @@ const iter = require('./iteration-folders');
 const { makeRoute } = require('./route');
 
 const WEB_ROOT = path.join(__dirname, '..');
-const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'page-source'];
+const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'page-source'];
 const SKIP_NAMES = new Set(['.git', 'node_modules', '.kanban-app.pid']);
 
 const lf = (s) => s.replace(/\r\n?/g, '\n');
