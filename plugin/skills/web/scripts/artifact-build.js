@@ -13,8 +13,8 @@
 // A Snapshot query, in the Web's search words, picks the cards the page carries (search.js, the module the
 // search box runs): by default the live cards, with `archive` the archived ones too. The query is read
 // over the whole board, archive included, as the box reads it, so a graph term walks cards it does not
-// carry. A card it leaves out carries nothing: its file, and the scratchpad and todo files made for it, stay
-// out of the page. The groups come whole, and a group lists its members by id, so a member left out is
+// carry. A card it leaves out carries nothing: its file, and the logbook, scratchpad and todo files made for
+// it, stay out of the page. The groups come whole, and a group lists its members by id, so a member left out is
 // still counted. A page over 16 MB is refused, with its size and a way to narrow it, before any file is written.
 const fs = require('fs');
 const path = require('path');
@@ -157,12 +157,26 @@ function pickCards(dir, name, { query, archive }) {
   });
 }
 
-// Who a file in a scratchpad or todos folder was made for: the card id, or null. A scratchpad path with
-// `<card>` in it keeps a folder per card (named by its id) and everything under it is that card's; any
-// other file is `<id>.scratchpad.md` or `<id>.todo.md`.
+const LOGBOOK_FILE = /^\d{4}\.\d{2}\.\d{2}\.(?:([^.]+)\.)?logbook\.md$/;
+
+function logbookRoot(dir, value) {
+  const kept = [];
+  for (const seg of iter.segmentsOf(value)) {
+    if (seg === iter.PLACEHOLDER || seg === iter.CARD) break;
+    kept.push(seg);
+  }
+  return path.resolve(dir, kept.join('/') || '.');
+}
+
+// Who a file in a scratchpad, todos or logbook folder was made for: the card id, or null. A scratchpad
+// path with `<card>` in it keeps a folder per card (named by its id) and everything under it is that
+// card's; any other file is `<id>.scratchpad.md` or `<id>.todo.md`. A logbook day file names its target
+// (`2026.10.16.0007.logbook.md`), in the logbook folder or any iteration folder beneath it; a group's
+// id never matches a card's, and a day file with no target is the board's.
 function ownerOfFile(dir) {
   const config = cfg.readConfig(dir);
   const places = [];
+  const logbook = config.paths.logbook ? logbookRoot(dir, config.paths.logbook) : null;
   for (const key of ['scratchpad', 'todos']) {
     const value = config.paths[key];
     if (!value) continue;
@@ -172,6 +186,8 @@ function ownerOfFile(dir) {
     places.push({ root: path.resolve(dir, kept.join('/') || '.'), cardAt: first < 0 ? -1 : segs.slice(first).indexOf(iter.CARD) });
   }
   return (abs) => {
+    const day = logbook && within(logbook, abs) ? LOGBOOK_FILE.exec(path.basename(abs)) : null;
+    if (day) return day[1] ? ids.idKey(day[1]) : null;
     for (const { root, cardAt } of places) {
       if (!within(root, abs)) continue;
       const rel = path.relative(root, abs).split(path.sep);

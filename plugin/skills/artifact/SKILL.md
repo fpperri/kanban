@@ -23,7 +23,7 @@ A plain request ("give me the board") carries the live cards and leaves the arch
 node <skill dir>/../web/scripts/artifact-build.js <board dir> --out <file.html> --query "<search words>" --archive
 ```
 
-Leave `--archive` off to leave the archive out, and `--query` off to take every live card. The page's header shows the query it was built with. A card the query leaves out carries nothing: not its file, and not the scratchpad or todo files made for it. A group still lists every member by id, so its member line counts the ones left out, and a group delete in the page, applied to the board, takes them too. The build refuses when the page would pass 16 MB, naming its size and suggesting a narrower query, and writes no file.
+Leave `--archive` off to leave the archive out, and `--query` off to take every live card. The page's header shows the query it was built with. A card the query leaves out carries nothing: not its file, and not the notes, scratchpad or todo files made for it. A group still lists every member by id, so its member line counts the ones left out, and a group delete in the page, applied to the board, takes them too. The build refuses when the page would pass 16 MB, naming its size and suggesting a narrower query, and writes no file.
 
 A **Private board** (`private: true`) never leaves the desk without the person's word: ask every time before making a file of it.
 

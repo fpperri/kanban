@@ -168,6 +168,49 @@ test('the scratchpad, folder and todo list of a card the query leaves out stay o
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+const dayFile = (note) => `---\nentries:\n  - note: ${note}\n---\n`;
+
+test('the notes of a card the query leaves out, and of an archived card, stay out; the notes of a kept card and of a group come along', () => {
+  const root = tmpTree({
+    'p/.kanban/config.yaml': 'name: noted\nnextId: 9\nlogbook: logbook\ngroups: .groups\n',
+    'p/.kanban/0001.one.card.md': card(1, 'One'),
+    'p/.kanban/0002.two.card.md': card(2, 'Two'),
+    'p/.kanban/archived/0003.three.card.md': card(3, 'Three'),
+    'p/.kanban/.groups/_0001.pair.md': '---\nid: _1\nname: pair\ncards: [1, 2]\n---\n',
+    'p/.kanban/logbook/2026.10.16.0001.logbook.md': dayFile('NOTE-OF-ONE'),
+    'p/.kanban/logbook/2026.10.16.0002.logbook.md': dayFile('SECRET-NOTE-OF-TWO'),
+    'p/.kanban/logbook/2026.10.16.0003.logbook.md': dayFile('SECRET-NOTE-OF-ARCHIVED-THREE'),
+    'p/.kanban/logbook/2026.10.16._0001.logbook.md': dayFile('NOTE-OF-THE-GROUP'),
+    'p/.kanban/logbook/2026.10.16.logbook.md': dayFile('NOTE-OF-NOTHING'),
+  });
+  try {
+    const dir = path.join(root, 'p', '.kanban');
+    const picked = buildPage({ boardDir: dir, query: '#1' }).html;
+    for (const kept of ['NOTE-OF-ONE', 'NOTE-OF-THE-GROUP', 'NOTE-OF-NOTHING']) assert.ok(picked.includes(kept), `${kept} comes along`);
+    for (const left of ['SECRET-NOTE-OF-TWO', 'SECRET-NOTE-OF-ARCHIVED-THREE']) assert.ok(!picked.includes(left), `${left} stays out`);
+    const live = buildPage({ boardDir: dir }).html;
+    assert.ok(live.includes('SECRET-NOTE-OF-TWO'), 'the note of a live card comes along when the query keeps it');
+    assert.ok(!live.includes('SECRET-NOTE-OF-ARCHIVED-THREE'), 'the default build leaves the note of an archived card out');
+    assert.ok(buildPage({ boardDir: dir, archive: true }).html.includes('SECRET-NOTE-OF-ARCHIVED-THREE'), 'a build with the archive carries it');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the notes of a card left out stay out when the logbook keeps a folder per iteration', () => {
+  const root = tmpTree({
+    'p/.kanban/config.yaml': 'name: sprints\nnextId: 9\nlogbook: logbook/<iteration>\n',
+    'p/.kanban/0001.one.card.md': card(1, 'One'),
+    'p/.kanban/0002.two.card.md': card(2, 'Two'),
+    'p/.kanban/logbook/2026.10.16.0001.logbook.md': dayFile('NOTE-OF-ONE'),
+    'p/.kanban/logbook/0007.sprint/2026.10.16.0001.logbook.md': dayFile('SPRINT-NOTE-OF-ONE'),
+    'p/.kanban/logbook/0007.sprint/2026.10.16.0002.logbook.md': dayFile('SECRET-SPRINT-NOTE-OF-TWO'),
+  });
+  try {
+    const { html } = buildPage({ boardDir: path.join(root, 'p', '.kanban'), query: '#1' });
+    for (const kept of ['NOTE-OF-ONE', 'SPRINT-NOTE-OF-ONE']) assert.ok(html.includes(kept), `${kept} comes along`);
+    assert.ok(!html.includes('SECRET-SPRINT-NOTE-OF-TWO'), 'the note of a left-out card in an iteration folder stays out');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 function bigBoard(cards, megabytes) {
   const files = { 'p/.kanban/config.yaml': `name: big\nnextId: ${cards + 2}\n` };
   const filler = 'x'.repeat(megabytes * 1024 * 1024);
