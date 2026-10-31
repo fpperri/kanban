@@ -7,6 +7,9 @@
 // replays the tray through route, so the board shows its queued changes applied. A queued change is
 // { id: '<device>-<n>', at, device, change: { method, path, body } }: the server save as route took it.
 // Settings and notifications do not save in a page (a desk job); they answer 403 and queue nothing.
+// Every edit to one todo list folds into one queued change for that list, a whole-list save
+// (PUT /api/todos/<target>) carrying the version of the list as the page was built, so the apply checks
+// the list once and refuses it as stale when the list changed at the desk since.
 // Same dual-environment pattern as ids.js: required by node --test, and loaded as a plain <script>
 // (one global, window.kanbanPageSource).
 
@@ -17,6 +20,7 @@ const pageSourceModule = (() => {
 
   const DESK_JOB = 'That is a desk job: settings and notifications do not save in this page.';
   const DESK_JOB_PATH = /^\/api\/(?:config|notifications)(?:\/|$)/;
+  const TODO_EDIT = /^\/api\/todos\/([^/]+)(?:\/(?:move|indent|outdent))?$/;
 
   const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 
@@ -43,6 +47,14 @@ const pageSourceModule = (() => {
         try { storage.setItem(key, JSON.stringify(held)); } catch (_) { /* kept in memory */ }
         return record;
       },
+      // The record `id` takes `change`, keeping its id and its place in the tray.
+      replace(id, at, change) {
+        const stored = read() || held;
+        if (!stored.records.some((r) => r.id === id)) return this.add(at, change);
+        held = { records: stored.records.map((r) => (r.id === id ? { ...r, at, change } : r)), next: stored.next };
+        try { storage.setItem(key, JSON.stringify(held)); } catch (_) { /* kept in memory */ }
+        return held.records.find((r) => r.id === id);
+      },
     };
   }
 
@@ -60,14 +72,36 @@ const pageSourceModule = (() => {
       const write = method !== 'GET';
       if (write && DESK_JOB_PATH.test(pathname)) return reply(403, { error: DESK_JOB });
       const sent = clone(body);
+      const list = write ? TODO_EDIT.exec(pathname) : null;
+      const folded = list ? foldedChange(list[1]) : null;
       const result = route(method, path, clone(body) || {});
       if (result === null) return { status: 404, json: null, text: 'not found', statusText: 'Not Found' };
-      if (result.status >= 200 && result.status < 300 && write) tray.add(now(), { method, path, body: sent === undefined ? {} : sent });
+      if (result.status >= 200 && result.status < 300 && write) {
+        if (list) queueList(list[1], folded, result);
+        else tray.add(now(), { method, path, body: sent === undefined ? {} : sent });
+      }
       if (bufferShim.isBuffer(result.body) || (typeof Buffer !== 'undefined' && Buffer.isBuffer(result.body))) return { status: result.status, json: null, text: '', statusText: '', bytes: result.body, type: result.type };
       if (method === 'GET' && pathname === '/api/board' && result.status === 200) {
         return reply(200, { ...result.body, boardDir: '', source: { kind: 'page', queued: tray.records().length } });
       }
       return reply(result.status, result.body);
+    }
+
+    // The queued change that already holds the list `target` and the version it was read at: from the
+    // tray, else from the list as it is now, before the write that is about to change it.
+    function foldedChange(target) {
+      const at = `/api/todos/${target}`;
+      const held = tray.records().find((r) => r.change.method === 'PUT' && r.change.path === at);
+      if (held) return { id: held.id, version: held.change.body.version };
+      const read = route('GET', at, {});
+      return { id: null, version: read && read.status === 200 ? read.body.todos.version : null };
+    }
+
+    function queueList(target, folded, result) {
+      if (folded.version === null || !result.body || !result.body.todos) return;
+      const change = { method: 'PUT', path: `/api/todos/${target}`, body: { text: result.body.todos.text, version: folded.version } };
+      if (folded.id === null) tray.add(now(), change);
+      else tray.replace(folded.id, now(), change);
     }
 
     function payload() {
