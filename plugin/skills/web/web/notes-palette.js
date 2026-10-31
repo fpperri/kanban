@@ -984,62 +984,75 @@ function notesRow(note, named = false, one = false) {
 
 // Edit, Assign and Delete live in a small menu (the card menu's look: .context-menu) that a right-click, a long
 // press, the Menu key or Shift+F10 opens on a row. Delete asks twice, in the menu as on the d key.
+//
+// The Scratchpad tab's file list (scratchpad-folder-ui.js) uses the same menu and the same press handling. A row
+// of either kind carries `npActs`: its functions by name, `sure()` and `onSure` for a two-press Delete, and for a
+// menu of its own `menu` (a list of [name, label, hint]) and `off(name)` (an entry that is greyed). An entry is
+// called with { x, y }, where the menu was, so an entry can open a second menu there (notesMenuOpen's fourth
+// argument is that second menu's actions).
 const NOTES_MENU_ITEMS = [['edit', 'Edit', 'e'], ['assign', 'Assign…', 'a'], ['remove', 'Delete', 'd d']];
+const NOTES_MENU_ROW = '.np-note, .spf-row';
 
 function notesMenuClose() {
   const m = notesUi.menu;
   if (!m) return;
   notesUi.menu = null;
-  if (m.row.npActs) m.row.npActs.onSure = null;
+  if (m.acts) m.acts.onSure = null;
   const had = m.el.contains(document.activeElement);
   m.el.remove();
   if (had && m.row.isConnected && !m.row.classList.contains('editing')) m.row.focus();
 }
 
-function notesMenuOpen(row, x, y) {
+function notesMenuOpen(row, x, y, over) {
   notesMenuClose();
   hideContextMenu(); // app.js: the card menu closes on a click, which a right-click never makes
-  const acts = row.npActs;
+  const acts = over || row.npActs;
   if (!acts) return;
   const el = notesEl('div', 'context-menu np-menu');
   el.setAttribute('role', 'menu');
   el.tabIndex = -1;
-  const items = NOTES_MENU_ITEMS.map(([name, label, hint]) => {
+  const items = (acts.menu || NOTES_MENU_ITEMS).map(([name, label, hint]) => {
     const b = notesEl('button', name === 'remove' ? 'danger' : '', label);
     b.type = 'button';
     b.setAttribute('role', 'menuitem');
-    b.dataset.hint = hint;
+    if (hint) b.dataset.hint = hint;
     b.dataset.act = name;
+    b.disabled = !!(acts.off && acts.off(name));
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       if (e.detail > 0 && notesPressEcho()) return; // the lifted finger's click, not a choice
       if (name === 'remove' && !acts.sure()) { acts.remove(); return; }
+      const at = el.getBoundingClientRect();
       notesMenuClose();
-      acts[name]();
+      acts[name]({ x: at.left, y: at.top });
     });
     return b;
   });
-  const del = items[2];
-  del.textContent = acts.sure() ? 'Sure?' : 'Delete';
-  acts.onSure = () => { del.textContent = acts.sure() ? 'Sure?' : 'Delete'; };
+  const del = items.find((b) => b.dataset.act === 'remove');
+  if (del) {
+    del.textContent = acts.sure() ? 'Sure?' : 'Delete';
+    acts.onSure = () => { del.textContent = acts.sure() ? 'Sure?' : 'Delete'; };
+  }
   el.append(...items);
   document.body.append(el);
-  notesUi.menu = { el, row, items };
+  notesUi.menu = { el, row, items, acts };
   const rect = el.getBoundingClientRect();
   el.style.left = `${Math.max(4, Math.min(x, window.innerWidth - rect.width - 8))}px`;
   el.style.top = `${Math.max(4, Math.min(y, window.innerHeight - rect.height - 8))}px`;
-  items[0].focus();
+  (items.find((b) => !b.disabled) || el).focus();
 }
 
 function onNotesMenuKey(e) {
   const m = notesUi.menu;
   if (!m) return;
-  const at = m.items.indexOf(document.activeElement);
+  const live = m.items.filter((b) => !b.disabled);
+  const at = live.indexOf(document.activeElement);
   if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); return; }
   e.preventDefault();
   e.stopImmediatePropagation();
-  if (e.key === 'ArrowDown') m.items[(at + 1) % m.items.length].focus();
-  else if (e.key === 'ArrowUp') m.items[(at <= 0 ? m.items.length : at) - 1].focus();
+  if (live.length === 0) { if (e.key === 'Escape' || e.key === 'Tab') notesMenuClose(); return; }
+  if (e.key === 'ArrowDown') live[(at + 1) % live.length].focus();
+  else if (e.key === 'ArrowUp') live[(at <= 0 ? live.length : at) - 1].focus();
   else if (e.key === 'Escape' || e.key === 'Tab') notesMenuClose();
 }
 
@@ -1076,7 +1089,7 @@ function notesOnPressStart(e) {
   notesPressCancel();
   notesPress.fired = false;
   notesPress.echoUntil = 0;
-  const row = e.target.closest && e.target.closest('.np-note');
+  const row = e.target.closest && e.target.closest(NOTES_MENU_ROW);
   const t = e.touches && e.touches.length === 1 ? e.touches[0] : null;
   if (!row || !t || row.classList.contains('editing') || !row.npActs || e.target.closest('a, img, button')) return;
   notesPress.x = t.clientX;
@@ -1106,7 +1119,7 @@ function notesOnPressEnd(e) {
 
 function notesOnRowMenu(e) {
   if (notesPressEcho()) { e.preventDefault(); return; }
-  const row = e.target.closest && e.target.closest('.np-note');
+  const row = e.target.closest && e.target.closest(NOTES_MENU_ROW);
   if (!row || row.classList.contains('editing') || !row.npActs) return;
   if (e.target.closest('a, img')) return;
   const picked = window.getSelection();
@@ -1336,6 +1349,16 @@ function notesOnFilterKey(e) {
 }
 
 function notesOnBodyKey(e) {
+  const fileRow = e.target.classList && e.target.classList.contains('spf-row') ? e.target : null;
+  if (fileRow) { // a row of the Scratchpad tab's file list: the menu keys only; the list's own keys are its own
+    if (fileRow.npActs && !fileRow.classList.contains('editing') && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) {
+      e.preventDefault();
+      e.stopPropagation();
+      const at = fileRow.getBoundingClientRect();
+      notesMenuOpen(fileRow, at.left + 24, at.bottom);
+    }
+    return;
+  }
   const row = e.target.classList && e.target.classList.contains('np-note') ? e.target : null;
   if (!row || row.classList.contains('editing') || e.altKey || e.ctrlKey || e.metaKey) return;
   const rows = notesRows();

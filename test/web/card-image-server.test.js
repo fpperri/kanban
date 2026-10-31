@@ -103,6 +103,16 @@ test('a card finds a file in its own scratchpad folder, wherever the path puts i
   await theirs.arrayBuffer();
 }));
 
+// config.yaml paths are often written with Windows separators; <card> is found in either.
+test('a scratchpad path written with backslashes keeps each card to its own folder', () => withBoard(async ({ get, dir }) => {
+  const bs = String.fromCharCode(92);
+  fs.writeFileSync(path.join(dir, 'config.yaml'), ['scratchpad: ..', '..', 'pads', '<card>', ''].join(bs) + '\n');
+  const mine = await get(1, '../../pads/1/mine.png');
+  assert.strictEqual(mine.status, 200);
+  await mine.arrayBuffer();
+  await assertSendsNothing(await get(1, '../../pads/2/theirs.png'), "another card's scratchpad folder, backslash config");
+}));
+
 test('climbing out of both roots is refused', () => withBoard(async ({ get }) => {
   await assertSendsNothing(await get(1, '../../outside/secret.png'), 'dot-dot out of the project');
   await assertSendsNothing(await get(1, '../shots/../../outside/secret.png'), 'dot-dot after a folder');

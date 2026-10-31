@@ -35,7 +35,7 @@ function within(root, file) {
 function scratchpadFolders(dir, id) {
   const value = cfg.readConfig(dir).paths.scratchpad;
   if (!value) return [];
-  const forCard = value.split(/[\/]/).includes(iter.CARD);
+  const forCard = iter.segmentsOf(value).includes(iter.CARD);
   return iter.readFolders(dir, value)
     .filter((f) => !forCard || (f.parts.card !== undefined && ids.idKey(f.parts.card.split('.')[0]) === id))
     .map((f) => f.abs);
@@ -64,4 +64,4 @@ function cardImage(dir, id, rawPath) {
   return { file, type: typeOf(file), size: stat.size };
 }
 
-module.exports = { cardImage, TYPES };
+module.exports = { cardImage, TYPES, typeOf, within, real };

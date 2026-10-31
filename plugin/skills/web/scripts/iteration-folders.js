@@ -262,4 +262,4 @@ function checkWritable(value) {
   if (odd) throw new StatusError('A folder name here holds < or >, which Windows does not allow, and only <iteration> and <card> are placeholders.', 400);
 }
 
-module.exports = { scoped, memo, PLACEHOLDER, CARD, hasPlaceholder, readFolders, folderOfNote, folderOfPad, folderOfDay, folderOfIterationTarget, folderOfAssigned, filledIn, checkWritable };
+module.exports = { scoped, memo, PLACEHOLDER, CARD, segmentsOf, hasPlaceholder, readFolders, folderOfNote, folderOfPad, folderOfDay, folderOfIterationTarget, folderOfAssigned, filledIn, checkWritable };

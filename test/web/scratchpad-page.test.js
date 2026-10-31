@@ -26,6 +26,12 @@ test('scratchpad-ui.js loads after settings-ui.js, which it registers a page wit
   assert.ok(at('app.js') > at('scratchpad-ui.js'));
 });
 
+test('scratchpad-folder-ui.js and its pure module load before scratchpad-ui.js, which draws the folder list', () => {
+  const at = (f) => html.indexOf(`<script src="/${f}"></script>`);
+  assert.ok(at('pad-files.js') > -1 && at('scratchpad-folder-ui.js') > at('pad-files.js'));
+  assert.ok(at('scratchpad-ui.js') > at('scratchpad-folder-ui.js'));
+});
+
 test('the gear gains a Scratchpad page right after the Logbook\'s, through the hook settings-ui.js leaves', () => {
   const noop = () => {};
   const sandbox = {
@@ -73,7 +79,7 @@ test('Ctrl+Enter and the Save button write the body to PUT /api/scratchpad/<id>,
 });
 
 test('a page shows the folder the board names for it, the one its path has when the path holds <iteration> (ADR 0019)', () => {
-  assert.match(ui, /\$\{pad\.folder === undefined \? state\.scratchpad\.folder : pad\.folder\}\/\$\{pad\.file\}/);
+  assert.match(ui, /pf\.joinFolder\(pad\.folder === undefined \? state\.scratchpad\.folder : pad\.folder, pad\.file\)/);
 });
 
 test('the page has no way to delete a scratchpad', () => {

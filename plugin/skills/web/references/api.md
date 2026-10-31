@@ -47,6 +47,20 @@ The server's `GET /api/cards/<id>/image?path=<path>` sends the file of a Markdow
 
 The server's `GET /api/scratchpad/<id>` answers `{ pad: { target, exists, file, refs, body } }` and `PUT /api/scratchpad/<id>` with `{ body }` writes the body (404 with the scratchpad off, 400 for an id or a body that is wrong, 413 for a page over 300000 characters); there is no delete route, only the delete popup's **Its scratchpad** takes a page.
 
+### The scratchpad's folder: /api/scratchpad/<id>/files, /file, /move and /folder
+
+When the `scratchpad:` path holds `<card>`, these routes work on the card's own scratchpad folder, the one that holds its page; without `<card>` in the path (or with the scratchpad off) each is a 404. A `path` is relative to that folder with `/` between names; a path that is absolute, holds `..`, a drive, a share or a backslash, or leaves the folder through a link is a 400 or a 404 and touches nothing. Text is capped at 300000 bytes (413 over it on a write).
+
+- `GET /api/scratchpad/<id>/files?path=<folder>` lists one level: `{ folder, path, parent, entries }`, each entry `{ name, path, dir, size, mtime, abs, kind, page, writable, readable }` (`readable`: the file reads as text, so the page offers it Rename, Move to and Delete) with `kind` one of `dir`, `image`, `markdown`, `text`, `file`. The page is first, then folders, then files by name; a link that points out is left out; a card with no folder yet lists nothing.
+- `GET /api/scratchpad/<id>/file?path=<file>` opens a file: `{ file }` with the entry's fields, `base` (the folder it is in), and for text `text` and `version`; a binary file or one over the cap has `kind: "other"` (and `tooLarge: true` when it is the cap) and no text; an image has `abs` for `GET /api/cards/<id>/image?path=`.
+- `POST /api/scratchpad/<id>/file` with `{ path, text }` creates a `.md` or `.txt` file (201, `{ file }`; 409 when it exists, 404 when its folder is not there).
+- `PUT /api/scratchpad/<id>/file` with `{ path, text, version }` saves a file that reads as text, whatever its extension (valid UTF-8 with no NUL byte, not a picture by name, within 300000 bytes, and a save that would write more is a 413; anything else, or an entry that is itself a link, is a 400); `version` is the one read, and a file changed since is a 409 (400 without it).
+- `DELETE /api/scratchpad/<id>/file` with `{ path, version }` deletes a file that reads as text; `version` is the one read, and a file changed since is a 409 (400 without it).
+- `POST /api/scratchpad/<id>/move` with `{ from, to }` renames or moves a file that reads as text to a folder that is there and a name that is not a picture's (400) (200, `{ file }`; 409 when `to` exists).
+- `POST /api/scratchpad/<id>/folder` with `{ path }` makes a subfolder, one level (201, `{ entry }`; 409 when it exists, 404 when its parent is not there).
+
+A new file whose name is not `.md` or `.txt` is a 400, as is a name Windows reserves (`con`, `prn`, `aux`, `nul`, `com1`-`com9`, `lpt1`-`lpt9`, before the first dot) for a file or a folder. Any name ending `.scratchpad.md`, a file's or a folder's, belongs to the page: making, saving, deleting, moving or moving onto one is a 403. Only a card has a folder here: a group id is a 404.
+
 ### GET /api/board: `scratchpad`
 
 The `/api/board` payload carries `scratchpad: { folder, targets }`, the ids that have a page, or `null`.

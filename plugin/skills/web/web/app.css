@@ -2148,7 +2148,82 @@ button.np-note-card:hover { color: var(--accent); }
 .sp-save { padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; }
 .sp-save:hover { border-color: var(--accent); color: var(--accent); }
 .sp-save:disabled { opacity: .5; cursor: default; }
+.sp-reload[hidden] { display: none; }
 .sp-status { color: var(--accent); }
+/* The Scratchpad tab with <card> in its path (scratchpad-folder-ui.js, scratchpad-ui.js): a file explorer beside
+   one editor, both running to the foot of the tab. At 600px of tab width and over the explorer is a column
+   (13rem to 18rem) left of the editor; under it the explorer is one line above the editor, its list opening
+   over the editor from the line's down arrow. */
+.sp.sp-folder { flex: 1 1 auto; min-height: 0; }
+.sp-cq { container-type: inline-size; min-width: 0; height: clamp(22rem, 62vh, 46rem); }
+.notes-palette.fullscreen .sp.sp-folder { flex: 1 1 auto; min-height: 0; }
+.notes-palette.fullscreen .sp-cq { flex: 1 1 auto; height: auto; min-height: 0; }
+.sp-split { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px; height: 100%; min-width: 0; }
+.sp-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.sp-main [hidden] { display: none; }
+.sp-main > .md-edit.on, .sp-main > .sp-text { flex: 1 1 auto; min-height: 12rem; }
+.sp-main > .md-edit.on > textarea { resize: none; }
+.sp-main > .sp-text { resize: none; }
+.sp-main > .sp-preview { flex: 1 1 auto; min-height: 12rem; max-height: none; overflow: auto; }
+.sp-viewer { flex: 1 1 auto; min-height: 12rem; overflow: auto; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; min-width: 0; }
+.sp-head-l { display: flex; align-items: baseline; gap: 4px 10px; flex: 1 1 14rem; min-width: 0; }
+.sp-head-r { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; flex: 0 0 auto; }
+.sp-name { flex: 0 0 auto; max-width: 60%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-strong); }
+.sp-head-l .sp-path { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-copy { flex: 0 0 auto; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; font: inherit; }
+.sp-copy:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.sp-copy:disabled { opacity: .5; cursor: default; }
+.sp-head-r .sp-mode::after { display: none; }
+.sp-main > .sp-refs { font-size: 0.9em; }
+.sp-main .sp-ref-list { flex-direction: row; flex-wrap: wrap; gap: 0 14px; }
+.sp-unfold, .spf-fold { display: none; flex: 0 0 auto; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; font: inherit; line-height: 1.4; }
+@container (min-width: 600px) {
+  .sp-split { grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; }
+  .sp-split.sp-folded { grid-template-columns: minmax(0, 1fr); }
+  .sp-split.sp-folded .spf { display: none; }
+  .sp-split.sp-folded .sp-unfold { display: inline-block; }
+  .spf-fold { display: inline-block; }
+}
+.sp-unfold:hover, .spf-fold:hover { border-color: var(--accent); color: var(--accent); }
+.spf-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.spf-head .spf-crumbs { flex: 1 1 auto; }
+.spf { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.spf-pick { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; font: inherit; text-align: left; }
+.spf-pick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.spf-pick-caret { flex: 0 0 auto; color: var(--mut); }
+.spf-panel { display: none; position: absolute; z-index: 5; left: 0; right: 0; top: 2.4rem; max-height: 70%; flex-direction: column; gap: 6px; padding: 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); min-height: 0; }
+.spf.open .spf-panel { display: flex; }
+@container (min-width: 600px) {
+  .spf-pick { display: none; }
+  .spf-panel, .spf.open .spf-panel { display: flex; position: static; flex: 1 1 auto; max-height: none; padding: 0; background: transparent; border: 0; box-shadow: none; }
+}
+.spf-crumbs { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px 4px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.spf-crumb { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 1px 3px; border: 0; border-radius: .15rem; background: transparent; color: var(--accent); cursor: pointer; font: inherit; }
+.spf-crumb.here { color: var(--ink-strong); font-weight: 600; cursor: default; }
+.spf-sep { flex: 0 0 auto; color: var(--mut); }
+.spf-tools { display: flex; gap: 6px; }
+.spf-btn { padding: 1px 9px; border: 1px solid var(--line-strong); border-radius: .15rem; background: var(--raised); color: var(--ink); cursor: pointer; font: inherit; }
+.spf-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.spf-list { flex: 1 1 auto; min-height: 0; list-style: none; margin: 0; padding: 2px; display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--line); border-radius: .15rem; overflow: auto; }
+.spf-row { -webkit-touch-callout: none; display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: .15rem; color: var(--ink); cursor: pointer; min-width: 0; outline: none; }
+.spf-row:hover { background: var(--hover-wash); }
+.spf-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.spf-row.on { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
+.spf-row.editing { background: var(--raised); }
+.spf-ico { flex: 0 0 auto; width: 14px; height: 14px; color: var(--mut); }
+.spf-dir .spf-ico { color: var(--accent); }
+.spf-page .spf-ico { color: var(--accent); }
+.spf-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spf-page .spf-name { font-weight: 600; }
+.spf-size { flex: 0 0 auto; margin-left: auto; color: var(--mut); font-size: 0.9em; white-space: nowrap; }
+.spf-ask { display: flex; align-items: center; gap: 6px; padding: 2px 6px; }
+.spf-ask-input, .spf-rename { flex: 1 1 auto; min-width: 0; padding: 1px 4px; background: var(--paper); border: 1px solid var(--accent); border-radius: .15rem; color: var(--ink); font: inherit; }
+.spf-ask-input:focus, .spf-rename:focus { outline: none; }
+.spf-note { margin: 0; }
+.spf-note:empty { display: none; }
+.spf-img { display: block; max-width: 100%; height: auto; }
+.spf-other { margin: 0; }
 /* The Todos tab (todos-ui.js): the box where Enter adds, the "under:" chip when it adds a child, and the rows. */
 .td { display: flex; flex-direction: column; gap: 8px; font-size: 0.85em; min-width: 0; }
 /* The List | Edit | Preview switch: List is .td-pane, Edit and Preview are the Scratchpad's box, preview and Save row. */
