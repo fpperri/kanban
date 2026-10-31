@@ -98,9 +98,11 @@ function translate(op) {
   }
 }
 
-// The base stamp of a payload's header line, or null.
+// The base stamp of a payload's header line, or null. A code fence around the payload is skipped, as
+// parseTray drops it.
 function baseOf(text) {
-  const m = HEADER_RE.exec(String(text).replace(/^﻿/, '').split(/\r?\n/).find((l) => l.trim() !== '') || '');
+  const first = String(text).replace(/^﻿/, '').split(/\r?\n/).find((l) => l.trim() !== '' && !/^\s*```/.test(l));
+  const m = HEADER_RE.exec(first || '');
   return m ? m[1] : null;
 }
 

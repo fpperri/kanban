@@ -183,3 +183,14 @@ test('the artifact skill names the header the old Snapshot page writes, and the 
   assert.ok(skill.includes('Apply kanban changes (N ops, base <ISO>):'));
   assert.strictEqual(parseTray('Apply kanban changes (1 ops, base 2026-10-31T08:00:00):\n[{"op":"archive","id":"3"}]').length, 1);
 });
+
+test('a fenced payload keeps its base stamp, so payloads of two builds get different ids', () => {
+  const text = (base) => `\`\`\`\nApply kanban changes (1 ops, base ${base}):\n[{"op":"move","id":"15","to":"doing"}]\n\`\`\``;
+  const [a] = parseTray(text('2026-10-01T08:00:00'));
+  const [b] = parseTray(text('2026-10-20T08:00:00'));
+  assert.strictEqual(a.at, '2026-10-01T08:00:00');
+  assert.strictEqual(b.at, '2026-10-20T08:00:00');
+  assert.notStrictEqual(a.id, b.id);
+  const [plain] = parseTray(text('2026-10-01T08:00:00').replace(/```\n?/g, ''));
+  assert.strictEqual(a.id, plain.id);
+});
