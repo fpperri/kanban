@@ -309,7 +309,7 @@ const pageSourceModule = (() => {
     try {
       const [db, user] = await artifactTray.withTimeout(Promise.all([claude.use('db'), Promise.resolve(claude.use('user')).catch(() => null)]), timeoutMs);
       if (!db) return inStorage();
-      if (user && typeof user.isOwner === 'function' && !(await user.isOwner())) return inStorage();
+      if (user && typeof user.isOwner === 'function' && !(await artifactTray.withTimeout(Promise.resolve(user.isOwner()), timeoutMs))) return inStorage();
       return await artifactTray.openTray({ db, device, board, storage, timeoutMs, retryMs });
     } catch (_) {
       return inStorage();

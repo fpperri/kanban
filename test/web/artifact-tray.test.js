@@ -293,3 +293,12 @@ test('a database whose use("db") or use("user") never settles falls back to brow
     assert.strictEqual(load.source.kind, 'page', hangs);
   }
 });
+
+test('a user whose isOwner() never settles falls back to browser storage, and the board load answers', async () => {
+  const fake = makeFakeDb();
+  const real = claudeWith(fake.db);
+  const claude = { use: (name) => (name === 'user' ? Promise.resolve({ isOwner: () => new Promise(() => {}) }) : real.use(name)) };
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude, timeoutMs: 20 });
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.strictEqual(load.source.kind, 'page');
+});
