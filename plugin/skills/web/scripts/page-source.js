@@ -94,7 +94,7 @@ const pageSourceModule = (() => {
       return `Apply kanban changes (board ${JSON.stringify(board.name)}, base ${board.base}, ${n} change${n === 1 ? '' : 's'}):\n${JSON.stringify(records, null, 2)}`;
     }
 
-    return { kind: 'page', request, records: () => tray.records(), payload };
+    return { kind: 'page', pictures: false, request, records: () => tray.records(), payload };
   }
 
   // A label for this browser, kept in storage so its changes carry one name across reloads.

@@ -13,7 +13,17 @@ The Web (`kanban-web`) built with the board inside it: one HTML file with the pa
 node <skill dir>/../web/scripts/artifact-build.js <board dir> --out <file.html>
 ```
 
-Find the script with glob `**/web/scripts/artifact-build.js`. `<board dir>` is the board folder (`.kanban/`). The file carries every card with its whole body, the archive, and the logbook, scratchpad, todo and group files the config names; pictures and other binary files stay out, and a card body's picture shows its alt text. It prints the file's size.
+Find the script with glob `**/web/scripts/artifact-build.js`. `<board dir>` is the board folder (`.kanban/`). The file carries the cards the Snapshot query picks (below), each with its whole body once, and the logbook, scratchpad, todo and group files the config names; pictures and other binary files stay out, and a card body's picture shows its alt text. It prints the file's size, the query and how many cards it carries.
+
+### Which cards: the Snapshot query
+
+A plain request ("give me the board") carries the live cards and leaves the archive out. "With the archive" adds `--archive`. Any other part of the board is a **Snapshot query** in the Web's search words (`tags:ui`, `group:I2`, `status:doing`, `tree:74`, the same words as the search box, read by the same search module), given with `--query`:
+
+```bash
+node <skill dir>/../web/scripts/artifact-build.js <board dir> --out <file.html> --query "<search words>" --archive
+```
+
+Leave `--archive` off to leave the archive out, and `--query` off to take every live card. The page's header shows the query it was built with. A card the query leaves out carries nothing: not its file, and not the scratchpad or todo files made for it. A group still lists every member by id, so its member line counts the ones left out, and a group delete in the page, applied to the board, takes them too. The build refuses when the page would pass 16 MB, naming its size and suggesting a narrower query, and writes no file.
 
 A **Private board** (`private: true`) never leaves the desk without the person's word: ask every time before making a file of it.
 
@@ -22,7 +32,8 @@ A **Private board** (`private: true`) never leaves the desk without the person's
 - The header shows an **N queued** count whenever changes are queued, and **Copy changes** beside it.
 - A save the board's rules refuse (the `doing` gate, a stale todo list) is refused in the page with the desk's own toast, and is not queued.
 - A reload shows the board with the queued changes applied: the queue lives in the browser's storage, under a key that names the board, so two files built from two boards never show each other's changes.
-- Settings and notifications do not save in the page (a desk job).
+- Settings and notifications do not save in the page: the gear shows locked with "a desk job", and marking a notification read is refused and queues nothing.
+- Every delete option starts unticked, so a delete from the page takes only what was chosen.
 
 **Copy changes** puts the change payload on the clipboard: a header line naming the board, the Base (the moment the file was built) and the count, then the queued changes as JSON.
 

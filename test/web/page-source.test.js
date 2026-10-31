@@ -114,6 +114,10 @@ test('settings and notifications are a desk job: refused, and not queued', async
   assert.deepStrictEqual(src.records(), []);
 });
 
+test('the page source says it holds no pictures: a binary file of the board is not in the page', () => {
+  assert.strictEqual(open(memoryStorage()).pictures, false);
+});
+
 test('a path that is no route answers 404', async () => {
   const res = await open(memoryStorage()).request('GET', '/api/nothing-here');
   assert.strictEqual(res.status, 404);
