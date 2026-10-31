@@ -45,3 +45,13 @@ test('the change payload the skill shows is the one the page copies: its header 
   const keysOf = (records) => records.map((r) => [Object.keys(r).sort(), Object.keys(r.change).sort()]);
   assert.deepStrictEqual(keysOf(JSON.parse(docRest.join('\n'))), keysOf(JSON.parse(realRest.join('\n'))));
 });
+
+test('the skill description names the header the page copies, so a payload from a file reaches the apply here and not the Snapshot protocol', () => {
+  const description = /^description: (.*)$/m.exec(DOC)[1];
+  const map = new Map();
+  const storage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, v); } };
+  const src = makePageSource({ route: () => null, tray: makeTrayStore(storage, 'k', 'dev'), board: { name: 'n', id: 'x', base: '2026-10-31T00:00:00.000Z' } });
+  const header = 'Apply kanban changes (board "';
+  assert.ok(src.payload().startsWith(header));
+  assert.ok(description.includes(header), description);
+});

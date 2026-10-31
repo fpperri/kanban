@@ -160,3 +160,34 @@ test('what Copy changes copies from a built page is read by the apply, and lands
     assert.ok(fs.existsSync(path.join(dir, 'archived', '0002.two.card.md')));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('a file rebuilt from the same board does not replay a tray that was already applied to the board', async () => {
+  const { applyTray, parseTray } = require('../../plugin/skills/web/scripts/apply-tray');
+  const root = tmpTree({ 'p/.kanban/config.yaml': 'name: again\nnextId: 5\n', 'p/.kanban/0001.one.card.md': card(1, 'One') });
+  try {
+    const dir = path.join(root, 'p', '.kanban');
+    const storage = memoryStorage();
+    const first = boot(dataOf(buildPage({ boardDir: dir, now: () => new Date('2026-10-31T01:00:00.000Z') }).html), { storage, device: 'phone' });
+    assert.strictEqual((await first.request('POST', '/api/cards', { title: 'New one', status: 'todo' })).status, 201);
+    assert.strictEqual(applyTray({ dir, records: parseTray(first.payload()) }).applied.length, 1);
+    const rebuilt = boot(dataOf(buildPage({ boardDir: dir, now: () => new Date('2026-10-31T02:00:00.000Z') }).html), { storage, device: 'phone' });
+    const load = (await rebuilt.request('GET', '/api/board')).json;
+    assert.strictEqual(load.source.queued, 0);
+    assert.strictEqual(load.active.filter((c) => c.title === 'New one').length, 1);
+    const reopened = boot(dataOf(buildPage({ boardDir: dir, now: () => new Date('2026-10-31T02:00:00.000Z') }).html), { storage, device: 'phone' });
+    assert.strictEqual(reopened.records().length, 0);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('two files built from one board at two moments keep their own queues in one browser', async () => {
+  const root = tmpTree({ 'p/.kanban/config.yaml': 'name: twice\nnextId: 5\n', 'p/.kanban/0001.one.card.md': card(1, 'One') });
+  try {
+    const dir = path.join(root, 'p', '.kanban');
+    const storage = memoryStorage();
+    const old = dataOf(buildPage({ boardDir: dir, now: () => new Date('2026-10-31T01:00:00.000Z') }).html);
+    const fresh = dataOf(buildPage({ boardDir: dir, now: () => new Date('2026-10-31T02:00:00.000Z') }).html);
+    await boot(old, { storage, device: 'd' }).request('PATCH', '/api/cards/1', { status: 'doing' });
+    assert.strictEqual(boot(old, { storage, device: 'd' }).records().length, 1);
+    assert.strictEqual(boot(fresh, { storage, device: 'd' }).records().length, 0);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

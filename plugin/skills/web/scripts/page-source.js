@@ -3,8 +3,8 @@
 // a server. makePageSource({ route, tray, board }) answers request(method, path, body) the way
 // the server's reply reads ({ status, json, text }) through route over the board held in memory, and
 // records every save that worked in the tray, a list of queued changes kept in browser storage under a
-// key that names the board. A reload makes the source again over the embedded board and replays the tray
-// through route, so the board shows its queued changes applied. A queued change is
+// key that names the board and its Base. A reload makes the source again over the embedded board and
+// replays the tray through route, so the board shows its queued changes applied. A queued change is
 // { id: '<device>-<n>', at, device, change: { method, path, body } }: the server save as route took it.
 // Settings and notifications do not save in a page (a desk job); they answer 403 and queue nothing.
 // Same dual-environment pattern as ids.js: required by node --test, and loaded as a plain <script>
@@ -91,15 +91,19 @@ const pageSourceModule = (() => {
     return label;
   }
 
+  // The tray is keyed by board and Base: a file rebuilt from the same board starts empty, so a tray that
+  // was applied to the board never replays into a newer build, and each build keeps its own queue.
+  const trayKey = (board) => `kanban-tray:${board.id}:${board.base}`;
+
   // The source for the data a built page embeds: { board: { name, id, base }, sources, files, dir }.
   function boot(data, { storage, device } = {}) {
     const given = typeof Buffer === 'undefined' ? { Buffer: bufferShim } : {};
     const { route } = makeMemoryRoute(data.sources, { files: data.files, dir: data.dir, ...given });
-    const tray = makeTrayStore(storage, `kanban-tray:${data.board.id}`, device || deviceLabel(storage));
+    const tray = makeTrayStore(storage, trayKey(data.board), device || deviceLabel(storage));
     return makePageSource({ route, tray, board: data.board });
   }
 
-  return { makePageSource, makeTrayStore, deviceLabel, boot };
+  return { makePageSource, makeTrayStore, deviceLabel, trayKey, boot };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

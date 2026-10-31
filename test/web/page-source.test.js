@@ -148,6 +148,6 @@ test('boot makes a page source from the data a built page embeds, over the brows
   const data = { board: BOARD, sources: SOURCES, files: FILES, dir: '/p/.kanban' };
   const src = boot(data, { storage, device: 'phone' });
   await src.request('PATCH', '/api/cards/3', { status: 'doing' });
-  assert.ok([...storage.map.keys()].includes(`kanban-tray:${BOARD.id}`));
+  assert.ok([...storage.map.keys()].includes(`kanban-tray:${BOARD.id}:${BOARD.base}`));
   assert.strictEqual(boot(data, { storage, device: 'phone' }).records().length, 1);
 });
