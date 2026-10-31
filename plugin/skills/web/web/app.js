@@ -2181,9 +2181,8 @@ function applyProjectName(name) {
 }
 
 // A page that carries its board queues its saves in place of writing them (scripts/page-source.js): the
-// header says how many are queued and offers them to be copied. Hidden when none are, and always on the server
-// (its board load answers source {kind: 'server', queued: 0}). In a Board artifact, where the tray is in the
-// artifact's database, it also says to tell Claude to apply it, Copy changes staying as the fallback.
+// header says how many are queued, and its pill opens the tray (tray-ui.js). Hidden when none are, and always on
+// the server (its board load answers source {kind: 'server', queued: 0}).
 let boardSourceInfo = null;
 // A page that carries its board cannot read the board again: its Refresh says when the board was read
 // (the Base) and, tapped, says to ask Claude to apply the changes and rebuild.
@@ -2205,10 +2204,8 @@ function applyQueued(source) {
   $('#queued-pill').textContent = refused.length ? `${n} queued, ${refused.length} refused` : `${n} queued`;
   $('#queued-pill').title = refused.length
     ? ['Kept out when Claude applied the tray, and not shown on the board:', ...refused.map((r) => `${r.id}: ${r.reason}`)].join('\n')
-    : 'Saves queued in this page, not yet applied to the board';
-  $('#queued-pill').classList.toggle('hidden', n === 0);
-  $('#copy-changes-btn').classList.toggle('hidden', n === 0);
-  $('#apply-hint').classList.toggle('hidden', n === 0 || source.kind !== 'artifact');
+    : 'Saves queued in this page, not yet applied to the board. Open the tray.';
+  traySync(source);
 }
 
 // A page built with a Snapshot query says it in the header, so it is plain which cards it carries. The server's
@@ -2705,6 +2702,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   $('#board-copy-btn').addEventListener('click', copyBoardPath);
   $('#copy-changes-btn').addEventListener('click', copyChanges);
+  trayWire();
   $('#refresh-btn').addEventListener('click', () => {
     if (pageHoldsBoard()) { toast('This page holds the board as it was when it was built. Ask Claude to apply the changes and rebuild it.'); return; }
     loadBoard().then(() => setStale(false)).catch((e) => toast('Refresh failed: ' + e.message));

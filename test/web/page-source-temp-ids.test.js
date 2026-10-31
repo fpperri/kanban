@@ -139,3 +139,26 @@ test('recordMaking finds the record that made a temporary id', async () => {
   assert.strictEqual(src.recordMaking('n9'), null);
   assert.strictEqual(src.recordMaking('3'), null);
 });
+
+test('clear discards every record at once, shows the board as it was built and starts the temporary ids over', async () => {
+  const storage = memoryStorage();
+  const src = open(storage);
+  await makeFamily(src);
+  await src.request('PATCH', '/api/cards/3', { priority: 'High' });
+  assert.strictEqual(src.records().length, 4);
+  const gone = src.clear();
+  assert.strictEqual(gone.length, 4);
+  assert.deepStrictEqual(src.records(), []);
+  const board = await load(src);
+  assert.deepStrictEqual(ids(board), ['3']);
+  assert.strictEqual(board.active[0].priority, 'Normal');
+  assert.strictEqual(board.source.queued, 0);
+  assert.deepStrictEqual(src.records(), []);
+  assert.deepStrictEqual(ids(await load(open(storage))), ['3']);
+  assert.strictEqual((await src.request('POST', '/api/cards', { title: 'again' })).json.id, 'n1');
+});
+
+test('clear of an empty tray removes nothing', async () => {
+  const src = open(memoryStorage());
+  assert.deepStrictEqual(src.clear(), []);
+});

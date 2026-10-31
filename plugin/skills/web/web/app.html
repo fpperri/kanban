@@ -103,9 +103,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
     </button>
     <span id="snapshot-query" class="snapshot-query hidden" title="The Snapshot query this page was built with: the cards it carries"></span>
-    <span id="queued-pill" class="queued-pill hidden" role="status" title="Saves queued in this page, not yet applied to the board"></span>
-    <span id="apply-hint" class="apply-hint hidden">Tell Claude: apply the tray</span>
-    <button type="button" id="copy-changes-btn" class="copy-changes-btn hidden" data-keeps-selection title="Copy the queued saves, for Claude to apply to the board">Copy changes</button>
+    <button type="button" id="queued-pill" class="queued-pill hidden" data-keeps-selection aria-haspopup="dialog" aria-expanded="false" title="Saves queued in this page, not yet applied to the board. Open the tray."></button>
     <span id="stale-indicator" class="hidden" title="Auto-refresh can't reach the server — showing last loaded data">⚠ stale</span>
   </div>
   <span id="saving-mark" class="saving-mark hidden" role="status" aria-label="Saving" title="A save is still on its way. Stay on this page until it is gone."></span>
@@ -610,9 +608,38 @@
     </div>
   </aside>
 </div>
+<!-- The tray (docs/adr/0025): the saves a page that carries its board has queued, one plain-words row each
+     (tray-describe.js), opened by the header's "N queued" pill. A bottom sheet under 760 px, a side panel from
+     it. It sits on the modal backdrop, so the poll pauses and Esc and the key guard see it (Esc and a click
+     outside close it and hand focus back to the pill). A row's Remove takes that save out, and with it the
+     saves that name the temporary id it made. In a Board artifact it says "Tell Claude: apply the tray" and
+     keeps Copy changes as the fallback; a downloaded file adds Save as file. -->
+<div id="tray-sheet" class="modal-backdrop tray-backdrop hidden" data-keeps-selection>
+  <aside class="tray-sheet" id="tray-panel" role="dialog" aria-modal="true" aria-labelledby="tray-title">
+    <div class="tray-head">
+      <h2 id="tray-title">Tray <span id="tray-count" class="tray-count"></span></h2>
+      <button type="button" id="tray-close" class="icon-btn" data-keeps-selection data-holds-poll title="Close" aria-label="Close the tray">&#10005;</button>
+    </div>
+    <p id="apply-hint" class="apply-hint hidden">Tell Claude: apply the tray</p>
+    <ul id="tray-list" class="tray-list" aria-label="Queued changes"></ul>
+    <div id="tray-confirm" class="tray-confirm hidden" role="group" aria-live="assertive">
+      <span id="tray-confirm-text"></span>
+      <span class="tray-confirm-actions">
+        <button type="button" id="tray-confirm-yes" class="tray-confirm-yes" data-keeps-selection data-holds-poll></button>
+        <button type="button" id="tray-confirm-no" data-keeps-selection data-holds-poll>Keep</button>
+      </span>
+    </div>
+    <div class="tray-foot">
+      <button type="button" id="copy-changes-btn" class="copy-changes-btn hidden" data-keeps-selection data-holds-poll title="Copy the queued saves, for Claude to apply to the board">Copy changes</button>
+      <button type="button" id="save-changes-btn" class="hidden" data-keeps-selection data-holds-poll title="Save the queued saves as a file, for Claude to apply to the board">Save as file</button>
+      <button type="button" id="discard-changes-btn" class="tray-discard" data-keeps-selection data-holds-poll title="Take every queued save out of this page">Discard all</button>
+    </div>
+  </aside>
+</div>
 
 <script src="/board-source.js"></script>
 <script src="/save-guard.js"></script>
+<script src="/tray-describe.js"></script>
 <script src="/ids.js"></script>
 <script src="/explore-sets.js"></script>
 <script src="/hover-show.js"></script>
@@ -686,6 +713,7 @@
 <script src="/delete-ui.js"></script>
 <script src="/settings-ui.js"></script>
 <script src="/more-menu.js"></script>
+<script src="/tray-ui.js"></script>
 <script src="/menu-nest.js"></script>
 <script src="/menu-nest-ui.js"></script>
 <script src="/text-edit.js"></script>
