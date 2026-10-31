@@ -1,6 +1,6 @@
 ---
 name: kanban-artifact
-description: (Claude Only) The Web built with the board inside, a single HTML file that opens with no server, shows the board's cards and answers its own saves, queuing each one for Claude to apply, and the apply of the changes it queues. Use when the user asks for a downloadable file of the board to work offline, to try the Web away from the desk, or says "apply the tray", pastes a change payload, or hands over a file of tray records to land on the board. Not yet a replacement for kanban-snapshot, which stays until this one passes its ready check. For the live desktop editor use kanban-web; for AI-initiated card management use kanban.
+description: (Claude Only) The Web built with the board inside, a single HTML file that opens with no server, shows the board's cards and answers its own saves, queuing each one for Claude to apply, and the apply of the changes it queues. Use when the user asks for a downloadable file of the board to work offline, to try the Web away from the desk, or says "apply the tray", pastes a change payload, or hands over a file of tray records to land on the board. A message that starts with `Apply kanban changes (board "` is a change payload copied from a file this skill built: apply it here, with apply-tray.js, not with kanban-snapshot's protocol, which reads only the `(N ops, base ...)` form. Not yet a replacement for kanban-snapshot, which stays until this one passes its ready check. For the live desktop editor use kanban-web; for AI-initiated card management use kanban.
 ---
 
 # Kanban artifact
