@@ -152,9 +152,44 @@ const listOf = (names) => (names.length < 2 ? names.join('') : `${names.slice(0,
 // tempIds.makersOf), not from the creates that passed, so a device whose create did not pass never has its
 // later saves land on the card another device made under the same id.
 
+const CARD_EDIT = /^\/api\/cards\/([^/?]+)$/;
+const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
+const poisonKey = (p, field) => `${String(p).split('?')[0].replace(/^(\/api\/cards\/)0+(?=\d)/, '$1')}\u0000${field}`;
+
+// The fields a card edit named a before value for, with the card path they sit on, or null for any other record.
+function editedFields(record) {
+  const c = record.change;
+  if (!record.before || typeof record.before !== 'object' || String(c.method).toUpperCase() !== 'PATCH' || !CARD_EDIT.test(String(c.path).split('?')[0])) return null;
+  return Object.keys(record.before);
+}
+
+// Why a card edit cannot be tried on top of the board as it now stands, or null: it changes a field after
+// an edit of that field that was refused (`poisoned`, which it was made on top of), or a field of a card that
+// the board holds no longer has the value the page had for it. `path` is the edit's path with the real ids
+// in it, `known` the temporary ids made so far. A card made in this tray has no desk to collide with.
+function staleness(route, record, path, known, poisoned) {
+  const fields = editedFields(record);
+  if (!fields) return null;
+  for (const field of fields) {
+    const by = poisoned.get(poisonKey(path, field));
+    if (by !== undefined) return `it depends on ${by}, which was refused`;
+  }
+  if (tempIds.namesIn({ method: 'PATCH', path: record.change.path, body: {} }).length) return null;
+  const { change: held, missing } = tempIds.rewrite({ method: 'PATCH', path: '/', body: record.before }, known);
+  if (missing.length) return null;
+  const read = route('GET', '/api/board', {});
+  if (!read || read.status !== 200) return null;
+  const key = CARD_EDIT.exec(path.split('?')[0])[1].replace(/^0+(?=\d)/, '');
+  const card = read.body.active.concat(read.body.archived).find((c) => String(c.id) === key);
+  if (!card) return null;
+  const changed = fields.filter((f) => JSON.stringify(valueOf(card, f)) !== JSON.stringify(held.body[f] === undefined ? null : held.body[f]));
+  return changed.length ? `${listOf(changed)} changed at the desk since` : null;
+}
+
 // Run one record through `route`, with the real ids of `made` put where it names a temporary id, and note
-// the id it made. { res } when it ran, { refusal } when it did not or the board refused it.
-function run(route, record, made, makers) {
+// the id it made. { res } when it ran, { refusal } when it did not or the board refused it. `guard`, when
+// given ({ poisoned }), holds a card edit to the value the page had for each field it changed.
+function run(route, record, made, makers, guard = null) {
   const device = String(record.device === undefined ? '' : record.device);
   const known = {};
   const missing = [];
@@ -170,9 +205,13 @@ function run(route, record, made, makers) {
   if (missing.length) return { refusal: `it names ${missing.join(', ')}, which no save applied before it made` };
   if (record.temp && made[device] && has(made[device], record.temp)) return { refusal: `it makes ${record.temp} again, which an earlier save from the same device made` };
   const { change } = tempIds.rewrite(record.change, known);
+  if (guard) {
+    const why = staleness(route, record, change.path, known, guard.poisoned);
+    if (why !== null) return { refusal: why, path: change.path };
+  }
   const method = change.method.toUpperCase();
   const res = route(method, change.path, change.body || {});
-  if (res.status >= 400) return { refusal: reasonOf(res) };
+  if (res.status >= 400) return { refusal: reasonOf(res), path: change.path };
   const id = record.temp ? tempIds.createdId(method, change.path, res.body) : null;
   if (id !== null) made[device] = { ...made[device], [record.temp]: id };
   return { res };
@@ -221,10 +260,18 @@ function applyTray({ dir, records }) {
   const rehearsal = memoryCopy(dir);
   const rehearsed = {};
   const passing = [];
+  const poisoned = new Map(); // a card path and a field an edit that was refused changed, to the record's id
   for (const r of todo) {
-    const { refusal } = run(rehearsal, r, rehearsed, makersBefore.get(r));
-    if (refusal !== undefined) report.refused.push({ id: r.id, reason: refusal });
-    else passing.push(r);
+    const { refusal, path: at } = run(rehearsal, r, rehearsed, makersBefore.get(r), { poisoned });
+    if (refusal === undefined) {
+      passing.push(r);
+      continue;
+    }
+    report.refused.push({ id: r.id, reason: refusal });
+    for (const field of editedFields(r) || []) {
+      const key = poisonKey(at === undefined ? r.change.path : at, field);
+      if (!poisoned.has(key)) poisoned.set(key, r.id);
+    }
   }
 
   const real = makeRoute(dir);

@@ -2201,7 +2201,11 @@ function applyQueued(source) {
     $('#refresh-btn').title = `${label}. Tap to see how to bring it up to date.`;
   }
   const n = source && source.kind !== 'server' ? source.queued : 0;
-  $('#queued-pill').textContent = `${n} queued`;
+  const refused = source && Array.isArray(source.refused) ? source.refused : [];
+  $('#queued-pill').textContent = refused.length ? `${n} queued, ${refused.length} refused` : `${n} queued`;
+  $('#queued-pill').title = refused.length
+    ? ['Kept out when Claude applied the tray, and not shown on the board:', ...refused.map((r) => `${r.id}: ${r.reason}`)].join('\n')
+    : 'Saves queued in this page, not yet applied to the board';
   $('#queued-pill').classList.toggle('hidden', n === 0);
   $('#copy-changes-btn').classList.toggle('hidden', n === 0);
   $('#apply-hint').classList.toggle('hidden', n === 0 || source.kind !== 'artifact');

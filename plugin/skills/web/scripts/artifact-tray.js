@@ -129,9 +129,9 @@ const artifactTrayModule = (() => {
       records: () => [...held.values()].sort(byTime),
       device,
       latest: () => [...held.values()].sort(byTime),
-      add(at, change, temp) {
+      add(at, change, temp, before) {
         const id = `${device}-${take()}`;
-        return put({ id, at, device, change, ...(temp ? { temp } : {}) });
+        return put({ id, at, device, change, ...(temp ? { temp } : {}), ...(before ? { before } : {}) });
       },
       // The records `gone` leave the tray, and their documents are deleted.
       remove(gone) {
