@@ -87,6 +87,26 @@ the gap between "the trust boundary is the files" and "yet a stray browser
 tab could still poke this server over HTTP without touching the files
 directly."
 
+## The built page is a different surface
+
+The Board artifact and the downloadable file (`plugin/skills/artifact/`, ADR 0025) are the Web built
+with the board inside, and none of the server's defences above apply to them: there is no server.
+
+- **No Content-Security-Policy.** The page inlines every script and style, and runs the plugin's own
+  route code and stores through `new Function` (`module-loader.js`), so a policy that forbids
+  string evaluation would stop it. The text run that way is the plugin's, never a board's or a person's.
+- **The board is data in the page.** It is embedded as JSON in a script element with `<` escaped (and
+  the line separators), so a card's text cannot close the element or open a comment, and a build
+  refuses a script that contains `</script`. Card text reaches the DOM through the same `escapeHtml`
+  and `textContent` paths as the desk Web.
+- **The tray is the owner's.** In a Board artifact the tray is a collection in the artifact's database
+  with a rule that only the owner reads and writes it, declared when the artifact is published and never
+  by the page; a viewer who is not the owner keeps their changes in their own browser storage. Nothing a
+  page queues reaches the board's files until Claude applies it, and the apply runs each record through
+  the same route code, so the board's rules refuse what the desk would.
+- **A page holds the board it was built with.** A private board never goes into a page without the
+  person's word (`plugin/skills/artifact/SKILL.md`); the page's contents are readable by whoever can open it.
+
 ## What's deliberately out of scope
 
 - **HTTP auth tokens** — a gate on one of many equivalent paths to the same
