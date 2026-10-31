@@ -184,6 +184,19 @@ test('a write the database refuses is answered as an error that says so, and the
   assert.strictEqual(load.source.queued, 1);
 });
 
+test('a write the database never settles is answered as an error once the wait is over, and the change stays in this page', async () => {
+  const fake = makeFakeDb();
+  const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db), timeoutMs: 30 });
+  await src.request('GET', '/api/board');
+  fake.fail.set = 'hang';
+  const res = await src.request('PATCH', '/api/cards/3', { status: 'doing' });
+  assert.strictEqual(res.status, 500);
+  assert.match(res.json.error, /not queued in the artifact's database/);
+  assert.match(res.json.error, /did not answer in time/);
+  const load = (await src.request('GET', '/api/board')).json;
+  assert.deepStrictEqual(states(load), ['3:doing', '7:todo']);
+});
+
 test('a save the board refuses queues nothing in the database', async () => {
   const fake = makeFakeDb();
   const src = boot(DATA, { storage: memoryStorage(), device: 'phone', claude: claudeWith(fake.db) });

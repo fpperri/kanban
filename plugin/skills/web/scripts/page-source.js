@@ -129,8 +129,9 @@ const pageSourceModule = (() => {
   // A tray that has to be found first (the artifact's database answers later than the page starts) says so
   // with `ready`; the board is replayed over the tray once it is found, before the first request is answered.
   // `fresh`, when given, makes a route over the embedded board as it was built: the page uses it to show
-  // the board again after a record is removed. `temp` is the allocator the route was made with.
-  function makePageSource({ route, tray, board, fresh = null, temp = null, now = () => new Date().toISOString() }) {
+  // the board again after a record is removed. `temp` is the allocator the route was made with. A write the
+  // tray's database has not settled after `writeTimeoutMs` is answered as an error, like one it refuses.
+  function makePageSource({ route, tray, board, fresh = null, temp = null, writeTimeoutMs, now = () => new Date().toISOString() }) {
     let current = route;
     const applied = new Map(); // record id -> the change as the board last replayed it
     const refusedSeen = new Map(); // record id -> whether it was refused when the board last saw it
@@ -219,7 +220,7 @@ const pageSourceModule = (() => {
           applied.set(record.id, JSON.stringify(record.change));
           refusedSeen.set(record.id, !!record.refused);
           if (tray.written) {
-            try { await tray.written(record.id); } catch (e) {
+            try { await artifactTray.withTimeout(tray.written(record.id), writeTimeoutMs); } catch (e) {
               const why = [e && e.code, e && e.message].filter(Boolean).join(': ');
               return reply(500, { error: `The change shows here but is not queued in the artifact's database (${why || 'no reason given'}); reloading this page would lose it.` });
             }
@@ -421,7 +422,7 @@ const pageSourceModule = (() => {
       : makeTrayStore(storage, trayKey(data.board), label, artifactTray.makeNumbers({ storage, board: data.board, device: label }));
     const temp = makeTempAllocator(tray);
     const fresh = () => makeMemoryRoute(data.sources, { files: data.files, dir: data.dir, newId: temp.allocate, ...given }).route;
-    return makePageSource({ route: fresh(), fresh, tray, board: data.board, temp });
+    return makePageSource({ route: fresh(), fresh, tray, board: data.board, temp, writeTimeoutMs: timeoutMs });
   }
 
   return { makePageSource, makeTrayStore, makeTempAllocator, deviceLabel, trayKey, boot };

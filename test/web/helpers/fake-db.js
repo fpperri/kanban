@@ -26,6 +26,7 @@ function makeFakeDb(initial = {}) {
       doc: (id) => ({
         id,
         set: async (data) => {
+          if (fail.set === 'hang') return new Promise(() => {});
           if (fail.set) throw fail.set;
           docs.set(id, JSON.parse(JSON.stringify(data)));
           tell();
