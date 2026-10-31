@@ -114,6 +114,10 @@ test('settings and notifications are a desk job: refused, and not queued', async
   assert.deepStrictEqual(src.records(), []);
 });
 
+test('the page source says it holds no pictures: a binary file of the board is not in the page', () => {
+  assert.strictEqual(open(memoryStorage()).pictures, false);
+});
+
 test('a path that is no route answers 404', async () => {
   const res = await open(memoryStorage()).request('GET', '/api/nothing-here');
   assert.strictEqual(res.status, 404);
@@ -150,6 +154,36 @@ test('boot makes a page source from the data a built page embeds, over the brows
   await src.request('PATCH', '/api/cards/3', { status: 'doing' });
   assert.ok([...storage.map.keys()].includes(`kanban-tray:${BOARD.id}:${BOARD.base}`));
   assert.strictEqual(boot(data, { storage, device: 'phone' }).records().length, 1);
+});
+
+test('the board load names the Snapshot query the page was built with, when the board carries one', async () => {
+  const snapshot = { query: 'tags:ui', archive: false, label: 'tags:ui · live cards only' };
+  assert.deepStrictEqual((await open(memoryStorage(), { board: { ...BOARD, snapshot } }).request('GET', '/api/board')).json.snapshot, snapshot);
+  assert.strictEqual('snapshot' in (await open(memoryStorage()).request('GET', '/api/board')).json, false);
+});
+
+test('the settings of the board load show locked with the reason "a desk job", and nothing else about them changes', async () => {
+  const files = { ...FILES, '/p/.kanban/config.yaml': 'name: alpha\nnextId: 30\ntodos: .todos\nlogbook: logbook\n' };
+  const { route } = makeMemoryRoute(SOURCES, { files, dir: '/p/.kanban' });
+  const desk = route('GET', '/api/board').body.settings;
+  const page = (await open(memoryStorage(), { files }).request('GET', '/api/board')).json.settings;
+  assert.strictEqual(page.lock, 'a desk job');
+  for (const key of ['logbook', 'scratchpad', 'todos', 'groups']) {
+    assert.strictEqual(page[key].locked, true, key);
+    assert.strictEqual(page[key].reason, 'a desk job', key);
+    assert.strictEqual(page[key].on, desk[key].on, key);
+    assert.strictEqual(page[key].folder, desk[key].folder, key);
+  }
+  assert.deepStrictEqual({ ...page, lock: undefined, logbook: 0, scratchpad: 0, todos: 0, groups: 0 }, { ...desk, lock: undefined, logbook: 0, scratchpad: 0, todos: 0, groups: 0 });
+  assert.strictEqual(desk.logbook.locked, false);
+});
+
+test('marking a notification read is refused and queues nothing, and the notification stays unread', async () => {
+  const src = open(memoryStorage());
+  const res = await src.request('POST', '/api/notifications/mark-read', {});
+  assert.strictEqual(res.status, 403);
+  assert.deepStrictEqual(src.records(), []);
+  assert.strictEqual((await src.request('GET', '/api/board')).json.notifications[0].read, false);
 });
 
 const todos = (src, target) => src.request('GET', `/api/todos/${target}`).then((r) => r.json.todos);

@@ -76,3 +76,17 @@ test('the skill description names the header the page copies, so a payload from 
   assert.ok(src.payload().startsWith(header));
   assert.ok(description.includes(header), description);
 });
+
+test('the build command with a query runs as the skill shows it: --query takes search words and --archive adds the archive', () => {
+  const shown = fenced(DOC, 'bash').map((b) => b.trim()).filter((b) => b.startsWith('node '));
+  const command = shown.find((b) => b.includes('--query'));
+  assert.ok(command, 'the doc shows a build with a query');
+  const m = /^node <skill dir>\/(\.\.\/web\/scripts\/artifact-build\.js) <board dir> --out <file\.html> --query "<search words>" --archive$/.exec(command);
+  assert.ok(m, command);
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-')), 'board.html');
+  try {
+    const ran = spawnSync(process.execPath, [path.join(SKILL_DIR, m[1]), path.join(ROOT, 'test', 'web', 'browser', 'fixture'), '--out', out, '--query', 'status:todo', '--archive'], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    assert.match(ran.stdout, /status:todo · with the archive/);
+  } finally { fs.rmSync(path.dirname(out), { recursive: true, force: true }); }
+});
