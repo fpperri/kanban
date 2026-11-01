@@ -354,7 +354,8 @@ function settingsPrefixClashWarnings(clashes) {
 
 const settingsConflictNote = 'config.yaml changed on disk after this page read it, so nothing was saved. Why: a save rewrites a whole list and would overwrite that change; the page read the file again, so make the change again if it still applies.';
 
-// The confirm text for removing a type some cards carry; null when none does.
+// The question for removing a type some cards carry; null when none does. The type's name is in backticks,
+// which the ask draws as code.
 function settingsRemoveConfirm(name, cards) {
   if (cards <= 0) return null;
   return `${cards} card${cards === 1 ? '' : 's'} say${cards === 1 ? 's' : ''} \`${name}\`. Remove it from the type list? The cards keep their type; nothing else is rewritten.`;
@@ -393,9 +394,13 @@ function settingsPrefixProblem(list, prefix, target, self) {
   return '';
 }
 
+// The verb of a prefix edit, which opens its question and names the button that says yes.
+function settingsPrefixVerb(kind) {
+  return { change: 'Change', add: 'Add', remove: 'Remove' }[kind];
+}
+
 function settingsPrefixConfirm(kind, prefix, target) {
-  const verb = { change: 'Change', add: 'Add', remove: 'Remove' }[kind];
-  return `${verb} the prefix ${prefix} (${target})? Cards already made keep their ids; ask an AI to migrate the board to rename them.`;
+  return `${settingsPrefixVerb(kind)} the prefix ${prefix} (${target})? Cards already made keep their ids; ask an AI to migrate the board to rename them.`;
 }
 
 const SETTINGS_EXPORTS = {
@@ -405,7 +410,7 @@ const SETTINGS_EXPORTS = {
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,
-  settingsPrefixRemove, settingsPrefixProblem, settingsPrefixConfirm,
+  settingsPrefixRemove, settingsPrefixProblem, settingsPrefixVerb, settingsPrefixConfirm,
   SETTINGS_BROWSER_PAGES, SETTINGS_DEFAULT_PAGE, SETTINGS_FOLDERS, SETTINGS_TYPE_SWATCHES,
 };
 

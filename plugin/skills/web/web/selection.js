@@ -78,7 +78,7 @@ function partitionByMovable(ids, byId, targetStatus, refusesDoingFn) {
 // Archiving a fully-done batch is the natural completion flow, not
 // a destructive act, so the confirm is skipped — but only when EVERY card
 // in the batch is done; one non-done card keeps today's single confirm.
-// Shared by the tile Archive button, drag-to-Archive (via dragPlan below),
+// Shared by the detail popup's Archive button, drag-to-Archive (via dragPlan below),
 // and the bulk menu's Archive selected — one rule, three callers.
 function archiveNeedsConfirm(cards) {
   return cards.some((c) => c.status !== 'done');

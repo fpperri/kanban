@@ -637,6 +637,24 @@
   </aside>
 </div>
 
+<!-- The speedbump's question (ask-ui.js): every destructive act asks here instead of through the browser's
+     confirm(), which a host that sandboxes the page answers with no. Last in the page, so it stacks above
+     every other popup; the message is set as text. Esc, Cancel, the close button and a click outside answer
+     no, and Cancel takes the focus. -->
+<div id="ask" class="modal-backdrop ask-backdrop hidden" data-keeps-selection>
+  <div class="modal ask-modal" role="alertdialog" aria-modal="true" aria-labelledby="ask-title" aria-describedby="ask-text">
+    <div class="ask-head">
+      <h2 id="ask-title">Are you sure?</h2>
+      <button type="button" id="ask-close" class="icon-btn" data-keeps-selection title="Close" aria-label="Close">&#10005;</button>
+    </div>
+    <p id="ask-text" class="ask-text"></p>
+    <div class="ask-actions">
+      <button type="button" id="ask-no" data-keeps-selection>Cancel</button>
+      <button type="button" id="ask-yes" class="ask-yes" data-keeps-selection>OK</button>
+    </div>
+  </div>
+</div>
+
 <script src="/board-source.js"></script>
 <script src="/save-guard.js"></script>
 <script src="/tray-describe.js"></script>
@@ -714,6 +732,7 @@
 <script src="/settings-ui.js"></script>
 <script src="/more-menu.js"></script>
 <script src="/tray-ui.js"></script>
+<script src="/ask-ui.js"></script>
 <script src="/menu-nest.js"></script>
 <script src="/menu-nest-ui.js"></script>
 <script src="/text-edit.js"></script>

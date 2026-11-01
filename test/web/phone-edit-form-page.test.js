@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control } = require('./helpers/page-vm');
+const { askElements, askDriver } = require('./helpers/ask-page');
 const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 
 // Editing on a phone, in the real page (helpers/page-vm.js): Save on an edit opened from a card
@@ -30,7 +31,7 @@ const PHONE = 'kanban.kanban.columns.phone';
 
 async function open({ phone = true, search = '', stored = {} } = {}) {
   const board = makeBoard();
-  const els = { '#f-id': control(), '#f-status': control(), '#card-form': control(), '#modal': control(), '#detail-modal': control() };
+  const els = { '#f-id': control(), '#f-status': control(), '#card-form': control(), '#modal': control(), '#detail-modal': control(), ...askElements() };
   els['#modal'].classList.add('hidden');
   els['#detail-modal'].classList.add('hidden');
   const page = loadPage({ board, search, stored, elements: els });
@@ -45,7 +46,7 @@ async function open({ phone = true, search = '', stored = {} } = {}) {
   };
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), []);
-  return { page, els, calls, stored };
+  return { page, els, calls, stored, ask: askDriver(page, els) };
 }
 
 const openCardAt = async (s, id) => {
@@ -90,13 +91,12 @@ test('above the phone width Save brings the card back too, and leaves the phone 
 test('leaving an edit opened from a card, on any width, brings the card back; the form of a new card just closes', async () => {
   for (const phone of [false, true]) {
     const s = await open({ phone });
-    s.page.ctx.confirm = () => true; // the stand-in controls read as changed; the question itself is pinned in edit-returns-to-details.test.js
     await openCardAt(s, 2);
     s.page.run('editFromDetail()');
     assert.ok(s.els['#detail-modal'].classList.contains('hidden'));
     s.calls.length = 0;
     s.page.run('requestCloseModal()');
-    await s.page.settle();
+    await s.ask.yes(); // the stand-in controls read as changed; the question itself is pinned in edit-returns-to-details.test.js
     assert.ok(s.els['#modal'].classList.contains('hidden'), `phone ${phone}`);
     assert.ok(!s.els['#detail-modal'].classList.contains('hidden'), `phone ${phone}`);
     assert.strictEqual(detailFetches(s).length, 1);
@@ -104,7 +104,7 @@ test('leaving an edit opened from a card, on any width, brings the card back; th
     s.page.run('openModal(null)');
     s.calls.length = 0;
     s.page.run('requestCloseModal()');
-    await s.page.settle();
+    await s.ask.yes();
     assert.strictEqual(detailFetches(s).length, 0, 'the form of a new card does not reopen the card the last form came from');
   }
 });

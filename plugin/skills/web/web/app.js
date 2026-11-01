@@ -2484,14 +2484,14 @@ function wireDrag() {
 }
 
 // Drops that touch archive in either direction. No optimistic
-// render — a file move plus a status write isn't worth faking; the confirm
+// render — a file move plus a status write isn't worth faking; the question
 // already broke the gesture's flow, so the loadBoard round-trip is fine.
 async function archiveAwareDrop(ids, dest) {
   const byId = new Map([...state.active, ...state.archived].map((c) => [c.id, c]));
   const plan = dragPlan(ids, byId, dest, refusesDoing);
   const actionable = plan.toArchive.length + plan.toRestore.length + plan.toMove.length;
   if (!actionable && !plan.refused.length) return;
-  if (plan.confirmMessage && !confirm(plan.confirmMessage)) return;
+  if (plan.confirmMessage && !(await askInPage(plan.confirmMessage, { yes: dest === 'archive' ? 'Archive' : 'Move' }))) return;
   pendingDrops++;
   const failed = [];
   try {
@@ -2890,7 +2890,7 @@ async function returnToDetails(seen) {
 }
 
 // Backdrop-close for the edit/new-card form: silent when the form
-// is untouched, one confirm when typed work would be lost. Cancel/Save keep
+// is untouched, one question (askInPage) when typed work would be lost. Cancel/Save keep
 // their existing behavior — explicit buttons are deliberate, only the easy-to-
 // fat-finger backdrop click gets the guard.
 let formSnapshot = null;
@@ -2904,9 +2904,9 @@ function snapshotFormFields() {
   };
 }
 
-function requestCloseModal() {
+async function requestCloseModal() {
   if (isDirty(formSnapshot, snapshotFormFields()) &&
-      !confirm('Discard unsaved changes to this card?')) return;
+      !(await askInPage('Discard unsaved changes to this card?', { yes: 'Discard' }))) return;
   const backToCard = editFromCardId !== null;
   const seen = detailRequestId;
   closeModal();
@@ -3067,10 +3067,10 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Names the object in a confirm (the speedbump policy): title when we
+// Names the object in a speedbump's question (the policy): title when we
 // know it, id otherwise. Falls back through
 // cardTitleDisplay like every other title-rendering call site, so a
-// titleless AI-prompt card's confirm() text names it by its queued prompt
+// titleless AI-prompt card's question names it by its queued prompt
 // instead of a blank quoted title.
 function cardLabel(id) {
   const card = state.active.concat(state.archived).find((c) => c.id === id);
@@ -3085,7 +3085,7 @@ function cardLabel(id) {
 // wired for live cards) falls back to confirming, the safe default.
 async function doArchive(id, { onSuccess } = {}) {
   const card = state.active.find((c) => c.id === id);
-  if ((!card || archiveNeedsConfirm([card])) && !confirm(`Archive ${cardLabel(id)}? (moves the file to archived/)`)) return;
+  if ((!card || archiveNeedsConfirm([card])) && !(await askInPage(`Archive ${cardLabel(id)}? (moves the file to archived/)`, { yes: 'Archive' }))) return;
   try { await api('POST', `/api/cards/${id}/archive`); if (onSuccess) onSuccess(); await loadBoard(); }
   catch (e) { toast('Archive failed: ' + e.message); }
 }
@@ -6164,7 +6164,7 @@ function closeNotifModal() {
 async function deleteNotification(id) {
   const n = (state.notifications || []).find((x) => x.id === id);
   const snippet = n ? `"${n.message.slice(0, 50)}${n.message.length > 50 ? '…' : ''}"` : `#${id}`;
-  if (!confirm(`Clear notification ${snippet}? It moves to archived/notifications.md.`)) return;
+  if (!(await askInPage(`Clear notification ${snippet}? It moves to archived/notifications.md.`, { yes: 'Clear' }))) return;
   try {
     const { notifications } = await api('DELETE', `/api/notifications/${id}`);
     state.notifications = notifications;
@@ -6176,7 +6176,7 @@ async function deleteNotification(id) {
 async function clearAllNotifications() {
   const count = (state.notifications || []).length;
   if (count === 0) return;
-  if (!confirm(`Clear all ${count} notification(s)? They move to archived/notifications.md.`)) return;
+  if (!(await askInPage(`Clear all ${count} notification(s)? They move to archived/notifications.md.`, { yes: 'Clear all' }))) return;
   try {
     const { notifications } = await api('DELETE', '/api/notifications');
     state.notifications = notifications;
@@ -6558,7 +6558,7 @@ async function bulkArchive() {
   if (!ids.length) { if (skipped) toast('Everything selected is already archived.'); return; }
   // one speedbump for the batch, not one per card — skipped entirely
   // when every card being archived is already done
-  if (archiveNeedsConfirm(toArchive) && !confirm(`Archive ${ids.length} card(s)? (moves their files to archived/)`)) return;
+  if (archiveNeedsConfirm(toArchive) && !(await askInPage(`Archive ${ids.length} card(s)? (moves their files to archived/)`, { yes: 'Archive' }))) return;
   openBulkArchive(ids.length);
 }
 

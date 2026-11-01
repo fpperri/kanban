@@ -181,8 +181,9 @@ function loadPages(over = {}) {
     },
     loadBoard: async () => { sandbox.reads += 1; },
     reads: 0,
-    confirm: (text) => { sandbox.asked.push(text); return sandbox.sure; },
+    askInPage: async (text, opts) => { sandbox.asked.push(text); sandbox.askedWith.push(JSON.parse(JSON.stringify(opts))); return sandbox.sure; },
     asked: [],
+    askedWith: [],
     sure: true,
     fail: null,
     settingsGo: undefined,
@@ -497,6 +498,7 @@ test('removing a type no card uses just removes it from the types block; one car
   await act(rowNamed(ctx.page('types'), 'bug'), 'remove').fire('click');
   await ctx.settle();
   assert.match(ctx.asked[0], /3 cards say `bug`/);
+  assert.deepStrictEqual(ctx.askedWith[0], { yes: 'Remove', code: true }, 'the type name in backticks is drawn as code');
   assert.strictEqual(ctx.calls.length, 1);
   ctx.sure = true;
   await act(rowNamed(ctx.page('types'), 'bug'), 'remove').fire('click');
@@ -666,6 +668,7 @@ test('a prefix change asks first; a no writes nothing and a yes writes the prefi
   await field.fire('change');
   await ctx.settle();
   assert.match(ctx.asked[0], /^Change the prefix G/);
+  assert.deepStrictEqual(ctx.askedWith[0], { yes: 'Change' });
   assert.deepStrictEqual(ctx.calls, []);
   ctx.sure = true;
   field = target();
@@ -683,10 +686,12 @@ test('adding and removing a prefix each ask first and write the prefixes block',
   await root.one((el) => el.tag === 'form' && el.dataset.fk === 'prefix-new').fire('submit');
   await ctx.settle();
   assert.match(ctx.asked[0], /^Add the prefix B/);
+  assert.deepStrictEqual(ctx.askedWith[0], { yes: 'Add' });
   assert.deepStrictEqual(ctx.calls[0][2].value.at(-1), { prefix: 'B', target: 'bug' });
   await ctx.page('prefixes').one((el) => el.attrs['aria-label'] === 'Remove the prefix W').fire('click');
   await ctx.settle();
   assert.match(ctx.asked[1], /^Remove the prefix W/);
+  assert.deepStrictEqual(ctx.askedWith[1], { yes: 'Remove' });
   assert.deepStrictEqual(ctx.calls[1][2].value.map((r) => r.prefix), ['G', 'O']);
 });
 
