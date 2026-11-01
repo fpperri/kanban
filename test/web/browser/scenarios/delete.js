@@ -4,11 +4,13 @@
 // always leaves every group's list, and "Its logbook" is a box left unticked (unticked, the day files stay
 // and read as dangling). A selection of cards is one popup. A group's popup adds "Its member cards", which
 // lists what it would delete and names the members another group holds, which it skips. Archiving keeps
-// its own confirm and none of these questions: the page's confirm() is replaced here and counted. Each step waits on the page, never on a
-// fixed sleep.
+// its own question, asked in the page, and none of these: the page's confirm() is replaced here and counted, and none is raised. Each step waits
+// on the page, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // state, selectedIds, autoRefreshTick, toast (the page's #toast element, by its id).
+
+const { askUp, askText, askYes, refuseNativeConfirm, nativeConfirmsSeen } = require('../ask');
 
 const DLG = `document.getElementById('group-dialog')`;
 const DLG_UP = `!${DLG}.classList.contains('hidden')`;
@@ -45,7 +47,7 @@ module.exports = {
 
     await open('/?view=board');
     check('delete: the board is drawn with its groups', await waitFor(`document.querySelectorAll('#board .card-el').length>20&&state.groups&&state.groups.list.length===5`, 10000));
-    await ev(`window.confirm=()=>{window.__confirms=(window.__confirms||0)+1;return true}`);
+    await refuseNativeConfirm(page);
     for (const [target, text] of [['3', 'three a'], ['3', 'three b'], ['15', 'fifteen'], ['I1', 'about the iteration'], ['_1', 'about the offsite'], ['2', 'two a'], ['8', 'eight a'], ['8', 'eight b'], ['5', 'five a']]) await note(target, text);
     check('delete: the notes are on the board', await refreshed(`${notesOf('3')}===2&&${notesOf('15')}===1&&${notesOf('I1')}===1`));
 
@@ -88,7 +90,10 @@ module.exports = {
     await click(tile.x, tile.y);
     await waitFor(`!document.getElementById('detail-modal').classList.contains('hidden')`, 3000);
     await press('#detail-archive-btn');
-    check('delete: archiving from the card keeps its own confirm and archives, with none of the delete questions', await refreshed(`state.archived.some((c)=>c.id==='24')`) && await ev(`window.__confirms===1&&!document.querySelector('#group-dialog [data-del]')`), await ev(`window.__confirms`));
+    const archiveAsk = (await askUp(page)) ? await askText(page) : null;
+    check('delete: archiving from the card asks its own question in the page', /^Archive #24( ".*")?\? \(moves the file to archived\/\)$/.test(archiveAsk), archiveAsk);
+    await askYes(page);
+    check('delete: and archives after a yes, with none of the delete questions', await refreshed(`state.archived.some((c)=>c.id==='24')`) && await ev(`!document.querySelector('#group-dialog [data-del]')`));
 
     // --- a group: the member list, the skips ----------------------------------------------------------------------
     const badge = await centre('#board .card-el[data-id="8"] .group-badge');
@@ -117,6 +122,6 @@ module.exports = {
     await dlgUp();
     await press('#group-dialog [data-confirm="delete"]');
     check('delete: unticked, only the group file goes: its cards and its logbook stay', await refreshed(`!${group('_1')}&&${live('5')}&&${live('17')}&&${notesOf('_1')}===1`), await ev(`[${live('5')},${live('17')},${notesOf('_1')}].join(' ')`));
-    check('delete: no confirm() was asked for a delete, only the one from archiving', await ev(`window.__confirms===1`), await ev(`window.__confirms`));
+    check('delete: no confirm() was raised for any of it', (await nativeConfirmsSeen(page)) === 0, await nativeConfirmsSeen(page));
   },
 };

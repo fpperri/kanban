@@ -12,7 +12,9 @@
 // the next scenario).
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
-// selectedIds.
+// selectedIds, state.
+
+const { askUp, askText, askNo, refuseNativeConfirm, nativeConfirmsSeen } = require('../ask');
 
 module.exports = {
   name: 'card-click',
@@ -75,18 +77,19 @@ module.exports = {
     await click(away.x, away.y, { clickCount: 2 });
     check('a double click on empty space clears the selection', await selectionSize(0), away);
 
-    // The archive confirmation answers no, so nothing is archived; Delete opens its popup, which is closed unanswered.
-    await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
+    // The archive question is answered no, so nothing is archived; Delete opens its popup, which is closed unanswered. A native confirm() would count here.
+    await refuseNativeConfirm(page);
     await clickCard(cardIn('#board', 3), { modifiers: 2 });
     await clickCard(cardIn('#board', 6), { modifiers: 2 });
     check('two cards are selected for the bulk confirmations', await selectionSize(2));
     await rightClick(cardIn('#board', 6));
     await ev(`document.getElementById('ctx-archive').click()`);
+    const asked = (await askUp(page)) ? await askText(page) : null;
+    check('the archive confirmation names the count', asked === 'Archive 2 card(s)? (moves their files to archived/)', asked);
+    await askNo(page);
     await rightClick(cardIn('#board', 6));
     await ev(`document.getElementById('ctx-delete').click()`);
-    const asked = await ev('window.__asked');
-    check('the archive confirmation names the count', asked[0] === 'Archive 2 card(s)? (moves their files to archived/)', asked);
-    check('Delete opens one popup that names the count, and asks through no confirm()', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
+    check('Delete opens one popup that names the count, and asks through no confirm()', (await nativeConfirmsSeen(page)) === 0 && await ev(`state.active.some((c)=>c.id==='3')&&state.active.some((c)=>c.id==='6')`) && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
     await key('Escape');
     await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
 

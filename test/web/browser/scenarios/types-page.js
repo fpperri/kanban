@@ -6,8 +6,9 @@
 // shows as a warning chip and one bullet saying what and why), an icon, a color, an add and a
 // remove each the types block. The Types switch writes typesOn and removes it. A config.yaml
 // edited by hand after the page read it refuses the save, says so in one bullet and reads again.
-// Prefixes are added and removed behind a confirm, with the what-and-why note and a warning for a
-// prefix naming a type the list does not have. Every This board page shows the path it reads with a
+// Prefixes are added and removed behind a question asked in the page, with the what-and-why note and a warning for a
+// prefix naming a type the list does not have. The questions (Remove on a type cards use, and each prefix change) draw above the
+// Settings sheet, the type's name in backticks shows as code, Esc and Cancel answer no, and no native confirm() is raised. Every This board page shows the path it reads with a
 // Copy button; the Logbook page of this board, switched off, shows none. Each step waits on the
 // page or on the file, never on a fixed sleep.
 //
@@ -15,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { ASK_REACHABLE, askUp, askGone, askText, askYes, askNo, refuseNativeConfirm, nativeConfirmsSeen } = require('../ask');
 
 const SHEET_UP = `!document.getElementById('prefs-sheet').classList.contains('hidden')`;
 const item = (page) => `.prefs-menu-item[data-page="${page}"]`;
@@ -39,6 +41,7 @@ module.exports = {
     };
     await page.open('/');
     await waitFor(`document.querySelectorAll('#board .card-el').length>5`, 10000);
+    await refuseNativeConfirm(page);
     const boardDir = await ev(`fetch('/api/board').then((r)=>r.json()).then((d)=>d.boardDir)`);
     const configPath = path.join(boardDir, 'config.yaml');
     const config = () => fs.readFileSync(configPath, 'utf8').replace(/\r\n/g, '\n');
@@ -116,12 +119,22 @@ module.exports = {
     check('one bullet says epic is still in the hierarchy and why', notes.some((t) => /^`epic` is still in the hierarchy\. Why: .*type list/.test(t)), notes);
     check('renaming does not lose the color and the icon of the type', /- name: saga\n(?:    color: "[^"]*"\n)?    icon: square\n/.test(config()));
 
-    // remove, with the confirm
-    await ev(`window.confirm=()=>false`);
+    // remove, with the question
     await clickOn(`#prefs-board-page ${fk('act:bug:remove')}`);
-    check('Remove on a type cards use asks first, and no keeps it', await settled() === true && config().includes('- name: bug'));
-    await ev(`window.confirm=()=>true`);
+    check('Remove on a type cards use asks first, in the page', await askUp(page) && /^\d+ cards? says? bug\. Remove it from the type list\? The cards keep their type; nothing else is rewritten\.$/.test(await askText(page)), await askText(page));
+    check('the type\'s name shows as code, with no backticks in the text', await ev(`(()=>{const c=document.querySelectorAll('#ask-text code');return c.length===1&&c[0].textContent==='bug'&&!document.getElementById('ask-text').textContent.includes('\u0060')})()`));
+    const reach = await ev(ASK_REACHABLE);
+    check('the question is drawn above the Settings sheet, and both buttons can be reached', reach.onTop && reach.buttons && reach.fits, reach);
+    await page.key('Escape');
+    check('Esc answers no: the question goes, the Settings sheet stays and the type stays', await askGone(page) && await ev(SHEET_UP) && config().includes('- name: bug'));
     await clickOn(`#prefs-board-page ${fk('act:bug:remove')}`);
+    await askUp(page);
+    await askNo(page);
+    check('Cancel keeps the type', await askGone(page) && await settled() === true && config().includes('- name: bug'));
+    await clickOn(`#prefs-board-page ${fk('act:bug:remove')}`);
+    await askUp(page);
+    check('the red button names the act', await ev(`document.getElementById('ask-yes').textContent`) === 'Remove');
+    await askYes(page);
     check('yes removes it from the types block alone', await waitConfig((c) => !/- name: bug/.test(c) && c.includes('hierarchy:')));
     await settled();
     check('the removed type is among the words found on cards, with its count', await waitFor(`/bug/.test((document.querySelector('#prefs-board-page .types-found')||{textContent:''}).textContent)`, 3000));
@@ -160,23 +173,29 @@ module.exports = {
     await waitFor(`!!document.getElementById('pf-newPrefix')`, 3000);
     check('the Prefixes page shows the same path and the what-and-why note', await ev(`(document.querySelector('#prefs-board-page .prefs-pathtext')||{textContent:''}).textContent`) === configPath
       && (await ev(bullets))[0].startsWith('Changing a prefix changes only the ids given from then on. Why: '));
-    await ev(`window.confirm=()=>false`);
     await typeInto('#pf-newPrefix', 'T');
     await typeInto('#pf-newTarget', 'task');
     await clickOn(fk('prefix:new:add'));
-    check('Add prefix asks first, and no writes nothing', await settled() === true && !config().includes('prefixes:'));
-    await ev(`window.confirm=()=>true`);
+    check('Add prefix asks first, in the page', await askUp(page) && /^Add the prefix T \(task\)\? Cards already made keep their ids; ask an AI to migrate the board to rename them\.$/.test(await askText(page)), await askText(page));
+    await askNo(page);
+    check('and no writes nothing', await askGone(page) && await settled() === true && !config().includes('prefixes:'));
     await typeInto('#pf-newPrefix', 'T');
     await typeInto('#pf-newTarget', 'task');
     await clickOn(fk('prefix:new:add'));
+    await askUp(page);
+    await askYes(page);
     check('yes writes a prefixes block', await waitConfig((c) => /\nprefixes:\n  T: task\n/.test(c)));
     await settled();
     await typeInto('#pf-newPrefix', 'Z');
     await typeInto('#pf-newTarget', 'ghost');
     await clickOn(fk('prefix:new:add'));
+    await askUp(page);
+    await askYes(page);
     check('a prefix naming a type the list does not have shows one warning bullet', await waitFor(`${bullets}.some((t)=>/^The prefix \`Z\` still names \`ghost\`, which is not a listed type\\. Why: /.test(t))`, 4000));
     await clickOn(fk('prefix:Z:remove'));
-    check('Remove on a prefix asks and rewrites the block without it', await waitConfig((c) => /\nprefixes:\n  T: task\n/.test(c) && !c.includes('ghost')));
+    check('Remove on a prefix asks, naming the verb on the button', await askUp(page) && await ev(`document.getElementById('ask-yes').textContent`) === 'Remove');
+    await askYes(page);
+    check('Remove on a prefix rewrites the block without it', await waitConfig((c) => /\nprefixes:\n  T: task\n/.test(c) && !c.includes('ghost')));
     await settled();
     check('a Types row shows the prefix the block gives its type', (await ev(`(async()=>{document.querySelector(${JSON.stringify(item('board:types'))}).click();return true})()`)) && await waitFor(`/Prefix T/.test(document.querySelector('#prefs-board-page li[data-type="task"] .types-prefix').textContent)`, 3000));
 
@@ -185,5 +204,6 @@ module.exports = {
     check('Counters shows the config path', await waitFor(`(document.querySelector('#prefs-board-page .prefs-pathtext')||{textContent:''}).textContent===${JSON.stringify(configPath)}`, 3000));
     await clickOn(item('board:logbook'));
     check('a feature that is off shows no path: this board has no logbook', await waitFor(`document.getElementById('prefs-page-title').textContent==='Logbook'`, 3000) && await ev(`!document.querySelector('#prefs-board-page .prefs-pathbar')`));
+    check('no native confirm() was raised on any page', (await nativeConfirmsSeen(page)) === 0, await nativeConfirmsSeen(page));
   },
 };

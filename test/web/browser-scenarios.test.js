@@ -289,10 +289,10 @@ test('the card-click scenario clicks the Board, the Map, the Calendar and the Ga
   assert.ok(/showView\('graph'/.test(src) && /key\('Enter'\)/.test(src));
 });
 
-test('the card-click scenario holds both clicks of a range, a Cmd click and a Ctrl click, and answers the confirmations with no', () => {
+test('the card-click scenario holds both clicks of a range, a Cmd click and a Ctrl click, and answers the questions with no', () => {
   const src = code(source('card-click.js'));
   assert.ok(src.includes('modifiers: 2') && src.includes('modifiers: 4') && src.includes('modifiers: 8'), 'Ctrl, Cmd and Shift');
-  assert.ok(/window\.confirm=\(m\)=>\{window\.__asked\.push\(m\);return false\}/.test(src), 'a confirmation that refuses, so nothing is archived or deleted');
+  assert.ok(src.includes('refuseNativeConfirm(page)') && src.includes('askNo(page)'), 'the page\'s question is answered no, so nothing is archived or deleted, and a native confirm() would be counted');
 });
 
 test('the card-click scenario opens the card menu with the right-click helper and waits on the page, never on a fixed sleep', () => {
@@ -517,7 +517,7 @@ test('the card-menu scenario opens the card menu with the right-click helper, cl
   assert.ok(!/contextmenu/.test(src), 'a hand-made contextmenu event');
   assert.ok(!/\bsleep\(/.test(src));
   assert.ok(src.includes(`key('Escape')`) && src.includes('#detail-close'), 'Escape and the X button');
-  assert.ok(/window\.confirm=\(m\)=>\{window\.__asked\.push\(m\);return false\}/.test(src), 'a confirmation that refuses, so nothing is archived or deleted');
+  assert.ok(src.includes('refuseNativeConfirm(page)') && src.includes('askNo(page)'), 'the page\'s question is answered no, so nothing is archived or deleted, and a native confirm() would be counted');
 });
 
 test('the card-menu scenario reopens the Board by its deep link, so a view left on by the last check cannot hide it', () => {
