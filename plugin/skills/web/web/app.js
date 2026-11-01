@@ -6399,13 +6399,14 @@ const cardPress = createCardPress({
   now: () => performance.now(),
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t),
-  onHold: (id) => setPinnedLight(id),
+  onHold: (id) => { forgetTap(); setPinnedLight(id); }, // a press between two taps: the first of a pair is gone
   onLift: (id, x, y) => openCardMenuByPress(id, x, y),
 });
 
 let releaseCardPress = null;
 
 function onCardPressStart(e) {
+  cardPress.fingerDown(); // the lifted finger's echo is over, so a tap on the menu that just opened is a tap
   if (releaseCardPress) releaseCardPress();
   const target = e.target;
   const el = onPhoneLayout() && e.touches.length === 1 && target.closest ? target.closest('.card-el') : null;
@@ -6454,13 +6455,17 @@ function selectLitCards() {
 }
 
 // The first listener to hear a click, ahead of the card grammar. The click the lifted finger makes
-// does nothing at all. On the phone layout a tap outside the open card menu only closes it, the light
-// staying; any other tap ends the light and goes on to do its job (a tap on empty space does nothing
-// else). A tap on the menu is part of the press that opened it and leaves the light alone.
+// does nothing at all (the next finger down ends that echo, so a quick tap on the menu is a tap). On
+// the phone layout a tap outside the open card menu only closes it, the light staying; any other tap
+// ends the light and goes on to do its job (a tap on empty space does nothing else). A tap on the menu
+// is part of the press that opened it and leaves the light alone. A click the gate stops never reaches
+// the card grammar, which would have remembered or forgotten the tap: it is a tap that came between,
+// so the first tap of a double tap before it is gone (forgetTap).
 function onPhoneTapGate(e) {
-  if (cardPress.echoing()) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if (cardPress.echoing()) { forgetTap(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   const inMenu = e.target.closest('#context-menu');
   if (onPhoneLayout() && !inMenu && !$('#context-menu').classList.contains('hidden')) {
+    forgetTap();
     hideContextMenu();
     e.stopImmediatePropagation();
     return;

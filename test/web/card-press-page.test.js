@@ -31,7 +31,8 @@ async function open({ phone = true, view = 'board' } = {}) {
   const lit = hidden();
   const closed = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
   const stored = { 'kanban.kanban.view.mode': view };
-  const page = loadPage({ board: makeBoard(), stored, elements: { '#graph-view': control(), '#context-menu': menu, '#ctx-lit': lit, ...Object.fromEntries(closed.map((sel) => [sel, hidden()])) } });
+  const graph = control();
+  const page = loadPage({ board: makeBoard(), stored, elements: { '#graph-view': graph, '#context-menu': menu, '#ctx-lit': lit, ...Object.fromEntries(closed.map((sel) => [sel, hidden()])) } });
   const crossings = [];
   page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && phone; }, addEventListener: (type, fn) => crossings.push(fn) });
   await page.start();
@@ -42,7 +43,7 @@ async function open({ phone = true, view = 'board' } = {}) {
   const opened = [];
   page.ctx.openCard = (id) => { opened.push(String(id)); };
   const s = {
-    page, menu, lit, opened, clock,
+    page, menu, lit, graph, opened, clock,
     cross(to) { phone = to; crossings.forEach((fn) => fn({})); },
     wait(ms) {
       clock.at += ms;
@@ -275,6 +276,45 @@ test('the click under the lifted finger does nothing else: it opens no card, sel
   assert.strictEqual(s.menuOpen(), false, 'a click 800 ms later is a tap');
 });
 
+test('a finger that comes down after the lift ends the echo: a tap on an entry of the menu within 800 ms is a tap and runs the entry', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.wait(300);
+  const entry = insideMenu();
+  down(s, entry);
+  const click = clickOn(s, entry);
+  assert.strictEqual(click.defaultPrevented, false, 'the click is not swallowed');
+  s.lit.fire('click', {});
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3'], 'Select lit ran');
+  assert.strictEqual(s.menuOpen(), false);
+});
+
+test('a tap on a card within 800 ms of the lift is a tap as well: with the menu open it only closes it', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.wait(300);
+  const target = tile(4);
+  down(s, target);
+  lift(target);
+  clickOn(s, target);
+  assert.strictEqual(s.menuOpen(), false);
+  assert.deepStrictEqual(s.picked(), []);
+  assert.deepStrictEqual(s.litIds(), ['1', '2', '3'], 'the menu was closed and nothing else');
+});
+
+test('a finger that comes down after the lift ends the hold-back of the browser\'s contextmenu too: its own long press on the Graph\'s empty space opens the canvas menu', async () => {
+  const s = await open({ view: 'graph' });
+  longPress(s, 2).up();
+  s.page.run('hideContextMenu()');
+  s.wait(100);
+  const empty = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '#graph-view .graph-canvas' ? {} : null) : harmless(String(key))) });
+  down(s, empty);
+  s.wait(400);
+  contextmenuOn(s, empty);
+  assert.strictEqual(s.menuOpen(), true, 'a contextmenu of the new finger is not the old one\'s echo');
+  assert.strictEqual(s.subject().canvas, true);
+});
+
 // --- the light stays, and the next tap ends it -------------------------------------------------------
 
 test('closing the menu leaves the light on, whichever way it closes', async () => {
@@ -360,6 +400,147 @@ test('a poll that repaints the board carries the light with it', async () => {
   longPress(s, 2).up();
   s.page.run('renderBoard()');
   assert.deepStrictEqual(s.litIds(), ['1', '2', '3']);
+});
+
+// --- a tap before the press is not the first tap of a later double tap -------------------------------
+
+test('the tap that only closes the menu is no first tap: a double tap on a card tapped before the press does not open it', async () => {
+  const s = await open();
+  clickOn(s, cardTarget(4));
+  s.wait(1000);
+  longPress(s, 2).up();
+  s.wait(1000);
+  assert.deepStrictEqual(s.picked(), ['4']);
+  clickOn(s, cardTarget(4));
+  assert.strictEqual(s.menuOpen(), false, 'the first tap of the pair closed the menu');
+  assert.deepStrictEqual(s.picked(), ['4'], 'and selected nothing');
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [], 'the second tap is a first tap again: the old tap on 4 is gone');
+  assert.deepStrictEqual(s.picked(), [], 'it toggled the selected card out, as a first tap does');
+});
+
+test('the tap that closes a right-click menu is no first tap either: the gate forgets it where no press came before', async () => {
+  const s = await open();
+  clickOn(s, cardTarget(4));
+  s.wait(1000);
+  contextmenuOn(s, cardTarget(2));
+  assert.strictEqual(s.menuOpen(), true);
+  clickOn(s, cardTarget(4));
+  assert.strictEqual(s.menuOpen(), false);
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, []);
+  assert.deepStrictEqual(s.picked(), []);
+});
+
+test('a click the echo swallows forgets the last tap too', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.page.run('hideContextMenu()');
+  s.page.run("tapBefore = { id: '4', selection: NO_SELECTION, rangeStart: null, after: selectionState.selection }");
+  clickOn(s, cardTarget(4));
+  s.wait(1000);
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [], 'no tap on 4 is left to be the first of a pair');
+});
+
+test('a hold forgets the last tap: a double tap after a press, however its menu closed, does not open a card tapped before it', async () => {
+  const s = await open();
+  clickOn(s, cardTarget(4));
+  s.wait(1000);
+  longPress(s, 2).up();
+  s.page.run('hideContextMenu()');
+  s.wait(1000);
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, []);
+  assert.deepStrictEqual(s.picked(), []);
+});
+
+test('a double tap with nothing in between still opens the card and leaves the selection as it was', async () => {
+  const s = await open();
+  clickOn(s, cardTarget(1));
+  s.wait(1000);
+  clickOn(s, cardTarget(4));
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, ['4']);
+  assert.deepStrictEqual(s.picked(), ['1'], 'the selection from before the first tap');
+});
+
+// --- the Graph: the pinned light wins over the hover and the focus -------------------------------
+
+const dot = (id) => {
+  const el = { dataset: { id: String(id) } };
+  return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.graph-node' ? el : null) : harmless(String(key))) });
+};
+const lineHit = (link) => {
+  const el = { dataset: { link: String(link) } };
+  return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.graph-link-hit' ? el : null) : harmless(String(key))) });
+};
+
+// The Graph drawn is stood in for by what its handlers read: the ids it draws. `focused` and `lines` list what they asked to light.
+async function openGraph() {
+  const s = await open({ view: 'graph' });
+  s.page.run("graphCur = { model: { byId: new Map([['1', {}], ['2', {}], ['4', {}]]) }, hoverLine: null }");
+  s.focused = [];
+  s.lines = [];
+  s.page.ctx.graphSetFocus = (id) => { s.focused.push(String(id)); };
+  s.page.ctx.graphSetLineFocus = (i) => { s.lines.push(i); };
+  s.page.ctx.graphRestFocus = () => { s.focused.push('rest'); };
+  return s;
+}
+
+test('on the Graph a dot the pointer or the focus reaches does not take the light from the card held', async () => {
+  const s = await openGraph();
+  longPress(s, 2).up();
+  s.focused.length = 0;
+  s.graph.fire('mouseover', { type: 'mouseover', target: dot(4) });
+  s.graph.fire('focusin', { type: 'focusin', target: dot(4) });
+  assert.deepStrictEqual(s.focused, ['2', '2'], 'the light is on 2 each time: it asked for the pinned card, never for 4');
+});
+
+test('on the Graph a line the pointer reaches does not take the light from the card held either', async () => {
+  const s = await openGraph();
+  longPress(s, 2).up();
+  s.focused.length = 0;
+  s.graph.fire('mouseover', { type: 'mouseover', target: lineHit(3) });
+  assert.deepStrictEqual(s.lines, []);
+  assert.deepStrictEqual(s.focused, ['2']);
+});
+
+test('on the Graph the pointer moving from one dot to another leaves the light on the card held', async () => {
+  const s = await openGraph();
+  longPress(s, 2).up();
+  s.focused.length = 0;
+  s.graph.fire('mouseout', { type: 'mouseout', target: dot(1), relatedTarget: dot(4) });
+  assert.deepStrictEqual(s.focused, ['2']);
+  s.focused.length = 0;
+  s.graph.fire('mouseout', { type: 'mouseout', target: dot(1), relatedTarget: null });
+  assert.deepStrictEqual(s.focused, ['2'], 'and so does the pointer leaving the dots');
+});
+
+test('on the Graph, with no card held, the hover and the focus light the dot they reach as they did', async () => {
+  const s = await openGraph();
+  s.graph.fire('mouseover', { type: 'mouseover', target: dot(4) });
+  assert.deepStrictEqual(s.focused, ['4']);
+  s.graph.fire('mouseover', { type: 'mouseover', target: lineHit(3) });
+  assert.deepStrictEqual(s.lines, [3]);
+  s.focused.length = 0;
+  s.graph.fire('mouseout', { type: 'mouseout', target: dot(4), relatedTarget: dot(1) });
+  assert.deepStrictEqual(s.focused, ['1']);
+  s.focused.length = 0;
+  s.graph.fire('mouseout', { type: 'mouseout', target: dot(1), relatedTarget: null });
+  assert.deepStrictEqual(s.focused, ['rest']);
+});
+
+test('on the Graph the light goes back to the pointer when the next tap ends the card held', async () => {
+  const s = await openGraph();
+  longPress(s, 2).up();
+  s.wait(1000);
+  s.page.run('hideContextMenu()');
+  clickOn(s, outside());
+  assert.strictEqual(s.page.run('pinnedLitId'), null);
+  s.focused.length = 0;
+  s.graph.fire('mouseover', { type: 'mouseover', target: dot(4) });
+  assert.deepStrictEqual(s.focused, ['4']);
 });
 
 // --- Select lit -----------------------------------------------------------------------------------

@@ -188,6 +188,20 @@ test('a tap that never held leaves no echo, and a press that starts again ends t
   assert.strictEqual(p.rule.echoing(), false);
 });
 
+test('a finger that comes down anywhere ends the echo: what the last finger left behind is over', () => {
+  const p = press();
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  p.rule.end();
+  p.wait(300);
+  assert.strictEqual(p.rule.echoing(), true);
+  p.rule.fingerDown();
+  assert.strictEqual(p.rule.echoing(), false);
+  assert.strictEqual(p.rule.inProgress(), false, 'it starts no press');
+  p.wait(600);
+  assert.deepStrictEqual(p.log, [['hold', '12', 100, 200], ['lift', '12', 100, 200]], 'and fires no hold');
+});
+
 // --- Select lit -------------------------------------------------------------------------------
 
 test('the cards Select lit adds are the lit cards the view shows, the pressed card first', () => {
