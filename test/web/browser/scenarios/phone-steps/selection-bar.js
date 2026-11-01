@@ -16,7 +16,7 @@ const { askUp, askGone, askText, askYes, refuseNativeConfirm, nativeConfirmsSeen
 
 module.exports = {
   async run(page) {
-    const { ev, open, waitFor, check } = page;
+    const { ev, open, waitFor, check, shot } = page;
 
     const IDS = [10, 13, 17];
     const picked = `[...selectedIds].map(Number).sort((a,b)=>a-b).join()`;
@@ -44,6 +44,7 @@ module.exports = {
     for (const id of IDS) await tapOn(titleOf(id));
     check('three taps select three cards', await pickedIs(IDS), await ev(picked));
     check('the bar shows, reading 3 selected', await barReads('3 selected'), await ev(`document.getElementById('selection-bar-count').textContent`));
+    await shot('bar');
 
     const [w, h] = await ev(`[innerWidth, innerHeight]`);
     const bar = await rectOf(BAR);
@@ -89,6 +90,7 @@ module.exports = {
     await tapOn('#selection-bar-status');
     check('Status opens Set status... for the two cards', await waitFor(`!document.getElementById('bulk-status').classList.contains('hidden')&&document.getElementById('bulk-status-title').textContent==='Set status on 2 card(s)'`, 3000));
     check('it lists the board\'s four statuses, not Archive', (await ev(`[...document.querySelectorAll('#bulk-status-list button')].map((b)=>b.dataset.status).join()`)) === 'backlog,todo,doing,done');
+    await shot('status-popup');
     const choices = await ev(`[...document.querySelectorAll('#bulk-status-list button')].map((b)=>{const r=b.getBoundingClientRect();return {h:r.height,l:r.left,r:r.right,t:r.top,b:r.bottom}})`);
     check('each is 44 px tall and inside the screen', choices.every((r) => r.h >= 44 && inScreen({ l: r.l, r: r.r, t: r.t, b: r.b }, w, h)), JSON.stringify(choices));
     await tapOn('#bulk-status-list button[data-status="backlog"]');
@@ -105,6 +107,7 @@ module.exports = {
     const menu = await rectOf(MENU);
     const bar2 = await rectOf(BAR);
     check('it rises from the bar: inside the screen and above it', inScreen(menu, w, h) && menu.b <= bar2.t + 0.5, JSON.stringify({ menu, bar2 }));
+    await shot('more-menu');
     check('it is the menu of the whole selection: no Peek, no Add to selection', await ev(`document.getElementById('ctx-peek').classList.contains('hidden')&&document.getElementById('ctx-add').classList.contains('hidden')`));
     await tapOn('#ctx-edit');
     check('the Edit group opens under its row with Set status... first', await waitFor(`getComputedStyle(document.getElementById('ctx-status')).display!=='none'&&document.querySelector('#ctx-edit-panel button').id==='ctx-status'`, 3000));

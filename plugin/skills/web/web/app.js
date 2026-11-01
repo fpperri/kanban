@@ -6942,6 +6942,7 @@ function openBulkStatus() {
     list.append(btn);
   }
   $('#bulk-status').classList.remove('hidden');
+  if (list.firstElementChild) list.firstElementChild.focus(); // a key reaches the statuses without a tab
 }
 
 function applyBulkStatus(status) {
