@@ -321,3 +321,11 @@ test('the dot rule paints a path as well as a circle: filled in the status colou
   assert.match(rule[0], /stroke-linejoin: round/);
   assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/);
 });
+
+test('on the phone layout the double tap opens through the second tap\'s click, so the dblclick listener leaves it alone and a card never opens twice', () => {
+  const body = fn('wireGraphView');
+  const m = body.match(/host\.addEventListener\('dblclick', \(e\) => \{[\s\S]*?\n  \}\);/);
+  assert.ok(m, 'the dblclick listener');
+  assert.match(m[0], /if \(onPhoneLayout\(\)\) return;/);
+  assert.ok(m[0].indexOf('onPhoneLayout()') < m[0].indexOf('openCard('), 'it returns before it opens');
+});
