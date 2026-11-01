@@ -322,10 +322,13 @@ test('the dot rule paints a path as well as a circle: filled in the status colou
   assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/);
 });
 
-test('on the phone layout the double tap opens through the second tap\'s click, so the dblclick listener leaves it alone and a card never opens twice', () => {
+test('the dblclick listener asks graphDblClickOpens with the layout and the modifiers, so the width rule stays in selection.js and a card never opens twice on the phone layout', () => {
   const body = fn('wireGraphView');
   const m = body.match(/host\.addEventListener\('dblclick', \(e\) => \{[\s\S]*?\n  \}\);/);
   assert.ok(m, 'the dblclick listener');
-  assert.match(m[0], /if \(onPhoneLayout\(\)\) return;/);
-  assert.ok(m[0].indexOf('onPhoneLayout()') < m[0].indexOf('openCard('), 'it returns before it opens');
+  assert.match(m[0], /if \(!graphDblClickOpens\(\{ shiftKey: e\.shiftKey, ctrlKey: e\.ctrlKey, metaKey: e\.metaKey, phone: onPhoneLayout\(\) \}\)\) return;/);
+  assert.ok(m[0].indexOf('graphDblClickOpens(') < m[0].indexOf('openCard('), 'it returns before it opens');
+  const click = fn('graphClickNode');
+  assert.match(click, /peeks: false, phone: onPhoneLayout\(\), detail: mods\.detail/, 'the click path passes the raw count and the layout, and tests no width itself');
+  assert.doesNotMatch(click, /phone \?/);
 });

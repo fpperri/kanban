@@ -126,6 +126,79 @@ test('a third tap is a first tap again, and a second tap on another card than th
   assert.deepStrictEqual(other.selection(), { anchor: a(2), additions: [a(3)] });
 });
 
+// --- the first tap is remembered only while the selection is the one it made -------------------
+
+const emptyUntil = (s) => { for (let i = 0; i < 4 && s.selection().anchor; i++) s.page.run('stepSelectionBack()'); };
+const targetOver = (closest) => new Proxy({}, { get: (t, key) => (key === 'closest' ? closest : harmless(String(key))) });
+const buttonTarget = (id) => {
+  const el = { dataset: { id: String(id) }, closest: () => null };
+  return targetOver((sel) => (sel.split(',').some((part) => ['.card-el', 'button'].includes(part.trim())) ? el : null));
+};
+const emptySpace = () => targetOver(() => null);
+const tagCue = { classList: { contains: (c) => c === 'tag' }, textContent: 'grill' };
+
+test('a first tap whose selection the person has since cleared is forgotten: a lone second tap on that card is a first tap, and opens nothing', async () => {
+  const s = await open();
+  tap(s, cardTarget(3));
+  tap(s, cardTarget(2));
+  assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [a(2)] });
+  emptyUntil(s);
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'Esc stepped the selection down to nothing');
+  tap(s, cardTarget(2), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [], 'no first tap on this card is left to undo');
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] }, 'the tap selects the card, and the cleared selection stays cleared');
+  assert.strictEqual(s.page.input.value, '#2');
+});
+
+test('the same holds in the Graph: a dot tapped, the selection cleared, then a lone second tap on it selects it and opens nothing', async () => {
+  const s = await open({ view: 'graph' });
+  graphTap(s, 3);
+  graphTap(s, 2);
+  emptyUntil(s);
+  graphTap(s, 2, 2);
+  assert.deepStrictEqual(s.opened, []);
+  assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] });
+});
+
+test('a first tap on a card is forgotten by a tap on one of its cues, so the card\'s next tap is a first tap', async () => {
+  const s = await open();
+  tap(s, cardTarget(4));
+  assert.deepStrictEqual(s.selection(), { anchor: a(4), additions: [] });
+  tap(s, cardTarget(4, tagCue));
+  const kept = s.selection();
+  assert.deepStrictEqual(kept, { anchor: a(4), additions: [] }, 'the cue tap left the selection as it was');
+  tap(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [], 'the tap that came after a cue has no first tap to undo');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'it toggled the card out, as a first tap does');
+});
+
+test('a first tap is forgotten by a tap on empty space or on a button, though that tap leaves the selection as it was', async () => {
+  for (const [name, away] of [['empty space', emptySpace], ['a button', () => buttonTarget(3)]]) {
+    const s = await open();
+    tap(s, cardTarget(2));
+    tap(s, cardTarget(3));
+    const kept = s.selection();
+    tap(s, away(), { detail: 1 });
+    assert.deepStrictEqual(s.selection(), kept, `${name}: the tap changed nothing`);
+    tap(s, cardTarget(3), { detail: 2 });
+    assert.deepStrictEqual(s.opened, [], `${name}: the second tap has no first tap on the card to undo`);
+    assert.deepStrictEqual(s.selection(), { anchor: a(2), additions: [] }, `${name}: it toggled the card out as a first tap does`);
+  }
+});
+
+test('a peek at the desk forgets the first tap, so crossing the width line does not bring its restore back', async () => {
+  const s = await open({ prefs: { click: { board: 'selects' } }, phone: true });
+  tap(s, cardTarget(3));
+  s.media.cross(false);
+  tap(s, cardTarget(2), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [2], 'the desk\'s second click is a peek');
+  assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [] }, 'and leaves the selection as it was');
+  s.media.cross(true);
+  tap(s, cardTarget(3), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [2], 'back on the phone, the lone second tap has no first tap to undo');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'it toggled the card out, as a first tap does');
+});
+
 test('where the phone choice for a view is opens, a tap opens the card and drops the selection as a click that opens does', async () => {
   const s = await open({ view: 'map', prefs: { tap: { map: 'opens' } } });
   tap(s, cardTarget(1), { ctrlKey: true });

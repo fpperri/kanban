@@ -856,23 +856,23 @@ function graphPaintSelection() {
 // and the second tap of a double tap opens the card and puts the selection back as it was
 // before the first tap (reopenAfterDoubleTap), so the wire has no dblclick to listen for there.
 function graphClickNode(id, mods) {
-  const phone = onPhoneLayout();
-  // At the desk the dblclick event opens, so a second click is no peek: the click count is the phone's alone.
+  // At the desk the dblclick event opens, so a second click is no peek there (peeks: false).
   let action = cardClickAction({
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
-    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'), phone, detail: phone ? mods.detail : 1,
+    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'), peeks: false, phone: onPhoneLayout(), detail: mods.detail,
   });
   if (action === 'restore-open') {
     if (reopenAfterDoubleTap(id)) return;
     action = 'toggle'; // no first tap to undo: this tap is a first tap
   }
-  rememberTap(action, id);
-  const before = selectionState.selection;
+  const prior = selectionState;
+  const before = prior.selection;
   selectByClick(action, id);
   // With isolate off the box shows the selection the click made (mirrorSelectionInBox), its cut
   // kept: the Graph keeps drawing what the cut hides, so the painting in place stays true. While
   // isolated the box holds the isolate text, which a click never writes: it moves the anchor only.
   if (boxMirrorsSelection()) mirrorSelectionInBox(before, false);
+  rememberTap(action, id, prior);
   graphPaintSelection();
   renderSearchPanel();
 }
@@ -1253,8 +1253,7 @@ function wireGraphView(host) {
     graphClickNode(node.dataset.id, e);
   }, true);
   host.addEventListener('dblclick', (e) => {
-    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-    if (onPhoneLayout()) return; // the second tap's click already opened the card
+    if (!graphDblClickOpens({ shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, phone: onPhoneLayout() })) return;
     const node = e.target.closest('.graph-node');
     if (node) openCard(node.dataset.id);
   });

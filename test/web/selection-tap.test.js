@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, selectionBeforeTap, cardPart, addPart, NO_SELECTION } = require('../../plugin/skills/web/web/selection');
+const { plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, graphDblClickOpens, selectionBeforeTap, cardPart, addPart, NO_SELECTION } = require('../../plugin/skills/web/web/selection');
 
 // The phone layout's touch grammar, as pure rules: what a tap and a double tap on a card
 // decide, from the phone's own tap choices, with the layout passed in. The desk's click
@@ -81,19 +81,49 @@ test('at the desk a plain click selects and a double click peeks, with the phone
   }
 });
 
+test('a view that opens on its own dblclick event at the desk (peeks false) takes its second click for a select, and on the phone the count still decides', () => {
+  assert.strictEqual(gesture({ plainClick: 'selects', phone: false, detail: 2, peeks: false }), 'select');
+  assert.strictEqual(gesture({ plainClick: 'selects', phone: false, detail: 1, peeks: false }), 'select');
+  assert.strictEqual(gesture({ plainClick: 'selects', phone: true, detail: 2, peeks: false }), 'restore-open');
+  assert.strictEqual(gesture({ plainClick: 'selects', phone: true, detail: 1, peeks: false }), 'toggle');
+  assert.strictEqual(gesture({ plainClick: 'selects', phone: false, detail: 2 }), 'peek', 'peeks is true unless said');
+  assert.strictEqual(gesture({ plainClick: 'selects', phone: false, detail: 2, peeks: false, ctrlKey: true }), 'toggle');
+});
+
+test('the Graph\'s own dblclick opens the card at the desk with no modifier held, and never on the phone layout', () => {
+  const no = { shiftKey: false, ctrlKey: false, metaKey: false };
+  assert.strictEqual(graphDblClickOpens({ ...no, phone: false }), true);
+  assert.strictEqual(graphDblClickOpens({ ...no, phone: true }), false, 'the second tap\'s click has opened it');
+  for (const key of ['shiftKey', 'ctrlKey', 'metaKey']) {
+    for (const phone of [false, true]) assert.strictEqual(graphDblClickOpens({ ...no, [key]: true, phone }), false, `${key} ${phone}`);
+  }
+});
+
 // --- the selection a double tap goes back to ---------------------------------------------
 
 const picked = addPart(addPart(NO_SELECTION, cardPart('3')), cardPart('5'));
+const made = addPart(picked, cardPart('7'));
 
-test('the second tap on the card the first tap landed on goes back to the selection and range start from before that tap', () => {
-  const memory = { id: '7', selection: picked, rangeStart: '5' };
-  assert.deepStrictEqual(selectionBeforeTap(memory, '7'), { selection: picked, rangeStart: '5' });
-  const none = { id: '7', selection: NO_SELECTION, rangeStart: null };
-  assert.deepStrictEqual(selectionBeforeTap(none, '7'), { selection: NO_SELECTION, rangeStart: null });
+test('the second tap on the card the first tap landed on goes back to the selection and range start from before that tap, while the selection is the one that tap made', () => {
+  const memory = { id: '7', selection: picked, rangeStart: '5', after: made };
+  assert.deepStrictEqual(selectionBeforeTap(memory, '7', made), { selection: picked, rangeStart: '5' });
+  const none = { id: '7', selection: NO_SELECTION, rangeStart: null, after: made };
+  assert.deepStrictEqual(selectionBeforeTap(none, '7', made), { selection: NO_SELECTION, rangeStart: null });
 });
 
 test('a second tap on another card, or with no first tap remembered, has nothing to go back to', () => {
-  assert.strictEqual(selectionBeforeTap({ id: '7', selection: picked, rangeStart: '5' }, '8'), null);
-  assert.strictEqual(selectionBeforeTap(null, '7'), null);
-  assert.strictEqual(selectionBeforeTap(undefined, '7'), null);
+  const memory = { id: '7', selection: picked, rangeStart: '5', after: made };
+  assert.strictEqual(selectionBeforeTap(memory, '8', made), null);
+  assert.strictEqual(selectionBeforeTap(null, '7', made), null);
+  assert.strictEqual(selectionBeforeTap(undefined, '7', made), null);
+});
+
+test('a first tap whose selection has since changed is forgotten: the second tap has nothing to go back to, even where the new selection reads the same', () => {
+  const memory = { id: '7', selection: picked, rangeStart: '5', after: made };
+  assert.strictEqual(selectionBeforeTap(memory, '7', NO_SELECTION), null, 'cleared since');
+  assert.strictEqual(selectionBeforeTap(memory, '7', picked), null, 'stepped back since');
+  const sameParts = addPart(picked, cardPart('7'));
+  assert.deepStrictEqual(sameParts, made);
+  assert.notStrictEqual(sameParts, made);
+  assert.strictEqual(selectionBeforeTap(memory, '7', sameParts), null, 'a selection built again is another selection, whatever it holds');
 });

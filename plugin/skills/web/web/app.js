@@ -6382,11 +6382,19 @@ function selectByClick(action, id) {
 }
 
 // The selection and range start from before the last tap that toggled a card, kept with the card it
-// landed on: the phone's double tap puts them back (reopenAfterDoubleTap). Any other click forgets it.
+// landed on and the selection that tap made: the phone's double tap puts them back
+// (reopenAfterDoubleTap), but only while the selection is still the one that tap made. A tap on a
+// cue, a peek, and a click on empty space or on a control inside a card forget it (forgetTap); a
+// write to the selection (Esc, a pill, the box, the card menu) outdates it by itself.
 let tapBefore = null;
 
-function rememberTap(action, id) {
-  tapBefore = action === 'toggle' ? { id, selection: selectionState.selection, rangeStart: selectionState.rangeStart } : null;
+// `prior` is selectionState as it stood before the tap; call this once the tap has written its selection.
+function rememberTap(action, id, prior) {
+  tapBefore = action === 'toggle' ? { id, selection: prior.selection, rangeStart: prior.rangeStart, after: selectionState.selection } : null;
+}
+
+function forgetTap() {
+  tapBefore = null;
 }
 
 // The second tap of a double tap on the phone layout: the selection and range start go back to what
@@ -6394,7 +6402,7 @@ function rememberTap(action, id) {
 // box follows, then the card opens. False when there is no first tap on this card to undo; the
 // caller then treats the tap as a first tap.
 function reopenAfterDoubleTap(id) {
-  const back = selectionBeforeTap(tapBefore, id);
+  const back = selectionBeforeTap(tapBefore, id, selectionState.selection);
   tapBefore = null;
   if (!back) return false;
   moveSelectionTo(back);
@@ -6423,17 +6431,18 @@ function reopenAfterDoubleTap(id) {
 // the click. While isolated a click moves the anchor only: the box holds the isolate text, which
 // it never writes.
 function applyCardClick(action, id, cue) {
-  if (action === 'cue') { searchByCue(cue, id); return; }
-  if (action === 'peek') { openCard(id); return; }
+  if (action === 'cue') { forgetTap(); searchByCue(cue, id); return; }
+  if (action === 'peek') { forgetTap(); openCard(id); return; }
   if (action === 'restore-open') {
     if (reopenAfterDoubleTap(id)) return;
     action = 'toggle'; // no first tap to undo: this tap is a first tap
   }
-  rememberTap(action, id);
-  const before = selectionState.selection;
+  const prior = selectionState;
+  const before = prior.selection;
   selectByClick(action, id);
   if (action !== 'open' && boxMirrorsSelection()) mirrorSelectionInBox(before);
   else if (action !== 'open' || selectionState.selection !== before) renderBoard();
+  rememberTap(action, id, prior);
   if (action === 'open') openCard(id);
 }
 
@@ -6895,10 +6904,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // a card is not empty space, so the click-away rule (onClickAway) leaves what
   // the click built.
   document.addEventListener('click', (e) => {
-    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
+    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { forgetTap(); toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
-    if (!el) return;
-    if (e.target.closest('button, select, input, a')) return;
+    if (!el) { forgetTap(); return; }
+    if (e.target.closest('button, select, input, a')) { forgetTap(); return; }
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
     const phone = onPhoneLayout();
