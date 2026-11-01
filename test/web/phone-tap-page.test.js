@@ -23,7 +23,7 @@ const makeBoard = () => ({
   statuses: ['backlog', 'todo', 'doing', 'done'],
   priorities: ['High', 'Normal', 'Low'],
   assignees: [], tags: [], types: [], notifications: [],
-  active: [card(1, { status: 'doing', ...dated }), card(2, dated), card(3, { status: 'backlog', ...dated }), card(4, { tags: ['grill'], ...dated })],
+  active: [card(1, { status: 'doing', ...dated }), card(2, dated), card(3, { status: 'backlog', ...dated }), card(4, { tags: ['grill'], assignee: '@afk', ...dated })],
   archived: [],
 });
 
@@ -151,12 +151,15 @@ test('a browser that saved opens for every desk click gets selects on the phone,
 });
 
 test('a tap on a tag, an assignee, a blocked or a review pill still searches for it, and builds no selection', async () => {
-  const s = await open();
-  const tag = { classList: { contains: (c) => c === 'tag' }, textContent: 'grill' };
-  tap(s, cardTarget(4, tag));
-  assert.strictEqual(s.page.input.value, 'tags:grill');
-  assert.deepStrictEqual(s.opened, []);
-  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  const cues = [['tag', 'grill', 'tags:grill'], ['card-assignee', '', 'assignee:@afk'], ['blocked-pill', '', 'blocked:'], ['review-pill', '', 'review:']];
+  for (const [cls, text, term] of cues) {
+    const s = await open();
+    const cue = { classList: { contains: (c) => c === cls }, textContent: text };
+    tap(s, cardTarget(4, cue));
+    assert.strictEqual(s.page.input.value, term, cls);
+    assert.deepStrictEqual(s.opened, [], cls);
+    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, cls);
+  }
 });
 
 test('Enter on a focused card opens it where a tap selects, and adds nothing where a tap opens', async () => {

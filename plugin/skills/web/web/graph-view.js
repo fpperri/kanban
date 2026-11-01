@@ -857,9 +857,10 @@ function graphPaintSelection() {
 // before the first tap (reopenAfterDoubleTap), so the wire has no dblclick to listen for there.
 function graphClickNode(id, mods) {
   const phone = onPhoneLayout();
+  // At the desk the dblclick event opens, so a second click is no peek: the click count is the phone's alone.
   let action = cardClickAction({
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
-    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'), phone, detail: phone ? mods.detail : 1, // at the desk the dblclick event opens, and a second click is no peek
+    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'), phone, detail: phone ? mods.detail : 1,
   });
   if (action === 'restore-open') {
     if (reopenAfterDoubleTap(id)) return;

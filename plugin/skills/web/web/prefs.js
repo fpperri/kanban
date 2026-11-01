@@ -3,8 +3,8 @@
 // written to the board: what a plain click on a card does in each view (opens
 // the card, or selects it), what a tap on a card does in each view on the phone
 // layout (the same two choices, kept apart from the clicks), whether archived
-// leaves count as done in the
-// roll-ups, whether the search panel's pill section starts folded, whether its slice
+// leaves count as done in the roll-ups, whether the search panel's pill section
+// starts folded, whether its slice
 // section starts folded (it does, by default), and whether the panel opens when the
 // search box is focused (the arrow's switch and the p key flip the same choice). One
 // entry per board under the app's per-board key, validated on every read, so a
