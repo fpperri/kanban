@@ -2606,22 +2606,22 @@ test("combobox Up/Down highlight reuses the existing hover treatment, not a new 
 // dropping/inverting the gate on either of those two surfaces would pass the
 // whole suite silently.
 
-test('doArchive gates its confirm on archiveNeedsConfirm — the tile/detail Archive button surface (regression)', () => {
+test('doArchive gates its question on archiveNeedsConfirm — the tile/detail Archive button surface (regression)', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function doArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'doArchive found in app.js');
   assert.match(fn[0], /archiveNeedsConfirm\(\[card\]\)/,
     'a missing lookup falls back to confirming (the safe default) — archiveNeedsConfirm only runs when the card is found');
-  assert.match(fn[0], /if \(\(!card \|\| archiveNeedsConfirm\(\[card\]\)\) && !confirm\(/,
-    'confirm is skipped entirely when the found card is done — same rule dragPlan/bulkArchive use');
+  assert.match(fn[0], /if \(\(!card \|\| archiveNeedsConfirm\(\[card\]\)\) && !\(await askInPage\(/,
+    'the question is skipped entirely when the found card is done — same rule dragPlan/bulkArchive use');
 });
 
-test('bulkArchive gates its confirm on archiveNeedsConfirm — the bulk menu\'s Archive selected surface (regression)', () => {
+test('bulkArchive gates its question on archiveNeedsConfirm — the bulk menu\'s Archive selected surface (regression)', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function bulkArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'bulkArchive found in app.js');
-  assert.match(fn[0], /if \(archiveNeedsConfirm\(toArchive\) && !confirm\(/,
-    'the batch confirm is skipped when every card actually being archived (toArchive, not the whole selection) is already done');
+  assert.match(fn[0], /if \(archiveNeedsConfirm\(toArchive\) && !\(await askInPage\(/,
+    'the batch question is skipped when every card actually being archived (toArchive, not the whole selection) is already done');
 });
 
 // =====================================================================

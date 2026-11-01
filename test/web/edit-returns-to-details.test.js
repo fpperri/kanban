@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control } = require('./helpers/page-vm');
 const { attachSessionHistory } = require('./helpers/session-history');
+const { askElements, askDriver } = require('./helpers/ask-page');
 
 // The edit form opened from a card's details (the Edit button, or e) gives the card back when it is left:
 // Save writes it and shows the details again with what was saved, and Esc, the X and a click on the
@@ -38,9 +39,9 @@ const textEl = () => {
 
 const json = (status, body) => ({ ok: status < 400, status, headers: { get: () => 'application/json' }, text: async () => JSON.stringify(body) });
 
-async function open({ search = '?card=2', phone = false, confirms = true } = {}) {
+async function open({ search = '?card=2', phone = false } = {}) {
   const board = makeBoard();
-  const elements = {};
+  const elements = askElements();
   for (const sel of HIDDEN) elements[sel] = hidden();
   for (const f of FIELDS) { elements[`#f-${f}`] = control(); elements[`#f-${f}`].value = ''; }
   const detailBox = control();
@@ -54,8 +55,7 @@ async function open({ search = '?card=2', phone = false, confirms = true } = {})
   elements['#card-form'].requestSubmit = () => elements['#card-form'].fire('submit', { preventDefault() {} });
   const page = loadPage({ board, search, elements });
   page.ctx.matchMedia = (q) => ({ matches: phone && /max-width/.test(q), addEventListener() {} });
-  const asked = [];
-  page.ctx.confirm = (msg) => { asked.push(msg); return confirms; };
+  const ask = askDriver(page, elements);
   const session = attachSessionHistory(page, {
     detail: (id) => ({ id, title: board.active.find((c) => c.id === id).title, frontmatter: '', body: '', path: `/board/${id}.card.md`, archived: false }),
   });
@@ -78,7 +78,7 @@ async function open({ search = '?card=2', phone = false, confirms = true } = {})
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const s = {
-    page, session, elements, board, gone, writes, hold, asked, focused,
+    page, session, elements, board, gone, writes, hold, ask, focused,
     detail: () => page.run('currentDetailId'),
     detailTitle: () => elements['#detail-title'].textContent,
     formUp: () => !elements['#modal'].classList.contains('hidden'),
@@ -139,7 +139,7 @@ test('Esc in an untouched form returns to the details with no question and no wr
   assert.ok(!s.formUp());
   assert.ok(s.detailUp());
   assert.strictEqual(s.detailTitle(), '#2 Card 2');
-  assert.deepStrictEqual(s.asked, []);
+  assert.strictEqual(s.ask.open(), false, 'nothing was asked');
   assert.deepStrictEqual(s.writes, []);
   assert.strictEqual(s.session.search, '?card=2');
   assert.strictEqual(s.focused.length, 1);
@@ -158,19 +158,69 @@ test('the X and a click on the backdrop leave the form the same way', async () =
 });
 
 test('Esc in a form with unsaved changes asks first: yes returns to the details, cancel keeps the form and the details closed', async () => {
-  const yes = await open({ confirms: true });
+  const yes = await open();
   await yes.edit('Typed but not saved');
   await yes.esc();
-  assert.deepStrictEqual(yes.asked, ['Discard unsaved changes to this card?']);
+  assert.strictEqual(yes.ask.text(), 'Discard unsaved changes to this card?');
+  assert.ok(yes.formUp(), 'the form stays up behind the question');
+  await yes.ask.yes();
+  assert.strictEqual(yes.ask.open(), false);
   assert.ok(yes.detailUp() && !yes.formUp());
   assert.strictEqual(yes.detailTitle(), '#2 Card 2', 'the typing was dropped');
   assert.deepStrictEqual(yes.writes, []);
-  const no = await open({ confirms: false });
+  const no = await open();
   await no.edit('Typed but not saved');
   await no.esc();
-  assert.strictEqual(no.asked.length, 1);
+  assert.strictEqual(no.ask.open(), true);
+  await no.ask.no();
+  assert.strictEqual(no.ask.open(), false);
   assert.ok(no.formUp() && !no.detailUp(), 'cancel keeps you in the form');
   assert.strictEqual(no.session.search, '?card=2');
+});
+
+test('the X and a click on the backdrop of a form with unsaved changes ask the same question; Esc, Cancel, the close button and a click outside the ask answer no', async () => {
+  const ways = [(s) => s.elements['#modal-close'].fire('click'), (s) => s.elements['#modal'].fire('click', { target: { id: 'modal' } })];
+  const answers = [(s) => s.ask.no(), (s) => s.ask.close(), (s) => s.ask.backdrop(), (s) => s.ask.esc()];
+  for (const leave of ways) {
+    for (const answer of answers) {
+      const s = await open();
+      await s.edit('Typed but not saved');
+      leave(s);
+      await s.page.settle();
+      assert.strictEqual(s.ask.text(), 'Discard unsaved changes to this card?');
+      await answer(s);
+      assert.strictEqual(s.ask.open(), false);
+      assert.ok(s.formUp() && !s.detailUp(), 'the form is as it was');
+      assert.deepStrictEqual(s.writes, []);
+    }
+  }
+});
+
+test('a second Esc while the question is up does not ask again: it answers no, and the form stays', async () => {
+  const s = await open();
+  await s.edit('Typed but not saved');
+  await s.esc();
+  assert.strictEqual(s.ask.open(), true);
+  const second = await s.ask.esc();
+  assert.strictEqual(second.stopped, true, 'the key stops at the question, the form never sees it');
+  assert.strictEqual(s.ask.open(), false, 'one Esc, one answer: the question is gone, not doubled');
+  assert.ok(s.formUp() && !s.detailUp());
+  await s.esc();
+  assert.strictEqual(s.ask.open(), true, 'with the question gone, the next Esc asks afresh');
+  await s.ask.yes();
+  assert.ok(s.detailUp() && !s.formUp());
+});
+
+test('the question asked a second time while it is up (the guard called again) answers no and leaves the one on show', async () => {
+  const s = await open();
+  await s.edit('Typed but not saved');
+  s.page.run('requestCloseModal()');
+  s.page.run('requestCloseModal()');
+  await s.page.settle();
+  assert.strictEqual(s.ask.open(), true);
+  await s.ask.yes();
+  assert.strictEqual(s.ask.open(), false, 'one answer closes it: nothing was stacked');
+  assert.ok(s.detailUp() && !s.formUp());
 });
 
 test('a form opened any other way saves and closes to the board, and so does leaving it', async () => {
@@ -180,6 +230,7 @@ test('a form opened any other way saves and closes to the board, and so does lea
   s.elements['#f-title'].value = 'Fresh';
   s.elements['#f-status'].value = 'todo';
   await s.esc();
+  await s.ask.yes();
   assert.ok(!s.formUp() && !s.detailUp());
   s.page.run('openModal(null)');
   s.elements['#f-title'].value = 'Fresh';

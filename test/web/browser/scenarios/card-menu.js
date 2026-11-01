@@ -20,6 +20,7 @@
 // selectedIds, selectionState, state.
 
 const fs = require('fs');
+const { askUp, askText, askNo, refuseNativeConfirm, nativeConfirmsSeen } = require('../ask');
 
 module.exports = {
   name: 'card-menu',
@@ -203,14 +204,15 @@ module.exports = {
 
     // Archive and Delete name the resolved count of the selection. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
     await selectPair();
-    await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
+    await refuseNativeConfirm(page);
     await rightClickOnBoard(3);
     await press('ctx-archive');
+    const asked = (await askUp(page)) ? await askText(page) : null;
+    check('archiving a selection names the resolved count', asked === 'Archive 2 card(s)? (moves their files to archived/)', asked);
+    await askNo(page);
     await rightClickOnBoard(3);
     await press('ctx-delete');
-    const asked = await ev('window.__asked');
-    check('archiving a selection names the resolved count', asked[0] === 'Archive 2 card(s)? (moves their files to archived/)', asked);
-    check('deleting a selection names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
+    check('deleting a selection names the resolved count in the delete popup', (await nativeConfirmsSeen(page)) === 0 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
     await key('Escape');
     await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
 

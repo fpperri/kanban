@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
 const { installDelete } = require('./helpers/delete-popup');
+const { installAsk } = require('./helpers/ask-page');
 
 // The selection's plumbing in the page: one entry point every write goes
 // through, one reader every bulk action takes its target cards from, a
@@ -594,14 +595,13 @@ function fakeBox() {
 }
 
 function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
-  const calls = { api: [], confirms: [], toasts: [], loads: 0 };
+  const calls = { api: [], toasts: [], loads: 0 };
   const boxes = new Map();
   const $ = (sel) => { if (!boxes.has(sel)) boxes.set(sel, fakeBox()); return boxes.get(sel); };
   const sandbox = {
     $, boxes, calls,
     state: { active: BULK_CARDS.filter((c) => !c.archived).map((c) => ({ ...c })), archived: BULK_CARDS.filter((c) => c.archived).map((c) => ({ ...c })) },
     api: async (method, url, body) => { calls.api.push(JSON.parse(JSON.stringify([method, url, body === undefined ? null : body]))); return {}; },
-    confirm: (message) => { calls.confirms.push(message); return true; },
     toast: (message) => { calls.toasts.push(message); },
     loadBoard: async () => { calls.loads++; },
     hideContextMenu() {}, applyModalFullscreen() {}, renderBoard() {},
@@ -610,6 +610,7 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
   };
   vm.createContext(sandbox);
   installDelete(sandbox, calls);
+  installAsk(sandbox, calls);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   vm.runInContext([
@@ -690,7 +691,7 @@ test('schedule: the popup applies to the cards it captured when it opened', asyn
 test('archive: the confirmation names the count, and the popup archives the cards it captured when the action started', async () => {
   const s = bulkSandbox({ selected: [1, 2, 4] });
   await s.run('bulkArchive()');
-  assert.deepStrictEqual(s.calls.confirms, ['Archive 2 card(s)? (moves their files to archived/)']);
+  assert.deepStrictEqual(s.calls.asks, ['Archive 2 card(s)? (moves their files to archived/)']);
   assert.match(s.boxes.get('#bulk-archive-title').textContent, /Archive 2 card/);
   s.select(3);
   await s.run('applyBulkArchive()');
@@ -710,7 +711,7 @@ test('delete: one popup asks for the whole selection, and the cards it names are
   await s.run('bulkDelete()');
   await s.calls.pending;
   assert.deepStrictEqual(s.calls.deletes, [{ kind: 'card', targets: ['3', '1'] }]);
-  assert.deepStrictEqual(s.calls.confirms, []);
+  assert.deepStrictEqual(s.calls.asks, []);
   assert.deepStrictEqual(s.calls.api.map(([m, url]) => [m, url]), [['DELETE', '/api/cards/3'], ['DELETE', '/api/cards/1']]);
   assert.strictEqual(s.run('selectedIds.size'), 0);
 });

@@ -22,6 +22,10 @@
 // note's target. Removing n1 from the tray asks first, naming the 2 more queued changes that name it, and
 // takes all three out of the page.
 //
+// Archive from a card's details asks in the page, not through confirm(), which a sandboxed host answers with no (the page here
+// replaces window.confirm with a no): a no archives nothing and queues nothing, and a yes archives a card that is not done and
+// queues one change, POST /api/cards/7/archive.
+//
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): askBeforeLeaving, state, todosUi.
 
 const fs = require('fs');
@@ -32,6 +36,7 @@ const { buildPage } = require('../../../../plugin/skills/web/scripts/artifact-bu
 const { makeRoute } = require('../../../../plugin/skills/web/scripts/route');
 const { applyTray, parseTray } = require('../../../../plugin/skills/web/scripts/apply-tray');
 const { VIEWS } = require('./smoke');
+const { askUp, askGone, askText, askYes, askNo, refuseNativeConfirm, nativeConfirmsSeen } = require('../ask');
 
 const fileUrl = (p) => `file:///${p.replace(/\\/g, '/')}`;
 const NAME = `document.getElementById('project-name').textContent`;
@@ -248,6 +253,26 @@ module.exports = {
       check('accepting takes n1, its child and its note out of the page', await waitFor(`!document.querySelector('${TILE('n1')}')&&!document.querySelector('${TILE('n2')}')&&!state.logbook.notes.some((n)=>n.target==='n1')`, 6000));
       check('and the queue is empty', await waitFor(`${PILL}===''`, 6000), await ev(PILL));
       check('the details have closed', await ev(`document.getElementById('detail-modal').classList.contains('hidden')`));
+
+      // a speedbump asks in the page, where a sandboxed host's confirm() says no: Archive from a card's details asks, a no changes
+      // nothing, and a yes archives a card that is not done and queues exactly that one change
+      await ev('localStorage.clear()');
+      await load('fixture');
+      await refuseNativeConfirm(page);
+      await ev(`document.querySelector('#board .card-el[data-id="7"]').click()`);
+      check('the details of card 7 open', await waitFor(`!document.getElementById('detail-modal').classList.contains('hidden')&&document.getElementById('detail-archive-btn')&&!document.getElementById('detail-archive-btn').classList.contains('hidden')`, 4000));
+      await ev(`document.getElementById('detail-archive-btn').click()`);
+      const archiveAsked = (await askUp(page)) ? await askText(page) : null;
+      check('Archive asks in the page, naming the card', archiveAsked === 'Archive #7 "Port the zephyr schema"? (moves the file to archived/)', archiveAsked);
+      await askNo(page);
+      check('a no archives nothing and queues nothing', await askGone(page) && (await ev(PILL)) === '' && (await ev(column('7', 'todo'))) && (await ev(`window.kanbanSourceInUse.records().length`)) === 0);
+      await ev(`document.getElementById('detail-archive-btn').click()`);
+      await askUp(page);
+      await askYes(page);
+      check('a yes archives the card: it leaves the board and the details close', await waitFor(`!document.querySelector('#board .card-el[data-id="7"]')&&state.archived.some((c)=>c.id==='7')&&document.getElementById('detail-modal').classList.contains('hidden')`, 6000));
+      check('and the header reads 1 queued', await waitFor(`${PILL}==='1 queued'`, 6000), await ev(PILL));
+      check('the tray holds the one archive change', (await ev(`JSON.stringify(window.kanbanSourceInUse.records().map((r)=>[r.change.method,r.change.path]))`)) === JSON.stringify([['POST', '/api/cards/7/archive']]), await ev(`JSON.stringify(window.kanbanSourceInUse.records().map((r)=>[r.change.method,r.change.path]))`));
+      check('no native confirm() was raised', (await nativeConfirmsSeen(page)) === 0, await nativeConfirmsSeen(page));
 
       // the cue and the leaving guard: Refresh wears the Base, and a queue that was not copied asks before leaving
       const ASKS = `(()=>{const e={defaultPrevented:false,returnValue:'',preventDefault(){this.defaultPrevented=true}};askBeforeLeaving(e);return e.defaultPrevented})()`;

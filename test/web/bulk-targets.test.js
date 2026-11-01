@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
 const { parseSearchQuery, filterCards } = require('../../plugin/skills/web/web/search');
 const { installDelete } = require('./helpers/delete-popup');
+const { installAsk } = require('./helpers/ask-page');
 
 // A bulk action takes its list of target cards once, when it starts, from the
 // resolved selection. Writes, re-renders and polls during the action never
@@ -53,7 +54,7 @@ const CARDS = [
 // after the server applied a write and before the page is told, to move the board
 // under the action the way a poll would.
 function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
-  const calls = { api: [], confirms: [], toasts: [], polls: 0 };
+  const calls = { api: [], toasts: [], polls: 0 };
   const { searchMatchIds, selectionMatchIds, ...pageless } = selectionGlobals(); // the page's own matchers run here, over the real search module
   const boxes = new Map();
   const $ = (sel) => { if (!boxes.has(sel)) boxes.set(sel, fakeBox()); return boxes.get(sel); };
@@ -63,7 +64,6 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
     state: { projectName: 'board', active: live.filter((c) => !c.archived), archived: live.filter((c) => c.archived) },
     nestingCtx: () => ({}), loadViewMode: () => 'board',
     parseSearchQuery, filterCards,
-    confirm: (message) => { calls.confirms.push(message); return true; },
     toast: (message) => { calls.toasts.push(message); },
     hideContextMenu() {}, applyModalFullscreen() {}, renderBoard() {},
     document: { querySelector: () => ({}), querySelectorAll: () => [], createElement: fakeBox },
@@ -93,6 +93,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   sandbox.loadBoard = async () => { poll(); };
   vm.createContext(sandbox);
   installDelete(sandbox, calls);
+  installAsk(sandbox, calls);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   run([
@@ -182,7 +183,7 @@ test('schedule: the targets are the cards the query matched when the popup opene
 test('archive on a selection holding a query part confirms the count taken at the start and archives exactly those cards', async () => {
   const s = bulkSandbox({ query: 'assignee:@afk' });
   await s.run('bulkArchive()');
-  assert.deepStrictEqual(s.calls.confirms, ['Archive 3 card(s)? (moves their files to archived/)'], 'the three live cards; card 5 is archived already');
+  assert.deepStrictEqual(s.calls.asks, ['Archive 3 card(s)? (moves their files to archived/)'], 'the three live cards; card 5 is archived already');
   assert.match(s.boxes.get('#bulk-archive-title').textContent, /Archive 3 card/);
   s.find(4).assignee = '@afk';
   s.find(2).assignee = '@human';
@@ -216,7 +217,7 @@ test('delete on a selection holding a query part asks once for the count taken a
   await s.run('bulkDelete()');
   await s.calls.pending;
   assert.deepStrictEqual(s.calls.deletes, [{ kind: 'card', targets: ['1', '2', '3', '5'] }], 'one popup for the whole selection');
-  assert.deepStrictEqual(s.calls.confirms, []);
+  assert.deepStrictEqual(s.calls.asks, []);
   assert.deepStrictEqual(s.deleted(), [1, 2, 3, 5]);
   assert.match(s.calls.toasts[0], /Deleted 4 card/);
 });
