@@ -102,7 +102,7 @@ function wireBoardSwipe(board) {
     const from = start;
     start = null;
     const t = e.changedTouches && e.changedTouches[0];
-    if (!from || !t || isDragging || !onPhoneLayout()) return;
+    if (!from || !t || isDragging || cardPress.dragging() || !onPhoneLayout()) return; // a hold and drag that selected tiles is no swipe
     const direction = swipeDirection(t.clientX - from.x, t.clientY - from.y, e.timeStamp - from.at);
     if (!direction) return;
     const statuses = boardStatuses();
@@ -6392,37 +6392,48 @@ function onDetailContextMenu(e) {
 // answer the same finger twice: the browser's own contextmenu (Android fires one during the hold, iOS
 // none) and the click the lifted finger makes are held back while a press is on and for 800 ms after
 // it. The touch moves and ends are heard on the card the finger went down on, not on the document: a
-// repaint that replaces the card does not take the end of the touch away. The Board's swipe, the
-// Calendar's, the Gantt's and the Map's pointer drags and the Graph's pan hear the same finger and
-// are left alone, so a finger that moves after the hold does what it did before.
+// repaint that replaces the card does not take the end of the touch away. The Calendar's, the Gantt's
+// and the Map's pointer drags and the Graph's pan hear the same finger and are left alone, so a finger
+// that moves after the hold does what it did before. On the Board a finger that moves after the hold
+// selects the tiles it passes over (holdDragMove), and the Board's swipe is told that touch was no swipe.
 const cardPress = createCardPress({
   now: () => performance.now(),
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t),
   onHold: (id) => { forgetTap(); setPinnedLight(id); }, // a press between two taps: the first of a pair is gone
   onLift: (id, x, y) => openCardMenuByPress(id, x, y),
+  onDrag: (id, x, y) => { if (pressOnBoard) holdDragMove(id, x, y); },
 });
 
 let releaseCardPress = null;
+let pressOnBoard = false; // the card the finger went down on is a Board tile
 
 function onCardPressStart(e) {
   cardPress.fingerDown(); // the lifted finger's echo is over, so a tap on the menu that just opened is a tap
   if (releaseCardPress) releaseCardPress();
+  endHoldDrag(); // a drag whose end the page never heard, or the first finger of a pinch
   const target = e.target;
   const el = onPhoneLayout() && e.touches.length === 1 && target.closest ? target.closest('.card-el') : null;
   if (!el || target.closest('button, select, input, a')) { cardPress.cancel(); return; }
   const touch = e.touches[0];
+  const onBoard = !!el.closest('#board');
+  pressOnBoard = onBoard;
   const move = (ev) => {
     const t = ev.touches[0];
-    if (t) cardPress.move(t.clientX, t.clientY);
+    if (!t) return;
+    cardPress.move(t.clientX, t.clientY);
+    if (onBoard && cardPress.holding() && ev.cancelable) ev.preventDefault(); // from the hold on this touch is the page's, not the list's to scroll
   };
   const end = (ev) => {
     releaseCardPress();
-    if (cardPress.end() === 'lift' && ev.cancelable) ev.preventDefault(); // no click follows the lift
+    const result = cardPress.end();
+    endHoldDrag();
+    if ((result === 'lift' || (result === 'dragged' && onBoard)) && ev.cancelable) ev.preventDefault(); // no click follows the lift
   };
   const cancel = () => {
     releaseCardPress();
     cardPress.cancel();
+    endHoldDrag();
   };
   releaseCardPress = () => {
     target.removeEventListener('touchmove', move);
@@ -6430,10 +6441,47 @@ function onCardPressStart(e) {
     target.removeEventListener('touchcancel', cancel);
     releaseCardPress = null;
   };
-  target.addEventListener('touchmove', move, { passive: true });
+  target.addEventListener('touchmove', move, { passive: !onBoard }); // only a Board tile's touch can be cancelled, and only after the hold
   target.addEventListener('touchend', end);
   target.addEventListener('touchcancel', cancel);
   cardPress.start(touch.clientX, touch.clientY, el.dataset.id);
+}
+
+// Hold and drag on the Board: after the hold, the tiles the finger passes over join the selection, the
+// tile held first. Each is painted in place as the finger reaches it, because a render replaces the
+// tiles and the touch is aimed at the one it began on; the board is drawn once, at the lift (or when the
+// browser takes the touch). `before` is the selection the drag began from and `passed` the cards the
+// finger has reached, in order. isDragging keeps the poll from drawing the board in the meantime.
+let holdDrag = null;
+
+function holdDragMove(heldId, x, y) {
+  if (!onPhoneLayout()) return; // the window crossed the width line in the middle of the drag
+  if (!holdDrag) {
+    holdDrag = { before: selectionState.selection, passed: [] };
+    isDragging = true;
+    holdDragPass(heldId);
+  }
+  const hit = document.elementFromPoint(x, y);
+  const tile = hit && hit.closest ? hit.closest('.card-el') : null;
+  if (tile && tile.closest('#board')) holdDragPass(tile.dataset.id);
+}
+
+function holdDragPass(id) {
+  if (holdDrag.passed.includes(id)) return;
+  holdDrag.passed.push(id);
+  setSelection(selectionWithCards(holdDrag.before, holdDrag.passed));
+  const on = paintsSelected(id);
+  document.querySelectorAll('.card-el').forEach((el) => { if (el.dataset.id === id) el.classList.toggle('selected', on); });
+}
+
+function endHoldDrag() {
+  if (!holdDrag) return;
+  const before = holdDrag.before;
+  holdDrag = null;
+  isDragging = false;
+  if (selectionState.selection === before) return; // the tiles it passed were all picked already, and are painted
+  if (boxMirrorsSelection()) mirrorSelectionInBox(before);
+  else renderBoard();
 }
 
 // The menu of the card held, at the point the finger went down on: for the card alone or, when it is

@@ -32,7 +32,13 @@ async function open({ phone = true, view = 'board' } = {}) {
   const closed = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
   const stored = { 'kanban.kanban.view.mode': view };
   const graph = control();
-  const page = loadPage({ board: makeBoard(), stored, elements: { '#graph-view': graph, '#context-menu': menu, '#ctx-lit': lit, ...Object.fromEntries(closed.map((sel) => [sel, hidden()])) } });
+  const boardEl = control();
+  const fake = { tiles: [] };
+  const documentExtras = {
+    elementFromPoint: (x, y) => { const hit = fake.tiles.find((t) => y >= t.top && y < t.top + 90); return hit ? hit.target : null; },
+    querySelectorAll: (sel) => (sel === '.card-el' ? fake.tiles.map((t) => t.el) : harmless('all')),
+  };
+  const page = loadPage({ board: makeBoard(), stored, documentExtras, elements: { '#board': boardEl, '#graph-view': graph, '#context-menu': menu, '#ctx-lit': lit, ...Object.fromEntries(closed.map((sel) => [sel, hidden()])) } });
   const crossings = [];
   page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && phone; }, addEventListener: (type, fn) => crossings.push(fn) });
   await page.start();
@@ -43,7 +49,7 @@ async function open({ phone = true, view = 'board' } = {}) {
   const opened = [];
   page.ctx.openCard = (id) => { opened.push(String(id)); };
   const s = {
-    page, menu, lit, graph, opened, clock,
+    page, menu, lit, graph, boardEl, fake, opened, clock,
     cross(to) { phone = to; crossings.forEach((fn) => fn({})); },
     wait(ms) {
       clock.at += ms;
@@ -60,13 +66,14 @@ async function open({ phone = true, view = 'board' } = {}) {
 
 // What a finger lands on: the card's tile, with the listeners the page binds to it for the length of the
 // touch. `fire` calls them as the browser does, an event at a time.
-function tile(id) {
-  const el = { dataset: { id: String(id) } };
+function tile(id, { el = { dataset: { id: String(id) }, closest: () => null } } = {}) {
   const listeners = {};
+  const passive = {};
   const target = new Proxy({}, {
     get: (t, key) => {
       if (key === 'closest') return (sel) => (sel.split(',').some((p) => p.trim() === '.card-el') ? el : null);
-      if (key === 'addEventListener') return (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); };
+      if (key === 'addEventListener') return (type, fn, options) => { (listeners[type] = listeners[type] || []).push(fn); passive[type] = !!(options && options.passive); };
+      if (key === 'passiveOf') return (type) => passive[type];
       if (key === 'removeEventListener') return (type, fn) => { listeners[type] = (listeners[type] || []).filter((f) => f !== fn); };
       if (key === 'fire') return (type, event = {}) => { const e = { cancelable: true, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, ...event }; (listeners[type] || []).slice().forEach((fn) => fn(e)); return e; };
       if (key === 'listening') return (type) => (listeners[type] || []).length;
@@ -628,4 +635,240 @@ test('hover does what it did: the pointer lights a card and moves off it', async
   assert.deepStrictEqual(s.litIds(), ['1', '2', '3']);
   s.page.fireDocument('mouseout', { target: cardTarget(2), relatedTarget: null });
   assert.strictEqual(s.litIds(), null);
+});
+
+// --- hold and drag on the Board -----------------------------------------------------------------------
+
+// The Board drawn as a column of tiles under the finger: tile i (from 0) spans y 100 * i to 100 * i + 90, at
+// every x. Each tile is the one element the page asks about, whether the finger went down on it or
+// document.elementFromPoint finds it, and carries a class list the page paints in place. `board` false
+// draws the tiles of another view (a Calendar chip), outside #board.
+function drawBoard(s, ids, { board = true } = {}) {
+  s.fake.tiles = ids.map((id, i) => {
+    const names = new Set();
+    const el = {
+      dataset: { id: String(id) },
+      classList: { add: (c) => names.add(c), remove: (c) => names.delete(c), contains: (c) => names.has(c), toggle: (c, on) => { if (on === undefined ? !names.has(c) : on) names.add(c); else names.delete(c); } },
+      closest: (sel) => (sel === '#board' && board ? {} : null),
+    };
+    return { id: String(id), top: 100 * i, el, target: tile(id, { el }) };
+  });
+  const find = (id) => s.fake.tiles.find((t) => t.id === String(id));
+  return {
+    target: (id) => find(id).target,
+    y: (id) => find(id).top + 40,
+    painted: (id) => find(id).el.classList.contains('selected'),
+  };
+}
+
+// The page's renders counted from here on.
+function countRenders(s) {
+  s.renders = 0;
+  const real = s.page.ctx.renderBoard;
+  s.page.ctx.renderBoard = (...a) => { s.renders++; return real(...a); };
+}
+
+// A finger down on a tile, held past the hold: the board drawn, the page's renders counted.
+async function holdOn(id, { ids = [1, 2, 3, 4], board = true } = {}) {
+  const s = await open();
+  const b = drawBoard(s, ids, { board });
+  countRenders(s);
+  const target = b.target(id);
+  down(s, target, 50, b.y(id));
+  s.wait(600);
+  return { s, b, target, to: (over) => moveTo(target, 50, b.y(over)) };
+}
+
+test('after the hold, a finger that moves over the Board\'s tiles selects every tile it passes over, the tile held first', async () => {
+  const { s, to } = await holdOn(1);
+  to(2);
+  to(3);
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), a(3)] }, 'in the order the finger passed them');
+});
+
+test('a finger that moves a little over the tile it holds selects that tile alone', async () => {
+  const { s, target } = await holdOn(2);
+  moveTo(target, 50, 125);
+  assert.deepStrictEqual(s.picked(), ['2']);
+});
+
+test('the tiles are painted selected as the finger passes, in place: no render until the finger lifts, and one then', async () => {
+  const { s, b, target, to } = await holdOn(1);
+  assert.deepStrictEqual([1, 2, 3].map(b.painted), [false, false, false], 'the hold paints nothing');
+  to(2);
+  assert.deepStrictEqual([1, 2, 3].map(b.painted), [true, true, false]);
+  to(3);
+  assert.deepStrictEqual([1, 2, 3, 4].map(b.painted), [true, true, true, false]);
+  assert.strictEqual(s.renders, 0, 'nothing was drawn again while the finger moved');
+  lift(target);
+  assert.strictEqual(s.renders, 1, 'the lift draws the board once');
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+});
+
+test('the lift writes the cards into the search box, once, as a tap on them would: the box says what is picked', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(2);
+  to(3);
+  assert.strictEqual(s.page.input.value, '', 'the box waits for the lift');
+  lift(target);
+  assert.strictEqual(s.page.input.value, '#1 | #2 | #3');
+});
+
+test('lifting ends it: no menu opens, the tiles stay selected, and the touch is cancelled so the browser makes no click', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(2);
+  const end = lift(target);
+  assert.strictEqual(s.menuOpen(), false);
+  assert.deepStrictEqual(s.picked(), ['1', '2']);
+  assert.strictEqual(end.defaultPrevented, true);
+  clickOn(s, target);
+  assert.deepStrictEqual(s.picked(), ['1', '2'], 'a click the browser still makes under the lifted finger selects nothing');
+  assert.deepStrictEqual(s.opened, []);
+});
+
+test('the list does not scroll during that touch: every move from the hold on is cancelled, the small ones too', async () => {
+  const { target, b } = await holdOn(1);
+  assert.strictEqual(target.passiveOf('touchmove'), false, 'a passive listener could not stop the scroll');
+  const small = moveTo(target, 50, b.y(1) + 3);
+  const big = moveTo(target, 50, b.y(3));
+  assert.deepStrictEqual([small.defaultPrevented, big.defaultPrevented], [true, true]);
+  const late = target.fire('touchmove', { touches: [touchAt(50, b.y(4))], cancelable: false });
+  assert.strictEqual(late.defaultPrevented, false, 'a move the browser no longer lets the page cancel is left alone');
+});
+
+test('a touch without a hold scrolls as it did: nothing is cancelled, nothing is selected', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  const target = b.target(1);
+  down(s, target, 50, b.y(1));
+  s.wait(200);
+  const before = moveTo(target, 50, b.y(1) + 4);
+  const scroll = moveTo(target, 50, b.y(3));
+  s.wait(1000);
+  const more = moveTo(target, 50, b.y(4));
+  assert.deepStrictEqual([before, scroll, more].map((e) => e.defaultPrevented), [false, false, false]);
+  const end = lift(target);
+  assert.strictEqual(end.defaultPrevented, false);
+  assert.deepStrictEqual(s.picked(), []);
+});
+
+test('a hold that lifts in place still opens the menu on the Board, a wobble inside the slop included', async () => {
+  const { s, target, b } = await holdOn(2);
+  moveTo(target, 50, b.y(2) + 4);
+  lift(target);
+  assert.strictEqual(s.menuOpen(), true);
+  assert.deepStrictEqual(s.picked(), []);
+});
+
+test('a tile the finger passes again is not added twice, and one the selection already holds stays where it was', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  clickOn(s, b.target(3));
+  s.wait(1000);
+  down(s, b.target(1), 50, b.y(1));
+  s.wait(600);
+  for (const id of [2, 3, 2, 1, 4]) moveTo(b.target(1), 50, b.y(id));
+  lift(b.target(1));
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3', '4']);
+  assert.deepStrictEqual(s.selection(), { anchor: a(3), additions: [a(1), a(2), a(4)] }, 'the card tapped before is the anchor, the rest follow in the order passed');
+});
+
+test('a finger over no tile adds nothing: the gap between tiles, and the page beyond the Board', async () => {
+  const { s, target } = await holdOn(1);
+  moveTo(target, 50, 95);
+  moveTo(target, 50, 5000);
+  assert.deepStrictEqual(s.picked(), ['1']);
+});
+
+test('only the Board\'s tiles select by hold and drag: a hold on a tile of another view, and a drag over it, selects nothing and cancels nothing', async () => {
+  const { s, target, b } = await holdOn(1, { board: false });
+  assert.strictEqual(target.passiveOf('touchmove'), true, 'the Calendar\'s and the Gantt\'s own drags are left to their handlers');
+  const move = moveTo(target, 50, b.y(3));
+  assert.strictEqual(move.defaultPrevented, false);
+  const end = lift(target);
+  assert.deepStrictEqual(s.picked(), []);
+  assert.strictEqual(s.menuOpen(), false);
+  assert.strictEqual(end.defaultPrevented, false);
+  assert.strictEqual(s.renders, 0);
+});
+
+test('while the finger drags the poll keeps away from the board, and after the lift it does not', async () => {
+  const { s, target, to } = await holdOn(1);
+  assert.strictEqual(s.page.run('isDragging'), false, 'a hold is no drag');
+  to(2);
+  assert.strictEqual(s.page.run('isDragging'), true);
+  lift(target);
+  assert.strictEqual(s.page.run('isDragging'), false);
+});
+
+test('the Board\'s swipe does not read the lift of a hold and drag as a swipe to the next status', async () => {
+  const { s, target, b } = await holdOn(1);
+  const swiped = [];
+  const real = s.page.ctx.setPhoneColumn;
+  s.page.ctx.setPhoneColumn = (col) => { swiped.push(col); return real(col); };
+  s.boardEl.fire('touchstart', { touches: [touchAt(450, b.y(1))], changedTouches: [touchAt(450, b.y(1))], timeStamp: 1000 });
+  moveTo(target, 150, b.y(2));
+  moveTo(target, 50, b.y(3));
+  lift(target);
+  s.boardEl.fire('touchend', { changedTouches: [touchAt(50, b.y(3))], timeStamp: 1600 });
+  assert.deepStrictEqual(swiped, []);
+});
+
+test('the Board\'s swipe still reads a touch that held no drag: a quick sideways swipe changes the status', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  const swiped = [];
+  const real = s.page.ctx.setPhoneColumn;
+  s.page.ctx.setPhoneColumn = (col) => { swiped.push(col); return real(col); };
+  const target = b.target(1);
+  down(s, target, 300, b.y(1));
+  s.boardEl.fire('touchstart', { touches: [touchAt(300, b.y(1))], changedTouches: [touchAt(300, b.y(1))], timeStamp: 1000 });
+  s.wait(100);
+  lift(target);
+  s.boardEl.fire('touchend', { changedTouches: [touchAt(100, b.y(1))], timeStamp: 1150 });
+  assert.strictEqual(swiped.length, 1);
+});
+
+test('the browser taking the touch ends the drag: what the finger had passed stays selected, drawn once', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(2);
+  target.fire('touchcancel', {});
+  assert.deepStrictEqual(s.picked(), ['1', '2']);
+  assert.strictEqual(s.renders, 1);
+  assert.strictEqual(s.page.run('isDragging'), false);
+  assert.strictEqual(s.menuOpen(), false);
+});
+
+test('a second finger ends the drag the same way', async () => {
+  const { s, b, to } = await holdOn(1);
+  to(2);
+  down(s, b.target(3), 200, b.y(3), { touches: [touchAt(50, b.y(2)), touchAt(200, b.y(3))] });
+  assert.deepStrictEqual(s.picked(), ['1', '2']);
+  assert.strictEqual(s.renders, 1);
+  assert.strictEqual(s.page.run('isDragging'), false);
+});
+
+test('a window that crosses the width line in the middle of the drag selects no more', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(2);
+  s.cross(false);
+  to(3);
+  lift(target);
+  assert.deepStrictEqual(s.picked(), ['1', '2']);
+  assert.strictEqual(s.page.run('isDragging'), false);
+});
+
+test('a hold and drag leaves the light on the card held, and a second one adds to the first', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(2);
+  lift(target);
+  assert.strictEqual(s.page.run('pinnedLitId'), '1');
+  s.wait(1000);
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  down(s, b.target(4), 50, b.y(4));
+  s.wait(600);
+  moveTo(b.target(4), 50, b.y(3));
+  lift(b.target(4));
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3', '4']);
 });
