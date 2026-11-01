@@ -59,7 +59,8 @@ const LONG_PRESS_HOLD_MS = 700;
 const holdDown = (page, x, y) => touchEvent(page, 'touchStart', [{ x, y }]);
 const moveHeld = (page, x, y) => touchEvent(page, 'touchMove', [{ x, y }]);
 const liftUp = (page) => touchEvent(page, 'touchEnd', []);
-const holdFor = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Time that passes in the real world whatever the page's speed: a wait for the page's own timers, which a throttled page does not stretch.
+const realWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // A long press: the finger goes down, stays until the page shows it has noticed (an expression the page
 // answers true to, waited for with page.waitFor, so it does not depend on the machine's speed) or, with no
@@ -67,14 +68,14 @@ const holdFor = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function longPress(page, x, y, { until = null } = {}) {
   await holdDown(page, x, y);
   if (until) await page.waitFor(until, 4000);
-  else await holdFor(LONG_PRESS_HOLD_MS);
+  else await realWait(LONG_PRESS_HOLD_MS);
   await liftUp(page);
 }
 
 // Waits out the page's echo of a long press (800 ms after the finger lifts), in real time like the
 // double-tap window: a tap before it is the echo's, not a person's.
 const PRESS_ECHO_WAIT_MS = 1200;
-const outwaitPressEcho = () => holdFor(PRESS_ECHO_WAIT_MS);
+const outwaitPressEcho = () => realWait(PRESS_ECHO_WAIT_MS);
 
 async function swipe(page, from, to, { steps = 8 } = {}) {
   await touchEvent(page, 'touchStart', [from]);
@@ -101,4 +102,4 @@ async function refreshNow(page) {
   return page.waitFor(`window.__applied>${before}`, 5000);
 }
 
-module.exports = { runSteps, freshStart, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, outwaitPressEcho, PRESS_ECHO_WAIT_MS, swipe, pinch, refreshNow };
+module.exports = { runSteps, freshStart, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, LONG_PRESS_HOLD_MS, outwaitPressEcho, PRESS_ECHO_WAIT_MS, swipe, pinch, refreshNow };

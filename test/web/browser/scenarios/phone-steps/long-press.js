@@ -10,9 +10,7 @@
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): ganttDayPxLive, isDragging,
 // menuSubject, pinnedLitId, selectedIds, showContextMenu, state.
 
-const { tap, swipe, holdDown, moveHeld, liftUp, longPress, outwaitPressEcho, outwaitDoubleTap } = require('../../steps');
-
-const realWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const { tap, swipe, holdDown, moveHeld, liftUp, realWait, longPress, outwaitPressEcho, outwaitDoubleTap } = require('../../steps');
 
 module.exports = {
   async run(page) {

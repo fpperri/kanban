@@ -8,9 +8,7 @@
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): pinnedLitId,
 // selectedIds, showContextMenu.
 
-const { longPress, holdDown, liftUp } = require('../../steps');
-
-const realWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const { longPress, holdDown, liftUp, realWait } = require('../../steps');
 
 module.exports = {
   async run(page) {
