@@ -6407,6 +6407,7 @@ const cardPress = createCardPress({
 
 let releaseCardPress = null;
 let pressOnBoard = false; // the card the finger went down on is a Board tile
+let pressAt = null; // where it went down
 
 function onCardPressStart(e) {
   cardPress.fingerDown(); // the lifted finger's echo is over, so a tap on the menu that just opened is a tap
@@ -6418,6 +6419,7 @@ function onCardPressStart(e) {
   const touch = e.touches[0];
   const onBoard = !!el.closest('#board');
   pressOnBoard = onBoard;
+  pressAt = { x: touch.clientX, y: touch.clientY };
   const move = (ev) => {
     const t = ev.touches[0];
     if (!t) return;
@@ -6450,20 +6452,25 @@ function onCardPressStart(e) {
 // Hold and drag on the Board: after the hold, the tiles the finger passes over join the selection, the
 // tile held first. Each is painted in place as the finger reaches it, because a render replaces the
 // tiles and the touch is aimed at the one it began on; the board is drawn once, at the lift (or when the
-// browser takes the touch). `before` is the selection the drag began from and `passed` the cards the
-// finger has reached, in order. isDragging keeps the poll from drawing the board in the meantime.
+// browser takes the touch). `before` is the selection the drag began from, `passed` the cards the
+// finger has reached, in order, and `at` the last point it was seen at. A touch is sampled once a frame,
+// so each move is looked at along its length (pointsAlong): a quick drag selects the tiles it jumped over.
+// isDragging keeps the poll from drawing the board in the meantime.
 let holdDrag = null;
 
 function holdDragMove(heldId, x, y) {
   if (!onPhoneLayout()) return; // the window crossed the width line in the middle of the drag
   if (!holdDrag) {
-    holdDrag = { before: selectionState.selection, passed: [] };
+    holdDrag = { before: selectionState.selection, passed: [], at: pressAt };
     isDragging = true;
     holdDragPass(heldId);
   }
-  const hit = document.elementFromPoint(x, y);
-  const tile = hit && hit.closest ? hit.closest('.card-el') : null;
-  if (tile && tile.closest('#board')) holdDragPass(tile.dataset.id);
+  for (const point of pointsAlong(holdDrag.at, { x, y }, CARD_DRAG_STEP_PX)) {
+    const hit = document.elementFromPoint(point.x, point.y);
+    const tile = hit && hit.closest ? hit.closest('.card-el') : null;
+    if (tile && tile.closest('#board')) holdDragPass(tile.dataset.id);
+  }
+  holdDrag.at = { x, y };
 }
 
 function holdDragPass(id) {

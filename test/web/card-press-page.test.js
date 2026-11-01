@@ -687,6 +687,24 @@ test('after the hold, a finger that moves over the Board\'s tiles selects every 
   assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), a(3)] }, 'in the order the finger passed them');
 });
 
+test('a quick drag that jumps over tiles between two touch samples still selects them: every tile on the way counts', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(4);
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3', '4']);
+  assert.deepStrictEqual(s.selection(), { anchor: a(1), additions: [a(2), a(3), a(4)] }, 'in the order the finger crossed them');
+  lift(target);
+});
+
+test('the first move after the hold counts from the point the finger was held at', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  const target = b.target(1);
+  down(s, target, 50, b.y(1));
+  s.wait(600);
+  moveTo(target, 50, b.y(3) + 2);
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+});
+
 test('a finger that moves a little over the tile it holds selects that tile alone', async () => {
   const { s, target } = await holdOn(2);
   moveTo(target, 50, 125);
@@ -777,8 +795,10 @@ test('a tile the finger passes again is not added twice, and one the selection a
 test('a finger over no tile adds nothing: the gap between tiles, and the page beyond the Board', async () => {
   const { s, target } = await holdOn(1);
   moveTo(target, 50, 95);
-  moveTo(target, 50, 5000);
-  assert.deepStrictEqual(s.picked(), ['1']);
+  assert.deepStrictEqual(s.picked(), ['1'], 'the gap under the held tile');
+  const alone = await holdOn(1, { ids: [1] });
+  moveTo(alone.target, 50, 5000);
+  assert.deepStrictEqual(alone.s.picked(), ['1'], 'nothing below the only tile');
 });
 
 test('only the Board\'s tiles select by hold and drag: a hold on a tile of another view, and a drag over it, selects nothing and cancels nothing', async () => {

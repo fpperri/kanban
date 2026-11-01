@@ -20,6 +20,9 @@ const CARD_PRESS_SLOP_PX = 10;
 const CARD_PRESS_ECHO_MS = 800;
 // A press whose end the page never heard stops holding back the browser's contextmenu after this long.
 const CARD_PRESS_HELD_MS = 5000;
+// A touch is sampled once a frame, so a quick drag can jump over a tile: the page looks at a point at
+// least this often along the way between two samples.
+const CARD_DRAG_STEP_PX = 16;
 
 // `who` is whatever the caller wants back (the card's id); `onHold(who, x, y)` and `onLift(who, x, y)`
 // get the point the finger went down on, `onDrag(who, x, y)` the point it has moved to.
@@ -114,6 +117,15 @@ function createCardPress({ now, setTimer, clearTimer, onHold, onLift, onDrag = (
   };
 }
 
+// The points a finger passes between two touch samples, the start point left out and the end point
+// last, no two further apart than `step`. A tile the finger crossed between samples is under one of them.
+function pointsAlong(from, to, step) {
+  const n = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / step));
+  const points = [];
+  for (let i = 1; i <= n; i++) points.push({ x: from.x + ((to.x - from.x) * i) / n, y: from.y + ((to.y - from.y) * i) / n });
+  return points;
+}
+
 // The cards Select lit adds: the lit cards the view shows, the pressed card first so it is the
 // anchor of an empty selection. `lit` is the Set of ids the light holds (null for none) and `shown`
 // the Set of ids the view shows.
@@ -129,12 +141,14 @@ function selectionWithCards(selection, ids) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CARD_PRESS_MS, CARD_PRESS_SLOP_PX, CARD_PRESS_ECHO_MS, createCardPress, litCardsShown, selectionWithCards };
+  module.exports = { CARD_PRESS_MS, CARD_PRESS_SLOP_PX, CARD_PRESS_ECHO_MS, CARD_DRAG_STEP_PX, createCardPress, litCardsShown, selectionWithCards, pointsAlong };
 } else {
   window.CARD_PRESS_MS = CARD_PRESS_MS;
   window.CARD_PRESS_SLOP_PX = CARD_PRESS_SLOP_PX;
   window.CARD_PRESS_ECHO_MS = CARD_PRESS_ECHO_MS;
+  window.CARD_DRAG_STEP_PX = CARD_DRAG_STEP_PX;
   window.createCardPress = createCardPress;
   window.litCardsShown = litCardsShown;
   window.selectionWithCards = selectionWithCards;
+  window.pointsAlong = pointsAlong;
 }
