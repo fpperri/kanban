@@ -10,7 +10,7 @@
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): ganttDayPxLive, isDragging,
 // menuSubject, pinnedLitId, selectedIds, showContextMenu, state.
 
-const { tap, swipe, holdDown, moveHeld, liftUp, realWait, longPress, outwaitPressEcho, outwaitDoubleTap } = require('../../steps');
+const { tap, swipe, holdDown, moveHeld, liftUp, realWait, longPress, outwaitDoubleTap } = require('../../steps');
 
 module.exports = {
   async run(page) {
@@ -72,7 +72,6 @@ module.exports = {
     check('the click the lift would make does nothing else: no card opens, none is selected', await ev(`${noCard}&&${picked}===''`), await ev(`location.search+'|'+${picked}`));
     check('and the menu stays open with the light on', await ev(`${menuOpen}&&${lit(2)}`));
 
-    await outwaitPressEcho();
     const under = await cardOutsideMenu();
     check('a card stands outside the open menu', !!under);
     await tap(page, under.x, under.y);
@@ -87,7 +86,6 @@ module.exports = {
     await waitFor(held(2), 4000);
     await liftUp(page);
     await waitFor(menuOpen, 4000);
-    await outwaitPressEcho();
     const empty = await emptyPoint();
     check('the Board has a point that is neither card nor control', !!empty);
     await tap(page, empty.x, empty.y);
@@ -98,7 +96,6 @@ module.exports = {
     check('the next one ends the light and only the light: the selection stays', await waitFor(`!(${lit(2)})`, 3000) && await ev(`${picked}===${JSON.stringify(other)}`), await ev(`${litIds}+'|'+${picked}`));
 
     // The menu of a selected card is the batch's
-    await outwaitPressEcho();
     await tapOn(titleOf(lone));
     await waitFor(`${picked}.split(',').length===2`, 3000);
     const picks = await ev(picked);
@@ -107,6 +104,18 @@ module.exports = {
     await longPress(page, o.x, o.y, { until: held(lone) });
     check('a long press on a selected card opens the menu for the selection', await waitFor(menuOpen, 4000) && (await subject()).inSelection === true && (await subject()).ids.split(',').sort((a, b) => a - b).join() === picks, await subject());
     await ev(`hideContextMenu()`);
+
+    // --- the menu takes the first tap --------------------------------------------------------------------
+    // A finger that comes down on the menu inside the 800 ms of the echo is a tap: the next finger ends the echo.
+    check('the Board for the first tap on the menu', await boardOnDoing());
+    await ev(`(()=>{window.__menuAt=0;window.__touchAt=0;const o=showContextMenu;window.showContextMenu=function(...a){window.__menuAt=performance.now();return o.apply(this,a)};document.addEventListener('touchstart',()=>{window.__touchAt=performance.now()},true);return true})()`);
+    const q = await pointOf(titleOf(2));
+    await longPress(page, q.x, q.y, { until: held(2) });
+    check('the menu is open and Add to selection shows', await waitFor(`${menuOpen}&&!document.getElementById('ctx-add').classList.contains('hidden')`, 4000));
+    await tapOn('#ctx-add');
+    check('the first tap on an entry runs it: the card joins the selection and the menu shuts', await waitFor(`${picked}==='2'&&!(${menuOpen})`, 3000), await ev(`${picked}+'|'+(${menuOpen})`));
+    const gap = await ev('window.__touchAt-window.__menuAt');
+    check('and the finger came down inside the echo, not after it', gap > 0 && gap < 800, gap);
 
     // --- Android's own contextmenu ---------------------------------------------------------------------
     check('the Board again, with nothing selected', await boardOnDoing());
@@ -120,7 +129,6 @@ module.exports = {
     check('and a contextmenu after the lift opens nothing more: the menu opened once', await nativeMenu(two) === true && await menus() === 1, await menus());
 
     // --- Select lit ------------------------------------------------------------------------------------
-    await outwaitPressEcho();
     const entry = await ev(`(()=>{const b=document.getElementById('ctx-lit');return {shown:!b.classList.contains('hidden'),text:b.textContent}})()`);
     check('the menu offers Select lit (6): the card, its parent, its three children and the card waiting for it', entry.shown && entry.text === 'Select lit (6)', { entry, subject: await subject() });
     await tapOn('#ctx-lit');
@@ -205,6 +213,23 @@ module.exports = {
     await view('calendar', `document.querySelectorAll('#calendar-view .cal-day').length>=28`, '#calendar-view .cal-chip[data-id="28"]', { query: 'centennial' });
     await view('graph', `!!graphCur&&document.querySelectorAll('#graph-view .graph-node').length>0`, '#graph-view .graph-node[data-id="2"] .graph-dot', { wait: graphSettled });
     check('graph: the rest of the Graph dims and the linked cards stay lit', await ev(`!!document.querySelector('#graph-view svg.graph-dim')&&!!document.querySelector('#graph-view .graph-node[data-id="1"].graph-near')`));
+
+    // --- the Graph: a dot the touch reaches while the menu is open does not take the light --------------
+    // The touch's own mouseover on the dot it taps comes ahead of the click that only closes the menu.
+    await open('/?view=graph');
+    check('the Graph draws again', await waitFor(`!!graphCur&&document.querySelectorAll('#graph-view .graph-node').length>0`, 10000));
+    await graphSettled();
+    const near = `[...document.querySelectorAll('#graph-view .graph-node.graph-near')].map((n)=>n.dataset.id).sort((a,b)=>a-b).join()`;
+    const heldDot = await pointOf('#graph-view .graph-node[data-id="2"] .graph-dot');
+    await longPress(page, heldDot.x, heldDot.y, { until: held(2) });
+    check('graph: the menu opens for the dot held', await waitFor(menuOpen, 4000));
+    const nearHeld = await ev(near);
+    check('graph: the dot is lit with its relations', nearHeld.split(',').includes('2') && nearHeld.split(',').length > 1, nearHeld);
+    const away = await ev(`(()=>{const m=document.getElementById('context-menu').getBoundingClientRect();for(const n of document.querySelectorAll('#graph-view .graph-node:not(.graph-near)')){const d=n.querySelector('.graph-dot');if(!d)continue;const r=d.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;if(x<=0||x>=innerWidth||y<=0||y>=innerHeight)continue;if(x>=m.left&&x<=m.right&&y>=m.top&&y<=m.bottom)continue;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.graph-node')===n)return {id:n.dataset.id,x,y}}return null})()`);
+    check('graph: a dot stands outside the open menu and outside the light', !!away);
+    await tap(page, away.x, away.y);
+    check('graph: a tap on it only closes the menu: nothing opens, nothing is selected', await waitFor(`!(${menuOpen})`, 3000) && await ev(`${noCard}&&${picked}===''`), await ev(`location.search+'|'+${picked}`));
+    check('graph: and the light stays on the dot held, with the same cards lit', await ev(held(2)) && await ev(near) === nearHeld, `${await ev(near)} was ${nearHeld} after tapping ${away.id}`);
 
     // --- the Gantt: a finger that moves after the hold still moves the dates ---------------------------
     await open('/?view=gantt');

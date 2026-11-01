@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, outwaitPressEcho, PRESS_ECHO_WAIT_MS, swipe, pinch } = require('./browser/steps');
+const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, swipe, pinch } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
 const phoneFlip = require('./browser/scenarios/phone-flip');
@@ -160,13 +160,6 @@ test('holdDown, moveHeld and liftUp are the three touches of a hold that moves',
     { type: 'touchMove', touchPoints: [{ x: 140, y: 200, id: 0 }] },
     { type: 'touchEnd', touchPoints: [] },
   ]);
-});
-
-test('the echo wait is real time, longer than the 800 ms echo of the page', async () => {
-  assert.ok(PRESS_ECHO_WAIT_MS > 800 && PRESS_ECHO_WAIT_MS < 3000, String(PRESS_ECHO_WAIT_MS));
-  const t0 = Date.now();
-  await outwaitPressEcho();
-  assert.ok(Date.now() - t0 >= PRESS_ECHO_WAIT_MS - 20, 'it waited');
 });
 
 test('swipe is a touchStart, evenly spaced touchMoves to the end point, and a touchEnd', async () => {
