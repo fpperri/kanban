@@ -91,14 +91,20 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
   const clear = control();
   const menu = { hpath: control(), htree: control(), dpath: control(), dtree: control() };
   const documentListeners = {};
+  const capturing = new Set();
   const windowListeners = {};
   const failures = [];
-  const elements = { '#search-input': input, '#search-clear-btn': clear, '#ctx-hpath': menu.hpath, '#ctx-htree': menu.htree, '#ctx-dpath': menu.dpath, '#ctx-dtree': menu.dtree, ...more };
+  const contextMenu = control();
+  contextMenu.classList.add('hidden');
+  const elements = { '#search-input': input, '#search-clear-btn': clear, '#context-menu': contextMenu, '#ctx-hpath': menu.hpath, '#ctx-htree': menu.htree, '#ctx-dpath': menu.dpath, '#ctx-dtree': menu.dtree, ...more };
   const doc = new Proxy({
     activeElement: null,
     visibilityState: 'visible',
     ...documentExtras,
-    addEventListener: (type, fn) => { (documentListeners[type] = documentListeners[type] || []).push(fn); },
+    addEventListener: (type, fn, options) => {
+      (documentListeners[type] = documentListeners[type] || []).push(fn);
+      if (options === true || (options && options.capture)) capturing.add(fn);
+    },
     querySelector: (sel) => {
       if (sel in elements) return elements[sel];
       if (OPEN_SURFACE_PROBE.test(sel)) return null;
@@ -134,6 +140,7 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
     getComputedStyle: () => harmless('computedStyle'),
     getSelection: () => ({ isCollapsed: true }),
     matchMedia: () => ({ matches: false, addEventListener() {} }),
+    performance,
     ResizeObserver: class { observe() {} disconnect() {} },
     URLSearchParams,
     Event,
@@ -168,10 +175,24 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
     async settle() {
       for (let i = 0; i < 6; i++) await new Promise((resolve) => setImmediate(resolve));
     },
-    // A key or click on the document, as the page's own listeners see it.
-    fireDocument(type, event) {
-      const e = Object.assign({ preventDefault() {}, stopPropagation() {} }, event);
-      (documentListeners[type] || []).slice().forEach((fn) => fn(e));
+    // A key or click on the document, as the page's own listeners see it: the capture listeners
+    // first, then the rest, each in the order it was added, and none after one that stops the event.
+    // `atTarget`, when given, is the target's own listener: it runs between the capture listeners and the
+    // rest, as a button's handler does, and not at all when a capture listener stopped the event.
+    fireDocument(type, event, { atTarget = null } = {}) {
+      let stopped = false;
+      const e = Object.assign({ defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {}, stopImmediatePropagation() { stopped = true; } }, event);
+      const all = (documentListeners[type] || []).slice();
+      const capture = all.filter((f) => capturing.has(f));
+      for (const fn of capture) {
+        fn(e);
+        if (stopped) return e;
+      }
+      if (atTarget) atTarget(e);
+      for (const fn of all.filter((f) => !capturing.has(f))) {
+        fn(e);
+        if (stopped) break;
+      }
       return e;
     },
     // A right-click on a card's tile, as the page's document listeners see it.

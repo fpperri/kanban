@@ -653,6 +653,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.archived-card { cursor: pointer; }
 @media (max-width: 759.98px) {
   .card { touch-action: pan-y pinch-zoom; }
+  /* A long press on a card is the page's own gesture (card-press.js): the browser's text selection and, on iOS, its callout would start at the same hold. */
+  .card-el { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 }
 /* The head wraps: a tile carrying its id, priority, assignee and both stickers
    moves the overflow to a second line instead of running under the date stack

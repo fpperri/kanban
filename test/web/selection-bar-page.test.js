@@ -318,15 +318,16 @@ test('the popup closes on its close button and on a tap on the backdrop, and mov
 
 // --- More ------------------------------------------------------------------------------------------
 
-// The click on More as the browser delivers it: the button's own handler first, then the page's
-// document listeners, which close a menu a click lands outside of.
-const pressMore = async (s) => {
-  const more = s.elements['#selection-bar-more'];
-  const hit = { closest: (sel) => (sel.split(',').some((part) => part.trim() === '#selection-bar-more') ? more : null) };
-  more.fire('click', { currentTarget: more, target: hit });
-  s.page.fireDocument('click', { target: hit, detail: 1 });
+// The click on a bar button as the browser delivers it: the document's capture listeners first (on the
+// phone layout, with the card menu open, a tap outside it only closes it and goes no further), then the
+// button's own handler, then the document's other listeners, which close a menu a click lands outside of.
+const clickBar = async (s, name) => {
+  const button = s.elements[`#selection-bar-${name}`];
+  const hit = { closest: (sel) => (sel.split(',').some((part) => part.trim() === `#selection-bar-${name}`) ? button : null) };
+  s.page.fireDocument('click', { target: hit, detail: 1 }, { atTarget: (e) => button.fire('click', { ...e, currentTarget: button }) });
   await s.page.settle();
 };
+const pressMore = (s) => clickBar(s, 'more');
 
 test('More opens the card menu for the whole selection: no Peek, no Add to selection, and the bulk entries act on every selected card', async () => {
   const s = await open();
@@ -371,15 +372,29 @@ test('More on an open menu closes it', async () => {
   assert.strictEqual(s.menuOpen(), false);
 });
 
-test('a tap on Clear, Archive or Status with the menu open closes the menu', async () => {
+test('a tap on Clear, Archive or Status with the menu open only closes the menu, as a tap outside it does at phone width', async () => {
+  for (const name of ['clear', 'archive', 'status']) {
+    const s = await open();
+    s.select(1, 2);
+    await pressMore(s);
+    assert.strictEqual(s.menuOpen(), true, name);
+    await clickBar(s, name);
+    assert.strictEqual(s.menuOpen(), false, `${name}: the menu is shut`);
+    assert.deepStrictEqual(s.ids(), [1, 2], `${name}: and the tap did nothing else`);
+    assert.strictEqual(s.ask.open() || s.popupOpen('#bulk-status') || s.popupOpen('#bulk-archive'), false, name);
+    assert.strictEqual(s.bar.shown(), true, name);
+  }
+});
+
+test('a tap on Clear, Archive or Status with the menu shut acts, through the same click path', async () => {
   const s = await open();
   s.select(1, 2);
-  await pressMore(s);
-  assert.strictEqual(s.menuOpen(), true);
-  const clear = s.elements['#selection-bar-clear'];
-  clear.fire('click', {});
-  s.page.fireDocument('click', { target: { closest: () => null }, detail: 1 });
-  assert.strictEqual(s.menuOpen(), false);
+  await clickBar(s, 'status');
+  assert.strictEqual(s.popupOpen('#bulk-status'), true);
+  s.page.run("document.getElementById('bulk-status').classList.add('hidden')");
+  await clickBar(s, 'clear');
+  assert.deepStrictEqual(s.ids(), []);
+  assert.strictEqual(s.bar.shown(), false);
 });
 
 // --- the Graph paints a tap in place, and the bar still follows it ------------------------------------
@@ -538,6 +553,7 @@ test('every other write to the selection moves the bar at once, and the wait it 
   const writes = {
     'Clear on the bar': (s) => s.bar.press('clear'),
     'Esc': (s) => s.page.run('stepSelectionBack(); stepSelectionBack()'),
+    'Select lit': (s) => s.page.run("menuSubject = { ...cardMenuFor(selectedIds, '2'), lit: ['2', '5', '6'] }; selectLitCards()"),
     'a card added from the menu': (s) => s.page.run("setSelection(addPart(selectionState.selection, cardPart('5'))); renderBoard()"),
     'a poll that finds a card of the selection gone': (s) => s.page.run("setSelection(pruneSelectionParts(selectionState.selection, ['1'])); renderBoard()"),
   };
