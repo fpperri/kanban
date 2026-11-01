@@ -11,18 +11,20 @@ const { NO_SELECTION, cardPart, addPart } = require('../../plugin/skills/web/web
 function press() {
   const clock = { at: 1000, timers: [] };
   const log = [];
+  const drags = [];
   const rule = createCardPress({
     now: () => clock.at,
     setTimer: (fn, ms) => { const t = { fn, at: clock.at + ms }; clock.timers.push(t); return t; },
     clearTimer: (t) => { clock.timers = clock.timers.filter((o) => o !== t); },
     onHold: (who, x, y) => log.push(['hold', who, x, y]),
     onLift: (who, x, y) => log.push(['lift', who, x, y]),
+    onDrag: (who, x, y) => drags.push([who, x, y]),
   });
   const wait = (ms) => {
     clock.at += ms;
     for (const t of clock.timers.filter((o) => o.at <= clock.at)) { clock.timers = clock.timers.filter((o) => o !== t); t.fn(); }
   };
-  return { rule, log, wait, clock };
+  return { rule, log, drags, wait, clock };
 }
 
 test('the hold is 500 ms, the slop 10 px, the echo 800 ms', () => {
@@ -110,6 +112,92 @@ test('a move back to where it started does not undo the drag', () => {
   p.rule.move(100, 230);
   p.rule.move(100, 200);
   assert.strictEqual(p.rule.end(), 'dragged');
+});
+
+test('every move of a held finger past the slop is a drag, with the card held and the point the finger is at', () => {
+  const p = press();
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  p.rule.move(104, 204);
+  assert.deepStrictEqual(p.drags, [], 'inside the slop the hold is still a hold in place');
+  p.rule.move(100, 230);
+  p.rule.move(100, 260);
+  assert.deepStrictEqual(p.drags, [['12', 100, 230], ['12', 100, 260]]);
+});
+
+test('once the hold is a drag every move is one, back inside the slop of the point it went down on too', () => {
+  const p = press();
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  p.rule.move(100, 230);
+  p.rule.move(103, 202);
+  assert.deepStrictEqual(p.drags, [['12', 100, 230], ['12', 103, 202]]);
+});
+
+test('a move before the hold is a scroll or a swipe, not a drag, and so is a move after the lift', () => {
+  const early = press();
+  early.rule.start(100, 200, '12');
+  early.wait(200);
+  early.rule.move(100, 260);
+  early.wait(1000);
+  early.rule.move(100, 300);
+  assert.deepStrictEqual(early.drags, []);
+
+  const lifted = press();
+  lifted.rule.start(100, 200, '12');
+  lifted.wait(500);
+  lifted.rule.end();
+  lifted.rule.move(100, 300);
+  assert.deepStrictEqual(lifted.drags, []);
+});
+
+test('the press is holding from the hold to the lift, the moment the page keeps the browser from scrolling', () => {
+  const p = press();
+  assert.strictEqual(p.rule.holding(), false);
+  p.rule.start(100, 200, '12');
+  p.wait(499);
+  assert.strictEqual(p.rule.holding(), false, 'not before 500 ms');
+  p.wait(1);
+  assert.strictEqual(p.rule.holding(), true);
+  p.rule.move(100, 260);
+  assert.strictEqual(p.rule.holding(), true, 'and a drag holds too');
+  p.rule.end();
+  assert.strictEqual(p.rule.holding(), false);
+
+  const scroll = press();
+  scroll.rule.start(100, 200, '12');
+  scroll.wait(200);
+  scroll.rule.move(100, 260);
+  scroll.wait(1000);
+  assert.strictEqual(scroll.rule.holding(), false, 'a finger that scrolled before the hold never holds');
+
+  const taken = press();
+  taken.rule.start(100, 200, '12');
+  taken.wait(500);
+  taken.rule.cancel();
+  assert.strictEqual(taken.rule.holding(), false);
+});
+
+test('a touch that dragged is dragging until the next finger comes down, so the listeners that hear its lift after the press can tell', () => {
+  const p = press();
+  assert.strictEqual(p.rule.dragging(), false);
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  assert.strictEqual(p.rule.dragging(), false, 'held in place is no drag');
+  p.rule.move(100, 260);
+  assert.strictEqual(p.rule.dragging(), true);
+  p.rule.end();
+  assert.strictEqual(p.rule.dragging(), true, 'through the lift');
+  p.rule.fingerDown();
+  assert.strictEqual(p.rule.dragging(), false);
+
+  const again = press();
+  again.rule.start(100, 200, '12');
+  again.wait(500);
+  again.rule.move(100, 260);
+  again.rule.end();
+  again.rule.start(100, 200, '12');
+  assert.strictEqual(again.rule.dragging(), false, 'a new press starts clean');
 });
 
 test('the browser cancelling the touch before the hold ends the press; after the hold it ends it without a lift', () => {

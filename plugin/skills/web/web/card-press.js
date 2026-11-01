@@ -2,7 +2,7 @@
 // The long press on a card, on the phone layout. A finger held on a card for 500 ms lights the card
 // (the hold), and lifted without having moved it opens the card menu (the lift). A move of more than
 // 10 px before the hold is a scroll or a swipe and ends the press; a move after it turns the hold into
-// a drag, and the lift opens nothing. The page runs its own timer because iOS fires no contextmenu for
+// a drag, which reports every point the finger reaches (onDrag) and whose lift opens nothing. The page runs its own timer because iOS fires no contextmenu for
 // a long press, and Android's fires while the finger is still down. Both are held back while a press
 // is on and for 800 ms after it (the echo), together with the click the lifted finger makes, so the
 // menu opens once. The next finger to come down, on a card or not, ends the echo. The notes list has a
@@ -22,8 +22,8 @@ const CARD_PRESS_ECHO_MS = 800;
 const CARD_PRESS_HELD_MS = 5000;
 
 // `who` is whatever the caller wants back (the card's id); `onHold(who, x, y)` and `onLift(who, x, y)`
-// get the point the finger went down on.
-function createCardPress({ now, setTimer, clearTimer, onHold, onLift }) {
+// get the point the finger went down on, `onDrag(who, x, y)` the point it has moved to.
+function createCardPress({ now, setTimer, clearTimer, onHold, onLift, onDrag = () => {} }) {
   let phase = 'idle'; // 'armed' (finger down, not held yet) | 'held' (hold fired) | 'dragged' (held, then moved)
   let timer = null;
   let who = null;
@@ -31,6 +31,7 @@ function createCardPress({ now, setTimer, clearTimer, onHold, onLift }) {
   let y0 = 0;
   let startedAt = 0;
   let echoUntil = 0;
+  let dragged = false; // the touch held and then moved; stays through its lift
 
   function stopTimer() {
     if (timer !== null) clearTimer(timer);
@@ -47,6 +48,7 @@ function createCardPress({ now, setTimer, clearTimer, onHold, onLift }) {
     start(x, y, card) {
       stopTimer();
       echoUntil = 0;
+      dragged = false;
       phase = 'armed';
       who = card;
       x0 = x;
@@ -60,9 +62,13 @@ function createCardPress({ now, setTimer, clearTimer, onHold, onLift }) {
     },
 
     move(x, y) {
-      if (phase === 'idle' || Math.hypot(x - x0, y - y0) <= CARD_PRESS_SLOP_PX) return;
-      if (phase === 'armed') finish(false);
-      else phase = 'dragged';
+      if (phase === 'idle') return;
+      const beyondSlop = Math.hypot(x - x0, y - y0) > CARD_PRESS_SLOP_PX;
+      if (phase === 'armed') { if (beyondSlop) finish(false); return; }
+      if (phase === 'held' && !beyondSlop) return;
+      phase = 'dragged';
+      dragged = true;
+      onDrag(who, x, y);
     },
 
     // The finger came up. 'lift' when a held finger came up in place (the menu opens), 'dragged' when
@@ -80,6 +86,17 @@ function createCardPress({ now, setTimer, clearTimer, onHold, onLift }) {
       if (phase !== 'idle') finish(phase !== 'armed');
     },
 
+    // The hold has fired and the finger is still down: the page keeps the browser from scrolling the touch.
+    holding() {
+      return phase === 'held' || phase === 'dragged';
+    },
+
+    // The touch held and then moved. It stays true through the lift, until the next finger comes down, so
+    // a listener that hears the lift after the press (the Board's swipe) can tell what the touch was.
+    dragging() {
+      return dragged;
+    },
+
     inProgress() {
       return phase !== 'idle' && now() - startedAt < CARD_PRESS_HELD_MS;
     },
@@ -92,6 +109,7 @@ function createCardPress({ now, setTimer, clearTimer, onHold, onLift }) {
     // the echo ends and what this finger does (a tap on the menu that just opened) is its own.
     fingerDown() {
       echoUntil = 0;
+      dragged = false;
     },
   };
 }
