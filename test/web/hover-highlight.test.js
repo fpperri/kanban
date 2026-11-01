@@ -111,10 +111,12 @@ test('hoverLit follows hoveredId: set when a card is hovered, and worked out aga
   assert.match(/function refreshHover\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /syncHoverLit\(\);\s*\n\s*applyHoverHighlight\(\);\s*\n\s*if \(loadViewMode\(\) === 'graph'\) graphSettleFocus\(\);/);
 });
 
-test('outside the Graph hoverLit is the hovered card and its ticked sets; in the Graph the hover ring stays on the hovered card alone', () => {
+test('outside the Graph hoverLit is the lit card and its ticked sets; in the Graph the hover ring stays on the lit card alone; the lit card is the pinned one of a long press, else the hovered one', () => {
   const fn = /function hoverLitNow\(\) \{[\s\S]*?\n\}/.exec(appJs)[0];
-  assert.match(fn, /if \(hoveredId == null\) return null;/);
-  assert.match(fn, /loadViewMode\(\) === 'graph' \? new Set\(\[hoveredId\]\) : hoverShowTiles\(hoverShowKindsNow\(\), state\.active\.concat\(state\.archived\), hoveredId, searchCtx\(\)\)/);
+  assert.match(fn, /const id = litFocusId\(\);\s*\n\s*if \(id == null\) return null;/);
+  assert.match(fn, /loadViewMode\(\) === 'graph' \? new Set\(\[id\]\) : hoverTilesOf\(id\)/);
+  assert.match(/function hoverTilesOf\(id\) \{[\s\S]*?\n\}/.exec(appJs)[0], /hoverShowTiles\(hoverShowKindsNow\(\), state\.active\.concat\(state\.archived\), id, searchCtx\(\)\)/);
+  assert.match(/function litFocusId\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /pinnedLitId !== null \? pinnedLitId : hoveredId/);
 });
 
 // --- surviving the poll: renderBoard()'s full DOM rebuild carries the

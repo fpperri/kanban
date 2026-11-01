@@ -195,7 +195,7 @@ test('a lone selected card keeps its relations lit and a selection lights its ca
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
   const render = fn('renderGraphView');
   assert.ok(render.trim().endsWith('graphSettleFocus();\n}'));
-  assert.match(fn('graphSettleFocus'), /hoveredId/);
+  assert.match(fn('graphSettleFocus'), /litFocusId()/, 'the card the light follows: the pinned one of a long press, else the hovered one');
 });
 
 test('a card is not dragged: the view holds no drag, force simulation or kept arrangement, and no card shows a grab cursor', () => {

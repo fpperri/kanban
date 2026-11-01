@@ -751,8 +751,11 @@ function graphRestFocus() {
   graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId(), linkKind: graphLinkKind() }, graphCur.lines));
 }
 
+// The card the light follows is the one a long press pinned, else the one the pointer or the focus is on
+// (litFocusId, app.js).
 function graphSettleFocus() {
-  if (graphCur && hoveredId != null && graphCur.model.byId.has(hoveredId)) graphSetFocus(hoveredId);
+  const id = litFocusId();
+  if (graphCur && id != null && graphCur.model.byId.has(id)) graphSetFocus(id);
   else graphRestFocus();
 }
 
@@ -1031,7 +1034,7 @@ function renderGraphView() {
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
     plan = graphPlan(model, layout, {
-      selectedIds, loneCardId: graphLoneCardId(), hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
+      selectedIds, loneCardId: graphLoneCardId(), hoveredId: litFocusId(), kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
       types: state.types,
     });
   } catch (err) {
@@ -1287,6 +1290,7 @@ function wireGraphView(host) {
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');
     if (to === from) return;
     if (to) graphSetFocus(to.dataset.id);
+    else if (pinnedLitId !== null && graphCur && graphCur.model.byId.has(pinnedLitId)) graphSetFocus(pinnedLitId); // the pointer left, the pinned light stays
     else graphRestFocus();
   };
   host.addEventListener('mouseover', enter);

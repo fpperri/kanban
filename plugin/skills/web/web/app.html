@@ -364,6 +364,8 @@
        and the menu is for a single card. -->
   <button type="button" id="ctx-todos" role="menuitem" class="hidden">Todos…</button>
   <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
+  <!-- Select lit (N) adds the cards the light holds to the selection. It shows in the menu a long press opens, when the light holds more than the card. -->
+  <button type="button" id="ctx-lit" role="menuitem" class="hidden">Select lit</button>
   <hr class="ctx-sep" role="separator">
   <button type="button" id="ctx-archive" role="menuitem">Archive selected</button>
   <button type="button" id="ctx-restore" role="menuitem">Restore selected</button>
@@ -740,6 +742,7 @@
 <script src="/view-panel.js"></script>
 <script src="/phone-width.js"></script>
 <script src="/selection.js"></script>
+<script src="/card-press.js"></script>
 <script src="/status-colors.js"></script>
 <script src="/assignee-colors.js"></script>
 <script src="/save-hotkey.js"></script>

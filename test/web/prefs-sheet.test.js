@@ -562,7 +562,7 @@ function escHandler() {
   return m[0];
 }
 
-function escPage({ open = [] } = {}) {
+function escPage({ open = [], lit = false } = {}) {
   const calls = [];
   const prevented = [];
   const listeners = [];
@@ -576,7 +576,7 @@ function escPage({ open = [] } = {}) {
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
     closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
-    escapeStep: () => calls.push('step'), settingsStepBack: () => calls.push('prefs'), moreMenuClose: () => false,
+    escapeStep: () => calls.push('step'), clearPinnedLight: () => (lit ? (calls.push('light'), true) : false), settingsStepBack: () => calls.push('prefs'), moreMenuClose: () => false,
   };
   vm.createContext(sandbox);
   vm.runInContext(escHandler(), sandbox);
@@ -610,6 +610,18 @@ test('with the sheet closed, Esc does what it did: the menu, then the dialogs, t
   const card = escPage({ open: ['#detail-modal'] });
   card.esc();
   assert.deepStrictEqual(card.calls, ['card']);
+});
+
+test('a pinned light takes Esc after the popups and before the selection step: it drops, and nothing else runs', () => {
+  const p = escPage({ lit: true });
+  p.esc();
+  assert.deepStrictEqual(p.calls, ['light']);
+  const withMenu = escPage({ open: ['#context-menu'], lit: true });
+  withMenu.esc();
+  assert.deepStrictEqual(withMenu.calls, ['menu'], 'an open menu closes first and leaves the light on');
+  const held = escPage({ lit: true });
+  held.esc({ repeat: true });
+  assert.deepStrictEqual(held.calls, [], 'a held Esc is one press');
 });
 
 test('a held Esc runs the end of the chain once: a repeated keydown with nothing open does nothing', () => {
