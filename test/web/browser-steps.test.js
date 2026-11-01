@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, swipe, pinch } = require('./browser/steps');
+const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, outwaitPressEcho, PRESS_ECHO_WAIT_MS, swipe, pinch } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
 const phoneFlip = require('./browser/scenarios/phone-flip');
@@ -124,6 +124,49 @@ test('the double-tap wait is real time, longer than Chrome\'s 250 ms window and 
   const t0 = Date.now();
   await outwaitDoubleTap();
   assert.ok(Date.now() - t0 >= DOUBLE_TAP_WINDOW_MS - 20, 'it waited');
+});
+
+test('longPress is a touchStart, a real-time hold longer than the 500 ms of the page, and a touchEnd at the same point', async () => {
+  assert.ok(LONG_PRESS_HOLD_MS > 500, 'longer than the hold of the page');
+  const page = standIn();
+  const t0 = Date.now();
+  await longPress(page, 100, 200);
+  assert.ok(Date.now() - t0 >= LONG_PRESS_HOLD_MS - 20, 'it held');
+  assert.deepStrictEqual(touches(page), [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ]);
+  assert.deepStrictEqual(page.calls.map((c) => c[0]), ['Input.dispatchTouchEvent', 'Input.dispatchTouchEvent'], 'nothing else is sent');
+});
+
+test('longPress given an expression holds until the page answers true to it, and lifts after', async () => {
+  const page = standIn();
+  const waited = [];
+  page.waitFor = async (expr, ms) => { waited.push([expr, ms, page.calls.length]); return true; };
+  const t0 = Date.now();
+  await longPress(page, 100, 200, { until: 'card.lit' });
+  assert.ok(Date.now() - t0 < LONG_PRESS_HOLD_MS - 100, 'it did not wait the fixed time');
+  assert.deepStrictEqual(waited, [['card.lit', 4000, 1]], 'asked once, with the finger down and not yet lifted');
+  assert.deepStrictEqual(touches(page).map((t) => t.type), ['touchStart', 'touchEnd']);
+});
+
+test('holdDown, moveHeld and liftUp are the three touches of a hold that moves', async () => {
+  const page = standIn();
+  await holdDown(page, 100, 200);
+  await moveHeld(page, 140, 200);
+  await liftUp(page);
+  assert.deepStrictEqual(touches(page), [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchMove', touchPoints: [{ x: 140, y: 200, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ]);
+});
+
+test('the echo wait is real time, longer than the 800 ms echo of the page', async () => {
+  assert.ok(PRESS_ECHO_WAIT_MS > 800 && PRESS_ECHO_WAIT_MS < 3000, String(PRESS_ECHO_WAIT_MS));
+  const t0 = Date.now();
+  await outwaitPressEcho();
+  assert.ok(Date.now() - t0 >= PRESS_ECHO_WAIT_MS - 20, 'it waited');
 });
 
 test('swipe is a touchStart, evenly spaced touchMoves to the end point, and a touchEnd', async () => {
