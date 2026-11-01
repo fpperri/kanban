@@ -34,6 +34,7 @@ const PAGE_GLOBALS = [
   'localTodayStr',
   'openCard',
   'openNotes',
+  'pinnedLitId',
   'noteClock',
   'notesUi',
   'renderBoard',

@@ -1665,6 +1665,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!list) return;
   list.addEventListener('change', () => {
     if (loadViewMode() === 'graph') graphRefitNext = true; // the stage has another width, so the cards are framed again
+    if (!list.matches) pinnedLitId = null; // the long press is the phone layout's: its light does not follow the window to the desktop
     const focused = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.card-el') : null;
     const focusedId = focused ? focused.dataset.id : null;
     const pointerId = hoveredId;

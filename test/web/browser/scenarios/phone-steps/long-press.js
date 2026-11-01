@@ -8,7 +8,7 @@
 // Gantt it still moves the dates. It runs on the Board, the Map, the Gantt, the Calendar and the Graph.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): ganttDayPxLive, isDragging,
-// menuSubject, selectedIds, showContextMenu, state.
+// menuSubject, pinnedLitId, selectedIds, showContextMenu, state.
 
 const { tap, swipe, holdDown, moveHeld, liftUp, longPress, outwaitPressEcho, outwaitDoubleTap } = require('../../steps');
 
@@ -21,6 +21,8 @@ module.exports = {
     const MENU = `document.getElementById('context-menu')`;
     const menuOpen = `!${MENU}.classList.contains('hidden')`;
     const noCard = `!new URLSearchParams(location.search).has('card')`;
+    // The page has noticed the hold: the light is pinned to the card. The hover can light a card too, so the light itself says nothing about the hold.
+    const held = (id) => `pinnedLitId===${JSON.stringify(String(id))}`;
     const lit = (id) => `!!document.querySelector('.card-el.hover-highlight[data-id="${id}"]')`;
     const litIds = `[...new Set([...document.querySelectorAll('.card-el.hover-highlight')].map((e)=>e.dataset.id))].sort((a,b)=>a-b).join()`;
     const picked = `[...selectedIds].map(String).sort((a,b)=>a-b).join()`;
@@ -40,7 +42,7 @@ module.exports = {
       return waitFor(`JSON.stringify([...document.querySelectorAll('#board .column')].map((c)=>c.dataset.col))===JSON.stringify(['${col}'])`, 4000);
     };
     // A card the open menu does not cover, with the point to tap it at.
-    const cardOutsideMenu = () => ev(`(()=>{for(const el of document.querySelectorAll('#board .column .card-el')){const r=el.querySelector('.card-title').getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.card-el')===el)return {id:el.dataset.id,x,y}}return null})()`);
+    const cardOutsideMenu = () => ev(`(()=>{const m=document.getElementById('context-menu').getBoundingClientRect();for(const el of document.querySelectorAll('#board .column .card-el')){const t=el.querySelector('.card-title');if(!t)continue;const r=t.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;if(y<=0||y>=innerHeight||x<=0||x>=innerWidth)continue;if(x>=m.left&&x<=m.right&&y>=m.top&&y<=m.bottom)continue;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.card-el')===el)return {id:el.dataset.id,x,y}}return null})()`);
     // A point on the Board that is no card, no control: the empty space under or between the tiles.
     const emptyPoint = () => ev(`(()=>{for(let y=740;y>300;y-=20){const e=document.elementFromPoint(195,y);if(e&&e.closest('#board')&&!e.closest('.card-el,button,a,input,select,#board-tabs'))return {x:195,y}}return null})()`);
 
@@ -61,7 +63,7 @@ module.exports = {
     const at = await pointOf(titleOf(2));
 
     await holdDown(page, at.x, at.y);
-    check('holding a card 500 ms lights it and the cards it is linked to that the Board shows', await waitFor(lit(2), 4000) && await ev(litIds) === '1,2', await ev(litIds));
+    check('holding a card 500 ms lights it and the cards it is linked to that the Board shows', await waitFor(held(2), 4000) && await ev(litIds) === '1,2', await ev(litIds));
     check('and the menu waits for the lift', await ev(`!(${menuOpen})`) && await menus() === 0);
     await liftUp(page);
     check('lifting in place opens the card menu for that card', await waitFor(menuOpen, 4000) && JSON.stringify(await subject()).includes('"clicked":"2"'), await subject());
@@ -84,7 +86,7 @@ module.exports = {
 
     // The light, ended by a tap on empty space, and nothing else
     await holdDown(page, at.x, at.y);
-    await waitFor(lit(2), 4000);
+    await waitFor(held(2), 4000);
     await liftUp(page);
     await waitFor(menuOpen, 4000);
     await outwaitPressEcho();
@@ -104,7 +106,7 @@ module.exports = {
     const picks = await ev(picked);
     const o = await pointOf(titleOf(lone));
     await countMenus();
-    await longPress(page, o.x, o.y, { until: lit(lone) });
+    await longPress(page, o.x, o.y, { until: held(lone) });
     check('a long press on a selected card opens the menu for the selection', await waitFor(menuOpen, 4000) && (await subject()).inSelection === true && (await subject()).ids.split(',').sort((a, b) => a - b).join() === picks, await subject());
     await ev(`hideContextMenu()`);
 
@@ -113,7 +115,7 @@ module.exports = {
     await countMenus();
     const c = await pointOf(titleOf(2));
     await holdDown(page, c.x, c.y);
-    await waitFor(lit(2), 4000);
+    await waitFor(held(2), 4000);
     check('a contextmenu during the hold is held back and opens nothing', await nativeMenu(two) === true && await menus() === 0 && await ev(`!(${menuOpen})`));
     await liftUp(page);
     check('the lift opens the menu', await waitFor(menuOpen, 4000));
@@ -132,14 +134,14 @@ module.exports = {
     await ev(`(()=>{const i=document.getElementById('search-input');i.value='#2 | #1 | #7';i.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     check('the search narrows the Board', await waitFor(`document.querySelectorAll('${two}').length===1&&!document.querySelector('#board .column .card-el[data-id="${lone}"]')`, 4000));
     const n = await pointOf(titleOf(2));
-    await longPress(page, n.x, n.y, { until: lit(2) });
+    await longPress(page, n.x, n.y, { until: held(2) });
     check('Select lit counts the lit cards the view shows', await waitFor(`document.getElementById('ctx-lit').textContent==='Select lit (3)'`, 4000), await ev(`document.getElementById('ctx-lit').textContent`));
     await ev(`hideContextMenu()`);
 
     // --- a card with no relations has no Select lit -----------------------------------------------------
     check('the Board once more', await boardOnDoing());
     const alone = await pointOf(titleOf(lone));
-    await longPress(page, alone.x, alone.y, { until: lit(lone) });
+    await longPress(page, alone.x, alone.y, { until: held(lone) });
     check('a card with nothing linked to it has no Select lit', await waitFor(menuOpen, 4000) && await ev(`document.getElementById('ctx-lit').classList.contains('hidden')`), await ev(`({lit:${litIds},text:document.getElementById('ctx-lit').textContent})`));
     await ev(`hideContextMenu()`);
 
@@ -155,7 +157,7 @@ module.exports = {
 
     const m2 = await pointOf(titleOf(2));
     await holdDown(page, m2.x, m2.y);
-    await waitFor(lit(2), 4000);
+    await waitFor(held(2), 4000);
     await moveHeld(page, m2.x, m2.y + 30);
     await liftUp(page);
     await realWait(300);
@@ -180,7 +182,7 @@ module.exports = {
       const id = await ev(`document.querySelector(${JSON.stringify(target)}).closest('.card-el').dataset.id`);
       const p = await pointOf(target);
       await holdDown(page, p.x, p.y);
-      check(`${name}: a hold lights the card`, await waitFor(lit(id), 4000), await ev(litIds));
+      check(`${name}: a hold lights the card`, await waitFor(held(id), 4000) && await ev(lit(id)), await ev(litIds));
       check(`${name}: and opens no menu yet`, await ev(`!(${menuOpen})`) && await menus() === 0);
       await liftUp(page);
       check(`${name}: the lift opens the card menu for it, once`, await waitFor(menuOpen, 4000) && (await subject()).clicked === id && await menus() === 1, await subject());
@@ -218,7 +220,7 @@ module.exports = {
     const px = await ev('ganttDayPxLive');
     const g = await pointOf(bar);
     await holdDown(page, g.x, g.y);
-    await waitFor(lit(28), 4000);
+    await waitFor(held(28), 4000);
     for (let i = 1; i <= 4; i++) await moveHeld(page, g.x + (px * 2 * i) / 4, g.y);
     check('the bar follows the finger after the hold', await waitFor('isDragging===true', 3000));
     await liftUp(page);

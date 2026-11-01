@@ -32,7 +32,8 @@ async function open({ phone = true, view = 'board' } = {}) {
   const closed = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
   const stored = { 'kanban.kanban.view.mode': view };
   const page = loadPage({ board: makeBoard(), stored, elements: { '#graph-view': control(), '#context-menu': menu, '#ctx-lit': lit, ...Object.fromEntries(closed.map((sel) => [sel, hidden()])) } });
-  page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && phone; }, addEventListener() {} });
+  const crossings = [];
+  page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && phone; }, addEventListener: (type, fn) => crossings.push(fn) });
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   page.ctx.performance = { now: () => clock.at };
@@ -42,6 +43,7 @@ async function open({ phone = true, view = 'board' } = {}) {
   page.ctx.openCard = (id) => { opened.push(String(id)); };
   const s = {
     page, menu, lit, opened, clock,
+    cross(to) { phone = to; crossings.forEach((fn) => fn({})); },
     wait(ms) {
       clock.at += ms;
       for (const t of clock.timers.filter((o) => o.at <= clock.at)) { clock.timers = clock.timers.filter((o) => o !== t); t.fn(); }
@@ -401,6 +403,23 @@ test('Select lit adds the lit cards to the selection and shuts the menu, and the
 });
 
 // --- the desk ---------------------------------------------------------------------------------------
+
+test('the light belongs to the phone layout: widening the window to the desk drops it, and narrowing it again lets a hold light a card once more', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.page.run('hideContextMenu()');
+  assert.deepStrictEqual(s.litIds(), ['1', '2', '3']);
+  s.cross(false);
+  assert.strictEqual(s.litIds(), null, 'no light lingers at the desk');
+  const target = tile(2);
+  down(s, target);
+  s.wait(1000);
+  assert.strictEqual(s.litIds(), null, 'and a hold at the desk width starts no press');
+  s.cross(true);
+  longPress(s, 2).up();
+  assert.deepStrictEqual(s.litIds(), ['1', '2', '3']);
+  assert.strictEqual(s.menuOpen(), true);
+});
 
 test('at the desk width a touch on a card starts no press', async () => {
   const s = await open({ phone: false });
