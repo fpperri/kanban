@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runSteps, tap, swipe, pinch } = require('./browser/steps');
+const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, swipe, pinch } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
 const phoneFlip = require('./browser/scenarios/phone-flip');
@@ -106,6 +106,24 @@ test('tap is a touchStart and a touchEnd at the same point', async () => {
     { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
     { type: 'touchEnd', touchPoints: [] },
   ]);
+});
+
+test('doubleTap is two taps at the same point one straight after the other, with no pause between them for a throttled page to stretch', async () => {
+  const page = standIn();
+  await doubleTap(page, 100, 200);
+  const one = [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ];
+  assert.deepStrictEqual(touches(page), [...one, ...one]);
+  assert.deepStrictEqual(page.calls.map((c) => c[0]), Array(4).fill('Input.dispatchTouchEvent'), 'nothing else is sent between the taps');
+});
+
+test('the double-tap wait is real time, longer than Chrome\'s 250 ms window and shorter than the 400 ms where two taps are plainly two', async () => {
+  assert.ok(DOUBLE_TAP_WINDOW_MS > 250 && DOUBLE_TAP_WINDOW_MS < 700, String(DOUBLE_TAP_WINDOW_MS));
+  const t0 = Date.now();
+  await outwaitDoubleTap();
+  assert.ok(Date.now() - t0 >= DOUBLE_TAP_WINDOW_MS - 20, 'it waited');
 });
 
 test('swipe is a touchStart, evenly spaced touchMoves to the end point, and a touchEnd', async () => {
