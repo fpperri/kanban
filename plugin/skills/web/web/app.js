@@ -1296,7 +1296,6 @@ function renderBoard() {
     renderBoardColumns();
     applyViewMode();
     renderSearchPanel(); // the chip, and the pills' counts in place while the panel is open
-    syncSelectionBar();
   } finally {
     searchMatchMemo = null;
   }
@@ -6248,13 +6247,25 @@ function paintsSelected(id) {
   return selectedIds.has(id) || (boxLitIds !== null && boxLitIds.has(id));
 }
 
-// The selection bar's count and whether it shows, from the resolved selection: every render
-// works the selection out again (renderBoard), so the bar follows each gesture, poll and view
-// switch. The stylesheet draws the bar on the phone layout only.
+// The selection bar's count and whether it shows, from the resolved selection: setSelection calls
+// it each time it works the id set out, so the bar follows every gesture, poll and view switch,
+// the Graph's taps that paint in place included. The stylesheet draws the bar on the phone layout
+// only. The count is a live region, announced when written, so it is written only when it changes.
 function syncSelectionBar() {
   const count = selectedIds.size;
   $('#selection-bar').classList.toggle('hidden', count < 1);
-  $('#selection-bar-count').textContent = `${count} selected`;
+  const text = `${count} selected`;
+  const label = $('#selection-bar-count');
+  if (label.textContent !== text) label.textContent = text;
+}
+
+// The bar rises over the foot of the list the moment a first tap selects its first card, so the
+// second tap of a double tap on a card down there can land on the bar. Chrome counts that click as
+// detail 2 whatever it lands on: while the first tap on a card is remembered it is the second tap
+// (reopenAfterDoubleTap), and the card opens instead of the bar acting. A tap on any control forgets the
+// card tap before it (the document's click rule), so a later detail 2 on a bar button is its own.
+function secondTapOnBar(e) {
+  return e.detail >= 2 && tapBefore !== null && reopenAfterDoubleTap(tapBefore.id);
 }
 
 // The bar's Archive, Status and More act on the resolved selection the way the card menu's bulk
@@ -6292,6 +6303,7 @@ function dropGoneCards() {
 function setSelection(selection, rangeStart = selectionState.rangeStart) {
   selectionState = { selection, rangeStart };
   selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
+  syncSelectionBar();
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -7044,10 +7056,14 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   // Clear takes the whole selection down in one step, the one Esc's steps and a double click on empty space
   // take, so the search box that said the selection follows it.
-  $('#selection-bar-clear').addEventListener('click', () => moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }));
-  $('#selection-bar-archive').addEventListener('click', () => { if (selectionBarSubject()) bulkArchive(); });
-  $('#selection-bar-status').addEventListener('click', () => { if (selectionBarSubject()) openBulkStatus(); });
-  $('#selection-bar-more').addEventListener('click', toggleSelectionMenu);
+  // A click that is the second tap of a double tap opens the card and leaves the buttons alone (secondTapOnBar);
+  // the bar's own listener catches one that lands on its count or between the buttons.
+  const onBarButton = (act) => (e) => { if (!secondTapOnBar(e)) act(e); };
+  $('#selection-bar-clear').addEventListener('click', onBarButton(() => moveSelectionTo({ selection: NO_SELECTION, rangeStart: null })));
+  $('#selection-bar-archive').addEventListener('click', onBarButton(() => { if (selectionBarSubject()) bulkArchive(); }));
+  $('#selection-bar-status').addEventListener('click', onBarButton(() => { if (selectionBarSubject()) openBulkStatus(); }));
+  $('#selection-bar-more').addEventListener('click', onBarButton(toggleSelectionMenu));
+  $('#selection-bar').addEventListener('click', secondTapOnBar);
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);

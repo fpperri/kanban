@@ -298,7 +298,6 @@ function flipSandbox({ mode, detailId = null } = {}) {
     applyViewMode: () => { s.flip.views++; },
     computeSearchMatch: () => ({ terms: [], ids: null }),
     renderSearchPanel: () => {},
-    syncSelectionBar: () => {},
     renderIterations: () => {},
     syncHoverLit: () => {},
   });
