@@ -1022,6 +1022,12 @@ function setClickPref(view, value) {
   savePrefsState();
 }
 
+// The phone layout's choice for a tap on a card, kept beside the desk's click choice.
+function setTapPref(view, value) {
+  prefsMemo = prefsWith(loadPrefsState(), { tap: { [view]: value } });
+  savePrefsState();
+}
+
 function setArchivedDone(on) {
   prefsMemo = prefsWith(loadPrefsState(), { archivedDone: on });
   savePrefsState();
@@ -1067,7 +1073,7 @@ function setMdColour(on) {
 // gear on close; there is no Tab trap, like the other popups.
 function prefOptionOn(opt) {
   if (opt.dataset.pref === 'bar') return loadRollupBarMode() === opt.dataset.value;
-  return loadPrefsState().click[opt.dataset.view] === opt.dataset.value;
+  return loadPrefsState()[opt.dataset.pref][opt.dataset.view] === opt.dataset.value;
 }
 
 function syncPrefsSheet() {
@@ -1104,6 +1110,7 @@ function onPrefsSheetClick(e) {
   if (opt) {
     if (opt.disabled || !opt.dataset.pref) return;
     if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
+    else if (opt.dataset.pref === 'tap') setTapPref(opt.dataset.view, opt.dataset.value);
     else setClickPref(opt.dataset.view, opt.dataset.value);
     syncPrefsSheet();
     return;

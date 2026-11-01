@@ -1851,6 +1851,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .prefs-eyebrow { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: -14px; }
 .prefs-page-title { color: var(--ink-strong); font-size: 1.05em; font-weight: 700; letter-spacing: -0.01em; }
 .prefs-group { display: flex; flex-direction: column; gap: 10px; }
+.prefs-group.prefs-phone-group { display: none; }
+@media (max-width: 759.98px) { .prefs-group.prefs-desk-group { display: none; } .prefs-group.prefs-phone-group { display: flex; } }
 .prefs-group h3 { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .prefs-hint { color: var(--mut); font-size: 0.8em; line-height: 1.5; }
 .prefs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

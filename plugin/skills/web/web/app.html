@@ -529,7 +529,7 @@
         <button type="button" class="prefs-back" id="prefs-back" data-keeps-selection data-holds-poll>&#8249; Preferences</button>
         <section class="prefs-page" data-page="browser:prefs">
           <p class="prefs-eyebrow">This browser</p>
-          <section class="prefs-group" aria-labelledby="prefs-click-title">
+          <section class="prefs-group prefs-desk-group" aria-labelledby="prefs-click-title">
             <h3 id="prefs-click-title">A plain click on a card</h3>
             <p class="prefs-hint">Opens the card, or selects it. Where a click selects, a double click or Enter on a focused card opens it. Ctrl or Cmd click toggles a card and Shift click adds a range in every view.</p>
             <div class="prefs-row">
@@ -564,6 +564,44 @@
               <span class="prefs-label" id="prefs-label-graph">Graph</span>
               <span class="prefs-seg" role="group" aria-labelledby="prefs-label-graph">
                 <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
+              </span>
+            </div>
+          </section>
+          <section class="prefs-group prefs-phone-group" aria-labelledby="prefs-tap-title">
+            <h3 id="prefs-tap-title">A tap on a card</h3>
+            <p class="prefs-hint">Selects the card, adding it to the selection or taking it out, or opens it. Where a tap selects, a double tap or Enter on a focused card opens it and leaves the selection as it was.</p>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-board">Board</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-board">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="board" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="board" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-map">Map</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-map">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="map" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="map" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-gantt">Gantt</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-gantt">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="gantt" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="gantt" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-calendar">Calendar</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-calendar">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="calendar" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="calendar" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-graph">Graph</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-graph">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
               </span>
             </div>
           </section>
