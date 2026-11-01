@@ -43,7 +43,7 @@ Two paths, depending on your harness.
 npx skills add fpperri/kanban
 ```
 
-The installer scans the repo, lists the three skills in a selection menu
+The installer scans the repo, lists the four skills in a selection menu
 (name + short description), and installs the ones you pick into your agent
 harness — Claude Code, GitHub Copilot, and the other harnesses `npx skills`
 supports. It copies each skill's own folder under `plugin/skills/`, so what it
@@ -58,7 +58,7 @@ on Claude Code built-ins and won't port cleanly elsewhere — see
 /plugin install kanban@kanban
 ```
 
-Installs all three skills at once, from the repo's `plugin/` folder alone: the
+Installs all four skills at once, from the repo's `plugin/` folder alone: the
 tests, `docs/` and `examples/` stay out of the install. Claude Code only.
 
 ## Quick start

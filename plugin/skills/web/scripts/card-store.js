@@ -312,6 +312,17 @@ function nextId(dir, prefix = '') {
   return numbers.length ? Math.max(...numbers) + 1 : 1;
 }
 
+// The one place a new card or group gets its id (a card's prefix comes from its type, a group's from its
+// folder). On a board it is the next number of the prefix's counter, written to config.yaml. A place with no
+// counter of its own, the page that carries the board, gives its own ids: useIdSource(fn) sets
+// fn(dir, prefix) to answer the whole id, and useIdSource(null) takes it away.
+let idSource = null;
+function useIdSource(fn) { idSource = fn; }
+function newId(dir, prefix = '') {
+  if (idSource) return idSource(dir, prefix);
+  return ids.idKey({ prefix, number: allocateId(dir, nextId(dir, prefix), prefix) });
+}
+
 // The `doing` entry gate refuses for two distinct reasons, and
 // the refusal must name which — so two error types, one per vocabulary word:
 // WaitingError for dependency edges, BlockedError for the manual sticker.
@@ -537,7 +548,7 @@ function createCard(dir, input) {
   // scan-only max+1 behavior when the board has no config.
   const config = readConfig(dir);
   const prefix = prefixForType(config, oneLine(input.type));
-  const id = `${prefix}${allocateId(dir, nextId(dir, prefix), prefix)}`;
+  const id = newId(dir, prefix);
   // Birth directly into the literal `doing` counts as entry — both gates
   // apply, same refusals as updateCard.
   if ((input.status || 'backlog') === 'doing') {
@@ -696,7 +707,7 @@ function deleteCard(dir, id) {
 module.exports = {
   parseFrontmatter, serializeCard, splitTitleBody, joinTitleBody,
   parseList, formatList, slugify, capSlug, projectName,
-  readCardFile, typeValue, writeAtomic, listActive, listArchived, findCardFile, nextId, todayLocalDate,
+  readCardFile, typeValue, writeAtomic, listActive, listArchived, findCardFile, nextId, newId, useIdSource, todayLocalDate,
   listArchivePackages, archivePackageDir, isArchivedFile,
   createCard, updateCard, archiveCard, restoreCard, deleteCard,
   WaitingError, BlockedError, PackageError, toJSON, cardDetail,

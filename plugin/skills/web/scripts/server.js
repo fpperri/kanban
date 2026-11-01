@@ -1,22 +1,11 @@
 'use strict';
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const cs = require('./card-store');
-const ns = require('./notifications-store');
-const lb = require('./logbook-store');
-const iter = require('./iteration-folders');
-const { cardImage } = require('./card-images');
-const sp = require('./scratchpad-store');
-const spf = require('./scratchpad-folder');
-const td = require('./todo-store');
-const gs = require('./group-store');
-const del = require('./delete-store');
 const cfg = require('./config-store');
-const settings = require('./settings-store');
-const nesting = require('../web/nesting');
-const ids = require('../web/ids');
 const { StatusError } = require('./store-common');
+const { makeRoute } = require('./route');
 
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -257,16 +246,12 @@ function readBody(req) {
   });
 }
 
-// A neighbour in a reorder body: a card id as its whole string (`7`, `G3`),
-// null when absent, undefined when it is neither.
-function readNeighbour(v) {
-  if (v === undefined || v === null) return null;
-  const key = ids.idKey(typeof v === 'string' ? v.trim() : v);
-  return key === null ? undefined : key;
-}
-
-function boardName(dir, config) {
-  return config.name || cs.projectName(dir);
+// Whether the route table has a route for a request, asked of an empty board in a folder of its own so that
+// nothing real is read or written. For a body that is not JSON: that is the caller's mistake on a route
+// that reads it, and nothing at all on a path that is no route.
+function routeExists(method, rawUrl) {
+  const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-route-probe-'));
+  try { return makeRoute(probe)(method, rawUrl, {}) !== null; } finally { fs.rmSync(probe, { recursive: true, force: true }); }
 }
 
 // The page names every file it loads (the scripts, the stylesheet, the tab
@@ -291,6 +276,7 @@ function pageServes(webDir, name) {
 }
 
 function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webDir = WEB) {
+  const route = makeRoute(dir, { homeUrl });
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const p = url.pathname;
@@ -300,218 +286,29 @@ function createServer(dir, extraOrigins = NO_EXTRA_ORIGINS, homeUrl = null, webD
       if (!originAllowed(req, extraOrigins) && !sandboxedAssetAllowed(req, p, webDir)) {
         return sendJSON(res, 403, { error: 'Forbidden: disallowed Origin/Referer/Host header' });
       }
-      // static + board
-      if (req.method === 'GET' && p === '/api/board') {
-        const active = cs.listActive(dir);
-        const archived = cs.listArchived(dir);
-        const bad = [...active, ...archived].filter((c) => c.unparseable);
-        if (bad.length) console.warn(`[kanban-app] skipping ${bad.length} unparseable card(s): ${bad.map((c) => path.basename(c.file)).join(', ')}`);
-        const config = cfg.readConfig(dir); // one read carries the board name, assignees + official lists
-        const groups = gs.readGroups(dir);
-        if (groups && groups.skipped.length) console.warn(`[kanban-app] skipping ${groups.skipped.length} group file(s): ${groups.skipped.map((s) => `${s.file} (${s.reason})`).join(', ')}`);
-        return iter.scoped(() => sendJSON(res, 200, {
-          // The BOARD NAME: config.yaml's human-declared `name:` when present,
-          // else the parent-folder derivation. Wire name kept as projectName —
-          // it is also the localStorage namespace for every per-board view
-          // preference, so renaming the field would orphan saved state.
-          projectName: boardName(dir, config),
-          homeUrl,
-          // the header copy button copies the board dir's ABSOLUTE
-          // path — resolve()d because the CLI defaults dir to a relative
-          // '.kanban'/'kanban' (resolveDefaultBoardDir()), and a relative
-          // path is useless pasted elsewhere.
-          boardDir: path.resolve(dir),
-          active: active.filter((c) => !c.unparseable).map(cs.toJSON),
-          archived: archived.filter((c) => !c.unparseable).map(cs.toJSON),
-          notifications: ns.readNotifications(dir),
-          assignees: config.assignees,
-          priorities: config.priorities,
-          tags: config.tags,
-          statuses: config.statuses, // ordered column list; [] = built-in four
-          types: config.types, // [{name, color}] card-type vocabulary, plus icon on an entry that sets one; [] = none declared
-          hierarchy: config.hierarchy, // type names, top tier first, as written; [] = none declared
-          typesOn: config.typesOn, // false = types off (ADR 0018): the web ignores types and hierarchy; the lists above stay as written
-          pills: config.pills, // [{label, query}] the board's own pills, in config order; [] = none declared
-          archivePackages: cs.listArchivePackages(dir), // archived/<package>/ folder names the archive popup completes against (ADR 0010)
-          logbook: config.paths.logbook ? { folder: config.paths.logbook, notes: lb.listNotes(dir) } : null, // the notes of every day file (ADR 0016); null = no logbook: line, nothing shows
-          scratchpad: config.paths.scratchpad ? { folder: config.paths.scratchpad, targets: sp.listTargets(dir) } : null, // the folder and the ids that have a page (ADR 0016); the page itself is read when opened; null = no scratchpad: line, nothing shows
-          todos: config.paths.todos ? { folder: config.paths.todos, targets: td.listTargets(dir), counts: td.counts(dir) } : null, // the folder, the ids that have a list and the open and total of each (ADR 0021); the list itself is read when opened; null = no todos: line, nothing shows
-          groups, // { folder, list, skipped, folders, prefixes } (ADR 0015); null = no groups: line, nothing shows
-          settings: settings.readSettings(dir, [...active, ...archived]), // the config the gear's This board pages show (ADR 0017)
-          iterations: !!(groups && config.iterations), // iterations: true over a groups: line adds the header's iteration dropdown (ADR 0015)
-        }));
+      // every /api request, reads included, is answered by the route module
+      if (p.startsWith('/api/')) {
+        let body = {};
+        if (req.method !== 'GET') {
+          try { body = await readBody(req); } catch (err) {
+            if (!(err instanceof SyntaxError) || routeExists(req.method, req.url)) throw err;
+            res.writeHead(404); res.end('not found'); return;
+          }
+        }
+        const answer = route(req.method, req.url, body);
+        if (answer === null) { res.writeHead(404); res.end('not found'); return; }
+        if (Buffer.isBuffer(answer.body)) {
+          res.writeHead(answer.status, { 'content-type': answer.type, 'content-length': answer.body.length, 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' });
+          res.end(answer.body);
+          return;
+        }
+        return sendJSON(res, answer.status, answer.body);
       }
       if (req.method === 'GET' && p === '/') return serveStatic(res, path.join(webDir, 'app.html'));
       const frameAsset = req.method === 'GET' ? frameAssetFile(webDir, p) : null;
       if (frameAsset) return serveStatic(res, frameAsset.file, { csp: FRAME_CSP, immutable: frameAsset.immutable });
       if (req.method === 'GET' && /^\/[\w.-]+$/.test(p) && pageServes(webDir, p.slice(1))) {
         return serveStatic(res, path.join(webDir, p.slice(1)));
-      }
-
-      // notifications: the file protocol's app-side mutations
-      if (req.method === 'POST' && p === '/api/notifications/mark-read') {
-        const body = await readBody(req);
-        return sendJSON(res, 200, { notifications: ns.markRead(dir, Array.isArray(body.ids) ? body.ids : undefined) });
-      }
-      const nm = p.match(/^\/api\/notifications(?:\/(\d+))?$/);
-      if (nm && req.method === 'DELETE') {
-        return sendJSON(res, 200, {
-          notifications: nm[1] ? ns.removeNotification(dir, Number(nm[1])) : ns.clearNotifications(dir),
-        });
-      }
-
-      // The logbook, the scratchpad, the gear's settings and the groups: a store refusal is a
-      // StatusError, which the catch at the end of this handler answers with its own status
-      // (400 a bad value, 404 nothing there, 409 a change that clashed, 413 too long).
-      if (p === '/api/notes' || p === '/api/notes/assign') {
-        const body = await readBody(req);
-        if (req.method === 'POST' && p === '/api/notes') return sendJSON(res, 201, { note: lb.addNote(dir, body) });
-        if (req.method === 'PATCH' && p === '/api/notes') return sendJSON(res, 200, { note: lb.editNote(dir, body.ref, body) });
-        if (req.method === 'DELETE' && p === '/api/notes') return sendJSON(res, 200, lb.deleteNote(dir, body.ref));
-        if (req.method === 'POST' && p === '/api/notes/assign') return sendJSON(res, 200, { note: lb.assignNote(dir, body.ref, body.to) });
-      }
-
-      // the scratchpad: GET reads a page, PUT writes its body; there is no delete route (only the
-      // delete flow takes a page, when asked)
-      const pm = p.match(new RegExp(`^/api/scratchpad/(${ids.ID_SOURCE})$`));
-      if (pm && (req.method === 'GET' || req.method === 'PUT')) {
-        const body = req.method === 'GET' ? {} : await readBody(req);
-        return sendJSON(res, 200, { pad: req.method === 'GET' ? sp.readPad(dir, pm[1]) : sp.writePad(dir, pm[1], body.body) });
-      }
-
-      // the scratchpad's folder browser: the files of a card's own scratchpad folder (scratchpad-folder.js).
-      // GET .../files?path= lists a folder one level down, GET .../file?path= opens a file; POST .../file
-      // creates a .md or .txt, PUT .../file saves one (naming the version it read), DELETE .../file deletes
-      // one, POST .../move renames or moves one and POST .../folder makes a subfolder
-      const fm = p.match(new RegExp(`^/api/scratchpad/(${ids.ID_SOURCE})/(files|file|move|folder)$`));
-      if (fm) {
-        const [, who, what] = fm;
-        const rel = url.searchParams.get('path');
-        if (req.method === 'GET' && what === 'files') return sendJSON(res, 200, spf.list(dir, who, rel === null ? '' : rel));
-        if (req.method === 'GET' && what === 'file') return sendJSON(res, 200, spf.open(dir, who, rel === null ? '' : rel));
-        if (req.method !== 'GET') {
-          const body = await readBody(req);
-          if (what === 'file' && req.method === 'POST') return sendJSON(res, 201, spf.create(dir, who, body));
-          if (what === 'file' && req.method === 'PUT') return sendJSON(res, 200, spf.save(dir, who, body));
-          if (what === 'file' && req.method === 'DELETE') return sendJSON(res, 200, spf.remove(dir, who, body));
-          if (what === 'move' && req.method === 'POST') return sendJSON(res, 200, spf.move(dir, who, body));
-          if (what === 'folder' && req.method === 'POST') return sendJSON(res, 201, { entry: spf.makeFolder(dir, who, body) });
-        }
-      }
-
-      // the todo lists (ADR 0021): GET reads a list; POST adds an item, PATCH ticks or edits one, DELETE
-      // removes one and POST .../move reorders one, POST .../indent and .../outdent change its level, and PUT
-      // writes the whole text (the tab's Edit), each naming the version it read (a clash is a 409)
-      const tm = p.match(new RegExp(`^/api/todos/(${ids.ID_SOURCE})(/move|/indent|/outdent)?$`));
-      if (tm) {
-        const body = req.method === 'GET' ? {} : await readBody(req);
-        if (!tm[2] && req.method === 'GET') return sendJSON(res, 200, { todos: td.readTodos(dir, tm[1]) });
-        if (!tm[2] && req.method === 'POST') return sendJSON(res, 201, { todos: td.addTodo(dir, tm[1], body) });
-        if (!tm[2] && req.method === 'PATCH') return sendJSON(res, 200, { todos: td.setTodo(dir, tm[1], body) });
-        if (!tm[2] && req.method === 'DELETE') return sendJSON(res, 200, { todos: td.deleteTodo(dir, tm[1], body) });
-        if (!tm[2] && req.method === 'PUT') return sendJSON(res, 200, { todos: td.writeTodos(dir, tm[1], body) });
-        if (tm[2] === '/move' && req.method === 'POST') return sendJSON(res, 200, { todos: td.moveTodo(dir, tm[1], body) });
-        if (tm[2] === '/indent' && req.method === 'POST') return sendJSON(res, 200, { todos: td.indentTodo(dir, tm[1], body) });
-        if (tm[2] === '/outdent' && req.method === 'POST') return sendJSON(res, 200, { todos: td.outdentTodo(dir, tm[1], body) });
-      }
-
-      // the gear's This board pages: one config.yaml line per request (ADR 0017)
-      if (req.method === 'POST' && p === '/api/config') {
-        const body = await readBody(req);
-        return sendJSON(res, 200, { settings: settings.writeSetting(dir, body) });
-      }
-
-      // groups
-      const gm = p.match(new RegExp(`^/api/groups(?:/(${ids.ID_SOURCE})(/members)?)?$`));
-      if (gm) {
-        const body = req.method === 'GET' ? {} : await readBody(req);
-        if (!gm[1] && req.method === 'POST') return sendJSON(res, 201, { group: gs.createGroup(dir, body) });
-        if (gm[1] && !gm[2] && req.method === 'PATCH') return sendJSON(res, 200, { group: gs.updateGroup(dir, gm[1], body) });
-        if (gm[1] && gm[2] && req.method === 'POST') return sendJSON(res, 200, { group: gs.changeMembers(dir, gm[1], body) });
-        // the extras to delete with it ride in the body, each only when true (delete-store.js)
-        if (gm[1] && !gm[2] && req.method === 'DELETE') return sendJSON(res, 200, { ok: true, ...del.deleteGroup(dir, gm[1], body) });
-      }
-
-      // mutations
-      if (req.method === 'POST' && p === '/api/cards') {
-        const body = await readBody(req);
-        try {
-          const created = cs.toJSON(cs.createCard(dir, body));
-          // Auto-join in the same request: the groups running on the creator's local date
-          // with auto_join take the card, and the reply names them for the flash.
-          return sendJSON(res, 201, { ...created, joined: gs.joinRunning(dir, created.id, cs.todayLocalDate()) });
-        } catch (e) {
-          // the 422 names WHICH gate refused — waiting carries the
-          // unresolved deps, blocked carries the sticker's reason.
-          if (e.name === 'WaitingError') return sendJSON(res, 422, { error: e.message, waiting: e.waiting });
-          if (e.name === 'BlockedError') return sendJSON(res, 422, { error: e.message, reason: e.reason });
-          throw e;
-        }
-      }
-      const m = p.match(new RegExp(`^/api/cards/(${ids.ID_SOURCE})(/archive|/restore|/detail|/reorder|/image)?$`));
-      if (m) {
-        const id = ids.idKey(m[1]); // the whole id; null when the digits run past what an id holds
-        if (id === null || !cs.findCardFile(dir, id)) return sendJSON(res, 404, { error: `no card #${m[1]}` });
-        // A Markdown image of the card's body: the file is found and judged by card-images.js and streamed as is.
-        if (req.method === 'GET' && m[2] === '/image') {
-          const { file, type, size } = cardImage(dir, id, url.searchParams.get('path'));
-          res.writeHead(200, { 'content-type': type, 'content-length': size, 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' });
-          const stream = fs.createReadStream(file);
-          stream.on('error', () => res.destroy());
-          stream.pipe(res);
-          return;
-        }
-        if (req.method === 'GET' && m[2] === '/detail') {
-          const detail = cs.cardDetail(dir, id);
-          // file mtime for the popup's "Last modified" fallback when
-          // the card predates the `updated` frontmatter field.
-          const mtime = fs.statSync(detail.path).mtime.toISOString();
-          return sendJSON(res, 200, { ...detail, mtime });
-        }
-        if (req.method === 'PATCH' && !m[2]) {
-          const changes = await readBody(req);
-          try {
-            return sendJSON(res, 200, cs.toJSON(cs.updateCard(dir, id, changes)));
-          } catch (e) {
-            if (e.name === 'WaitingError') return sendJSON(res, 422, { error: e.message, waiting: e.waiting });
-            if (e.name === 'BlockedError') return sendJSON(res, 422, { error: e.message, reason: e.reason });
-            throw e;
-          }
-        }
-        // Optional `package` body field files the card into
-        // archived/<package>/ instead of the archived/ root (ADR 0010); a
-        // bodyless POST still archives to the root, so every pre-package
-        // caller is untouched. A name that isn't one plain path component is
-        // the caller's mistake, not a server fault — 400, never 500.
-        if (req.method === 'POST' && m[2] === '/archive') {
-          const body = await readBody(req);
-          try {
-            return sendJSON(res, 200, cs.toJSON(cs.archiveCard(dir, id, body.package)));
-          } catch (e) {
-            if (e.name === 'PackageError') return sendJSON(res, 400, { error: e.message });
-            throw e;
-          }
-        }
-        if (req.method === 'POST' && m[2] === '/restore') return sendJSON(res, 200, cs.toJSON(cs.restoreCard(dir, id)));
-        // Each card is written on its own, with no transaction across them: a
-        // failure part-way leaves the cards before it written.
-        if (req.method === 'POST' && m[2] === '/reorder') {
-          const body = (await readBody(req)) || {};
-          const prev = readNeighbour(body.prev);
-          const next = readNeighbour(body.next);
-          if (prev === undefined || next === undefined) return sendJSON(res, 400, { error: 'prev and next must be card ids' });
-          const config = cfg.readConfig(dir);
-          const cards = cs.listActive(dir).concat(cs.listArchived(dir)).filter((c) => !c.unparseable);
-          const plan = nesting.reorderPlan(cards, id, { prev, next }, { board: boardName(dir, config), priorities: config.priorities });
-          if (plan.error) return sendJSON(res, 400, { error: plan.error });
-          const written = nesting.reorderWrites(id, plan).map((w) => cs.toJSON(cs.updateCard(dir, w.id, { rank: w.rank })));
-          return sendJSON(res, 200, {
-            card: written.find((c) => c.id === id) || cs.toJSON(cards.find((c) => c.id === id)),
-            renumbered: written.filter((c) => c.id !== id),
-          });
-        }
-        // Its id always leaves every group's list; the body names the extras to delete with it (delete-store.js).
-        if (req.method === 'DELETE' && !m[2]) return sendJSON(res, 200, { ok: true, ...del.deleteCard(dir, id, await readBody(req)) });
       }
 
       res.writeHead(404); res.end('not found');
