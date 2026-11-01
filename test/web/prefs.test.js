@@ -20,6 +20,7 @@ function storageOf(initial = {}) {
 
 const DEFAULTS = {
   click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
+  tap: { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects', graph: 'selects' },
   archivedDone: true,
   pillsFolded: false,
   statusesFolded: false,
@@ -52,6 +53,7 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
   const saved = JSON.stringify({ click: { board: 'selects', calendar: 'selects' }, archivedDone: false });
   assert.deepStrictEqual(mergePrefs(saved), {
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
+    tap: { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects', graph: 'selects' },
     archivedDone: false,
     pillsFolded: false,
     statusesFolded: false,
@@ -64,7 +66,7 @@ test('a saved choice for a view and for archived leaves comes back as saved', ()
 
 test('unknown keys are dropped, at the top and inside the click choices', () => {
   const merged = mergePrefs(JSON.stringify({ click: { board: 'selects', list: 'selects' }, archivedDone: false, theme: 'dark' }));
-  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'hoverFolded', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded', 'typingFolded']);
+  assert.deepStrictEqual(Object.keys(merged).sort(), ['archivedDone', 'click', 'hoverFolded', 'panelOnFocus', 'pillsFolded', 'slicesFolded', 'statusesFolded', 'tap', 'typingFolded']);
   assert.deepStrictEqual(Object.keys(merged.click).sort(), ['board', 'calendar', 'gantt', 'graph', 'map']);
 });
 
@@ -72,6 +74,7 @@ test('a bad value falls back to that setting\'s default and leaves the good ones
   const merged = mergePrefs(JSON.stringify({ click: { board: 'doubleclicks', map: 7, gantt: null, calendar: 'selects' }, archivedDone: 'false', pillsFolded: 'true', statusesFolded: 'true', slicesFolded: 'false', typingFolded: 'false', hoverFolded: 0, panelOnFocus: 'false' }));
   assert.deepStrictEqual(merged, {
     click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'selects', graph: 'selects' },
+    tap: { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects', graph: 'selects' },
     archivedDone: true,
     pillsFolded: false,
     statusesFolded: false,
@@ -225,6 +228,7 @@ test('what is saved is the merged, validated set, never what the caller passed i
   savePrefs(storage, 'shop', { click: { board: 'selects', graph: 'opens', bogus: 'x' }, archivedDone: 'no', pillsFolded: 1, statusesFolded: 1, slicesFolded: 0, typingFolded: 0, hoverFolded: 'no', panelOnFocus: 'off', extra: 1 });
   assert.deepStrictEqual(JSON.parse(storage.items['kanban.shop.prefs']), {
     click: { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' },
+    tap: { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects', graph: 'selects' },
     archivedDone: true,
     pillsFolded: false,
     statusesFolded: false,
@@ -296,4 +300,61 @@ test('a stored value that is not false, text that does not parse and storage tha
   assert.doesNotThrow(() => saveMdColour(broken, false));
   assert.strictEqual(loadMdColour(null), true);
   assert.doesNotThrow(() => saveMdColour(null, false));
+});
+
+// --- the phone's own tap choices, beside the desk's click choices ---------------------
+
+const TAP_DEFAULTS = { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects', graph: 'selects' };
+
+test('with nothing stored, a tap on the phone selects in every view, and the desk\'s click choices are the ones they always were', () => {
+  assert.deepStrictEqual(prefsDefaults().tap, TAP_DEFAULTS);
+  assert.deepStrictEqual(mergePrefs(null).tap, TAP_DEFAULTS);
+  assert.deepStrictEqual(prefsDefaults().click, { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' });
+});
+
+test('a browser that saved opens for every view before the phone had tap choices gets selects on the phone, and its desk choices stay as saved', () => {
+  const saved = JSON.stringify({ click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' }, archivedDone: false });
+  const merged = mergePrefs(saved);
+  assert.deepStrictEqual(merged.tap, TAP_DEFAULTS);
+  assert.deepStrictEqual(merged.click, { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' });
+  assert.strictEqual(merged.archivedDone, false);
+});
+
+test('a saved tap choice comes back as saved, and a click choice never leaks into the taps or the other way', () => {
+  const merged = mergePrefs(JSON.stringify({ click: { board: 'selects' }, tap: { map: 'opens', calendar: 'opens' } }));
+  assert.deepStrictEqual(merged.tap, { board: 'selects', map: 'opens', gantt: 'selects', calendar: 'opens', graph: 'selects' });
+  assert.deepStrictEqual(merged.click, { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' });
+});
+
+test('a tap choice that is not opens or selects falls back to selects, the Graph cannot be set to opens, and an unknown view or a prototype key is dropped', () => {
+  const merged = mergePrefs('{"tap":{"board":"doubleclicks","map":7,"gantt":null,"graph":"opens","list":"opens","__proto__":{"calendar":"opens"},"constructor":"opens"}}');
+  assert.deepStrictEqual(merged.tap, TAP_DEFAULTS);
+  assert.strictEqual({}.calendar, undefined);
+  for (const raw of ['{"tap":"opens"}', '{"tap":[1]}', '{"tap":null}']) assert.deepStrictEqual(mergePrefs(raw).tap, TAP_DEFAULTS, raw);
+});
+
+test('one view\'s tap choice changes alone: not the other taps, not the clicks, and the set passed in is not touched', () => {
+  const prefs = prefsDefaults();
+  const next = prefsWith(prefs, { tap: { gantt: 'opens' } });
+  assert.deepStrictEqual(next.tap, { ...TAP_DEFAULTS, gantt: 'opens' });
+  assert.deepStrictEqual(next.click, DEFAULTS.click);
+  assert.deepStrictEqual(prefs.tap, TAP_DEFAULTS, 'the set passed in is left as it was');
+  assert.deepStrictEqual(prefsWith(next, { click: { board: 'selects' } }).tap, { ...TAP_DEFAULTS, gantt: 'opens' }, 'a click change leaves the taps');
+});
+
+test('a tap change the sheet cannot make is dropped: a bad choice, the Graph set to opens, a view that is not listed', () => {
+  const prefs = prefsWith(prefsDefaults(), { tap: { board: 'opens' } });
+  const next = prefsWith(prefs, { tap: { graph: 'opens', map: 'both', calendar: 7, list: 'opens' } });
+  assert.deepStrictEqual(next, prefs, 'what was chosen stays chosen');
+});
+
+test('the tap choices are saved in the same entry as the clicks, and the next visit reads them back', () => {
+  const storage = storageOf();
+  const prefs = prefsWith(prefsDefaults(), { tap: { map: 'opens' }, click: { board: 'selects' } });
+  savePrefs(storage, 'shop', prefs);
+  assert.deepStrictEqual(Object.keys(storage.items), ['kanban.shop.prefs']);
+  const stored = JSON.parse(storage.items['kanban.shop.prefs']);
+  assert.deepStrictEqual(stored.tap, { ...TAP_DEFAULTS, map: 'opens' });
+  assert.deepStrictEqual(stored.click, { board: 'selects', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' });
+  assert.deepStrictEqual(loadPrefs(storage, 'shop'), prefs);
 });

@@ -129,6 +129,26 @@ function plainClickBehaviour(view, choices) {
   return own && choices[view] === 'selects' ? 'selects' : 'opens';
 }
 
+// What a tap on a card does on the phone layout, per view: it selects the card,
+// unless the phone's own choice for the view is opens. `choices` is the tap map of
+// the preferences ({ board: 'opens' | 'selects', ... }), kept apart from the desk's
+// click map, so a view the map leaves out, or fills with anything but 'opens',
+// selects. The Graph selects whatever the map says.
+function plainTapBehaviour(view, choices) {
+  if (view === 'graph') return 'selects';
+  const own = choices && Object.prototype.hasOwnProperty.call(choices, view);
+  return own && choices[view] === 'opens' ? 'opens' : 'selects';
+}
+
+// What the plain gesture on a card does on the layout on screen, 'opens' or
+// 'selects': a tap reads the phone's choices, a click the desk's. `prefs` holds
+// both maps ({ click, tap }, as prefs.js keeps them) and `phone` says which layout
+// is showing (onPhoneLayout()).
+function plainBehaviour(view, prefs, phone) {
+  const maps = prefs || {};
+  return phone ? plainTapBehaviour(view, maps.tap) : plainClickBehaviour(view, maps.click);
+}
+
 // Whether Shift+click adds a range of cards between the range start and the
 // target. The Graph's layout has no reading order to range over, so there Shift
 // adds one card, like Ctrl. Every other view ranges.
@@ -140,7 +160,7 @@ function shiftAddsRange(view) {
 // handler only carries it out. A cue (the assignee, a tag, a blocked or review
 // pill) is a search shortcut whatever the modifiers; Shift adds a range from
 // the range start; Ctrl or Cmd toggles one card; a plain click does what the
-// view's plainClick says ('opens' or 'selects', from plainClickBehaviour).
+// view's plainClick says ('opens' or 'selects', from plainBehaviour).
 // `ranges` says whether Shift adds a range (shiftAddsRange(view)); where it does
 // not, Shift toggles one card as Ctrl does.
 //
@@ -150,14 +170,42 @@ function shiftAddsRange(view) {
 // already made the card the anchor, and the selection stays as it made it. The
 // page cannot wait for a double click event: the first click's repaint replaces
 // the card, and that event is aimed at the card that was replaced, so it never
-// reaches the document. Returns
-// 'cue' | 'range' | 'toggle' | 'select' | 'peek' | 'open'.
-function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick, ranges = true, detail = 1 }) {
+// reaches the document.
+//
+// On the phone layout (`phone`) a plain tap that selects toggles the card in or out
+// of the selection, and the second tap of a double tap opens it and puts the selection
+// back as it was before the first tap ('restore-open'; selectionBeforeTap below finds
+// that selection). A third tap is a first tap again. Where the view's tap choice is
+// opens, a tap opens as a click does. Modifiers and cues mean the same at every width.
+// `peeks` false is a view that opens on its own dblclick event at the desk (the Graph, see
+// graphDblClickOpens): its second click is no peek there, whatever the count.
+// Returns 'cue' | 'range' | 'toggle' | 'select' | 'peek' | 'restore-open' | 'open'.
+function cardClickAction({ cue, shiftKey, ctrlKey, metaKey, plainClick, ranges = true, detail = 1, phone = false, peeks = true }) {
   if (cue) return 'cue';
   if (shiftKey) return ranges ? 'range' : 'toggle';
   if (ctrlKey || metaKey) return 'toggle';
   if (plainClick !== 'selects') return 'open';
-  return detail === 2 ? 'peek' : 'select';
+  if (phone) return detail === 2 ? 'restore-open' : 'toggle';
+  return detail === 2 && peeks ? 'peek' : 'select';
+}
+
+// Whether the Graph's own dblclick event opens the card under it. At the desk it does, with no
+// modifier held; on the phone layout it never does, since the second tap's click has already
+// opened the card (cardClickAction's 'restore-open'). `phone` says which layout is showing
+// (onPhoneLayout()).
+function graphDblClickOpens({ shiftKey, ctrlKey, metaKey, phone }) {
+  return !(phone || shiftKey || ctrlKey || metaKey);
+}
+
+// The selection a double tap goes back to. `memory` is what the page kept when the first tap
+// landed ({ id, selection, rangeStart, after }: the selection and range start as they were before
+// that tap, and the selection the tap made); it counts only for the card it was kept for, and only
+// while `current` is still that very selection (every write to the selection builds a new one, so
+// a person who has cleared it, stepped it back or built it again has moved on from the first tap).
+// Returns { selection, rangeStart }, or null when the tap has no first tap to undo, in which case
+// it is a first tap itself.
+function selectionBeforeTap(memory, id, current) {
+  return memory && memory.id === id && memory.after === current ? { selection: memory.selection, rangeStart: memory.rangeStart } : null;
 }
 
 // Enter on a focused card opens it where a plain click only selects it. Where a
@@ -612,7 +660,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, cardClickAction, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, graphDblClickOpens, selectionBeforeTap, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -660,7 +708,11 @@ if (typeof module !== 'undefined' && module.exports) {
   window.rangeSelection = rangeSelection;
   window.isHoverHighlighted = isHoverHighlighted;
   window.plainClickBehaviour = plainClickBehaviour;
+  window.plainTapBehaviour = plainTapBehaviour;
+  window.plainBehaviour = plainBehaviour;
   window.cardClickAction = cardClickAction;
+  window.graphDblClickOpens = graphDblClickOpens;
+  window.selectionBeforeTap = selectionBeforeTap;
   window.cardOpenAction = cardOpenAction;
   window.shiftAddsRange = shiftAddsRange;
   window.selectionAfterClick = selectionAfterClick;

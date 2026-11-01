@@ -186,7 +186,7 @@ const pageLine = (name) => {
   assert.ok(m, `the page declares ${name}`);
   return m[0];
 };
-const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('applyCardClick'), fn('searchByCue')].join('\n');
+const selectionSteps = () => [pageLine('selectionState'), pageLine('selectedIds'), pageLine('tapBefore'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('rememberTap'), fn('forgetTap'), fn('reopenAfterDoubleTap'), fn('applyCardClick'), fn('searchByCue')].join('\n');
 
 function clickHarness() {
   const listeners = [];
@@ -199,6 +199,7 @@ function clickHarness() {
     visibleCardIds: () => [],
     loadViewMode: () => 'board',
     loadPrefsState: () => ({ click: {} }),
+    onPhoneLayout: () => false,
     state: { active: [], archived: [] },
     toggleRollupBar: () => { calls.toggle++; },
     openCard: (id) => { calls.open.push(id); },

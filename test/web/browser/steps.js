@@ -38,6 +38,20 @@ async function tap(page, x, y) {
   await touchEvent(page, 'touchEnd', []);
 }
 
+// Two taps at one point, straight after each other: Chrome counts the second click as detail 2 when its
+// touchStart follows the first touchEnd within about 250 ms. A pause between them goes through page.sleep,
+// which a throttled run stretches 4x, so there is none.
+async function doubleTap(page, x, y) {
+  await tap(page, x, y);
+  await tap(page, x, y);
+}
+
+// Waits out the browser's double-tap window, in real time: the window is Chrome's, so a throttled page
+// does not stretch it and page.sleep, which does, is not used. A tap after this is a first tap even on
+// the card the last tap landed on.
+const DOUBLE_TAP_WINDOW_MS = 450;
+const outwaitDoubleTap = () => new Promise((resolve) => setTimeout(resolve, DOUBLE_TAP_WINDOW_MS));
+
 async function swipe(page, from, to, { steps = 8 } = {}) {
   await touchEvent(page, 'touchStart', [from]);
   for (let i = 1; i <= steps; i++) {
@@ -63,4 +77,4 @@ async function refreshNow(page) {
   return page.waitFor(`window.__applied>${before}`, 5000);
 }
 
-module.exports = { runSteps, freshStart, tap, swipe, pinch, refreshNow };
+module.exports = { runSteps, freshStart, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, swipe, pinch, refreshNow };

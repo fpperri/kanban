@@ -1022,6 +1022,12 @@ function setClickPref(view, value) {
   savePrefsState();
 }
 
+// The phone layout's choice for a tap on a card, kept beside the desk's click choice.
+function setTapPref(view, value) {
+  prefsMemo = prefsWith(loadPrefsState(), { tap: { [view]: value } });
+  savePrefsState();
+}
+
 function setArchivedDone(on) {
   prefsMemo = prefsWith(loadPrefsState(), { archivedDone: on });
   savePrefsState();
@@ -1067,7 +1073,7 @@ function setMdColour(on) {
 // gear on close; there is no Tab trap, like the other popups.
 function prefOptionOn(opt) {
   if (opt.dataset.pref === 'bar') return loadRollupBarMode() === opt.dataset.value;
-  return loadPrefsState().click[opt.dataset.view] === opt.dataset.value;
+  return loadPrefsState()[opt.dataset.pref][opt.dataset.view] === opt.dataset.value;
 }
 
 function syncPrefsSheet() {
@@ -1104,6 +1110,7 @@ function onPrefsSheetClick(e) {
   if (opt) {
     if (opt.disabled || !opt.dataset.pref) return;
     if (opt.dataset.pref === 'bar') setRollupBarMode(opt.dataset.value);
+    else if (opt.dataset.pref === 'tap') setTapPref(opt.dataset.view, opt.dataset.value);
     else setClickPref(opt.dataset.view, opt.dataset.value);
     syncPrefsSheet();
     return;
@@ -6374,6 +6381,35 @@ function selectByClick(action, id) {
   setSelection(next.selection, next.rangeStart);
 }
 
+// The selection and range start from before the last tap that toggled a card, kept with the card it
+// landed on and the selection that tap made: the phone's double tap puts them back
+// (reopenAfterDoubleTap), but only while the selection is still the one that tap made. A tap on a
+// cue, a peek, and a click on empty space or on a control inside a card forget it (forgetTap); a
+// write to the selection (Esc, a pill, the box, the card menu) outdates it by itself.
+let tapBefore = null;
+
+// `prior` is selectionState as it stood before the tap; call this once the tap has written its selection.
+function rememberTap(action, id, prior) {
+  tapBefore = action === 'toggle' ? { id, selection: prior.selection, rangeStart: prior.rangeStart, after: selectionState.selection } : null;
+}
+
+function forgetTap() {
+  tapBefore = null;
+}
+
+// The second tap of a double tap on the phone layout: the selection and range start go back to what
+// they were before the first tap, through the step Esc and a double click on empty space use so the
+// box follows, then the card opens. False when there is no first tap on this card to undo; the
+// caller then treats the tap as a first tap.
+function reopenAfterDoubleTap(id) {
+  const back = selectionBeforeTap(tapBefore, id, selectionState.selection);
+  tapBefore = null;
+  if (!back) return false;
+  moveSelectionTo(back);
+  openCard(id);
+  return true;
+}
+
 // Carries out what cardClickAction (selection.js) decided about a click on a
 // card. File-manager selection grammar: Shift+click ADDS the whole range
 // between the range start and the target, in the active view's rendered order;
@@ -6381,7 +6417,9 @@ function selectByClick(action, id) {
 // picked is the anchor and later ones are additions; a plain click breaks any
 // selection but for its pills, then opens the card (or, in a view whose plain click selects,
 // makes it the anchor of a new selection); the second click of a double click in
-// such a view is a peek, which opens the card and leaves the selection alone.
+// such a view is a peek, which opens the card and leaves the selection alone. On the phone layout a
+// tap toggles the card, and the second tap of a double tap opens it and puts the selection back as it
+// was before the first tap.
 // renderBoard() repaints whichever view is active — board columns always, plus
 // the active map/calendar/gantt. Opening a card changes no filter: a click that opens it
 // leaves every pill on and the box as they were, so the view behind the card details shows
@@ -6393,12 +6431,18 @@ function selectByClick(action, id) {
 // the click. While isolated a click moves the anchor only: the box holds the isolate text, which
 // it never writes.
 function applyCardClick(action, id, cue) {
-  if (action === 'cue') { searchByCue(cue, id); return; }
-  if (action === 'peek') { openCard(id); return; }
-  const before = selectionState.selection;
+  if (action === 'cue') { forgetTap(); searchByCue(cue, id); return; }
+  if (action === 'peek') { forgetTap(); openCard(id); return; }
+  if (action === 'restore-open') {
+    if (reopenAfterDoubleTap(id)) return;
+    action = 'toggle'; // no first tap to undo: this tap is a first tap
+  }
+  const prior = selectionState;
+  const before = prior.selection;
   selectByClick(action, id);
   if (action !== 'open' && boxMirrorsSelection()) mirrorSelectionInBox(before);
   else if (action !== 'open' || selectionState.selection !== before) renderBoard();
+  rememberTap(action, id, prior);
   if (action === 'open') openCard(id);
 }
 
@@ -6418,7 +6462,7 @@ function onCardOpenKey(e) {
   if (el !== e.target) return;
   const action = cardOpenAction({
     shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
-    plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click),
+    plainClick: plainBehaviour(loadViewMode(), loadPrefsState(), onPhoneLayout()),
   });
   const lone = !(e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) && searchEnterOpens(searchEnterMatchIds(), el.dataset.id); // the one card a search matched opens on Enter whatever the click preference says
   if (action !== 'open' && !lone) return;
@@ -6860,13 +6904,14 @@ window.addEventListener('DOMContentLoaded', () => {
   // a card is not empty space, so the click-away rule (onClickAway) leaves what
   // the click built.
   document.addEventListener('click', (e) => {
-    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { toggleRollupBar(); return; } // a modified click still belongs to multi-select
+    if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { forgetTap(); toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
-    if (!el) return;
-    if (e.target.closest('button, select, input, a')) return;
+    if (!el) { forgetTap(); return; }
+    if (e.target.closest('button, select, input, a')) { forgetTap(); return; }
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
-    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
+    const phone = onPhoneLayout();
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainBehaviour(view, loadPrefsState(), phone), ranges: shiftAddsRange(view), phone, detail: e.detail });
     applyCardClick(action, el.dataset.id, cue);
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the
