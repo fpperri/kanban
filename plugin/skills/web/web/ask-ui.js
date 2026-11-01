@@ -1,5 +1,5 @@
 'use strict';
-// The speedbump's question, asked in the page. A host that sandboxes the page (the claude.ai viewer)
+// The speedbump's question, asked in the page. A host that sandboxes the page (an artifact viewer)
 // answers the browser's confirm() with "no", so every speedbump that went through it did nothing there;
 // askInPage(message, { yes, code }) draws the question in the page instead and returns a promise of true
 // (yes) or false (no). The message is the call site's own text, set as text; `yes` names the red button

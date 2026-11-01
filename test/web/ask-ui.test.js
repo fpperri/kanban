@@ -7,7 +7,7 @@ const { askElements, askDriver } = require('./helpers/ask-page');
 const { blankNonCode } = require('./helpers/global-scope');
 const { askSegments } = require('../../plugin/skills/web/web/ask-ui');
 
-// The speedbump asks in the page (ask-ui.js), not through the browser's confirm(): the claude.ai viewer
+// The speedbump asks in the page (ask-ui.js), not through the browser's confirm(): an artifact viewer
 // answers a native dialog with "no", so Archive, the drop that asks, Discard unsaved changes and the rest
 // did nothing on the Board artifact. One ask returns a promise of yes or no; Esc, Cancel, the close button
 // and the backdrop answer no. The page runs in a vm (helpers/page-vm.js) with the ask's five elements as
@@ -39,7 +39,7 @@ test('no confirm( is left in the web\'s page code', () => {
   for (const f of fs.readdirSync(WEB).filter((n) => n.endsWith('.js')).sort()) {
     blankNonCode(read(f)).split('\n').forEach((line, i) => { if (/(^|[^\w$])confirm\s*\(/.test(line)) found.push(`${f}:${i + 1}`); });
   }
-  assert.deepStrictEqual(found, [], 'a native confirm() is answered with no in the claude.ai viewer; ask in the page with askInPage');
+  assert.deepStrictEqual(found, [], 'a native confirm() is answered with no in an artifact viewer; ask in the page with askInPage');
 });
 
 test('the ask opens with the message as text, Cancel focused, and the confirm button named for the act', async () => {
