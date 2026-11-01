@@ -6,7 +6,7 @@
 // popup, and archives the three: the bar goes with the selection. Status opens Set status... for the
 // selection, 44 px tall buttons inside the screen; a tap on Backlog moves the cards, the selection and the
 // bar stay and read the same count. More opens the card menu for the whole selection above the bar, with
-// no Peek, and Set status... is in its Edit group. The step leaves the board as it found it: the archived
+// no Peek, Set status... in its Edit group, and Isolate in its Explore group without Path and Tree. The step leaves the board as it found it: the archived
 // cards are restored and the moved cards go back to Todo.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): api, loadBoard, selectedIds, state.
@@ -109,6 +109,11 @@ module.exports = {
     check('it rises from the bar: inside the screen and above it', inScreen(menu, w, h) && menu.b <= bar2.t + 0.5, JSON.stringify({ menu, bar2 }));
     await shot('more-menu');
     check('it is the menu of the whole selection: no Peek, no Add to selection', await ev(`document.getElementById('ctx-peek').classList.contains('hidden')&&document.getElementById('ctx-add').classList.contains('hidden')`));
+    await tapOn('#ctx-explore');
+    const drawn = (id) => `getComputedStyle(document.getElementById('${id}')).display!=='none'`;
+    check('Explore opens with Isolate, and without Path and Tree, which act on one named card', await waitFor(drawn('ctx-isolate'), 3000) && await ev(`['ctx-path','ctx-tree'].every((id)=>getComputedStyle(document.getElementById(id).closest('.ctx-sub')).display==='none')`));
+    await tapOn('#ctx-explore');
+    check('a second tap on its row shuts it', await waitFor(`!document.getElementById('ctx-explore').closest('.ctx-sub').classList.contains('open')`, 3000));
     await tapOn('#ctx-edit');
     check('the Edit group opens under its row with Set status... first', await waitFor(`getComputedStyle(document.getElementById('ctx-status')).display!=='none'&&document.querySelector('#ctx-edit-panel button').id==='ctx-status'`, 3000));
     const inside = await rectOf(`document.getElementById('ctx-status')`);
