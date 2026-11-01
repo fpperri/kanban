@@ -4,7 +4,8 @@
 // resolves through (selectionMatchIds, the search module's matcher except for the
 // Graph's box text), the ids the view shows, and the step a repaint takes the text
 // of a write to the box through (selectionFollowingBox), and the bar a write keeps in step
-// (syncSelectionBar, drawn by no sandbox). Here nothing matches a
+// (settleSelectionBar and holdSelectionBar, drawn by no sandbox; barHoldsFor says no tap is being waited
+// out). Here nothing matches a
 // query, the view shows everything and the box was not written, so a selection of
 // card parts resolves to those cards, and isolate is off (isolateNow, isolateTurnOff) and stays off:
 // no view has Typing isolates on (typingIsolatesIn), so a write to the box turns nothing on. Not a
@@ -16,7 +17,7 @@ const { searchRemoveAlt, searchRemoveGrownAlt, searchSplitSlice, searchMirrorBox
 const cardsSelection = (ids) => ids.reduce((next, id) => selection.addPart(next, selection.cardPart(id)), selection.NO_SELECTION);
 
 function selectionGlobals(extra = {}) {
-  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, syncSelectionBar: () => {}, isolateNow: () => null, isolateTurnOff: () => false, typingIsolatesIn: () => false, loadViewMode: () => 'board', isolateFromTyping: () => {}, isolateEndIfEmptied: () => {}, searchSplitSlice, searchRemoveAlt, searchRemoveGrownAlt, searchMirrorBox, ...extra };
+  return { ...selection, cardsSelection, searchMatchIds: () => new Set(), selectionMatchIds: () => new Set(), shownCardIds: () => null, selectionFollowingBox: (selection) => selection, settleSelectionBar: () => {}, holdSelectionBar: () => {}, barHoldsFor: () => false, isolateNow: () => null, isolateTurnOff: () => false, typingIsolatesIn: () => false, loadViewMode: () => 'board', isolateFromTyping: () => {}, isolateEndIfEmptied: () => {}, searchSplitSlice, searchRemoveAlt, searchRemoveGrownAlt, searchMirrorBox, ...extra };
 }
 
 module.exports = { cardsSelection, selectionGlobals };

@@ -1178,6 +1178,7 @@ function setView(mode) {
     isolateStartFollowing(typingIsolatesIn(to)); // a typed query isolates where this view's Typing isolates is on
     renderBoard();
   }
+  settleSelectionBar(); // a switch is no tap: the bar follows what this view resolves the selection to, at once
   followSearchInAddress($('#search-input').value); // isolate=0 where this view's Typing isolates is on, nothing elsewhere
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -5319,9 +5320,12 @@ function onCalNotesDividerDblClick(e) {
 const CALENDAR_CREATE_DAY_CELLS = '.cal-day, .cal-tg-allday-cell';
 const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 
-// A single click on an empty hour opens the notes palette once the double click that would make
-// a card there can no longer follow it.
-const CAL_DOUBLE_CLICK_MS = 300;
+// The window in which a second click or tap on a card or an empty hour still counts as the second of
+// a double one, and the one number the page waits it out by: a single click on an empty hour opens
+// the notes palette once the double click that would make a card there can no longer follow it, and
+// the selection bar waits it out after a tap before it changes (holdSelectionBar). The browser's own
+// count of a double tap is a little shorter (about 250 ms in Chromium), so the page is never early.
+const DOUBLE_CLICK_MS = 300;
 let calHourClickTimer = 0;
 
 // --- Calendar view wiring: header toggle + the
@@ -5364,7 +5368,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const r = col.getBoundingClientRect();
     const req = noteHourRequest(col.dataset.day, calScaleCur.minOf(e.clientY - r.top));
     clearTimeout(calHourClickTimer);
-    calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, CAL_DOUBLE_CLICK_MS);
+    calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, DOUBLE_CLICK_MS);
   });
   // Click-to-create rides double-click on the empty cells, the one empty space
   // where a double click already means something, so the click-away rule leaves
@@ -6259,21 +6263,44 @@ function syncSelectionBar() {
   if (label.textContent !== text) label.textContent = text;
 }
 
-// The bar rises over the foot of the list the moment a first tap selects its first card, so the
-// second tap of a double tap on a card down there can land on the bar. Chrome counts that click as
-// detail 2 whatever it lands on: while the first tap on a card is remembered it is the second tap
-// (reopenAfterDoubleTap), and the card opens instead of the bar acting. A tap on any control forgets the
-// card tap before it (the document's click rule), so a later detail 2 on a bar button is its own.
-function secondTapOnBar(e) {
-  return e.detail >= 2 && tapBefore !== null && reopenAfterDoubleTap(tapBefore.id);
+// The bar takes the page's room (--selection-bar-h), so each time it goes up or away the lists
+// change height: one scrolled near its end shifts, and a card near the foot has the bar rise over it,
+// under the finger of the second tap of a double tap. So nothing the bar does happens inside the
+// double-tap window. A tap that changes the selection on the phone layout leaves the bar as it was
+// (holdSelectionBar) until DOUBLE_CLICK_MS has passed with no second tap on that card, and a tap on
+// another card puts the wait off again. The second tap puts the selection back
+// (reopenAfterDoubleTap), and the bar is decided once, after it. Every other write to the selection
+// (the card menu, Select lit, Clear, Archive, Status, Esc, a view switch, a poll that changes what
+// the selection resolves to) moves the bar at once (settleSelectionBar). `barHeldIds` is the id set
+// the tap made, null while no tap is being waited out; a render that works out the same set (the
+// tap's own repaint, a poll that changed nothing) is not another write and leaves the wait alone.
+let barWait = 0;
+let barHeldIds = null;
+
+function holdSelectionBar() {
+  clearTimeout(barWait);
+  barHeldIds = selectedIds;
+  barWait = setTimeout(settleSelectionBar, DOUBLE_CLICK_MS);
+}
+
+function settleSelectionBar() {
+  clearTimeout(barWait);
+  barWait = 0;
+  barHeldIds = null;
+  syncSelectionBar();
+}
+
+function barHoldsFor(ids) {
+  return barHeldIds !== null && ids.size === barHeldIds.size && [...ids].every((id) => barHeldIds.has(id));
 }
 
 // The bar's Archive, Status and More act on the resolved selection the way the card menu's bulk
 // entries act on their subject: the subject is made of the selection first (the menu of a
-// right-click inside it), then the same function runs. False when nothing is selected.
+// right-click inside it, but it names no card, so Explore's Path and Tree are out of it), then the
+// same function runs. False when nothing is selected.
 function selectionBarSubject() {
   if (!selectedIds.size) return false;
-  menuSubject = cardMenuFor(selectedIds, [...selectedIds][0]);
+  menuSubject = selectionMenuFor(selectedIds);
   return true;
 }
 
@@ -6299,11 +6326,14 @@ function dropGoneCards() {
 // set is worked out. A write that names no range start keeps the one the
 // selection had. Writing the selection it already holds works the id set out
 // again, which is what every render does: the parts persist and the set is what
-// they reach among the cards the view shows.
-function setSelection(selection, rangeStart = selectionState.rangeStart) {
+// they reach among the cards the view shows. `tap` is a tap on a card on the phone layout: the
+// selection bar waits out the double-tap window before it follows it (holdSelectionBar); any other
+// write moves the bar at once, unless it only works out the set a tap made again.
+function setSelection(selection, rangeStart = selectionState.rangeStart, { tap = false } = {}) {
   selectionState = { selection, rangeStart };
   selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
-  syncSelectionBar();
+  if (tap) holdSelectionBar();
+  else if (!barHoldsFor(selectedIds)) settleSelectionBar();
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -6426,7 +6456,7 @@ function selectByClick(action, id) {
     order: action === 'range' ? visibleCardIds() : [],
     matchQuery: selectionMatchIds,
   });
-  setSelection(next.selection, next.rangeStart);
+  setSelection(next.selection, next.rangeStart, { tap: onPhoneLayout() });
 }
 
 // The selection and range start from before the last tap that toggled a card, kept with the card it
@@ -6454,6 +6484,7 @@ function reopenAfterDoubleTap(id) {
   tapBefore = null;
   if (!back) return false;
   moveSelectionTo(back);
+  settleSelectionBar(); // the selection the first tap changed is back: the bar is decided once, here
   openCard(id);
   return true;
 }
@@ -6581,9 +6612,11 @@ function showContextMenu(x, y, { above = false } = {}) {
   $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
   $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
-  // card details' menu leaves Peek out. Path and Tree show on every card's menu, whatever
-  // the subject; the empty canvas's menu hides them with the rest of its group. The caller has
-  // already decided menuSubject.
+  // card details' menu leaves Peek out. Path and Tree act on the card the menu was opened on, so they
+  // show whenever it names one, whatever the subject; the menu the selection bar's More opens names
+  // none and leaves them out (and the empty canvas's menu hides them with the rest of its group).
+  // The caller has already decided menuSubject.
+  for (const id of ['#ctx-hpath', '#ctx-dpath', '#ctx-htree', '#ctx-dtree']) $(id).classList.toggle('hidden', menuSubject.clicked == null);
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
@@ -7056,14 +7089,10 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   // Clear takes the whole selection down in one step, the one Esc's steps and a double click on empty space
   // take, so the search box that said the selection follows it.
-  // A click that is the second tap of a double tap opens the card and leaves the buttons alone (secondTapOnBar);
-  // the bar's own listener catches one that lands on its count or between the buttons.
-  const onBarButton = (act) => (e) => { if (!secondTapOnBar(e)) act(e); };
-  $('#selection-bar-clear').addEventListener('click', onBarButton(() => moveSelectionTo({ selection: NO_SELECTION, rangeStart: null })));
-  $('#selection-bar-archive').addEventListener('click', onBarButton(() => { if (selectionBarSubject()) bulkArchive(); }));
-  $('#selection-bar-status').addEventListener('click', onBarButton(() => { if (selectionBarSubject()) openBulkStatus(); }));
-  $('#selection-bar-more').addEventListener('click', onBarButton(toggleSelectionMenu));
-  $('#selection-bar').addEventListener('click', secondTapOnBar);
+  $('#selection-bar-clear').addEventListener('click', () => moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }));
+  $('#selection-bar-archive').addEventListener('click', () => { if (selectionBarSubject()) bulkArchive(); });
+  $('#selection-bar-status').addEventListener('click', () => { if (selectionBarSubject()) openBulkStatus(); });
+  $('#selection-bar-more').addEventListener('click', toggleSelectionMenu);
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);

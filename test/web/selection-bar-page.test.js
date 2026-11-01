@@ -9,7 +9,8 @@ const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width')
 // the resolved count while anything is selected, and its Clear, Archive, Status and More act on the
 // resolved selection through the menu subject the card menu's own bulk entries read. Set status… is
 // the card menu's bulk entry the bar's Status shares. Where the bar is drawn, and the room the
-// page keeps for it, are selection-bar-markup.test.js's.
+// page keeps for it, are selection-bar-markup.test.js's. The page's timers run on a clock the test
+// moves (fakeClock), so the wait a tap puts on the bar is read to the millisecond.
 
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
@@ -33,8 +34,23 @@ const makeBoard = () => ({
   archived: [card(7, { status: 'done', archived: true })],
 });
 
+// The page's setTimeout and clearTimeout on a clock the test moves: tick(ms) runs what has come due.
+function fakeClock(page) {
+  const timers = [];
+  let now = 0;
+  page.ctx.setTimeout = (fn, ms) => { timers.push({ fn, at: now + ms, id: timers.length + 1 }); return timers.length; };
+  page.ctx.clearTimeout = (id) => { const t = timers.find((x) => x.id === id); if (t) t.cancelled = true; };
+  return {
+    tick(ms) {
+      now += ms;
+      for (const t of timers.filter((x) => !x.done && !x.cancelled && x.at <= now).sort((a, b) => a.at - b.at)) { t.done = true; t.fn(); }
+    },
+  };
+}
+
 const BAR = ['#selection-bar', '#selection-bar-count', '#selection-bar-clear', '#selection-bar-archive', '#selection-bar-status', '#selection-bar-more'];
-const MENU = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-child', '#ctx-status', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete',
+const PATH_TREE = ['#ctx-hpath', '#ctx-dpath', '#ctx-htree', '#ctx-dtree'];
+const MENU = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-isolate', ...PATH_TREE, '#ctx-child', '#ctx-status', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete',
   '#bulk-single', '#bulk-single-input', '#bulk-single-apply', '#bulk-single-title', '#bulk-archive', '#bulk-archive-title', '#bulk-archive-input', '#bulk-archive-apply', '#bulk-status', '#bulk-status-title', '#bulk-status-close'];
 
 async function open({ phone = true, view = 'board', board = makeBoard() } = {}) {
@@ -47,6 +63,18 @@ async function open({ phone = true, view = 'board', board = makeBoard() } = {}) 
   page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && state.phone; }, addEventListener() {} });
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  const clock = fakeClock(page);
+  const barChanges = []; // every time the bar goes up or away: the layout moves with each
+  const barClasses = elements['#selection-bar'].classList;
+  for (const name of ['add', 'remove', 'toggle']) {
+    const original = barClasses[name];
+    barClasses[name] = (...args) => {
+      const was = barClasses.contains('hidden');
+      const result = original(...args);
+      if (barClasses.contains('hidden') !== was) barChanges.push(was ? 'up' : 'away');
+      return result;
+    };
+  }
   const requests = [];
   const realFetch = page.ctx.fetch;
   page.ctx.fetch = (url, opts = {}) => { requests.push([opts.method || 'GET', String(url)]); return realFetch(url, opts); };
@@ -59,7 +87,8 @@ async function open({ phone = true, view = 'board', board = makeBoard() } = {}) 
     press: async (name) => { elements[`#selection-bar-${name}`].fire('click', { currentTarget: elements[`#selection-bar-${name}`], target: elements[`#selection-bar-${name}`] }); await page.settle(); },
   };
   return {
-    page, elements, requests, toasts, bar, ids, ask: askDriver(page, elements),
+    page, elements, requests, toasts, bar, ids, ask: askDriver(page, elements), clock, barChanges,
+    window: () => page.run('DOUBLE_CLICK_MS'),
     select: (...cardIds) => { page.run(`setSelection(${cardIds.reduce((s, id) => `addPart(${s}, cardPart('${id}'))`, 'NO_SELECTION')}); renderBoard()`); },
     selection: () => JSON.parse(JSON.stringify(page.run('selectionState.selection'))),
     cardRequests: () => requests.filter(([method, url]) => method !== 'GET' && /\/api\/cards\/\d+(\/archive|\/restore)?$/.test(url)).map(([method, url]) => `${method} ${url}`),
@@ -100,6 +129,7 @@ test('Clear empties the selection, the search box that mirrored it, and the bar'
   tap(s, 2);
   tap(s, 3);
   assert.strictEqual(s.page.input.value, '#2 | #3');
+  s.clock.tick(s.window());
   assert.strictEqual(s.bar.count(), '2 selected');
   await s.bar.press('clear');
   assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
@@ -315,6 +345,23 @@ test('More opens the card menu for the whole selection: no Peek, no Add to selec
   assert.deepStrictEqual(s.ids(), [1, 2, 3], 'a bulk edit keeps the selection');
 });
 
+test('More opens the menu without Path and Tree, which act on one named card and the bar names none; Isolate and every bulk entry stay', async () => {
+  const s = await open();
+  const hidden = (sel) => s.elements[sel].classList.contains('hidden');
+  s.select(1, 2, 3);
+  await pressMore(s);
+  assert.deepStrictEqual(PATH_TREE.map(hidden), [true, true, true, true], 'no Hierarchy or Dependency path or tree');
+  assert.strictEqual(hidden('#ctx-isolate'), false, 'Isolate shows the selection');
+  for (const entry of ['#ctx-status', '#ctx-assign', '#ctx-priority', '#ctx-tags', '#ctx-schedule', '#ctx-archive', '#ctx-restore', '#ctx-delete']) assert.strictEqual(hidden(entry), false, entry);
+  s.page.run('hideContextMenu()');
+  rightClick(s, 2);
+  assert.deepStrictEqual(PATH_TREE.map(hidden), [false, false, false, false], 'a right-click on a card of the selection names the card, and they are back');
+  assert.strictEqual(hidden('#ctx-isolate'), false);
+  s.page.run('hideContextMenu()');
+  await pressMore(s);
+  assert.deepStrictEqual(PATH_TREE.map(hidden), [true, true, true, true], 'and More takes them out again');
+});
+
 test('More on an open menu closes it', async () => {
   const s = await open();
   s.select(1, 2);
@@ -343,13 +390,17 @@ test('in the Graph the bar follows each tap on a dot, though the Graph paints it
   const s = await open({ view: 'graph' });
   assert.strictEqual(s.bar.shown(), false);
   graphTap(s, 2);
+  s.clock.tick(s.window());
   assert.strictEqual(s.bar.shown(), true, 'the first tap raises the bar');
   assert.strictEqual(s.bar.count(), '1 selected');
   graphTap(s, 3);
+  s.clock.tick(s.window());
   assert.strictEqual(s.bar.count(), '2 selected');
   graphTap(s, 3);
+  s.clock.tick(s.window());
   assert.strictEqual(s.bar.count(), '1 selected', 'a tap that takes a dot out lowers the count');
   graphTap(s, 2);
+  s.clock.tick(s.window());
   assert.deepStrictEqual(s.ids(), []);
   assert.strictEqual(s.bar.shown(), false, 'and the last one out takes the bar away');
 });
@@ -373,70 +424,175 @@ test('a render that leaves the selection as it was does not write the count agai
   assert.ok(writes > afterSelect, 'a changed count is written');
 });
 
-// --- the second tap of a double tap may land on the bar the first tap raised --------------------------
+// --- nothing the bar does moves the layout inside the double-tap window ------------------------------------
 
-// The bar appears over the foot of the list the moment a first tap selects its first card, so the
-// second tap of a double tap on a card down there lands on the bar. Chrome counts that click as
-// detail 2, whatever it lands on: the page treats it as the second tap, and the bar's button does
-// nothing. The click is the button's own listener first, then the document's.
-const onBar = (el) => ({ closest: (sel) => (sel.split(',').some((part) => ['[data-keeps-selection]', 'button'].includes(part.trim())) ? el : null) });
-const tapBar = (s, selector, detail) => {
-  const el = s.elements[selector];
-  el.fire('click', { currentTarget: el, target: onBar(el), detail });
-  s.page.fireDocument('click', { target: onBar(el), detail });
+// The bar takes the page's room (--selection-bar-h), so each time it goes up or away the lists change
+// height: one scrolled near its end shifts under the finger, and a card near the foot has the bar rise
+// over it. A tap that changes the selection therefore leaves the bar as it was until the double-tap
+// window has passed with no second tap on that card; a second tap (a click with detail 2) puts the
+// selection back, and the bar is decided once, after it.
+const secondTap = (s, id) => s.page.fireDocument('click', { target: cardTarget(id), detail: 2, shiftKey: false, ctrlKey: false, metaKey: false });
+const tapTwice = (s, id) => {
+  tap(s, id);
+  secondTap(s, id);
 };
-const secondTapOn = (s, selector) => tapBar(s, selector, 2);
-
-test('a second tap that lands on a bar button opens the card and puts the selection back, and the button does nothing', async () => {
-  for (const selector of ['#selection-bar-clear', '#selection-bar-archive', '#selection-bar-status', '#selection-bar-more', '#selection-bar']) {
-    const s = await open();
-    const opened = [];
-    s.page.ctx.openCard = (id) => { opened.push(Number(id)); };
-    tap(s, 2);
-    assert.strictEqual(s.bar.shown(), true, `${selector}: the first tap raised the bar`);
-    secondTapOn(s, selector);
-    await s.page.settle();
-    assert.deepStrictEqual(opened, [2], `${selector}: the card opened`);
-    assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, `${selector}: the selection is as it was before the first tap`);
-    assert.strictEqual(s.bar.shown(), false, `${selector}: and so is the bar`);
-    assert.strictEqual(s.ask.open(), false, `${selector}: no question was asked`);
-    assert.strictEqual(s.popupOpen('#bulk-archive') || s.popupOpen('#bulk-status') || s.menuOpen(), false, `${selector}: no popup or menu opened`);
-    assert.deepStrictEqual(s.cardRequests(), [], `${selector}: nothing was archived`);
-  }
-});
-
-test('a double tap that lands on the bar leaves a selection built before it as it was, additions and all', async () => {
-  const s = await open();
+const opening = (s) => {
   const opened = [];
   s.page.ctx.openCard = (id) => { opened.push(Number(id)); };
+  return opened;
+};
+
+test('a first tap on a card with nothing selected does not raise the bar until the double-tap window has passed', async () => {
+  const s = await open();
   tap(s, 2);
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  tap(s, 3);
-  secondTapOn(s, '#selection-bar-archive');
-  assert.deepStrictEqual(opened, [3]);
-  assert.deepStrictEqual(s.ids(), [2], 'card 3 is out again: the selection is the one before its first tap');
+  assert.deepStrictEqual(s.ids(), [2], 'the selection is made at once');
+  assert.strictEqual(s.bar.shown(), false, 'the bar is not');
+  s.clock.tick(s.window() - 1);
+  assert.strictEqual(s.bar.shown(), false, 'one millisecond short of the window');
+  s.clock.tick(1);
+  assert.strictEqual(s.bar.shown(), true);
+  assert.strictEqual(s.bar.count(), '1 selected');
+  assert.deepStrictEqual(s.barChanges, ['up'], 'it went up once');
+});
+
+test('a double tap on a card with nothing selected, one near the foot of the list, never raises the bar: the second tap lands on the card', async () => {
+  const s = await open();
+  const opened = opening(s);
+  tapTwice(s, 5);
+  assert.deepStrictEqual(opened, [5], 'the second tap opened the card it landed on');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] }, 'with the selection as it was before the first tap');
+  assert.strictEqual(s.bar.shown(), false);
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, [], 'the bar did not go up, not even for a moment, and nothing comes later');
+  assert.strictEqual(s.bar.shown(), false);
+});
+
+test('a first tap that takes the only selected card out does not lower the bar until the window has passed, so a list scrolled near its end does not shift', async () => {
+  const s = await open();
+  s.select(2);
+  assert.strictEqual(s.bar.shown(), true);
+  s.barChanges.length = 0;
+  tap(s, 2);
+  assert.deepStrictEqual(s.ids(), [], 'the card is out of the selection at once');
+  assert.strictEqual(s.bar.shown(), true, 'the bar stays');
+  assert.strictEqual(s.bar.count(), '1 selected', 'with its count');
+  s.clock.tick(s.window() - 1);
+  assert.strictEqual(s.bar.shown(), true);
+  s.clock.tick(1);
+  assert.strictEqual(s.bar.shown(), false);
+  assert.deepStrictEqual(s.barChanges, ['away'], 'it came down once');
+});
+
+test('a double tap on the only selected card opens it and leaves the selection and the bar as they were: the bar neither goes nor flickers', async () => {
+  const s = await open();
+  const opened = opening(s);
+  s.select(2);
+  s.barChanges.length = 0;
+  tapTwice(s, 2);
+  assert.deepStrictEqual(opened, [2]);
+  assert.deepStrictEqual(s.ids(), [2], 'the first tap took the card out and the second put it back');
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, [], 'the bar never moved, so no list changed height under the second tap');
+  assert.strictEqual(s.bar.shown(), true);
   assert.strictEqual(s.bar.count(), '1 selected');
 });
 
-test('a click with detail 2 on a bar button acts when no card was tapped just before it', async () => {
+test('a tap that changes the count leaves the bar\'s count as it was inside the window, and a second tap on the card leaves it that way', async () => {
   const s = await open();
-  const opened = [];
-  s.page.ctx.openCard = (id) => { opened.push(Number(id)); };
-  s.select(2, 3);
-  secondTapOn(s, '#selection-bar-archive');
-  await s.page.settle();
-  assert.deepStrictEqual(opened, []);
-  assert.strictEqual(s.ask.text(), 'Archive 2 card(s)? (moves their files to archived/)');
+  const opened = opening(s);
+  s.select(2);
+  tap(s, 3);
+  assert.deepStrictEqual(s.ids(), [2, 3]);
+  assert.strictEqual(s.bar.count(), '1 selected', 'the live region does not announce a count the second tap may undo');
+  secondTap(s, 3);
+  assert.deepStrictEqual(opened, [3]);
+  assert.deepStrictEqual(s.ids(), [2]);
+  assert.strictEqual(s.bar.count(), '1 selected');
+  s.clock.tick(10 * s.window());
+  assert.strictEqual(s.bar.count(), '1 selected');
 });
 
-test('a tap on a bar button forgets the card tap before it, so a quick second tap on the same button is no double tap of that card', async () => {
+test('each tap puts the wait off again: the bar follows the last tap, one window after it', async () => {
   const s = await open();
-  const opened = [];
-  s.page.ctx.openCard = (id) => { opened.push(Number(id)); };
   tap(s, 2);
-  tapBar(s, '#selection-bar-status', 1);
-  secondTapOn(s, '#selection-bar-status');
-  assert.deepStrictEqual(opened, []);
+  s.clock.tick(s.window() - 10);
+  tap(s, 3);
+  s.clock.tick(s.window() - 10);
+  assert.strictEqual(s.bar.shown(), false, 'a window after the first tap, but not after the second');
+  s.clock.tick(10);
+  assert.strictEqual(s.bar.count(), '2 selected');
+  assert.deepStrictEqual(s.barChanges, ['up']);
+});
+
+test('a render that finds the selection as the tap made it, a poll, does not end the wait', async () => {
+  const s = await open();
+  tap(s, 2);
+  s.page.run('renderBoard()');
+  s.page.run('renderBoard()');
+  assert.strictEqual(s.bar.shown(), false, 'a poll inside the window leaves the bar down');
+  s.clock.tick(s.window());
+  assert.strictEqual(s.bar.shown(), true);
+});
+
+test('every other write to the selection moves the bar at once, and the wait it ends does nothing later', async () => {
+  const writes = {
+    'Clear on the bar': (s) => s.bar.press('clear'),
+    'Esc': (s) => s.page.run('stepSelectionBack(); stepSelectionBack()'),
+    'a card added from the menu': (s) => s.page.run("setSelection(addPart(selectionState.selection, cardPart('5'))); renderBoard()"),
+    'a poll that finds a card of the selection gone': (s) => s.page.run("setSelection(pruneSelectionParts(selectionState.selection, ['1'])); renderBoard()"),
+  };
+  for (const [name, write] of Object.entries(writes)) {
+    const s = await open();
+    s.select(1);
+    tap(s, 2);
+    assert.strictEqual(s.bar.count(), '1 selected', `${name}: the tap is waiting`);
+    await write(s);
+    await s.page.settle();
+    const read = () => [s.bar.count(), s.bar.shown()];
+    assert.deepStrictEqual(read(), [`${s.ids().length} selected`, s.ids().length > 0], `${name}: the bar reads the selection as it is, at once`);
+    const now = read();
+    s.clock.tick(10 * s.window());
+    assert.deepStrictEqual(read(), now, `${name}: and the wait it ended changes nothing`);
+  }
+});
+
+test('a write that changes what the selection resolves to ends the wait: the bar follows at once', async () => {
+  const s = await open();
+  tap(s, 2);
+  assert.strictEqual(s.bar.shown(), false);
+  s.page.run("setSelection(addPart(selectionState.selection, cardPart('3'))); renderBoard()");
+  assert.strictEqual(s.bar.count(), '2 selected');
+  assert.strictEqual(s.bar.shown(), true);
+});
+
+test('a view switch ends the wait, though it leaves the selection as it was: the bar follows at once', async () => {
+  const s = await open();
+  tap(s, 2);
+  assert.strictEqual(s.bar.shown(), false);
+  s.page.run("setView('map')");
   assert.deepStrictEqual(s.ids(), [2]);
-  assert.strictEqual(s.popupOpen('#bulk-status'), true);
+  assert.strictEqual(s.bar.shown(), true);
+  assert.strictEqual(s.bar.count(), '1 selected');
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, ['up'], 'and the wait it ended changes nothing');
+});
+
+test('in the Graph the wait is the same: a tap on a dot leaves the bar as it was for a window, and a double tap on it never raises it', async () => {
+  const s = await open({ view: 'graph' });
+  const opened = opening(s);
+  graphTap(s, 2);
+  assert.deepStrictEqual(s.ids(), [2]);
+  assert.strictEqual(s.bar.shown(), false);
+  s.page.run("graphClickNode('2', { detail: 2, shiftKey: false, ctrlKey: false, metaKey: false })");
+  assert.deepStrictEqual(opened, [2]);
+  assert.deepStrictEqual(s.ids(), []);
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, [], 'the bar never went up');
+});
+
+test('at the desk width a Ctrl-click moves the bar at once: there is no wait, and the stylesheet does not draw the bar there anyway', async () => {
+  const s = await open({ phone: false });
+  s.page.fireDocument('click', { target: cardTarget(2), detail: 1, shiftKey: false, ctrlKey: true, metaKey: false });
+  assert.strictEqual(s.bar.shown(), true);
+  assert.strictEqual(s.bar.count(), '1 selected');
 });

@@ -129,6 +129,19 @@ test('Path and Tree are groups of Hierarchy and Dependency on every card menu, a
   assert.deepStrictEqual(['ctx-path', 'ctx-tree'].map(p.subShown), [false, false]);
 });
 
+test('the menu the selection bar\'s More opens names no card: Path and Tree are out, Explore stays for Isolate, and a card menu after it has them back', async () => {
+  const p = await open();
+  p.showMenu("menuSubject = selectionMenuFor(new Set(['3', '7']))");
+  assert.deepStrictEqual(['ctx-path', 'ctx-tree'].map(p.subShown), [false, false]);
+  assert.deepStrictEqual(['ctx-hpath', 'ctx-dpath', 'ctx-htree', 'ctx-dtree'].map(p.shown), [false, false, false, false]);
+  assert.strictEqual(p.subShown('ctx-explore'), true, 'Isolate is its entry');
+  assert.strictEqual(p.shown('ctx-isolate'), true);
+  assert.deepStrictEqual(['ctx-edit', 'ctx-archive', 'ctx-delete'].map((id) => (id === 'ctx-edit' ? p.subShown(id) : p.shown(id))), [true, true, true], 'every bulk entry stays');
+  p.card();
+  assert.deepStrictEqual(['ctx-path', 'ctx-tree'].map(p.subShown), [true, true]);
+  assert.deepStrictEqual(['ctx-hpath', 'ctx-dpath', 'ctx-htree', 'ctx-dtree'].map(p.shown), [true, true, true, true]);
+});
+
 test('a separator shows between the groups it divides and goes when one side is empty', async () => {
   const p = await open();
   const seps = () => p.menu.root.children.filter((c) => c.classes.includes('ctx-sep')).map((c) => !c.classes.includes('hidden'));
