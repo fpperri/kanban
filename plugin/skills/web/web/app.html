@@ -133,6 +133,16 @@
   <button type="button" class="view-bar-btn" data-view="map" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
   <button type="button" class="view-bar-btn" data-view="graph" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
 </nav>
+<!-- The selection bar (phone layout only): the resolved count and four actions on it, above the view bar,
+     while anything is selected. Clear empties the selection; Archive, Status (Set status…) and More (the card
+     menu) act on the cards it stands for. Every control keeps the selection. -->
+<div id="selection-bar" class="selection-bar hidden" role="toolbar" aria-label="Selection" data-keeps-selection>
+  <span id="selection-bar-count" class="selection-bar-count" aria-live="polite"></span>
+  <button type="button" id="selection-bar-clear" class="selection-bar-btn" data-keeps-selection>Clear</button>
+  <button type="button" id="selection-bar-archive" class="selection-bar-btn" data-keeps-selection>Archive</button>
+  <button type="button" id="selection-bar-status" class="selection-bar-btn" data-keeps-selection>Status</button>
+  <button type="button" id="selection-bar-more" class="selection-bar-btn" data-keeps-selection aria-haspopup="menu">More</button>
+</div>
 
 <div id="modal" class="modal-backdrop hidden">
   <!-- autocomplete=off: the browser's form-history dropdown fights the
@@ -314,6 +324,7 @@
   <div class="ctx-sub">
     <button type="button" id="ctx-edit" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-edit-panel">Edit</button>
     <div class="ctx-sub-panel" id="ctx-edit-panel" role="menu" aria-label="Edit">
+      <button type="button" id="ctx-status" role="menuitem">Set status…</button>
       <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
       <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
       <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
@@ -409,6 +420,20 @@
     <div class="bulk-actions">
       <button type="button" id="bulk-tags-remove" class="danger">Bulk remove tags</button>
     </div>
+  </div>
+</div>
+
+<!-- Set status… popup — one button per status of the board (script fills the list). A tap on one moves every
+     card the popup opened for, by the route a drop on that status's column takes. -->
+<div id="bulk-status" class="modal-backdrop hidden" data-keeps-selection>
+  <div class="modal bulk-modal">
+    <div class="modal-header popup-header">
+      <h2 id="bulk-status-title"></h2>
+      <div class="modal-header-actions">
+        <button type="button" id="bulk-status-close" class="icon-btn" title="Close" aria-label="Close">&#10005;</button>
+      </div>
+    </div>
+    <div id="bulk-status-list" class="bulk-status-list"></div>
   </div>
 </div>
 

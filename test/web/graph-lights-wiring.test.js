@@ -36,7 +36,7 @@ const makeBoard = () => ({
   ],
 });
 
-const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
+const HIDDEN_SURFACES = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status'];
 const hiddenSurface = () => { const el = control(); el.classList.add('hidden'); return el; };
 
 async function open({ view = 'graph', stored = {}, board = makeBoard(), search = '' } = {}) {

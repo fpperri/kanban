@@ -739,7 +739,7 @@ test('drag: dragging a selected card carries the whole selection, and an unselec
 });
 
 const BULK_ACTIONS = ['openBulkSingle', 'applyBulkSingle', 'renderBulkTags', 'openBulkTags', 'bulkAddTag', 'bulkRemoveTags', 'openBulkSchedule', 'applyBulkSchedule',
-  'bulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete', 'wireDrag'];
+  'bulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete', 'openBulkStatus', 'applyBulkStatus', 'wireDrag'];
 
 test('assign, priority, tags, schedule, archive, restore, delete and drag take their targets from the one reader, and none touches the selection directly', () => {
   for (const name of BULK_ACTIONS) {
@@ -751,10 +751,10 @@ test('assign, priority, tags, schedule, archive, restore, delete and drag take t
 });
 
 test('a popup applies to the targets it captured: the apply steps read the captured ids, never the live selection', () => {
-  for (const name of ['applyBulkSingle', 'renderBulkTags', 'bulkAddTag', 'bulkRemoveTags', 'applyBulkSchedule', 'applyBulkArchive']) {
+  for (const name of ['applyBulkSingle', 'renderBulkTags', 'bulkAddTag', 'bulkRemoveTags', 'applyBulkSchedule', 'applyBulkArchive', 'applyBulkStatus']) {
     assert.match(fn(name), /bulkTargets\(bulkPopupIds\)/, name);
   }
-  for (const name of ['openBulkSingle', 'openBulkTags', 'openBulkSchedule', 'bulkArchive']) {
+  for (const name of ['openBulkSingle', 'openBulkTags', 'openBulkSchedule', 'openBulkStatus', 'bulkArchive']) {
     assert.match(fn(name), /captureBulkTargets\(\)/, `${name} captures when it starts`);
   }
 });

@@ -1296,6 +1296,7 @@ function renderBoard() {
     renderBoardColumns();
     applyViewMode();
     renderSearchPanel(); // the chip, and the pills' counts in place while the panel is open
+    syncSelectionBar();
   } finally {
     searchMatchMemo = null;
   }
@@ -2482,12 +2483,20 @@ function wireDrag() {
       bulkDragIds = null;
       const dest = col.dataset.col;
       if (isReorderDrop(ids, dest)) { reorderDrop(col, ids[0], e.clientY); return; }
-      const touchesArchive = dest === 'archive' || ids.some((i) => state.archived.some((a) => a.id === i));
-      if (touchesArchive) archiveAwareDrop(ids, dest);
-      else if (ids.length > 1) onBulkDrop(ids, dest);
-      else onDrop(ids[0], dest);
+      routeMove(ids, dest);
     });
   });
+}
+
+// The route a move of cards to a column takes, whether the cards were dropped there or Set status…
+// named the status: anything touching archive asks first (archiveAwareDrop), a batch moves card by
+// card behind the doing gate (onBulkDrop), a lone card moves on its own (onDrop). A batch dropped
+// clears the selection; `keepSelection` (Set status…) leaves it.
+function routeMove(ids, dest, { keepSelection = false } = {}) {
+  const touchesArchive = dest === 'archive' || ids.some((i) => state.archived.some((a) => a.id === i));
+  if (touchesArchive) return archiveAwareDrop(ids, dest);
+  if (ids.length > 1) return onBulkDrop(ids, dest, { keepSelection });
+  return onDrop(ids[0], dest);
 }
 
 // Drops that touch archive in either direction. No optimistic
@@ -6239,6 +6248,33 @@ function paintsSelected(id) {
   return selectedIds.has(id) || (boxLitIds !== null && boxLitIds.has(id));
 }
 
+// The selection bar's count and whether it shows, from the resolved selection: every render
+// works the selection out again (renderBoard), so the bar follows each gesture, poll and view
+// switch. The stylesheet draws the bar on the phone layout only.
+function syncSelectionBar() {
+  const count = selectedIds.size;
+  $('#selection-bar').classList.toggle('hidden', count < 1);
+  $('#selection-bar-count').textContent = `${count} selected`;
+}
+
+// The bar's Archive, Status and More act on the resolved selection the way the card menu's bulk
+// entries act on their subject: the subject is made of the selection first (the menu of a
+// right-click inside it), then the same function runs. False when nothing is selected.
+function selectionBarSubject() {
+  if (!selectedIds.size) return false;
+  menuSubject = cardMenuFor(selectedIds, [...selectedIds][0]);
+  return true;
+}
+
+// More: the card menu for the whole selection, rising from the bar; a second tap on it closes the
+// menu. The click that opens it must not reach the document's close-on-outside-click rule.
+function toggleSelectionMenu(e) {
+  if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
+  if (!selectionBarSubject()) return;
+  const more = e.currentTarget.getBoundingClientRect();
+  showContextMenu(more.left, $('#selection-bar').getBoundingClientRect().top, { above: true });
+}
+
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
 let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
 
@@ -6523,7 +6559,9 @@ function openCanvasContextMenu(e) {
   showContextMenu(e.clientX, e.clientY);
 }
 
-function showContextMenu(x, y) {
+// `above` puts the menu's bottom edge at y instead of its top, so a menu opened from a bar at the
+// foot of the screen rises from it, and a group opened inside it grows up, not off the screen.
+function showContextMenu(x, y, { above = false } = {}) {
   const menu = $('#context-menu');
   // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
   // stylesheet makes of one entry; a card's menu has them all again.
@@ -6548,7 +6586,13 @@ function showContextMenu(x, y) {
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();
   menu.style.left = `${Math.min(x, window.innerWidth - rect.width - 8)}px`;
-  menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
+  if (above) {
+    menu.style.top = '';
+    menu.style.bottom = `${Math.max(8, window.innerHeight - y + 4)}px`;
+  } else {
+    menu.style.bottom = '';
+    menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
+  }
 }
 
 // Peek opens the card's details through the same path a plain open takes (so card
@@ -6669,7 +6713,7 @@ function bulkDelete() {
 // Bulk move (drag): the doing entry gate (waiting + blocked)
 // stays per card — refused cards are skipped with one honest summary toast
 // naming which gate, the rest move (no all-or-nothing rule).
-async function onBulkDrop(ids, status) {
+async function onBulkDrop(ids, status, { keepSelection = false } = {}) {
   const byId = new Map(state.active.map((c) => [c.id, c]));
   // same in-place rule as onDrop: cards already rendering in the target
   // column (incl. parked unlisted statuses) drop out of the batch untouched
@@ -6678,7 +6722,7 @@ async function onBulkDrop(ids, status) {
   if (!movable.length && !refused.length) return;
   const prev = new Map(movable.map((c) => [c.id, c.status]));
   movable.forEach((c) => { c.status = status; }); // optimistic
-  setSelection(NO_SELECTION);
+  if (!keepSelection) setSelection(NO_SELECTION);
   renderBoard();
   pendingDrops++; // same poll guard as single onDrop
   const failed = [];
@@ -6877,12 +6921,41 @@ async function applyBulkSchedule() {
   await bulkPatch(bulkTargets(bulkPopupIds).map((c) => c.id), () => changes, (n) => `Scheduled ${n} card(s): ${scheduleSummary(changes)}`);
 }
 
+// --- Set status… popup: one button per status of the board. Like the other bulk popups it acts on the
+// cards it opened for (the menu's subject, captured when it opens) and the selection survives. A tap
+// on a status is the act: the cards move by the route a drop on that status's column takes (routeMove),
+// so the doing gate, the question that names a restore and the toasts are the drop's own.
+function openBulkStatus() {
+  hideContextMenu();
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
+  $('#bulk-status-title').textContent = `Set status on ${bulkPopupIds.length} card(s)`;
+  const list = $('#bulk-status-list');
+  list.textContent = '';
+  for (const status of boardStatuses()) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bulk-status-btn';
+    btn.dataset.status = status;
+    btn.textContent = columnLabel(status);
+    btn.style.color = statusColorVar(status);
+    list.append(btn);
+  }
+  $('#bulk-status').classList.remove('hidden');
+}
+
+function applyBulkStatus(status) {
+  $('#bulk-status').classList.add('hidden');
+  const ids = bulkTargets(bulkPopupIds).map((c) => c.id);
+  if (ids.length) routeMove(ids, status, { keepSelection: true });
+}
+
 // Esc must never be a true no-op on a fullscreen
 // bulk popup. Esc closes whichever one is open, directly,
 // same as its own backdrop-click — no confirm, since bulk edits are
 // speedbump-exempt (Apply is the speedbump, same reasoning as backdrop-close).
 function closeAnyBulkPopup() {
-  for (const sel of ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive']) {
+  for (const sel of ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status']) {
     const el = $(sel);
     if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return true; }
   }
@@ -6968,10 +7041,17 @@ window.addEventListener('DOMContentLoaded', () => {
     hideContextMenu();
     openModal(null, newCardStatus(), undefined, parent);
   });
+  // Clear takes the whole selection down in one step, the one Esc's steps and a double click on empty space
+  // take, so the search box that said the selection follows it.
+  $('#selection-bar-clear').addEventListener('click', () => moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }));
+  $('#selection-bar-archive').addEventListener('click', () => { if (selectionBarSubject()) bulkArchive(); });
+  $('#selection-bar-status').addEventListener('click', () => { if (selectionBarSubject()) openBulkStatus(); });
+  $('#selection-bar-more').addEventListener('click', toggleSelectionMenu);
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);
   // Bulk edits
+  $('#ctx-status').addEventListener('click', openBulkStatus);
   $('#ctx-assign').addEventListener('click', () => openBulkSingle('assignee'));
   $('#ctx-priority').addEventListener('click', () => openBulkSingle('priority'));
   $('#ctx-tags').addEventListener('click', openBulkTags);
@@ -6997,6 +7077,12 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#bulk-single-input').addEventListener('input', () => {
     $('#bulk-single-apply').disabled = bulkSingleMode === 'priority' && !$('#bulk-single-input').value.trim();
   });
+  $('#bulk-status-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-status]');
+    if (btn) applyBulkStatus(btn.dataset.status);
+  });
+  $('#bulk-status-close').addEventListener('click', () => $('#bulk-status').classList.add('hidden'));
+  $('#bulk-status').addEventListener('click', (e) => { if (e.target.id === 'bulk-status') $('#bulk-status').classList.add('hidden'); });
   $('#bulk-archive-apply').addEventListener('click', applyBulkArchive);
   $('#bulk-archive-close').addEventListener('click', () => $('#bulk-archive').classList.add('hidden'));
   $('#bulk-tag-add').addEventListener('click', bulkAddTag);
@@ -7021,7 +7107,7 @@ window.addEventListener('DOMContentLoaded', () => {
   attachCombobox($('#bulk-archive-input'), () => state.archivePackages.map((v) => ({ value: v })));
   // Any left-click outside the menu dismisses it (actions inside handle themselves).
   document.addEventListener('click', (e) => {
-    if (!$('#context-menu').classList.contains('hidden') && !e.target.closest('#context-menu')) hideContextMenu();
+    if (!$('#context-menu').classList.contains('hidden') && !e.target.closest('#context-menu, #selection-bar-more')) hideContextMenu();
   });
   document.addEventListener('click', onClickAway);
   window.addEventListener('resize', hideContextMenu);

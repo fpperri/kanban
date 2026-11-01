@@ -202,10 +202,17 @@ test('the column drop handler tries the reorder before the archive and bulk rout
   const drop = wire.slice(wire.indexOf("addEventListener('drop'"));
   const reorder = drop.indexOf('isReorderDrop(ids, dest)');
   assert.ok(reorder > 0, 'drop asks isReorderDrop');
-  assert.ok(reorder < drop.indexOf('archiveAwareDrop(ids, dest)'), 'before the archive route');
-  assert.ok(reorder < drop.indexOf('onBulkDrop(ids, dest)'), 'before the bulk route');
+  assert.ok(reorder < drop.indexOf('routeMove(ids, dest)'), 'before the routes a move takes');
   assert.match(drop, /reorderDrop\(col, ids\[0\], e\.clientY\)/);
-  assert.match(drop, /onDrop\(ids\[0\], dest\)/, 'a drop on another column is still a move');
+  assert.match(drop, /routeMove\(ids, dest\)/, 'a drop on another column is still a move');
+});
+
+test('a move takes the archive route, the bulk route or the single route, the one routeMove holds for a drop and for Set status…', () => {
+  const route = fn('routeMove');
+  const archive = route.indexOf('archiveAwareDrop(ids, dest)');
+  assert.ok(archive > 0, 'archive route');
+  assert.ok(archive < route.indexOf('onBulkDrop(ids, dest, { keepSelection })'), 'archive first, then the bulk route');
+  assert.match(route, /onDrop\(ids\[0\], dest\)/, 'a lone card is a single move');
 });
 
 test('the drop line is drawn on dragover and cleared on dragleave, drop and dragend', () => {
