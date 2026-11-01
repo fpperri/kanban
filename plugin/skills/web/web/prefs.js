@@ -1,7 +1,9 @@
 'use strict';
 // The preferences sheet's settings, kept in the browser per board and never
 // written to the board: what a plain click on a card does in each view (opens
-// the card, or selects it), whether archived leaves count as done in the
+// the card, or selects it), what a tap on a card does in each view on the phone
+// layout (the same two choices, kept apart from the clicks), whether archived
+// leaves count as done in the
 // roll-ups, whether the search panel's pill section starts folded, whether its slice
 // section starts folded (it does, by default), and whether the panel opens when the
 // search box is focused (the arrow's switch and the p key flip the same choice). One
@@ -25,6 +27,8 @@ const PREFS_CLICK_VIEWS = ['board', 'map', 'gantt', 'calendar'];
 const PREFS_CLICK_CHOICES = ['opens', 'selects'];
 // The Graph's plain click is always a selection; the sheet shows it fixed.
 const PREFS_GRAPH_CLICK = 'selects';
+// A tap on the phone layout selects unless a view is set to opens; the Graph's tap is fixed the same way.
+const PREFS_TAP_DEFAULT = 'selects';
 // The sheet's on/off settings, which mergePrefs and prefsWith both validate by this list.
 const PREFS_BOOLEANS = ['archivedDone', 'pillsFolded', 'statusesFolded', 'slicesFolded', 'typingFolded', 'hoverFolded', 'panelOnFocus'];
 
@@ -32,7 +36,10 @@ function prefsDefaults() {
   const click = {};
   for (const view of PREFS_CLICK_VIEWS) click[view] = 'opens';
   click.graph = PREFS_GRAPH_CLICK;
-  return { click, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, typingFolded: true, hoverFolded: true, panelOnFocus: true };
+  const tap = {};
+  for (const view of PREFS_CLICK_VIEWS) tap[view] = PREFS_TAP_DEFAULT;
+  tap.graph = PREFS_GRAPH_CLICK;
+  return { click, tap, archivedDone: true, pillsFolded: false, statusesFolded: false, slicesFolded: true, typingFolded: true, hoverFolded: true, panelOnFocus: true };
 }
 
 function prefsParse(saved) {
@@ -50,25 +57,28 @@ function mergePrefs(saved) {
   const prefs = prefsDefaults();
   const value = prefsParse(saved);
   if (!prefsIsObject(value)) return prefs;
-  if (prefsIsObject(value.click)) {
+  for (const map of ['click', 'tap']) {
+    if (!prefsIsObject(value[map])) continue;
     for (const view of PREFS_CLICK_VIEWS) {
-      const choice = Object.prototype.hasOwnProperty.call(value.click, view) ? value.click[view] : undefined;
-      if (PREFS_CLICK_CHOICES.includes(choice)) prefs.click[view] = choice;
+      const choice = Object.prototype.hasOwnProperty.call(value[map], view) ? value[map][view] : undefined;
+      if (PREFS_CLICK_CHOICES.includes(choice)) prefs[map][view] = choice;
     }
   }
   for (const key of PREFS_BOOLEANS) if (typeof value[key] === 'boolean') prefs[key] = value[key];
   return prefs;
 }
 
-// The set with one change from the sheet applied: { click: { board: 'selects' } } or one
+// The set with one change from the sheet applied: { click: { board: 'selects' } }, { tap: { board: 'opens' } } or one
 // of the on/off settings, { archivedDone: false } and the like. The change goes through the same validation as a
 // stored value, so one the sheet cannot make (a bad choice, the Graph set to
 // opens) leaves the set as it was. The set passed in is not touched.
 function prefsWith(prefs, change) {
   const next = mergePrefs(prefs);
-  const click = prefsIsObject(change && change.click) ? change.click : {};
-  for (const view of PREFS_CLICK_VIEWS) {
-    if (Object.prototype.hasOwnProperty.call(click, view) && PREFS_CLICK_CHOICES.includes(click[view])) next.click[view] = click[view];
+  for (const map of ['click', 'tap']) {
+    const changed = prefsIsObject(change && change[map]) ? change[map] : {};
+    for (const view of PREFS_CLICK_VIEWS) {
+      if (Object.prototype.hasOwnProperty.call(changed, view) && PREFS_CLICK_CHOICES.includes(changed[view])) next[map][view] = changed[view];
+    }
   }
   for (const key of PREFS_BOOLEANS) if (change && typeof change[key] === 'boolean') next[key] = change[key];
   return next;
