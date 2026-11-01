@@ -4,7 +4,9 @@
 // history.pushState and history.replaceState write it, back() and forward()
 // step through it the way the browser's own arrows do (the address changes,
 // then popstate reaches the page's listener), and `pushes` and `replaces` count
-// what the page asked for, so a test can say that typing grew no history.
+// what the page asked for, so a test can say that typing grew no history. Each entry keeps the state
+// the page gave it (`history.state` reads the current entry's, and a popstate carries the entry landed
+// on), and `session.states` lists them beside `session.entries`.
 // Not a test file (the suite runs *.test.js only).
 const { harmless } = require('./page-vm');
 
@@ -35,7 +37,8 @@ function listening(label) {
 function attachSessionHistory(page, { detail = (id) => ({ id, title: `Card ${id}`, frontmatter: '', body: '', path: `/board/${id}.card.md`, archived: false }) } = {}) {
   const { ctx } = page;
   const entries = [ctx.location.search];
-  const session = { entries, pushes: 0, replaces: 0, popupOpen: false, close: listening('detail-close') };
+  const states = [null];
+  const session = { entries, states, pushes: 0, replaces: 0, popupOpen: false, close: listening('detail-close') };
   let index = 0;
 
   const move = (search) => {
@@ -45,21 +48,24 @@ function attachSessionHistory(page, { detail = (id) => ({ id, title: `Card ${id}
   const land = (to) => {
     index = to;
     move(entries[index]);
-    (page.windowListeners.popstate || []).slice().forEach((fn) => fn({}));
+    (page.windowListeners.popstate || []).slice().forEach((fn) => fn({ state: states[index] }));
   };
 
   ctx.history = {
-    state: null,
+    get state() { return states[index]; },
     get length() { return entries.length; },
     pushState(state, title, url) {
       entries.splice(index + 1);
+      states.splice(index + 1);
       entries.push(searchOf(url));
+      states.push(state === undefined ? null : state);
       index = entries.length - 1;
       session.pushes++;
       move(entries[index]);
     },
     replaceState(state, title, url) {
       entries[index] = searchOf(url);
+      states[index] = state === undefined ? null : state;
       session.replaces++;
       move(entries[index]);
     },

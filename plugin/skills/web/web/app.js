@@ -1673,6 +1673,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const again = focusedId === null ? null : cardElInShownView(focusedId, focused);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
+    scheduleBackSync(); // into the phone layout with a selection standing: Back has a step now
   });
 });
 
@@ -2890,7 +2891,7 @@ async function returnToDetails(seen) {
   const failed = (e) => {
     closeDetailModal();
     const search = nextCardHistorySearch(location.search, null);
-    if (search !== null) history.replaceState(null, '', location.pathname + search);
+    if (search !== null) history.replaceState(history.state, '', location.pathname + search);
     toast(e.status === 404 ? `Card #${id} is gone.` : 'Load failed: ' + e.message);
     if (e.status === 404) loadBoard();
   };
@@ -3452,6 +3453,7 @@ function closeDetailModal() {
   currentDetailId = null;
   currentDetailArchived = false;
   $('#detail-modal').classList.add('hidden');
+  scheduleBackSync(); // a selection or a light behind the details may want its entry now
 }
 
 // Opening/closing the detail popup as real browser-history steps, so
@@ -3471,6 +3473,8 @@ function pushCardHistoryStep(targetId) {
   const search = nextCardHistorySearch(location.search, targetId);
   if (search == null) return; // already there — no duplicate entry
   history.pushState(null, '', location.pathname + search);
+  backOnEntry = false; // the card's step is the entry the person is on now
+  scheduleBackSync(); // the details opened or closed over a selection, a light or a menu that may want an entry again
 }
 
 // The push happens AFTER the card actually loads, not before: pushing first
@@ -3497,6 +3501,95 @@ function closeCard() {
   closeDetailModal();
 }
 
+// --- Android Back on the phone layout (back-steps.js). While a card menu, a light or a selection stands
+// the page keeps one history entry of its own, marked in its history state, so that Back has something to
+// pop. The Back that pops it takes one step the way Esc does (the open menu, then the light, then the
+// selection's steps) and the entry is pushed again while something is left; with nothing lit or selected
+// there is no entry and Back is the browser's. The entry is kept once the double-tap window has passed,
+// so the first tap of a double tap, which the second undoes, leaves none behind; the Back that pops it
+// pushes it again at once, because another Back may follow within that window. The card's steps
+// (pushCardHistoryStep) are untouched: the entry stands beside them in the history, and a Back that lands
+// on a card's step is the card's. An entry nothing wants any more (Esc took the last step, a tap cleared the selection) stays
+// where it is, and the Back that pops it lets itself through (history.back()) so that it costs no press.
+// `backOnEntry` is whether the page is on its own entry now; a reload on one keeps its state.
+let backOnEntry = isBackEntry(history.state);
+let backSyncTimer = null;
+
+function contextMenuOpen() {
+  return !$('#context-menu').classList.contains('hidden');
+}
+
+function selectionStands() {
+  return partsOf(selectionState.selection).length > 0;
+}
+
+function backEntryWantedNow() {
+  if (!onPhoneLayout()) return false;
+  return backEntryWanted({
+    phone: true,
+    menu: contextMenuOpen(),
+    light: pinnedLitId !== null,
+    selection: selectionStands(),
+    details: !$('#detail-modal').classList.contains('hidden'),
+  });
+}
+
+function syncBackEntry() {
+  backSyncTimer = null;
+  if (backOnEntry || !backEntryWantedNow()) return;
+  try {
+    history.pushState(backEntryState(), '', location.pathname + location.search);
+    backOnEntry = true;
+  } catch (e) {
+    /* a host that refuses an entry leaves Back as the browser's */
+  }
+}
+
+// Whatever may make the page want an entry (a selection, a menu, a light, the details closing, the width
+// line crossed) calls this; the entry itself waits out the double-tap window, and is not kept if nothing
+// wants it by then.
+function scheduleBackSync() {
+  if (backOnEntry || backSyncTimer !== null || !backEntryWantedNow()) return;
+  backSyncTimer = setTimeout(syncBackEntry, BACK_ENTRY_SETTLE_MS);
+}
+
+function nextBackStep() {
+  return backStep({ moreMenu: moreMenuIsOpen(), menu: contextMenuOpen(), light: pinnedLitId !== null, selection: selectionStands() });
+}
+
+function takeBackStep(step) {
+  if (step === 'more-menu') { moreMenuClose(); $('#more-btn').focus(); }
+  else if (step === 'menu') hideContextMenu();
+  else if (step === 'light') clearPinnedLight();
+  else if (step === 'selection') stepSelectionBack();
+}
+
+// The Back that popped the page's entry: one step, the entry again while something is left, or the Back
+// let through (back-steps.js says which).
+function answerBackPop() {
+  const step = nextBackStep();
+  const action = backPopAction({
+    phone: onPhoneLayout(),
+    modalOpen: !!document.querySelector('.modal-backdrop:not(#detail-modal):not(.hidden)'),
+    details: !$('#detail-modal').classList.contains('hidden'),
+    step,
+  });
+  if (action === 'pass') { history.back(); return; }
+  if (action === 'step') takeBackStep(step);
+  syncBackEntry();
+}
+
+// True when the traversal was a Back from the page's own entry, answered here; the popstate listener then
+// leaves the card alone. A traversal that lands on the entry (a Back from a card's step above it, or
+// Forward) or moves between others is not, and may leave something wanting an entry.
+function onBackTraversal(e) {
+  const kind = backTraversal({ onEntry: backOnEntry, state: e && e.state });
+  backOnEntry = kind === 'landed';
+  if (kind !== 'popped') { scheduleBackSync(); return false; }
+  answerBackPop();
+  return true;
+}
+
 // Back/Forward (mouse buttons, the browser's own arrows, and — because
 // there's no competing keyboard handler — Alt+Left/Alt+Right) land here.
 // location.search is already the DESTINATION url by the time this fires, so
@@ -3514,8 +3607,9 @@ function closeCard() {
 // entry that landed with another `q` is replaced to carry the box's text, so
 // the address always says what the box says. This comes first, ahead of the
 // bail-out below, because the address moved whether or not the popup does.
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', (e) => {
   followSearchInAddress($('#search-input').value);
+  if (onBackTraversal(e)) return; // the Back that popped the page's own entry took its step; the card is not its business
   // An edit/new-card form, or any other popup, covers the same z-index slot
   // as the detail popup and may hold unsaved typing (formSnapshot) that
   // openDetailModal would silently overwrite if Edit were then clicked on
@@ -3724,7 +3818,7 @@ function followSearchInAddress(text) {
   const search = nextSearchAddress(location.search, text, isolateNow() !== null, typingIsolatesIn(loadViewMode()));
   if (search == null) return;
   try {
-    history.replaceState(null, '', location.pathname + search);
+    history.replaceState(history.state, '', location.pathname + search);
   } catch (e) {
     /* the address lags the box until the next change */
   }
@@ -6258,6 +6352,7 @@ function dropGoneCards() {
 function setSelection(selection, rangeStart = selectionState.rangeStart) {
   selectionState = { selection, rangeStart };
   selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
+  scheduleBackSync();
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -6330,6 +6425,7 @@ function setPinnedLight(id) {
   if (id === pinnedLitId) return;
   pinnedLitId = id;
   refreshHover();
+  scheduleBackSync();
 }
 
 // True when there was a light to drop.
@@ -6675,6 +6771,7 @@ function showContextMenu(x, y) {
   const rect = menu.getBoundingClientRect();
   menu.style.left = `${Math.min(x, window.innerWidth - rect.width - 8)}px`;
   menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
+  scheduleBackSync();
 }
 
 // Peek opens the card's details through the same path a plain open takes (so card
