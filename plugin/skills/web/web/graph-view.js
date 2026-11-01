@@ -852,12 +852,20 @@ function graphPaintSelection() {
 // with the Graph's own answers (a plain click selects; Shift adds one card, as
 // Ctrl does), written to the selection and painted in place, no rebuild. The search panel is
 // repainted too (its chip, and its pills while it is open), since a click that drops a pill
-// takes it off the chip as well as out of the box.
+// takes it off the chip as well as out of the box. On the phone layout a tap toggles the dot,
+// and the second tap of a double tap opens the card and puts the selection back as it was
+// before the first tap (reopenAfterDoubleTap), so the wire has no dblclick to listen for there.
 function graphClickNode(id, mods) {
-  const action = cardClickAction({
+  const phone = onPhoneLayout();
+  let action = cardClickAction({
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
-    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
+    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'), phone, detail: phone ? mods.detail : 1, // at the desk the dblclick event opens, and a second click is no peek
   });
+  if (action === 'restore-open') {
+    if (reopenAfterDoubleTap(id)) return;
+    action = 'toggle'; // no first tap to undo: this tap is a first tap
+  }
+  rememberTap(action, id);
   const before = selectionState.selection;
   selectByClick(action, id);
   // With isolate off the box shows the selection the click made (mirrorSelectionInBox), its cut
@@ -1245,6 +1253,7 @@ function wireGraphView(host) {
   }, true);
   host.addEventListener('dblclick', (e) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (onPhoneLayout()) return; // the second tap's click already opened the card
     const node = e.target.closest('.graph-node');
     if (node) openCard(node.dataset.id);
   });

@@ -6374,6 +6374,27 @@ function selectByClick(action, id) {
   setSelection(next.selection, next.rangeStart);
 }
 
+// The selection and range start from before the last tap that toggled a card, kept with the card it
+// landed on: the phone's double tap puts them back (reopenAfterDoubleTap). Any other click forgets it.
+let tapBefore = null;
+
+function rememberTap(action, id) {
+  tapBefore = action === 'toggle' ? { id, selection: selectionState.selection, rangeStart: selectionState.rangeStart } : null;
+}
+
+// The second tap of a double tap on the phone layout: the selection and range start go back to what
+// they were before the first tap, through the step Esc and a double click on empty space use so the
+// box follows, then the card opens. False when there is no first tap on this card to undo; the
+// caller then treats the tap as a first tap.
+function reopenAfterDoubleTap(id) {
+  const back = selectionBeforeTap(tapBefore, id);
+  tapBefore = null;
+  if (!back) return false;
+  moveSelectionTo(back);
+  openCard(id);
+  return true;
+}
+
 // Carries out what cardClickAction (selection.js) decided about a click on a
 // card. File-manager selection grammar: Shift+click ADDS the whole range
 // between the range start and the target, in the active view's rendered order;
@@ -6381,7 +6402,9 @@ function selectByClick(action, id) {
 // picked is the anchor and later ones are additions; a plain click breaks any
 // selection but for its pills, then opens the card (or, in a view whose plain click selects,
 // makes it the anchor of a new selection); the second click of a double click in
-// such a view is a peek, which opens the card and leaves the selection alone.
+// such a view is a peek, which opens the card and leaves the selection alone. On the phone layout a
+// tap toggles the card, and the second tap of a double tap opens it and puts the selection back as it
+// was before the first tap.
 // renderBoard() repaints whichever view is active — board columns always, plus
 // the active map/calendar/gantt. Opening a card changes no filter: a click that opens it
 // leaves every pill on and the box as they were, so the view behind the card details shows
@@ -6395,6 +6418,11 @@ function selectByClick(action, id) {
 function applyCardClick(action, id, cue) {
   if (action === 'cue') { searchByCue(cue, id); return; }
   if (action === 'peek') { openCard(id); return; }
+  if (action === 'restore-open') {
+    if (reopenAfterDoubleTap(id)) return;
+    action = 'toggle'; // no first tap to undo: this tap is a first tap
+  }
+  rememberTap(action, id);
   const before = selectionState.selection;
   selectByClick(action, id);
   if (action !== 'open' && boxMirrorsSelection()) mirrorSelectionInBox(before);
@@ -6418,7 +6446,7 @@ function onCardOpenKey(e) {
   if (el !== e.target) return;
   const action = cardOpenAction({
     shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
-    plainClick: plainClickBehaviour(loadViewMode(), loadPrefsState().click),
+    plainClick: plainBehaviour(loadViewMode(), loadPrefsState(), onPhoneLayout()),
   });
   const lone = !(e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) && searchEnterOpens(searchEnterMatchIds(), el.dataset.id); // the one card a search matched opens on Enter whatever the click preference says
   if (action !== 'open' && !lone) return;
@@ -6866,7 +6894,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('button, select, input, a')) return;
     const cue = e.target.closest('.card-assignee, .tag, .blocked-pill, .review-pill');
     const view = loadViewMode();
-    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainClickBehaviour(view, loadPrefsState().click), ranges: shiftAddsRange(view), detail: e.detail });
+    const phone = onPhoneLayout();
+    const action = cardClickAction({ cue: !!cue, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, plainClick: plainBehaviour(view, loadPrefsState(), phone), ranges: shiftAddsRange(view), phone, detail: e.detail });
     applyCardClick(action, el.dataset.id, cue);
   });
   // Right-click on any card-el opens the card menu; anywhere else keeps the

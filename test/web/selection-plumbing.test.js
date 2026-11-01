@@ -148,6 +148,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
+    onPhoneLayout: () => false,
     visibleCardIds: () => order.map(String),
     openCard: (id) => { calls.open.push(Number(id)); },
     renderBoard: () => { calls.render++; },
@@ -157,7 +158,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('tapBefore'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('rememberTap'), fn('reopenAfterDoubleTap'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
@@ -308,7 +309,8 @@ test('the assignee cue of a card with no assignee adds nothing', () => {
 test('the handler reads the view\'s plain-click behaviour from the lookup and the decision from the pure function, deciding nothing itself', () => {
   const body = clickHandler();
   assert.match(body, /const view = loadViewMode\(\);/);
-  assert.match(body, /plainClick: plainClickBehaviour\(view, loadPrefsState\(\)\.click\), ranges: shiftAddsRange\(view\), detail: e\.detail/);
+  assert.match(body, /const phone = onPhoneLayout\(\);/);
+  assert.match(body, /plainClick: plainBehaviour\(view, loadPrefsState\(\), phone\), ranges: shiftAddsRange\(view\), phone, detail: e\.detail/);
   assert.match(body, /cardClickAction\(/);
   assert.match(body, /applyCardClick\(/);
   assert.doesNotMatch(body, /selectedIds|rangeSelection|toggleSelection|setSelection|openCard\(/, 'the handler carries the decision out through applyCardClick and touches no selection state');
