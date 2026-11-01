@@ -751,8 +751,11 @@ function graphRestFocus() {
   graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId(), linkKind: graphLinkKind() }, graphCur.lines));
 }
 
+// The card the light follows is the one a long press pinned, else the one the pointer or the focus is on
+// (litFocusId, app.js).
 function graphSettleFocus() {
-  if (graphCur && hoveredId != null && graphCur.model.byId.has(hoveredId)) graphSetFocus(hoveredId);
+  const id = litFocusId();
+  if (graphCur && id != null && graphCur.model.byId.has(id)) graphSetFocus(id);
   else graphRestFocus();
 }
 
@@ -1031,7 +1034,7 @@ function renderGraphView() {
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
     plan = graphPlan(model, layout, {
-      selectedIds, loneCardId: graphLoneCardId(), hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
+      selectedIds, loneCardId: graphLoneCardId(), hoveredId: litFocusId(), kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
       types: state.types,
     });
   } catch (err) {
@@ -1266,14 +1269,21 @@ function wireGraphView(host) {
   });
 
   const hitOf = (el) => (el && el.closest ? el.closest('.graph-link-hit') : null);
+  // A card a long press pinned keeps the light over the pointer and the focus: a touch's own mouseover on
+  // another dot, ahead of the click that only closes the menu, must not move it.
+  const pinned = () => {
+    if (pinnedLitId === null) return false;
+    graphSettleFocus();
+    return true;
+  };
   const enter = (e) => {
     const hit = e.type === 'mouseover' ? hitOf(e.target) : null;
-    if (hit && graphCur) { graphSetLineFocus(Number(hit.dataset.link)); return; }
+    if (hit && graphCur) { if (!pinned()) graphSetLineFocus(Number(hit.dataset.link)); return; }
     const el = e.target.closest('.graph-node');
     if (!el) return;
     if (e.type === 'focusin' && searchEnterFocusedId === el.dataset.id) return; // the focus Enter in the search box gave: the search's lights stay
     searchEnterFocusedId = null;
-    graphSetFocus(el.dataset.id);
+    if (!pinned()) graphSetFocus(el.dataset.id);
   };
   const leave = (e) => {
     if (e.type === 'focusout' && e.relatedTarget) searchEnterFocusedId = null; // focus moved on to something else
@@ -1286,6 +1296,7 @@ function wireGraphView(host) {
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');
     if (to === from) return;
+    if (pinned()) return;
     if (to) graphSetFocus(to.dataset.id);
     else graphRestFocus();
   };

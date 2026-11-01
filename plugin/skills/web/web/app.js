@@ -1665,6 +1665,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!list) return;
   list.addEventListener('change', () => {
     if (loadViewMode() === 'graph') graphRefitNext = true; // the stage has another width, so the cards are framed again
+    if (!list.matches) pinnedLitId = null; // the long press is the phone layout's: its light does not follow the window to the desktop
     const focused = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.card-el') : null;
     const focusedId = focused ? focused.dataset.id : null;
     const pointerId = hoveredId;
@@ -3611,6 +3612,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
     if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
     if (e.repeat) return; // a held Esc is one press: it runs one stage
+    if (clearPinnedLight()) return; // the long press's light goes before the selection steps back
     escapeStep(e);
   });
   // Alt+Enter: toggle fullscreen on whichever fullscreen-capable
@@ -6280,9 +6282,28 @@ let hoveredId = null;
 // its hover ring stays on the hovered card, so there `hoverLit` holds that card alone.
 let hoverLit = null;
 
+// The light a long press leaves (card-press.js): the card held, and with it the sets On hover show
+// ticks, kept apart from hoveredId so that nothing the pointer or the focus does moves it. It ends on
+// the next tap anywhere (onPhoneTapGate), on Esc and on a hold on another card; closing the menu leaves it.
+// The pin is a state of its own because opening the card menu moves the focus off every card and the
+// hover goes with it, while the light has to stay.
+let pinnedLitId = null;
+
+// The card the light follows: the one a long press pinned while the pin lasts, else the one the pointer
+// or the focus is on.
+function litFocusId() {
+  return pinnedLitId !== null ? pinnedLitId : hoveredId;
+}
+
+// The card and the sets On hover show ticks for it, every view alike (the Graph dims by them).
+function hoverTilesOf(id) {
+  return hoverShowTiles(hoverShowKindsNow(), state.active.concat(state.archived), id, searchCtx());
+}
+
 function hoverLitNow() {
-  if (hoveredId == null) return null;
-  return loadViewMode() === 'graph' ? new Set([hoveredId]) : hoverShowTiles(hoverShowKindsNow(), state.active.concat(state.archived), hoveredId, searchCtx());
+  const id = litFocusId();
+  if (id == null) return null;
+  return loadViewMode() === 'graph' ? new Set([id]) : hoverTilesOf(id);
 }
 
 function syncHoverLit() {
@@ -6303,6 +6324,20 @@ function setHoveredId(id) {
   hoveredId = id;
   syncHoverLit();
   applyHoverHighlight();
+}
+
+function setPinnedLight(id) {
+  if (id === pinnedLitId) return;
+  pinnedLitId = id;
+  refreshHover();
+}
+
+// True when there was a light to drop.
+function clearPinnedLight() {
+  if (pinnedLitId === null) return false;
+  pinnedLitId = null;
+  refreshHover();
+  return true;
 }
 
 // A change to what the hover lights (a set ticked, the Hierarchy and the Flow swapped) paints again now.
@@ -6348,6 +6383,94 @@ function onDetailContextMenu(e) {
   const picked = window.getSelection();
   if (picked && !picked.isCollapsed) return;
   openCardContextMenu(e, currentDetailId, { fromDetail: true });
+}
+
+// --- The long press on a card, on the phone layout. A finger held on a card lights it (the hold: the
+// card and the sets On hover show ticks, pinned, so the light outlives the menu) and opens the card
+// menu when it lifts in place (the lift), with Select lit (N) for the cards the light holds. The rule
+// is card-press.js's; this binds it to the touch events and to the listeners that would otherwise
+// answer the same finger twice: the browser's own contextmenu (Android fires one during the hold, iOS
+// none) and the click the lifted finger makes are held back while a press is on and for 800 ms after
+// it. The touch moves and ends are heard on the card the finger went down on, not on the document: a
+// repaint that replaces the card does not take the end of the touch away. The Board's swipe, the
+// Calendar's, the Gantt's and the Map's pointer drags and the Graph's pan hear the same finger and
+// are left alone, so a finger that moves after the hold does what it did before.
+const cardPress = createCardPress({
+  now: () => performance.now(),
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: (t) => clearTimeout(t),
+  onHold: (id) => { forgetTap(); setPinnedLight(id); }, // a press between two taps: the first of a pair is gone
+  onLift: (id, x, y) => openCardMenuByPress(id, x, y),
+});
+
+let releaseCardPress = null;
+
+function onCardPressStart(e) {
+  cardPress.fingerDown(); // the lifted finger's echo is over, so a tap on the menu that just opened is a tap
+  if (releaseCardPress) releaseCardPress();
+  const target = e.target;
+  const el = onPhoneLayout() && e.touches.length === 1 && target.closest ? target.closest('.card-el') : null;
+  if (!el || target.closest('button, select, input, a')) { cardPress.cancel(); return; }
+  const touch = e.touches[0];
+  const move = (ev) => {
+    const t = ev.touches[0];
+    if (t) cardPress.move(t.clientX, t.clientY);
+  };
+  const end = (ev) => {
+    releaseCardPress();
+    if (cardPress.end() === 'lift' && ev.cancelable) ev.preventDefault(); // no click follows the lift
+  };
+  const cancel = () => {
+    releaseCardPress();
+    cardPress.cancel();
+  };
+  releaseCardPress = () => {
+    target.removeEventListener('touchmove', move);
+    target.removeEventListener('touchend', end);
+    target.removeEventListener('touchcancel', cancel);
+    releaseCardPress = null;
+  };
+  target.addEventListener('touchmove', move, { passive: true });
+  target.addEventListener('touchend', end);
+  target.addEventListener('touchcancel', cancel);
+  cardPress.start(touch.clientX, touch.clientY, el.dataset.id);
+}
+
+// The menu of the card held, at the point the finger went down on: for the card alone or, when it is
+// selected, for the selection. `lit` is the cards the light holds that the view shows, the card first
+// (Select lit offers them when they are more than the card).
+function openCardMenuByPress(id, x, y) {
+  menuSubject = { ...cardMenuFor(selectedIds, id), lit: litCardsShown(id, hoverTilesOf(id), shownCardIds()) };
+  showContextMenu(x, y);
+}
+
+// Select lit (N): the lit cards the menu was opened with join the selection as cards, the light stays.
+function selectLitCards() {
+  const ids = menuSubject.lit || [];
+  hideContextMenu();
+  const before = selectionState.selection;
+  setSelection(selectionWithCards(before, ids));
+  if (boxMirrorsSelection()) mirrorSelectionInBox(before);
+  else renderBoard();
+}
+
+// The first listener to hear a click, ahead of the card grammar. The click the lifted finger makes
+// does nothing at all (the next finger down ends that echo, so a quick tap on the menu is a tap). On
+// the phone layout a tap outside the open card menu only closes it, the light staying; any other tap
+// ends the light and goes on to do its job (a tap on empty space does nothing else). A tap on the menu
+// is part of the press that opened it and leaves the light alone. A click the gate stops never reaches
+// the card grammar, which would have remembered or forgotten the tap: it is a tap that came between,
+// so the first tap of a double tap before it is gone (forgetTap).
+function onPhoneTapGate(e) {
+  if (cardPress.echoing()) { forgetTap(); e.preventDefault(); e.stopImmediatePropagation(); return; }
+  const inMenu = e.target.closest('#context-menu');
+  if (onPhoneLayout() && !inMenu && !$('#context-menu').classList.contains('hidden')) {
+    forgetTap();
+    hideContextMenu();
+    e.stopImmediatePropagation();
+    return;
+  }
+  if (!inMenu) clearPinnedLight();
 }
 
 // An assignee cue or a tag is a search shortcut, not a way to open/select the
@@ -6536,6 +6659,9 @@ function showContextMenu(x, y) {
   // already decided menuSubject.
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
+  const litCount = menuSubject.lit ? menuSubject.lit.length : 0; // only a long press's menu has the light's cards
+  $('#ctx-lit').classList.toggle('hidden', litCount < 2);
+  $('#ctx-lit').textContent = `Select lit (${litCount})`;
   $('#ctx-note').classList.toggle('hidden', !notesOn() || !!menuSubject.canvas || menuSubject.ids.length < 1);
   $('#ctx-child').classList.toggle('hidden', !!menuSubject.canvas || menuSubject.ids.length !== 1 || !state.active.some((c) => String(c.id) === String(menuSubject.ids[0])));
   $('#ctx-scratch').classList.toggle('hidden', !scratchpadOn() || !!menuSubject.canvas || menuSubject.ids.length !== 1);
@@ -6903,6 +7029,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // that control, never to the card grammar. Registration order matters:
   // a card is not empty space, so the click-away rule (onClickAway) leaves what
   // the click built.
+  document.addEventListener('click', onPhoneTapGate, true);
+  document.addEventListener('touchstart', onCardPressStart, { passive: true, capture: true });
   document.addEventListener('click', (e) => {
     if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { forgetTap(); toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
@@ -6921,6 +7049,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // card alone and the selection stays; a selected one gets a menu for the whole
   // batch.
   document.addEventListener('contextmenu', (e) => {
+    if (cardPress.inProgress() || cardPress.echoing()) { e.preventDefault(); return; } // a long press owns it: the menu opens when the finger lifts
     if (isDragging || ganttDrag || calTimeDrag) return; // a chorded right-click mid-drag must not re-render under the gesture
     const el = e.target.closest('.card-el');
     if (!el) { openCanvasContextMenu(e); return; }
@@ -6980,6 +7109,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Peek and Add to selection, then Explore's four sets, which write the box
   $('#ctx-peek').addEventListener('click', peekCard);
   $('#ctx-add').addEventListener('click', addCardToSelection);
+  $('#ctx-lit').addEventListener('click', selectLitCards);
   for (const kind of EXPLORE_KINDS) $(`#ctx-${kind}`).addEventListener('click', (e) => exploreIntoBox(kind, e));
   $('#bulk-schedule-apply').addEventListener('click', applyBulkSchedule);
   $('#bulk-schedule-close').addEventListener('click', () => $('#bulk-schedule').classList.add('hidden'));
