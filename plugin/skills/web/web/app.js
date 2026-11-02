@@ -5329,7 +5329,9 @@ const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 // double tap from the first lift to the second touch down (Android's own timeout is 300 ms), and the
 // click of the second tap comes when that finger lifts, a press later. So the bar's wait is counted
 // from a lift too: it stops while a finger is down and starts again at the lift (onBarFingerDown,
-// onBarFingerUp).
+// onBarFingerUp). 300 ms is Android's window, the phone this layout is for. Desktop Chrome counts a
+// double tap for up to about 400 ms and a mouse double click for the system's time (500 ms on
+// Windows), so in a narrow desktop window a slower double tap or click can still meet the bar.
 const DOUBLE_CLICK_MS = 300;
 let calHourClickTimer = 0;
 
