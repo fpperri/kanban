@@ -921,6 +921,13 @@ function shownCardIds() {
   return viewCardIds(true);
 }
 
+// The cards Select all shown adds: what the whole query matches among the cards the view shows
+// before the box and any cut. They come from the match and the view's own filters, never from the
+// cards drawn, so isolate on or off and the status tab a phone Board has open change nothing.
+function shownMatchCardIds() {
+  return shownMatchIds(currentSearchMatch().matched, viewCardIds(false));
+}
+
 // The cards the view shows before the search box and any cut: what the pill counts
 // are taken over, so turning one pill on leaves the others' counts as they were.
 function cardsBeforeSearch() {
@@ -6552,6 +6559,18 @@ function openCardMenuByPress(id, x, y) {
 function selectLitCards() {
   const ids = menuSubject.lit || [];
   hideContextMenu();
+  const before = selectionState.selection;
+  setSelection(selectionWithCards(before, ids));
+  if (boxMirrorsSelection()) mirrorSelectionInBox(before);
+  else renderBoard();
+}
+
+// Select all shown: every card the search shows joins the selection as a card, the first the anchor of
+// an empty selection and a card the selection holds staying where it was, the way Select lit adds. The
+// box mirrors the picks where it mirrors a selection, and isolate leaves it alone.
+function selectAllShown() {
+  const ids = shownMatchCardIds();
+  if (!ids.length) return;
   const before = selectionState.selection;
   setSelection(selectionWithCards(before, ids));
   if (boxMirrorsSelection()) mirrorSelectionInBox(before);

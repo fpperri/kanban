@@ -23,6 +23,17 @@ function rangeSelection(set, orderedIds, startId, targetId) {
   return next;
 }
 
+// Select all shown: the cards the search matches that the view shows, in the order they matched.
+// `matched` is the Set of ids the whole query matches over the board (null with no query, which
+// selects nothing, never every card), whether or not isolate is hiding the rest; `shown` is the Set
+// of ids the view shows before the box and any cut: its status pills, its Archive pill and the
+// iteration. The view shows more than a phone Board's open tab draws, so the ids come from the
+// match, not from the cards drawn. Returns a new list.
+function shownMatchIds(matched, shown) {
+  if (!matched) return [];
+  return [...matched].filter((id) => shown.has(id));
+}
+
 // Hover/focus highlight: one card is hovered or focused at a time, and the cards that take
 // the hover look are that card and the sets "On hover show" ticks for it (hover-show.js), so
 // the membership test every render call site needs is a lookup in that set (null when
@@ -668,7 +679,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, selectionMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, graphDblClickOpens, selectionBeforeTap, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, selectionMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, shownMatchIds, isHoverHighlighted, plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, graphDblClickOpens, selectionBeforeTap, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -715,6 +726,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.dragPlan = dragPlan;
   window.archiveNeedsConfirm = archiveNeedsConfirm;
   window.rangeSelection = rangeSelection;
+  window.shownMatchIds = shownMatchIds;
   window.isHoverHighlighted = isHoverHighlighted;
   window.plainClickBehaviour = plainClickBehaviour;
   window.plainTapBehaviour = plainTapBehaviour;
