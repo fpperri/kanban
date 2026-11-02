@@ -78,11 +78,14 @@ desk keeps its order (the click works and the menu closes):
   tap on a card at the foot of a list lands twice on the same card; every other write
   to the selection moves it at once.
 - **Android Back steps back as Esc does, through an entry of the page's own.** A
-  phone has no Esc. While a card menu, an in-page question, a light or a selection
-  stands, the page keeps one history entry of its own, marked in its history state
-  (`back-steps.js`); the Back that pops it runs one step of Esc, in Esc's order, and
-  the page goes forward to the entry again while something is left. With nothing
-  lit or selected there is no entry and Back is the browser's. The page makes its
+  phone has no Esc. While a card menu, an in-page question, a popup over the card
+  details, a light or a selection stands, the page keeps one history entry of its own,
+  marked in its history state (`back-steps.js`); the Back that pops it runs one step
+  of Esc, in Esc's order, and the page goes forward to the entry again while something
+  is left. With none of them standing there is no entry and Back is the browser's: it
+  closes the card details, then leaves the page; a menu, a question or a popup over
+  the details has an entry, and the Back that pops it closes it and leaves the
+  details. The page makes its
   entry from a tap, and never from a Back: Chromium's history manipulation
   intervention makes the Back button skip every entry of a document that added one
   without a user activation, and a back or forward ends the activation, so an entry

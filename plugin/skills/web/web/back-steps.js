@@ -3,9 +3,10 @@
 // own while a menu, an in-page question, a popup over the card details, a light or a selection stands (the entry is marked in its history state), so that
 // Back has something to pop; the Back that pops it runs one step of Esc, in Esc's order (the in-page
 // question, the open menu, a popup, the search panel, then the light, then the selection's steps) and the
-// page goes forward to the entry again while something is left. With nothing lit or selected there is no
-// entry, and Back is the browser's: it closes the card details, then leaves the page. The card's own steps
-// (card-history.js) are untouched; the entry stands beside them in the history, and a Back that lands on a
+// page goes forward to the entry again while something is left. With none of them standing there is no
+// entry, and Back is the browser's: it closes the card details, then leaves the page; a menu, a question or a
+// popup over the details has an entry, and the Back that pops it closes it and leaves the details. The card's
+// own steps (card-history.js) are untouched; the entry stands beside them in the history, and a Back that lands on a
 // card's step is the card's. A card opened from a link is the document's first entry, with nothing of the
 // page's below it: there a Back cannot step what stands behind the details, and the page is left after them.
 //

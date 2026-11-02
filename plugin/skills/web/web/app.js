@@ -3531,7 +3531,7 @@ function closeCard() {
 // the page keeps one history entry of its own, marked in its history state, so that Back has something to
 // pop. The Back that pops it takes one step the way Esc does, in Esc's order (the in-page question, the open
 // menu, a popup, the search panel, then the light, then the selection's steps) and the page goes forward
-// to the entry again while something is left; with nothing lit or selected there is no entry and Back is
+// to the entry again while something is left; with none of them standing there is no entry and Back is
 // the browser's. The entry is kept once the double-tap window has passed, so the first tap of a double
 // tap, which the second undoes, leaves none behind.
 // The page makes the entry from a tap, never from a Back: the browser's Back button skips every entry of
