@@ -313,7 +313,9 @@ module.exports = {
     await openPanel();
     await ev(`(()=>{const b=document.querySelectorAll('#search-pills button');b[b.length-1].focus()})()`);
     await key('Tab');
-    check('Tab from the last pill goes on to the fold control of the Typing isolates section, the switch being behind it in the bar', (await focusId()) === 'search-typing-fold', await focusId());
+    check('Tab from the last pill goes on to Select all shown, which a query in the box brings', (await focusId()) === 'search-select-all', await focusId());
+    await key('Tab');
+    check('and then to the fold control of the Typing isolates section, the switch being behind it in the bar', (await focusId()) === 'search-typing-fold', await focusId());
     await key('Tab');
     check('and then to the fold control of the On hover show section', (await focusId()) === 'search-hover-fold', await focusId());
     await ev(`document.getElementById('search-panel-toggle').focus()`);

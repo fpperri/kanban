@@ -385,6 +385,9 @@ button.queued-pill:focus-visible { outline: 2px solid var(--accent); outline-off
 .search-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
 .search-board-note { margin: 0; color: var(--mut); font-size: 0.85em; }
+.search-select-all { align-self: flex-start; padding: 2px 10px; font-size: 0.8em; }
+.search-select-all:disabled { color: var(--mut); cursor: default; }
+.search-select-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-slices:empty { display: none; }
 .search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -446,6 +449,7 @@ button.queued-pill:focus-visible { outline: 2px solid var(--accent); outline-off
   :root:has(.search-input:focus) #view-bar { display: none; }
   .search-panel { max-height: 70vh; overflow-y: auto; }
   .status-pill { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
+  .search-select-all { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
 }
 /* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
