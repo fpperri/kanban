@@ -91,10 +91,13 @@ module.exports = {
     check('and the bar reads 1 selected again', await barReads('1 selected'));
     check('one window after the tap', waited(await lagOf('count')), String(await lagOf('count')));
     await outwaitDoubleTap();
+    check('the page keeps an entry of its own while dots are selected', await waitFor(kept, 5000));
     await tap(page, first.x, first.y);
     check('the last dot out empties the selection', await pickedIs([]), await ev(picked));
     check('and the bar goes with it', await barGone());
     check('one window after the tap', waited(await lagOf('bar')), String(await lagOf('bar')));
+    // The page takes its entry off on a timer of its own. A page opened while that timer is pending has its Back made on it: the history.back() lands after the navigation and takes the tab to the Graph again.
+    check('and the page takes its entry off, before the Board is opened', await waitFor(`!(${kept})`, 5000));
 
     // --- a double tap on the last card of the list, where the bar would rise ---------------------------------
     // Done twice. The instant double tap sends the second finger down and up within a few milliseconds of
