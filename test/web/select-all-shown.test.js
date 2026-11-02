@@ -157,6 +157,23 @@ test('on the phone Board it takes the matches of every status, whichever tab is 
   assert.deepStrictEqual(s.picked(), [2, 5]);
 });
 
+test('the phone Board reads the count the desk Board reads: the archive, a location and no status, is left out', async () => {
+  const desk = await open();
+  desk.type('status:done');
+  const s = await open({ phone: true });
+  s.type('status:done');
+  assert.strictEqual(s.label(), desk.label());
+  assert.strictEqual(s.label(), 'Select all shown (2)', 'cards 6 and 7; the archived card 8 is the Archive tab, not a status tab');
+  s.press();
+  assert.deepStrictEqual(s.picked(), [6, 7], 'what the Archive popup then reads');
+});
+
+test('the phone leaves the archive out of the Board only: the Map there keeps its Archive pill', async () => {
+  const s = await open({ view: 'map', phone: true });
+  s.type('status:done');
+  assert.strictEqual(s.label(), 'Select all shown (3)', 'cards 6, 7 and 8; the Map shows the archive to start');
+});
+
 test('a status the view has switched off takes its matches out of the count and the press', async () => {
   const s = await open({ view: 'map' });
   s.type('status:done');

@@ -923,9 +923,16 @@ function shownCardIds() {
 
 // The cards Select all shown adds: what the whole query matches among the cards the view shows
 // before the box and any cut. They come from the match and the view's own filters, never from the
-// cards drawn, so isolate on or off and the status tab a phone Board has open change nothing.
+// cards drawn, so isolate on or off and the status tab a phone Board has open change nothing. The
+// archive is a location, not a status: the phone Board draws it as a tab but leaves it out here,
+// as the desk Board does while its Archive column is folded, so the count is the one Archive reads.
 function shownMatchCardIds() {
-  return shownMatchIds(currentSearchMatch().matched, viewCardIds(false));
+  let shown = viewCardIds(false);
+  if (loadViewMode() === 'board' && onPhoneLayout()) {
+    const archived = new Set(state.archived.map((c) => c.id));
+    shown = new Set([...shown].filter((id) => !archived.has(id)));
+  }
+  return shownMatchIds(currentSearchMatch().matched, shown);
 }
 
 // The cards the view shows before the search box and any cut: what the pill counts

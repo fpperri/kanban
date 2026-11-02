@@ -1,10 +1,11 @@
 'use strict';
 // Select all shown on a 390 px phone, with touch. With the Todo tab open and an empty box the search
-// panel has no such button. A query for the done cards brings it, reading how many cards the search
-// matches in every status (the Todo tab draws none of them), the same with Isolate on and off, 44 px
-// tall inside the screen. A tap on it selects them all, the bar rises reading the same number, and
-// Archive on the bar archives the done cards that are live: three taps from the query, none on a card.
-// The step leaves the board as it found it: the archived cards are restored.
+// panel has no such button. A query for the done cards brings it, reading how many live cards the search
+// matches in every status (the Todo tab draws none of them; the archive is a location and is left out),
+// the same with Isolate on and off, 44 px tall inside the screen. A tap on it selects them all, the bar
+// rises reading the same number, and Archive on the bar archives them and asks about the same number:
+// three taps from the query, none on a card. The step leaves the board as it found it: the archived
+// cards are restored.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): api, loadBoard, selectedIds, state.
 
@@ -24,7 +25,7 @@ module.exports = {
     const pointOf = (sel) => ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;e.scrollIntoView({block:'center',inline:'center'});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     const tapOn = async (sel) => { const p = await pointOf(sel); if (!p) throw new Error(`nothing matches ${sel}`); await tap(page, p.x, p.y); };
     const label = () => ev(`${BUTTON}.textContent`);
-    const doneCards = `state.active.concat(state.archived).filter((c)=>c.status==='done')`;
+    const doneCards = `state.active.filter((c)=>c.status==='done')`;
     const isolated = () => ev(`document.getElementById('isolate-switch').getAttribute('aria-checked')==='true'`);
 
     await open('/');
@@ -40,8 +41,8 @@ module.exports = {
     await ev(TYPE('status:done'));
     const expected = await ev(`${doneCards}.length`);
     const ids = await ev(`${doneCards}.map((c)=>Number(c.id)).sort((a,b)=>a-b).join()`);
-    check('the fixture has done cards in more than the live column', expected >= 4 && (await ev(`state.archived.some((c)=>c.status==='done')`)), String(expected));
-    check('a query brings the button, reading how many cards the search matches', await waitFor(buttonShown, 3000) && (await label()) === `Select all shown (${expected})`, await label());
+    check('the fixture has live done cards and archived ones', expected >= 3 && (await ev(`state.archived.some((c)=>c.status==='done')`)), String(expected));
+    check('a query brings the button, reading how many live cards the search matches, the archived ones left out', await waitFor(buttonShown, 3000) && (await label()) === `Select all shown (${expected})`, await label());
     check('the open tab draws none of them: the count is the match, not the cards drawn', await ev(`[...document.querySelectorAll('#board .card-el')].every((el)=>!(${JSON.stringify(ids)}.split(',').includes(el.dataset.id)))`));
     check('typing turned Isolate on', await isolated());
 
@@ -57,16 +58,16 @@ module.exports = {
 
     // --- the tap selects them all ----------------------------------------------------------------------
     await tapOn('#search-select-all');
-    check('a tap on it selects every done card, whichever tab is open', await waitFor(`${picked}===${JSON.stringify(ids)}`, 3000), await ev(picked));
+    check('a tap on it selects every live done card, whichever tab is open', await waitFor(`${picked}===${JSON.stringify(ids)}`, 3000), await ev(picked));
     check('the box keeps its query', (await ev(`document.getElementById('search-input').value`)) === 'status:done');
     check('the bar rises reading the same number', await waitFor(`${barShown}&&document.getElementById('selection-bar-count').textContent===${JSON.stringify(`${expected} selected`)}`, 3000), await ev(`document.getElementById('selection-bar-count').textContent`));
     await shot('selected');
 
     // --- Archive on the bar ----------------------------------------------------------------------------
     await refuseNativeConfirm(page);
-    const live = await ev(`state.active.filter((c)=>c.status==='done').map((c)=>Number(c.id)).sort((a,b)=>a-b)`);
+    const live = ids.split(',').map(Number);
     await tapOn('#selection-bar-archive');
-    check('every card is done, so there is no first question, and the package popup opens for the live ones', !(await askUp(page)) && await waitFor(`!document.getElementById('bulk-archive').classList.contains('hidden')&&document.getElementById('bulk-archive-title').textContent===${JSON.stringify(`Archive ${live.length} card(s)`)}`, 3000));
+    check('every card is done, so there is no first question, and the package popup asks about the number the button and the bar read', !(await askUp(page)) && await waitFor(`!document.getElementById('bulk-archive').classList.contains('hidden')&&document.getElementById('bulk-archive-title').textContent===${JSON.stringify(`Archive ${live.length} card(s)`)}`, 3000));
     await tapOn('#bulk-archive-apply');
     check('the done cards leave the Board for the archive', await waitFor(live.map((id) => `state.archived.some((c)=>String(c.id)==='${id}')`).join('&&') + '&&' + live.map((id) => `!state.active.some((c)=>String(c.id)==='${id}')`).join('&&'), 8000));
     check('the selection is empty afterwards and the bar has gone', await waitFor(`${picked}===''&&!(${barShown})`, 3000), await ev(picked));
