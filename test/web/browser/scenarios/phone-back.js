@@ -11,6 +11,7 @@ const phone = require('./phone');
 module.exports = {
   name: 'phone-back',
   board: 'plan',
+  alsoBoards: ['feature'],
   timeoutMs: 120000,
   start: phone.start,
   run: (page, { stepsDir = path.join(__dirname, 'phone-back-steps') } = {}) => phone.run(page, { stepsDir }),
