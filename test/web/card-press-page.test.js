@@ -924,3 +924,24 @@ test('a hold and drag leaves the light on the card held, and a second one adds t
   lift(b.target(4));
   assert.deepStrictEqual(s.picked(), ['1', '2', '3', '4']);
 });
+
+test('hold and drag follow the width line: at the desk width a hold and a move select nothing and cancel nothing, and narrowing the window again brings it back with no reload', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  s.cross(false);
+  const wide = b.target(1);
+  down(s, wide, 50, b.y(1));
+  s.wait(600);
+  const move = moveBubbling(s, wide, 50, b.y(3));
+  lift(wide);
+  assert.deepStrictEqual(s.picked(), []);
+  assert.strictEqual(move.defaultPrevented, false, 'the list scrolls at the desk width as it does');
+  assert.strictEqual(s.page.run('isDragging'), false);
+  s.cross(true);
+  const narrow = b.target(1);
+  down(s, narrow, 50, b.y(1));
+  s.wait(600);
+  moveTo(narrow, 50, b.y(3));
+  lift(narrow);
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+});
