@@ -767,7 +767,44 @@ test('the Board listens for a touchmove it can cancel from the start of the page
   assert.ok(s.boardEl.passives.touchmove && s.boardEl.passives.touchmove.includes(false), 'a listener on the Board that is not passive');
   const target = tile(1);
   down(s, target);
-  assert.strictEqual(target.passiveOf('touchmove'), true, 'the touch\'s own listener, added at the touchstart, only reads');
+  assert.strictEqual(target.passiveOf('touchmove'), false, 'the touch\'s own listener, added at the touchstart, can cancel too');
+});
+
+test('a move that reaches only the tile the finger went down on is cancelled from the hold on: a tile drawn out of the page no longer bubbles to the Board', async () => {
+  const { s, target, b } = await holdOn(1);
+  const small = moveTo(target, 50, b.y(1) + 3);
+  const big = moveTo(target, 50, b.y(3));
+  assert.deepStrictEqual([small.defaultPrevented, big.defaultPrevented], [true, true]);
+  assert.strictEqual(moveTo(target, 50, b.y(4)).defaultPrevented, true);
+  const late = target.fire('touchmove', { touches: [touchAt(50, b.y(4))], cancelable: false, defaultPrevented: false, preventDefault() { late.defaultPrevented = true; } });
+  assert.strictEqual(late.defaultPrevented, false, 'a move the browser no longer lets the page cancel is left alone');
+});
+
+test('a board drawn between the touchstart and the hold does not let the list scroll: the moves after the hold are cancelled on the tile the finger is on', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  const target = b.target(3);
+  down(s, target, 50, b.y(3));
+  s.wait(200);
+  s.page.run('renderBoard()');
+  s.wait(400);
+  const first = moveTo(target, 50, b.y(2));
+  const second = moveTo(target, 50, b.y(1));
+  assert.deepStrictEqual([first.defaultPrevented, second.defaultPrevented], [true, true]);
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+  lift(target);
+});
+
+test('before the hold the tile\'s own move cancels nothing: a scroll that began on a card scrolls', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  const target = b.target(1);
+  down(s, target, 50, b.y(1));
+  s.wait(200);
+  assert.strictEqual(moveTo(target, 50, b.y(1) + 4).defaultPrevented, false);
+  assert.strictEqual(moveTo(target, 50, b.y(3)).defaultPrevented, false);
+  s.wait(1000);
+  assert.strictEqual(moveTo(target, 50, b.y(4)).defaultPrevented, false, 'the press ended with the scroll, so the late hold never came');
 });
 
 test('a touch without a hold scrolls as it did: nothing is cancelled, nothing is selected', async () => {
@@ -944,4 +981,35 @@ test('hold and drag follow the width line: at the desk width a hold and a move s
   moveTo(narrow, 50, b.y(3));
   lift(narrow);
   assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+});
+
+test('a hold and drag with the card menu open closes it: it would act on the card it was opened for, not on the tiles picked', async () => {
+  const s = await open();
+  longPress(s, 4).up();
+  assert.deepStrictEqual(s.subject().ids, ['4']);
+  assert.strictEqual(s.menuOpen(), true);
+  s.wait(1000);
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  down(s, b.target(1), 50, b.y(1));
+  s.wait(600);
+  assert.strictEqual(s.menuOpen(), true, 'until the finger moves the hold may still be a long press');
+  moveTo(b.target(1), 50, b.y(2));
+  assert.strictEqual(s.menuOpen(), false);
+  lift(b.target(1));
+  assert.strictEqual(s.menuOpen(), false, 'and the lift opens none');
+  assert.deepStrictEqual(s.picked(), ['1', '2']);
+  assert.strictEqual(s.page.run('pinnedLitId'), '1', 'the light is on the card held');
+});
+
+test('a long press with the card menu open still opens it again for the card held, a wobble inside the slop included', async () => {
+  const s = await open();
+  longPress(s, 4).up();
+  s.wait(1000);
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  down(s, b.target(1), 50, b.y(1));
+  s.wait(600);
+  moveTo(b.target(1), 50, b.y(1) + 4);
+  lift(b.target(1));
+  assert.strictEqual(s.menuOpen(), true);
+  assert.deepStrictEqual(s.subject().ids, ['1']);
 });
