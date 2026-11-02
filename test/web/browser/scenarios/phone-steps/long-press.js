@@ -108,7 +108,12 @@ module.exports = {
     await ev(`hideContextMenu()`);
 
     // A double tap on a card outside the open menu: its first tap only closes the menu and changes nothing, its second opens the card.
-    await longPress(page, o.x, o.y); // the light stays after the menu, so the hold is waited out in time
+    // The light stays after the menu, and the wait for the hold would be answered by it at once, so a tap on empty space ends it first.
+    await outwaitDoubleTap();
+    await tap(page, empty.x, empty.y);
+    check('a tap on empty space ends the light and only the light', await waitFor(`pinnedLitId===null`, 3000) && await ev(picked) === picks, await ev(`pinnedLitId+'|'+${picked}`));
+    await outwaitDoubleTap();
+    await longPress(page, o.x, o.y, { until: held(lone) });
     check('the menu opens for the selection again', await waitFor(menuOpen, 4000));
     const beside = await cardOutsideMenu();
     await outwaitDoubleTap();
