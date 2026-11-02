@@ -5325,8 +5325,11 @@ const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 // The window in which a second click or tap on a card or an empty hour still counts as the second of
 // a double one, and the one number the page waits it out by: a single click on an empty hour opens
 // the notes palette once the double click that would make a card there can no longer follow it, and
-// the selection bar waits it out after a tap before it changes (holdSelectionBar). The browser's own
-// count of a double tap is a little shorter (about 250 ms in Chromium), so the page is never early.
+// the selection bar waits it out after a tap before it changes (holdSelectionBar). The browser counts a
+// double tap from the first lift to the second touch down (Android's own timeout is 300 ms), and the
+// click of the second tap comes when that finger lifts, a press later. So the bar's wait is counted
+// from a lift too: it stops while a finger is down and starts again at the lift (onBarFingerDown,
+// onBarFingerUp).
 const DOUBLE_CLICK_MS = 300;
 let calHourClickTimer = 0;
 
@@ -6267,11 +6270,15 @@ function syncSelectionBar() {
 
 // The bar takes the page's room (--selection-bar-h), so each time it goes up or away the lists
 // change height: one scrolled near its end shifts, and a card near the foot has the bar rise over it,
-// under the finger of the second tap of a double tap. So nothing the bar does happens inside the
-// double-tap window. A tap that changes the selection on the phone layout leaves the bar as it was
-// (holdSelectionBar) until DOUBLE_CLICK_MS has passed with no second tap on that card, and a tap on
-// another card puts the wait off again. The second tap puts the selection back
-// (reopenAfterDoubleTap), and the bar is decided once, after it. Every other write to the selection
+// under the finger of the second tap of a double tap. So the bar does nothing while a double tap can
+// still be coming. A tap that changes the selection on the phone layout leaves the bar as it was
+// (holdSelectionBar) until DOUBLE_CLICK_MS has passed with no finger down since the tap's lift, and a
+// tap on another card puts the wait off again. The window is the browser's: it counts a double tap from
+// the first lift to the second touch down, and the click of the second tap comes when that finger
+// lifts, a press later. So the wait does not run while a finger is down (onBarFingerDown) and runs
+// again from the lift (onBarFingerUp), and the click the lift makes decides. The second tap of a
+// double tap puts the selection back (reopenAfterDoubleTap), and the bar is decided once, after it;
+// a first tap elsewhere holds the bar again from its own click. Every other write to the selection
 // (the card menu, Select lit, Clear, Archive, Status, Esc, a view switch, a poll that changes what
 // the selection resolves to) moves the bar at once (settleSelectionBar). `barHeldIds` is the id set
 // the tap made, null while no tap is being waited out; a render that works out the same set (the
@@ -6282,6 +6289,22 @@ let barHeldIds = null;
 function holdSelectionBar() {
   clearTimeout(barWait);
   barHeldIds = selectedIds;
+  barWait = setTimeout(settleSelectionBar, DOUBLE_CLICK_MS);
+}
+
+// A finger down, on a card or not (the mouse at this width makes a pointerdown too): a second tap may
+// be coming, and its click comes at the lift, so the wait stops until then.
+function onBarFingerDown() {
+  if (barHeldIds === null) return;
+  clearTimeout(barWait);
+  barWait = 0;
+}
+
+// The finger came up, or the browser took it (a scroll, a cancel). A click that follows decides ahead
+// of this wait (a second tap settles the bar, a first tap holds it again from its own click); one that
+// never comes leaves the wait to run out a window after the lift.
+function onBarFingerUp() {
+  if (barHeldIds === null || barWait) return;
   barWait = setTimeout(settleSelectionBar, DOUBLE_CLICK_MS);
 }
 
@@ -7151,6 +7174,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // the click built.
   document.addEventListener('click', onPhoneTapGate, true);
   document.addEventListener('touchstart', onCardPressStart, { passive: true, capture: true });
+  document.addEventListener('pointerdown', onBarFingerDown, { passive: true, capture: true });
+  document.addEventListener('pointerup', onBarFingerUp, { passive: true, capture: true });
+  document.addEventListener('pointercancel', onBarFingerUp, { passive: true, capture: true });
   document.addEventListener('click', (e) => {
     if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { forgetTap(); toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');

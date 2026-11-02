@@ -444,8 +444,9 @@ test('a render that leaves the selection as it was does not write the count agai
 // The bar takes the page's room (--selection-bar-h), so each time it goes up or away the lists change
 // height: one scrolled near its end shifts under the finger, and a card near the foot has the bar rise
 // over it. A tap that changes the selection therefore leaves the bar as it was until the double-tap
-// window has passed with no second tap on that card; a second tap (a click with detail 2) puts the
-// selection back, and the bar is decided once, after it.
+// window has passed with no finger down since the tap's lift; a second tap (a click with detail 2)
+// puts the selection back, and the bar is decided once, after it. The tests below send the second tap
+// at once, with no press; the section after them sends it the way a hand does, with a finger down.
 const secondTap = (s, id) => s.page.fireDocument('click', { target: cardTarget(id), detail: 2, shiftKey: false, ctrlKey: false, metaKey: false });
 const tapTwice = (s, id) => {
   tap(s, id);
@@ -604,6 +605,100 @@ test('in the Graph the wait is the same: a tap on a dot leaves the bar as it was
   assert.deepStrictEqual(s.ids(), []);
   s.clock.tick(10 * s.window());
   assert.deepStrictEqual(s.barChanges, [], 'the bar never went up');
+});
+
+// --- the wait is counted from the lift: it does not run out while a finger is down ---------------------------
+
+// Chrome counts a double tap from the first finger's lift to the second finger's touch down, and the
+// second click comes when the second finger lifts, a press later. A wait that ran from the first tap's
+// click alone would run out under the second finger. So a finger down (pointerdown, which the mouse at
+// this width makes too) stops the wait, and the lift starts it again; the click the lift makes then
+// decides, as it does without a wait: a second tap on the card puts the selection back and decides the
+// bar once, a first tap elsewhere holds the bar again from its own click.
+const fingerDown = (s) => s.page.fireDocument('pointerdown', { target: cardTarget(5), pointerId: 1 });
+const fingerUp = (s) => s.page.fireDocument('pointerup', { target: cardTarget(5), pointerId: 1 });
+const fingerCancelled = (s) => s.page.fireDocument('pointercancel', { target: cardTarget(5), pointerId: 1 });
+
+test('a second finger that comes down inside the window and lifts after it, on a card with nothing selected, never meets the bar', async () => {
+  const s = await open();
+  const opened = opening(s);
+  tap(s, 5);
+  s.clock.tick(s.window() - 50);
+  fingerDown(s);
+  s.clock.tick(s.window());
+  assert.strictEqual(s.bar.shown(), false, 'the window ran out with the finger down, and the bar did not rise under it');
+  fingerUp(s);
+  secondTap(s, 5);
+  assert.deepStrictEqual(opened, [5], 'the second tap landed on the card');
+  assert.deepStrictEqual(s.selection(), { anchor: null, additions: [] });
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, [], 'the bar did not rise, not for a moment, and nothing comes later');
+});
+
+test('a second finger that comes down inside the window and lifts after it, on the only selected card, does not take the bar away under it', async () => {
+  const s = await open();
+  const opened = opening(s);
+  s.select(2);
+  s.barChanges.length = 0;
+  tap(s, 2);
+  s.clock.tick(s.window() - 50);
+  fingerDown(s);
+  s.clock.tick(s.window());
+  assert.strictEqual(s.bar.shown(), true, 'the bar stayed while the finger was down');
+  fingerUp(s);
+  secondTap(s, 2);
+  assert.deepStrictEqual(opened, [2]);
+  assert.deepStrictEqual(s.ids(), [2], 'the second tap put the card back');
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, [], 'the bar neither went nor flickered, so the list never changed height under the finger');
+  assert.strictEqual(s.bar.count(), '1 selected');
+});
+
+test('a finger that comes down and lifts with no click (a scroll, a cancel) hands the bar its window again, counted from the lift', async () => {
+  for (const [name, lift] of [['a lift', fingerUp], ['a cancel', fingerCancelled]]) {
+    const s = await open();
+    tap(s, 2);
+    s.clock.tick(s.window() - 50);
+    fingerDown(s);
+    s.clock.tick(5 * s.window());
+    assert.strictEqual(s.bar.shown(), false, `${name}: the finger is down, so the wait is not running`);
+    lift(s);
+    s.clock.tick(s.window() - 1);
+    assert.strictEqual(s.bar.shown(), false, `${name}: one millisecond short of a window after the lift`);
+    s.clock.tick(1);
+    assert.strictEqual(s.bar.shown(), true, name);
+    assert.strictEqual(s.bar.count(), '1 selected', name);
+    assert.deepStrictEqual(s.barChanges, ['up'], name);
+  }
+});
+
+test('a finger that comes down inside the window and lifts as a first tap on another card holds the bar again, from that click', async () => {
+  const s = await open();
+  tap(s, 2);
+  s.clock.tick(s.window() - 50);
+  fingerDown(s);
+  s.clock.tick(s.window());
+  fingerUp(s);
+  tap(s, 3);
+  assert.deepStrictEqual(s.ids(), [2, 3]);
+  s.clock.tick(s.window() - 1);
+  assert.strictEqual(s.bar.shown(), false);
+  s.clock.tick(1);
+  assert.strictEqual(s.bar.count(), '2 selected');
+  assert.deepStrictEqual(s.barChanges, ['up'], 'it went up once, a window after the last tap');
+});
+
+test('a finger down with no wait pending starts nothing: the bar is not late for a tap it was not waiting on', async () => {
+  const s = await open();
+  s.select(2);
+  s.barChanges.length = 0;
+  fingerDown(s);
+  fingerUp(s);
+  s.clock.tick(10 * s.window());
+  assert.deepStrictEqual(s.barChanges, []);
+  assert.strictEqual(s.bar.count(), '1 selected');
+  s.select(2, 3);
+  assert.strictEqual(s.bar.count(), '2 selected', 'a write that is no tap still moves the bar at once');
 });
 
 test('at the desk width a Ctrl-click moves the bar at once: there is no wait, and the stylesheet does not draw the bar there anyway', async () => {
