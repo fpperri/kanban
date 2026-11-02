@@ -43,8 +43,12 @@ function classList() {
 function control() {
   const el = {
     listeners: {},
+    passives: {}, // per event type, whether each listener was added passive, in the order added
     classList: classList(),
-    addEventListener(type, fn) { (el.listeners[type] = el.listeners[type] || []).push(fn); },
+    addEventListener(type, fn, options) {
+      (el.listeners[type] = el.listeners[type] || []).push(fn);
+      (el.passives[type] = el.passives[type] || []).push(!!(options && options.passive));
+    },
     fire(type, event = {}) { (el.listeners[type] || []).slice().forEach((fn) => fn(event)); },
     focus() {},
     setAttribute() {},
