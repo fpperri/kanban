@@ -189,6 +189,20 @@ test('Back closes an open menu, then drops the light, then steps the selection, 
   assert.strictEqual(s.pushes(), 3, 'one entry kept again after each of the first two');
 });
 
+test('an open More menu is closed before anything else, as Esc closes it first, and the selection stands', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  s.page.run('moreMenuOpen()');
+  assert.strictEqual(s.page.run('moreMenuIsOpen()'), true);
+  await s.back();
+  assert.strictEqual(s.page.run('moreMenuIsOpen()'), false, 'the More menu closed');
+  assert.deepStrictEqual(s.picked(), ['2'], 'the selection stands');
+  assert.ok(s.onEntry(), 'and the entry is kept again');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'the next Back steps the selection');
+});
+
 test('a light alone keeps an entry: Back drops it and the page stays', async () => {
   const s = await open();
   longPress(s, 2);
