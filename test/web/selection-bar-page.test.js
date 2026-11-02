@@ -421,6 +421,21 @@ test('More is expanded while its menu is open, and collapsed again however the m
   assert.strictEqual(expanded(), 'false', 'a menu another card opened is not the one More opened');
 });
 
+test('More is expanded by the menu it opened and by no other, whichever way that one is placed', async () => {
+  const s = await open();
+  const attrs = [];
+  s.elements['#selection-bar-more'].setAttribute = (name, value) => { if (name === 'aria-expanded') attrs.push(value); };
+  const expanded = () => attrs[attrs.length - 1];
+  s.select(1, 2);
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(10, 10, { above: true })');
+  assert.strictEqual(expanded(), 'false', 'a menu that rises from somewhere else is not the one More opened');
+  s.page.run('hideContextMenu()');
+  await pressMore(s);
+  assert.strictEqual(expanded(), 'true');
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(10, 10)');
+  assert.strictEqual(expanded(), 'false', 'a menu opened over the one More opened is not the one More opened');
+});
+
 test('a tap on Clear, Archive or Status with the menu open only closes the menu, as a tap outside it does at phone width', async () => {
   for (const name of ['clear', 'archive', 'status']) {
     const s = await open();

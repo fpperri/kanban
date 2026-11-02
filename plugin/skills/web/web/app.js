@@ -6589,6 +6589,7 @@ function openSelectionMenu(e) {
   if (!selectionBarSubject()) return;
   const more = e.currentTarget.getBoundingClientRect();
   showContextMenu(more.left, $('#selection-bar').getBoundingClientRect().top, { above: true });
+  $('#selection-bar-more').setAttribute('aria-expanded', 'true');
 }
 
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
@@ -7108,7 +7109,7 @@ function openCanvasContextMenu(e) {
 // foot of the screen rises from it, and a group opened inside it grows up, not off the screen.
 function showContextMenu(x, y, { above = false } = {}) {
   const menu = $('#context-menu');
-  $('#selection-bar-more').setAttribute('aria-expanded', String(above)); // the selection bar's More is the one entry that opens it above
+  $('#selection-bar-more').setAttribute('aria-expanded', 'false'); // a menu is More's only when openSelectionMenu says so after this
   // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
   // stylesheet makes of one entry; a card's menu has them all again.
   menu.classList.toggle('canvas-menu', !!menuSubject.canvas);
