@@ -1688,6 +1688,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const again = focusedId === null ? null : cardElInShownView(focusedId, focused);
     if (again) again.focus({ preventScroll: true });
     if (hoveredId !== pointerId) setHoveredId(pointerId);
+    scheduleBackSync(); // into the phone layout with a selection standing: Back has a step now
   });
 });
 
@@ -2913,7 +2914,7 @@ async function returnToDetails(seen) {
   const failed = (e) => {
     closeDetailModal();
     const search = nextCardHistorySearch(location.search, null);
-    if (search !== null) history.replaceState(null, '', location.pathname + search);
+    if (search !== null) history.replaceState(history.state, '', location.pathname + search);
     toast(e.status === 404 ? `Card #${id} is gone.` : 'Load failed: ' + e.message);
     if (e.status === 404) loadBoard();
   };
@@ -3476,6 +3477,7 @@ function closeDetailModal() {
   currentDetailId = null;
   currentDetailArchived = false;
   $('#detail-modal').classList.add('hidden');
+  scheduleBackSync(); // a selection or a light behind the details may want its entry now
 }
 
 // Opening/closing the detail popup as real browser-history steps, so
@@ -3494,7 +3496,11 @@ function closeDetailModal() {
 function pushCardHistoryStep(targetId) {
   const search = nextCardHistorySearch(location.search, targetId);
   if (search == null) return; // already there — no duplicate entry
-  history.pushState(null, '', location.pathname + search);
+  const seq = nextBackSeq();
+  history.pushState(backCardState(history.state, seq), '', location.pathname + search);
+  backAt = seq;
+  backOnEntry = false; // the card's step is the entry the person is on now
+  scheduleBackSync(); // the details opened or closed over a selection, a light or a menu that may want an entry again
 }
 
 // The push happens AFTER the card actually loads, not before: pushing first
@@ -3521,6 +3527,204 @@ function closeCard() {
   closeDetailModal();
 }
 
+// --- Android Back on the phone layout (back-steps.js). While a card menu, a light or a selection stands
+// the page keeps one history entry of its own, marked in its history state, so that Back has something to
+// pop. The Back that pops it takes one step the way Esc does, in Esc's order (the in-page question, the open
+// menu, a popup, the search panel, then the light, then the selection's steps) and the page goes forward
+// to the entry again while something is left; with nothing lit or selected there is no entry and Back is
+// the browser's. The entry is kept once the double-tap window has passed, so the first tap of a double
+// tap, which the second undoes, leaves none behind.
+// The page makes the entry from a tap, never from a Back: the browser's Back button skips every entry of
+// a document that added one without a user activation, and a back or forward uses the activation up, so
+// an entry pushed while a Back was answered would be skipped by the next press. Going forward to the entry
+// the Back popped adds none. The card's steps (pushCardHistoryStep) are untouched: the entry stands beside
+// them in the history, and a Back that lands on a card's step is the card's. An entry nothing wants any
+// more (Esc took the last step, a tap cleared the selection) stays where it is, and the Back that pops it
+// lets itself through (history.back()) so that it costs no press.
+// `backOnEntry` is whether the page is on its own entry now; a reload on one keeps its state.
+let backOnEntry = isBackEntry(history.state);
+// Every state the page pushes is numbered, each above the last (back-steps.js): `backAt` is the number of the
+// entry the page is on, `backSeq` the highest it has made, so a popstate to a higher number is a Forward.
+let backAt = backSeqOf(history.state);
+let backSeq = backAt;
+let backSyncTimer = null;
+let backActivated = false; // a tap or a key since the last back or forward: the browser would honour an entry now
+let backReturnAt = null; // when the page went forward to its entry, until the landing
+for (const type of BACK_ACTIVATION_EVENTS) {
+  // key-guard: exempt (only notes that a tap or a key came; acts on nothing)
+  window.addEventListener(type, (e) => {
+    if (!activatesHistory(type, e)) return;
+    backActivated = true;
+    scheduleBackSync(); // a menu or a light that opened before the finger lifted, or after a Back, gets its entry now
+  }, true);
+}
+
+function nextBackSeq() {
+  backSeq = Math.max(backSeq, backAt) + 1;
+  return backSeq;
+}
+
+function contextMenuOpen() {
+  return !$('#context-menu').classList.contains('hidden');
+}
+
+function selectionStands() {
+  return partsOf(selectionState.selection).length > 0;
+}
+
+function backEntryWantedNow() {
+  if (!onPhoneLayout()) return false;
+  return backEntryWanted({
+    phone: true,
+    menu: contextMenuOpen(),
+    light: pinnedLitId !== null,
+    selection: selectionStands(),
+    details: !$('#detail-modal').classList.contains('hidden'),
+  });
+}
+
+function syncBackEntry() {
+  backSyncTimer = null;
+  if (backOnEntry || !backActivated || !backEntryWantedNow()) return;
+  try {
+    const seq = nextBackSeq();
+    history.pushState(backEntryState(seq), '', location.pathname + location.search);
+    backAt = seq;
+    backOnEntry = true;
+  } catch (e) {
+    /* a host that refuses an entry leaves Back as the browser's */
+  }
+}
+
+// Whatever may make the page want an entry (a selection, a menu, a light, the details closing, the width
+// line crossed) calls this; the entry itself waits out the double-tap window, and is not kept if nothing
+// wants it by then, or if no tap has come since the last back or forward.
+function scheduleBackSync() {
+  if (backOnEntry || backSyncTimer !== null || !backEntryWantedNow()) return;
+  backSyncTimer = setTimeout(syncBackEntry, BACK_ENTRY_SETTLE_MS);
+}
+
+// The layers above the page that Esc and a Back both close, by the names back-steps.js puts in Esc's order
+// (BACK_STEP_ORDER): the in-page question, the popups that take Esc in a listener of their own (the date
+// picker, the group dialog, the tray), the menus, the popups, the notes palette, the search panel. The Esc
+// listener walks the same list, with the card details (a Back leaves them to the browser's history) and a
+// popup it has no closer for, so there is one order and one set of closers. The four popups with a listener
+// of their own take the key before this list does and keep it from it, so Esc never reaches them here; they
+// are listed so that a Back, which has no key to take, closes them the way their listeners do.
+function standingLayers(forEsc) {
+  const up = (sel) => !$(sel).classList.contains('hidden');
+  const layers = [];
+  if (askState.resolve) layers.push('ask');
+  if (datePickerFor !== null) layers.push('date-picker');
+  if (groupDialogOpenNow()) layers.push('group-dialog');
+  if (trayIsOpen()) layers.push('tray');
+  if (moreMenuIsOpen()) layers.push('more-menu');
+  if (contextMenuOpen()) layers.push('menu');
+  if (up('#notif-modal')) layers.push('notifications');
+  if (up('#prefs-sheet')) layers.push('settings');
+  if (forEsc && up('#detail-modal')) layers.push('details');
+  if (up('#modal')) layers.push('edit-form');
+  if (bulkPopupOpen()) layers.push('bulk-popup');
+  if (forEsc && anyModalOpen()) layers.push('other-popup'); // defensive catch-all: any future .modal-backdrop popup not listed above
+  if (notesIsOpen()) layers.push('notes-palette');
+  if (searchPanelOpen) layers.push('search-panel');
+  return layers;
+}
+
+function standingSteps() {
+  const steps = standingLayers(false);
+  if (pinnedLitId !== null) steps.push('light');
+  if (selectionStands()) steps.push('selection');
+  return steps;
+}
+
+// Closes one layer. `e` is Esc's key event: a close that takes the key keeps the browser's own Esc (a search field
+// would clear itself) from running as well. A popup Esc has no closer for (other-popup) is left as it is.
+function takeLayer(step, e) {
+  if (step === 'ask') askAnswer(false);
+  else if (step === 'date-picker') closeDatePicker();
+  else if (step === 'group-dialog') closeGroupDialog();
+  else if (step === 'tray') trayEscape();
+  else if (step === 'notes-palette') notesEscape();
+  else if (step === 'more-menu') { moreMenuClose(); if (e) e.preventDefault(); $('#more-btn').focus(); }
+  else if (step === 'menu') hideContextMenu();
+  else if (step === 'notifications') closeNotifModal();
+  else if (step === 'settings') settingsStepBack();
+  else if (step === 'details') closeCard();
+  else if (step === 'edit-form') requestCloseModal();
+  else if (step === 'bulk-popup') closeAnyBulkPopup();
+  else if (step === 'search-panel') { closeSearchPanel(); if (e) e.preventDefault(); }
+}
+
+function nextBackStep() {
+  return backStep(standingSteps());
+}
+
+function takeBackStep(step) {
+  if (step === 'light') clearPinnedLight();
+  else if (step === 'selection') stepSelectionBack();
+  else takeLayer(step);
+}
+
+// Goes forward to the entry the Back popped, while something is left for the next Back to step. Forward
+// adds no entry, so the browser has none to skip; the landing is the page's own (onBackTraversal).
+function returnToBackEntry() {
+  if (nextBackStep() === null) return;
+  backReturnAt = performance.now();
+  history.forward();
+}
+
+// The Back that popped the entry the menu over the card details had, with a light or a selection behind
+// the details and no entry of the page's below the details' step (the card opened with nothing standing):
+// the details close here, and the step they stood on becomes the page's entry (replaced, not pushed), so
+// the light or the selection keeps one for the Back after. With an entry below the step the Back passes
+// through to it instead (backPopAction), which closes the details and leaves the entry as it was.
+function uncoverDetails() {
+  const search = nextCardHistorySearch(location.search, null);
+  backOnEntry = true;
+  closeDetailModal();
+  try {
+    history.replaceState(backEntryState(backAt), '', location.pathname + (search === null ? location.search : search));
+  } catch (e) {
+    backOnEntry = false;
+  }
+}
+
+// The Back that popped the page's entry: one step and the entry again while something is left, or the Back
+// let through (back-steps.js says which).
+function answerBackPop(landedOn) {
+  const step = nextBackStep();
+  const action = backPopAction({
+    phone: onPhoneLayout(),
+    modalOpen: !!document.querySelector('.modal-backdrop:not(#detail-modal):not(.hidden)'),
+    details: !$('#detail-modal').classList.contains('hidden'),
+    step,
+    under: isBackUnder(landedOn),
+  });
+  if (action === 'pass') { history.back(); return; }
+  if (action === 'uncover') { uncoverDetails(); return; }
+  if (action === 'step') takeBackStep(step);
+  returnToBackEntry();
+}
+
+// True when the traversal was a Back from the page's own entry, answered here, or the page going forward
+// to it again; the popstate listener then leaves the card alone. A traversal that lands on the entry (a
+// Back from a card's step above it, or Forward) or moves between others is not, and may leave something
+// wanting an entry. Any of them ends the activation the browser counts.
+function onBackTraversal(e) {
+  backActivated = false;
+  const returning = backReturnAt !== null && performance.now() - backReturnAt < BACK_RETURN_MS;
+  backReturnAt = null;
+  const kind = backTraversal({ onEntry: backOnEntry, state: e && e.state, returning, at: backAt });
+  backAt = backSeqOf(e && e.state);
+  backSeq = Math.max(backSeq, backAt);
+  backOnEntry = kind === 'landed' || kind === 'returned';
+  if (kind === 'returned') return true;
+  if (kind !== 'popped') { scheduleBackSync(); return false; }
+  answerBackPop(e && e.state);
+  return true;
+}
+
 // Back/Forward (mouse buttons, the browser's own arrows, and — because
 // there's no competing keyboard handler — Alt+Left/Alt+Right) land here.
 // location.search is already the DESTINATION url by the time this fires, so
@@ -3538,8 +3742,9 @@ function closeCard() {
 // entry that landed with another `q` is replaced to carry the box's text, so
 // the address always says what the box says. This comes first, ahead of the
 // bail-out below, because the address moved whether or not the popup does.
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', (e) => {
   followSearchInAddress($('#search-input').value);
+  if (onBackTraversal(e)) return; // the Back that popped the page's own entry took its step; the card is not its business
   // An edit/new-card form, or any other popup, covers the same z-index slot
   // as the detail popup and may hold unsaved typing (formSnapshot) that
   // openDetailModal would silently overwrite if Edit were then clicked on
@@ -3626,15 +3831,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // key-guard: exempt (Esc closes the open popup from inside a field too; the selection step it ends in asks keyGuardEscape)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (moreMenuClose()) { e.preventDefault(); $('#more-btn').focus(); return; }
-    if (!$('#context-menu').classList.contains('hidden')) { hideContextMenu(); return; }
-    if (!$('#notif-modal').classList.contains('hidden')) { closeNotifModal(); return; }
-    if (!$('#prefs-sheet').classList.contains('hidden')) { settingsStepBack(); return; }
-    if (!$('#detail-modal').classList.contains('hidden')) { closeCard(); return; }
-    if (!$('#modal').classList.contains('hidden')) { requestCloseModal(); return; }
-    if (closeAnyBulkPopup()) return;
-    if (anyModalOpen()) return; // defensive catch-all: any future .modal-backdrop popup not listed above
-    if (closeSearchPanel()) { e.preventDefault(); return; } // the search panel closes on its own Esc, ahead of the selection step, and a search field's own Esc must not clear the box as well
+    // The layers above the page close in the order back-steps.js sets (BACK_STEP_ORDER), the one a Back walks
+    // too; the search panel closes on its own Esc, ahead of the selection step.
+    const layer = backStep(standingLayers(true));
+    if (layer) { takeLayer(layer, e); return; }
     if (e.repeat) return; // a held Esc is one press: it runs one stage
     if (clearPinnedLight()) return; // the long press's light goes before the selection steps back
     escapeStep(e);
@@ -3748,7 +3948,7 @@ function followSearchInAddress(text) {
   const search = nextSearchAddress(location.search, text, isolateNow() !== null, typingIsolatesIn(loadViewMode()));
   if (search == null) return;
   try {
-    history.replaceState(null, '', location.pathname + search);
+    history.replaceState(history.state, '', location.pathname + search);
   } catch (e) {
     /* the address lags the box until the next change */
   }
@@ -6377,6 +6577,7 @@ function setSelection(selection, rangeStart = selectionState.rangeStart, { tap =
   selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
   if (tap) holdSelectionBar();
   else if (!barHoldsFor(selectedIds)) settleSelectionBar();
+  scheduleBackSync();
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -6449,6 +6650,7 @@ function setPinnedLight(id) {
   if (id === pinnedLitId) return;
   pinnedLitId = id;
   refreshHover();
+  scheduleBackSync();
 }
 
 // True when there was a light to drop.
@@ -6888,6 +7090,7 @@ function showContextMenu(x, y, { above = false } = {}) {
     menu.style.bottom = '';
     menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
   }
+  scheduleBackSync();
 }
 
 // Peek opens the card's details through the same path a plain open takes (so card
@@ -7250,8 +7453,14 @@ function applyBulkStatus(status) {
 // bulk popup. Esc closes whichever one is open, directly,
 // same as its own backdrop-click — no confirm, since bulk edits are
 // speedbump-exempt (Apply is the speedbump, same reasoning as backdrop-close).
+const BULK_POPUPS = ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status'];
+
+function bulkPopupOpen() {
+  return BULK_POPUPS.some((sel) => !$(sel).classList.contains('hidden'));
+}
+
 function closeAnyBulkPopup() {
-  for (const sel of ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status']) {
+  for (const sel of BULK_POPUPS) {
     const el = $(sel);
     if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return true; }
   }

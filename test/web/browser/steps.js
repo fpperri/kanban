@@ -88,6 +88,10 @@ async function longPress(page, x, y, { until = null } = {}) {
   await liftUp(page);
 }
 
+// A Back that leaves the page ends the document an evaluation answers from, and the answer is lost with it. This
+// asks for the history.back() to be made after the answer; the step then waits for where it landed.
+const backOut = (page) => page.ev('setTimeout(()=>history.back(),200);true');
+
 // A hold and then a drag: the finger goes down at `from`, stays until the page shows it has noticed the hold
 // (as longPress waits) or for 700 ms, moves to each point of `path` in turn (one point or a list) and
 // lifts at the last. `afterDown`, an async function, runs once the finger is down and before the wait for
@@ -129,4 +133,4 @@ async function refreshNow(page) {
   return page.waitFor(`window.__applied>${before}`, 5000);
 }
 
-module.exports = { runSteps, freshStart, tap, doubleTap, pacedDoubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, holdDrag, LONG_PRESS_HOLD_MS, swipe, pinch, refreshNow };
+module.exports = { runSteps, freshStart, tap, doubleTap, pacedDoubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, holdDrag, LONG_PRESS_HOLD_MS, backOut, swipe, pinch, refreshNow };

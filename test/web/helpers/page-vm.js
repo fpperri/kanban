@@ -100,7 +100,9 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
   const failures = [];
   const contextMenu = control();
   contextMenu.classList.add('hidden');
-  const elements = { '#search-input': input, '#search-clear-btn': clear, '#context-menu': contextMenu, '#ctx-hpath': menu.hpath, '#ctx-htree': menu.htree, '#ctx-dpath': menu.dpath, '#ctx-dtree': menu.dtree, ...more };
+  // The popups the Esc chain asks about by their own element, closed as a page that has just loaded has them.
+  const closed = () => { const el = control(); el.classList.add('hidden'); return el; };
+  const elements = { '#search-input': input, '#search-clear-btn': clear, '#context-menu': contextMenu, '#ctx-hpath': menu.hpath, '#ctx-htree': menu.htree, '#ctx-dpath': menu.dpath, '#ctx-dtree': menu.dtree, '#tray-sheet': closed(), '#group-dialog': closed(), ...more };
   const doc = new Proxy({
     activeElement: null,
     visibilityState: 'visible',
@@ -183,15 +185,20 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
     // first, then the rest, each in the order it was added, and none after one that stops the event.
     // `atTarget`, when given, is the target's own listener: it runs between the capture listeners and the
     // rest, as a button's handler does, and not at all when a capture listener stopped the event.
-    fireDocument(type, event, { atTarget = null } = {}) {
+    // `honorStop`: a capture listener's stopPropagation keeps the event from the target's and the bubbling
+    // listeners, as the browser's does (the other capture listeners on the document still run); without it
+    // stopPropagation is a no-op, which is what the older tests of this suite were written against.
+    fireDocument(type, event, { atTarget = null, honorStop = false } = {}) {
       let stopped = false;
-      const e = Object.assign({ defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {}, stopImmediatePropagation() { stopped = true; } }, event);
+      let halted = false;
+      const e = Object.assign({ defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() { halted = true; }, stopImmediatePropagation() { stopped = true; halted = true; } }, event);
       const all = (documentListeners[type] || []).slice();
       const capture = all.filter((f) => capturing.has(f));
       for (const fn of capture) {
         fn(e);
         if (stopped) return e;
       }
+      if (honorStop && halted) return e;
       if (atTarget) atTarget(e);
       for (const fn of all.filter((f) => !capturing.has(f))) {
         fn(e);

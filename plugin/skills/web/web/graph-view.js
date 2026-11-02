@@ -195,7 +195,7 @@ function graphAddressFor(search, kind, deps, laned) {
 function graphWriteAddress() {
   const search = graphAddressFor(location.search, graphLoadLayout(), graphLoadDeps(), graphLoadLanes());
   if (search == null) return;
-  try { history.replaceState(null, '', location.pathname + search); } catch (e) { /* the address lags until the next press */ }
+  try { history.replaceState(history.state, '', location.pathname + search); } catch (e) { /* the address lags until the next press */ }
 }
 
 // A press on the Hierarchy | Flow choice. Unnested off is the Hierarchy's

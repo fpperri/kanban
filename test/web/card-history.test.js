@@ -257,10 +257,12 @@ test('every user-gesture close goes through the closeCard wrapper, not closeDeta
   // openDetailModal's own quiet-failure branch (a popstate landing on a card
   // id that no longer resolves closes the popup instead of toasting), and the
   // edit form's return, whose failed card read closes the popup and replaces
-  // its address step (a dead card's step is not stacked on).
+  // its address step (a dead card's step is not stacked on), and the phone layout's Back that pops the
+  // entry the menu over the details had, with a selection behind them and no entry of the page below:
+  // it closes the details and turns their step into the page's entry (uncoverDetails).
   const rawCalls = [...APP.matchAll(/[^.\w]closeDetailModal\(/g)].length;
-  assert.strictEqual(rawCalls, 7,
-    `expected exactly 7 raw closeDetailModal( call sites — found ${rawCalls}`);
+  assert.strictEqual(rawCalls, 8,
+    `expected exactly 8 raw closeDetailModal( call sites — found ${rawCalls}`);
 });
 
 // --- nextSearchAddress with isolate: the second parameter beside q ------------

@@ -1403,6 +1403,10 @@ function notesChipClearable() {
   return !!notesUi.sub && notesUi.tab === 'notes' && noteIsAboutCards(notesUi.sub);
 }
 
+function notesIsOpen() {
+  return !!notesUi.sub;
+}
+
 function notesEscape(fromFilter = false) {
   if (notesChipClearable() && !fromFilter) notesClearChip();
   else notesClose();
@@ -1480,7 +1484,7 @@ function notesCalendarOpening() {
 // above them, so it closes first and a second Esc closes the details. In the palette Esc is read by
 // the palette itself.
 function onNotesEscape(e) {
-  if (e.key !== 'Escape' || !notesUi.sub || notesUi.el.contains(e.target)) return;
+  if (e.key !== 'Escape' || !notesIsOpen() || notesUi.el.contains(e.target)) return;
   if (keyGuardSurface(document, NOTES_DETAIL) !== null) return;
   e.preventDefault();
   e.stopPropagation();

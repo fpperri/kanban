@@ -573,13 +573,17 @@ function escPage({ open = [], lit = false } = {}) {
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     $: (sel) => els[sel],
+    backStep: require('../../plugin/skills/web/web/back-steps').backStep,
+    askState: { resolve: null }, datePickerFor: null, groupDialogOpenNow: () => false, trayIsOpen: () => false, notesIsOpen: () => false,
+    moreMenuIsOpen: () => false, contextMenuOpen: () => !els['#context-menu'].classList.contains('hidden'), bulkPopupOpen: () => false,
+    searchPanelOpen: open.includes('#search-panel'),
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
     closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
     escapeStep: () => calls.push('step'), clearPinnedLight: () => (lit ? (calls.push('light'), true) : false), settingsStepBack: () => calls.push('prefs'), moreMenuClose: () => false,
   };
   vm.createContext(sandbox);
-  vm.runInContext(escHandler(), sandbox);
+  vm.runInContext(`${fn('standingLayers')}\n${fn('takeLayer')}\n${escHandler()}`, sandbox);
   assert.strictEqual(listeners.length, 1);
   return { esc: (extra = {}) => listeners[0][1]({ key: 'Escape', preventDefault: () => prevented.push(true), ...extra }), calls, prevented };
 }
@@ -634,12 +638,15 @@ test('a held Esc runs the end of the chain once: a repeated keydown with nothing
   assert.deepStrictEqual(p.calls, ['step', 'step'], 'a fresh press steps again');
 });
 
-test('the sheet\'s line is added to the Esc handler without moving the lines around it', () => {
-  const body = escHandler();
-  const at = (s) => body.indexOf(s);
-  assert.ok(at("settingsStepBack(); return;") > at("closeNotifModal(); return;"));
-  assert.ok(at("settingsStepBack(); return;") < at("closeCard(); return;"));
-  assert.ok(at("if (anyModalOpen()) return;") > at("settingsStepBack(); return;"), 'the catch-all stays last but for the end of the chain');
+test('the sheet takes Esc after the notifications and before the card details, in the order a Back walks too, and the catch-all stays last but for the end of the chain', () => {
+  const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
+  const at = (name) => BACK_STEP_ORDER.indexOf(name);
+  assert.ok(at('settings') > at('notifications'));
+  assert.ok(at('settings') < at('details'));
+  assert.ok(at('other-popup') > at('settings'));
+  assert.ok(at('other-popup') < at('search-panel'));
+  assert.match(fn('takeLayer'), /step === 'settings'\) settingsStepBack\(\);/);
+  assert.match(escHandler(), /backStep\(standingLayers\(true\)\)/, 'Esc walks the order a Back walks');
 });
 
 test('an open sheet stops the 5s poll, because it sits on the modal backdrop the poll already reads', () => {
