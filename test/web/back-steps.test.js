@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction,
+  BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, BACK_STEP_ORDER, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction,
 } = require('../../plugin/skills/web/web/back-steps');
 
 // Back on the phone layout, as the rules the page asks. The page keeps one history entry of its own
@@ -95,10 +95,12 @@ test('the entry waits out the double-tap window before it is kept, so a double t
   assert.ok(BACK_ENTRY_SETTLE_MS <= 1000, 'short enough that a Back a moment after a tap still finds it');
 });
 
-// Esc's order, top first, written out from the chain the keydown listener walks: the in-page question, the More
-// menu, the card menu, the notifications, the preferences sheet, the card details, the edit form, a bulk
-// popup, any other popup, the search panel, then the light, then the selection.
-const ESC_ORDER = ['ask', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'search-panel', 'light', 'selection'];
+// Esc's order, top first, written out from the listeners that take the key: the in-page question (a window
+// listener), the date picker, the group dialog and the tray (document listeners that run before the chain),
+// then the chain the keydown listener walks: the More menu, the card menu, the notifications, the preferences
+// sheet, the card details, the edit form, a bulk popup, any other popup, then the notes palette (which yields
+// to every popup above it), the search panel, the light and the selection.
+const ESC_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
 
 test("Back takes the first thing standing in Esc's order, one at a time, and nothing when nothing stands", () => {
   ESC_ORDER.forEach((step, i) => {
@@ -107,6 +109,7 @@ test("Back takes the first thing standing in Esc's order, one at a time, and not
   });
   assert.strictEqual(backStep([]), null);
   assert.strictEqual(backStep([...ESC_ORDER].reverse()), 'ask', "the order is the table's, not the list's");
+  assert.deepStrictEqual([...BACK_STEP_ORDER], ESC_ORDER, 'the table the page walks is this one');
 });
 
 test('the search panel closes after the menus and the popups and before the light and the selection', () => {
@@ -114,6 +117,23 @@ test('the search panel closes after the menus and the popups and before the ligh
   assert.strictEqual(backStep(['search-panel', 'menu']), 'menu');
   assert.strictEqual(backStep(['search-panel', 'bulk-popup']), 'bulk-popup');
   assert.strictEqual(backStep(['light', 'selection']), 'light');
+});
+
+test('the four popups that take Esc in their own listeners are layers of their own: the date picker, the group dialog and the tray first, the notes palette after every popup and before the search panel', () => {
+  assert.strictEqual(backStep(['menu', 'date-picker']), 'date-picker', 'Esc closes only the picker, whatever it stands over');
+  assert.strictEqual(backStep(['edit-form', 'date-picker']), 'date-picker');
+  assert.strictEqual(backStep(['bulk-popup', 'date-picker']), 'date-picker');
+  assert.strictEqual(backStep(['menu', 'group-dialog']), 'group-dialog');
+  assert.strictEqual(backStep(['bulk-popup', 'tray']), 'tray');
+  assert.strictEqual(backStep(['notes-palette', 'group-dialog']), 'group-dialog', 'the palette yields to a popup');
+  assert.strictEqual(backStep(['notes-palette', 'tray']), 'tray');
+  for (const popup of ['menu', 'more-menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'other-popup']) {
+    assert.strictEqual(backStep(['notes-palette', popup]), popup, `the palette yields to ${popup}`);
+  }
+  assert.strictEqual(backStep(['search-panel', 'notes-palette']), 'notes-palette');
+  assert.strictEqual(backStep(['light', 'notes-palette']), 'notes-palette');
+  assert.strictEqual(backStep(['selection', 'notes-palette']), 'notes-palette');
+  assert.strictEqual(backStep(['ask', 'date-picker', 'tray']), 'ask', 'the question is answered first, as the window listener answers it first');
 });
 
 test('a name the table does not know is no step', () => {
@@ -167,7 +187,7 @@ test('a popped entry steps at the phone layout, passes through when there is not
 
 test('a popup Back closes is a step, with a popup standing or not, and over the card details too', () => {
   const ask = (over) => backPopAction({ phone: true, modalOpen: true, details: false, step: 'selection', ...over });
-  for (const step of ['ask', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup']) {
+  for (const step of ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'notes-palette']) {
     assert.strictEqual(ask({ step }), 'step', step);
     assert.strictEqual(ask({ step, details: true }), 'step', `${step}, over the card details`);
   }

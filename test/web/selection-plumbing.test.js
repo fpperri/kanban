@@ -449,16 +449,37 @@ test('the Esc chain keeps its order and ends in the one step, behind a single do
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
   assert.match(handler, /backStep\(standingLayers\(true\)\)/, 'the popups take Esc in the order a Back walks (back-steps.js)');
   const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
-  const closers = { 'more-menu': 'moreMenuClose()', menu: 'hideContextMenu()', notifications: 'closeNotifModal()', settings: 'settingsStepBack()', details: 'closeCard()', 'edit-form': 'requestCloseModal()', 'bulk-popup': 'closeAnyBulkPopup()', 'search-panel': 'closeSearchPanel()' };
+  const closers = { 'date-picker': 'closeDatePicker()', 'group-dialog': 'closeGroupDialog()', tray: 'trayEscape()', 'more-menu': 'moreMenuClose()', menu: 'hideContextMenu()', notifications: 'closeNotifModal()', settings: 'settingsStepBack()', details: 'closeCard()', 'edit-form': 'requestCloseModal()', 'bulk-popup': 'closeAnyBulkPopup()', 'notes-palette': 'notesEscape()', 'search-panel': 'closeSearchPanel()' };
   const take = fn('takeLayer');
   for (const [step, call] of Object.entries(closers)) assert.ok(BACK_STEP_ORDER.includes(step) && take.includes(call), `${step} closes with ${call}`);
-  assert.deepStrictEqual(BACK_STEP_ORDER.filter((s) => s !== 'ask' && s !== 'other-popup'), ['more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'search-panel', 'light', 'selection'], 'the order is Esc\'s');
+  assert.deepStrictEqual(BACK_STEP_ORDER.filter((s) => s !== 'ask' && s !== 'other-popup'), ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'notes-palette', 'search-panel', 'light', 'selection'], 'the order is Esc\'s');
   const order = ['takeLayer(layer, e)', 'e.repeat', 'clearPinnedLight()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
   assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');
   assert.strictEqual(appSrc.split('escapeStep(e)').length - 1, 2, 'the step is called from the handler alone (and defined once)');
   assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 3, 'the selection step is called from the Esc step and from the Back step alone (and defined once)');
+});
+
+// Four popups take Esc in a capture listener of their own that runs before the chain and keeps the key from
+// it. A Back closes them with the call their own listener makes, so that there is one closer for each.
+test('the date picker, the group dialog, the tray and the notes palette are closed by a Back with the call their own Esc listener makes', () => {
+  const listener = (src, name) => {
+    const m = src.match(new RegExp(`function ${name}\\(e\\) \\{[\\s\\S]*?\\n\\}`));
+    assert.ok(m, `${name} found`);
+    return m[0];
+  };
+  const take = fn('takeLayer');
+  assert.match(listener(read('groups-ui.js'), 'onGroupsEscape'), /closeGroupDialog\(\)/);
+  assert.match(take, /step === 'group-dialog'\) closeGroupDialog\(\);/);
+  assert.match(listener(read('tray-ui.js'), 'onTrayEscape'), /trayEscape\(\)/);
+  assert.match(take, /step === 'tray'\) trayEscape\(\);/);
+  assert.match(listener(read('notes-palette.js'), 'onNotesEscape'), /notesEscape\(\)/);
+  assert.match(take, /step === 'notes-palette'\) notesEscape\(\);/);
+  const picker = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{ \/\/ key-guard: exempt \(acts only while the date picker is open[\s\S]*?\n\}, true\);/);
+  assert.ok(picker, 'the date picker\'s Esc listener is found');
+  assert.match(picker[0], /closeDatePicker\(\)/);
+  assert.match(take, /step === 'date-picker'\) closeDatePicker\(\);/);
 });
 
 // The step reads the shared key guard (key-guard.js) through its Esc question, and

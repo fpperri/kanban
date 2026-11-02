@@ -3605,13 +3605,19 @@ function scheduleBackSync() {
 }
 
 // The layers above the page that Esc and a Back both close, by the names back-steps.js puts in Esc's order
-// (BACK_STEP_ORDER): the in-page question, the menus, the popups, the search panel. The Esc listener walks the
-// same list, with the card details (a Back leaves them to the browser's history) and a popup it has no closer
-// for, so there is one order and one set of closers.
+// (BACK_STEP_ORDER): the in-page question, the popups that take Esc in a listener of their own (the date
+// picker, the group dialog, the tray), the menus, the popups, the notes palette, the search panel. The Esc
+// listener walks the same list, with the card details (a Back leaves them to the browser's history) and a
+// popup it has no closer for, so there is one order and one set of closers. The four popups with a listener
+// of their own take the key before this list does and keep it from it, so Esc never reaches them here; they
+// are listed so that a Back, which has no key to take, closes them the way their listeners do.
 function standingLayers(forEsc) {
   const up = (sel) => !$(sel).classList.contains('hidden');
   const layers = [];
   if (askState.resolve) layers.push('ask');
+  if (datePickerFor !== null) layers.push('date-picker');
+  if (groupDialogOpenNow()) layers.push('group-dialog');
+  if (trayIsOpen()) layers.push('tray');
   if (moreMenuIsOpen()) layers.push('more-menu');
   if (contextMenuOpen()) layers.push('menu');
   if (up('#notif-modal')) layers.push('notifications');
@@ -3620,6 +3626,7 @@ function standingLayers(forEsc) {
   if (up('#modal')) layers.push('edit-form');
   if (bulkPopupOpen()) layers.push('bulk-popup');
   if (forEsc && anyModalOpen()) layers.push('other-popup'); // defensive catch-all: any future .modal-backdrop popup not listed above
+  if (notesIsOpen()) layers.push('notes-palette');
   if (searchPanelOpen) layers.push('search-panel');
   return layers;
 }
@@ -3635,6 +3642,10 @@ function standingSteps() {
 // would clear itself) from running as well. A popup Esc has no closer for (other-popup) is left as it is.
 function takeLayer(step, e) {
   if (step === 'ask') askAnswer(false);
+  else if (step === 'date-picker') closeDatePicker();
+  else if (step === 'group-dialog') closeGroupDialog();
+  else if (step === 'tray') trayEscape();
+  else if (step === 'notes-palette') notesEscape();
   else if (step === 'more-menu') { moreMenuClose(); if (e) e.preventDefault(); $('#more-btn').focus(); }
   else if (step === 'menu') hideContextMenu();
   else if (step === 'notifications') closeNotifModal();

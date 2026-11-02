@@ -162,4 +162,4 @@ async function openPalette({ cards, notes, stored = {}, viewport = {}, elements:
   return { page, doc, ui, pal, find, all, text, rows, press, stored, board, menu: built, extras: documentExtras };
 }
 
-module.exports = { openPalette, card, note, paletteDocument, matcher };
+module.exports = { openPalette, card, note, paletteDocument, matcher, TEXT_AREA };

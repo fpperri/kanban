@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { attachSessionHistory } = require('./helpers/session-history');
 const { askElements, askDriver } = require('./helpers/ask-page');
+const { paletteDocument, TEXT_AREA } = require('./helpers/palette-page');
 const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 const { BACK_ENTRY_SETTLE_MS } = require('../../plugin/skills/web/web/back-steps');
 
@@ -31,16 +32,24 @@ const makeBoard = () => ({
   archived: [],
 });
 
-const HIDDEN = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status', '#search-panel', '#ctx-lit'];
+// The popups that are a .modal-backdrop of their own besides the card details and the in-page question.
+const BACKDROPS = ['#notif-modal', '#prefs-sheet', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status', '#group-dialog', '#tray-sheet'];
+const HIDDEN = [...BACKDROPS, '#detail-modal', '#search-panel', '#ctx-lit'];
 const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
 
 // `link` opens the page on a card's address, the document's first entry, as a link to a card does.
-async function open({ phone = true, link = null } = {}) {
+// `palette` gives the page the document the notes palette builds itself in (helpers/palette-page.js) and a
+// logbook, so that openNotes draws the real palette.
+async function open({ phone = true, link = null, palette = false } = {}) {
   const board = makeBoard();
+  if (palette) board.logbook = { folder: 'logbook', notes: [] };
+  const holder = { document: null };
   const clock = { at: 1000, timers: [] };
   const elements = { ...askElements() };
   for (const sel of HIDDEN) elements[sel] = hidden();
-  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}` });
+  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}`, documentExtras: palette ? paletteDocument(holder) : {} });
+  holder.document = page.ctx.document;
+  if (palette) page.ctx.getComputedStyle = () => TEXT_AREA;
   const media = { phone };
   const crossings = [];
   page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && media.phone; }, addEventListener: (type, fn) => crossings.push(fn) });
@@ -53,6 +62,11 @@ async function open({ phone = true, link = null } = {}) {
   const pushedBefore = session.pushes;
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
+  // The key guard's question, whether a popup but the card details is up (key-guard.js), answered from the
+  // elements the test shows and hides; the older answer was always yes.
+  const realQuery = page.ctx.document.querySelector;
+  const otherBackdropUp = () => ['#ask', ...BACKDROPS].some((sel) => !elements[sel].classList.contains('hidden'));
+  page.ctx.document.querySelector = (sel) => (sel === '.modal-backdrop:not(.hidden):not(#detail-modal)' ? (otherBackdropUp() ? control() : null) : realQuery(sel));
   page.ctx.performance = { now: () => clock.at };
   page.ctx.setTimeout = (fn, ms) => { const t = { fn, at: clock.at + ms }; clock.timers.push(t); return t; };
   page.ctx.clearTimeout = (t) => { clock.timers = clock.timers.filter((o) => o !== t); };
@@ -495,8 +509,8 @@ test('a selection taken down by a tap that clears it keeps an entry that the nex
 // --- Back closes what Esc closes, in Esc's order ------------------------------------------------------
 
 // A popup the person opened with a tap, over a selection that keeps the page's entry.
-async function selectedWithEntry() {
-  const s = await open();
+async function selectedWithEntry(options) {
+  const s = await open(options);
   s.tap(2);
   s.settle();
   assert.ok(s.onEntry());
@@ -678,4 +692,139 @@ test('a card opened from a link keeps no entry of the page below it: with a sele
   await s.back();
   assert.ok(s.session.left, 'and the next leaves the page');
   assert.deepStrictEqual(s.picked(), ['3'], 'the selection was never stepped');
+});
+
+// --- the popups that take Esc in a listener of their own ----------------------------------------------
+
+// Four popups take Esc in capture listeners on the document that run before the chain and keep the key
+// from it: the date picker, the group dialog, the tray and the notes palette. Back closes each as Esc does.
+const OWN_ESC = {
+  'date-picker': { stand: (s) => s.page.run('datePickerFor = { value: "", focus() {} }'), up: (s) => s.page.run('datePickerFor') !== null },
+  'group-dialog': { stand: (s) => s.page.run('openGroupDialog("Group", { querySelector: () => null })'), up: (s) => s.shown('#group-dialog') && s.page.run('groupDialogOpenNow()') },
+  tray: { stand: (s) => s.elements['#tray-sheet'].classList.remove('hidden'), up: (s) => s.shown('#tray-sheet') },
+  'notes-palette': { stand: (s) => s.page.run('openNotes({})'), up: (s) => s.page.run('notesUi.sub') !== null },
+};
+
+async function esc(s) {
+  s.page.fireDocument('keydown', { key: 'Escape', repeat: false }, { honorStop: true });
+  await s.page.settle();
+}
+
+test('the date picker is closed by Back before the popup it stands over, and not left drawn over the board', async () => {
+  for (const under of ['#modal', '#bulk-schedule']) {
+    const s = await selectedWithEntry();
+    s.elements[under].classList.remove('hidden');
+    s.page.run('datePickerFor = { value: "", focus() {} }');
+    await s.back();
+    assert.strictEqual(s.page.run('datePickerFor'), null, `the picker closed over ${under}`);
+    assert.ok(s.shown(under), 'and the popup it stood over stays');
+    assert.deepStrictEqual(s.picked(), ['2']);
+    assert.ok(s.onEntry());
+    await s.back();
+    assert.ok(!s.shown(under), 'the next Back closes the popup');
+    await afterPopup(s);
+  }
+});
+
+test('the date picker alone over a selection is closed by Back, and the selection stands', async () => {
+  const s = await selectedWithEntry();
+  s.page.run('datePickerFor = { value: "", focus() {} }');
+  await s.back();
+  assert.strictEqual(s.page.run('datePickerFor'), null);
+  await afterPopup(s);
+});
+
+test('the group dialog is closed by Back, as Esc closes it, and the selection stands', async () => {
+  const s = await selectedWithEntry();
+  s.page.run('openGroupDialog("Group", { querySelector: () => null })');
+  assert.ok(s.shown('#group-dialog'));
+  await s.back();
+  assert.ok(!s.shown('#group-dialog'), 'the dialog closed');
+  assert.strictEqual(s.page.run('groupDialogOpenNow()'), false);
+  await afterPopup(s);
+});
+
+test('the tray steps back from its question to its list, then closes, as Esc does, and the selection stands', async () => {
+  const s = await selectedWithEntry();
+  s.elements['#tray-sheet'].classList.remove('hidden');
+  s.page.run('trayAsk = { kind: "discard", count: 2 }');
+  await s.back();
+  assert.ok(s.shown('#tray-sheet'), 'the sheet stays: its question went back to the list');
+  assert.strictEqual(s.page.run('trayAsk'), null);
+  assert.deepStrictEqual(s.picked(), ['2']);
+  assert.ok(s.onEntry());
+  await s.back();
+  assert.ok(!s.shown('#tray-sheet'), 'the next Back closes it');
+  await afterPopup(s);
+});
+
+test('the notes palette is closed by Back before the light or the selection, its chip first as Esc clears it, and the selection stands', async () => {
+  const s = await selectedWithEntry({ palette: true });
+  s.activate();
+  s.page.run("openNotes({ kind: 'card-notes', id: '3' })");
+  assert.strictEqual(s.page.run('notesUi.sub.kind'), 'card');
+  await s.back();
+  assert.ok(s.page.run('notesUi.sub') !== null, 'the palette stays: its chip went');
+  assert.strictEqual(s.page.run('notesUi.sub.kind'), 'none');
+  assert.deepStrictEqual(s.picked(), ['2'], 'and the selection stands');
+  assert.ok(s.onEntry());
+  await s.back();
+  assert.strictEqual(s.page.run('notesUi.sub'), null, 'the next Back closes the palette');
+  await afterPopup(s);
+});
+
+test('the notes palette opened from the card menu over the details is closed by Back before the details', async () => {
+  const s = await open({ palette: true });
+  await s.openCard(3);
+  s.detailMenu();
+  s.settle();
+  assert.ok(s.menuOpen());
+  s.activate();
+  s.page.run('hideContextMenu(); openNotes({})');
+  assert.ok(s.page.run('notesUi.sub') !== null && !s.menuOpen());
+  await s.back();
+  assert.strictEqual(s.page.run('notesUi.sub'), null, 'the palette closed');
+  assert.ok(s.detailUp(), 'and the details stand under it');
+  await s.back();
+  assert.ok(!s.detailUp(), 'the next Back closes the details');
+});
+
+test('Back closes each of the four as Esc closes it, press for press, with a selection standing', async () => {
+  for (const [name, popup] of Object.entries(OWN_ESC)) {
+    const traces = [];
+    for (const press of [esc, (s) => s.back()]) {
+      const s = await selectedWithEntry({ palette: name === 'notes-palette' });
+      s.activate();
+      popup.stand(s);
+      assert.ok(popup.up(s), `${name} stands`);
+      const seen = [[popup.up(s), s.picked().join()]];
+      for (let i = 0; i < 3; i++) { await press(s); seen.push([popup.up(s), s.picked().join()]); }
+      traces.push(seen);
+    }
+    assert.deepStrictEqual(traces[1], traces[0], `${name}: Back takes the steps Esc takes`);
+    assert.deepStrictEqual(traces[1].map(([up]) => up), [true, false, false, false], `${name}: one Back closes it, the next ones step the selection`);
+  }
+});
+
+test('Back takes all thirteen layers down in the order Esc keeps, one per Back, with the four popups among them', async () => {
+  const names = ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
+  const s = await selectedWithEntry({ palette: true });
+  s.activate();
+  s.page.run('setPinnedLight("3")');
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "3"); showContextMenu(0, 0)');
+  s.page.run('moreMenuOpen()');
+  s.page.run('setSearchPanelOpen(true)');
+  s.page.run('openNotes({})');
+  for (const sel of ['#notif-modal', '#prefs-sheet', '#modal', '#bulk-status', '#tray-sheet']) s.elements[sel].classList.remove('hidden');
+  s.page.run('openGroupDialog("Group", { querySelector: () => null })');
+  s.page.run('datePickerFor = { value: "", focus() {} }');
+  const up = () => names.filter((name) => ({
+    'date-picker': s.page.run('datePickerFor') !== null, 'group-dialog': s.shown('#group-dialog'), tray: s.shown('#tray-sheet'),
+    'more-menu': s.page.run('moreMenuIsOpen()'), menu: s.menuOpen(), notifications: s.shown('#notif-modal'), settings: s.shown('#prefs-sheet'),
+    'edit-form': s.shown('#modal'), 'bulk-popup': s.shown('#bulk-status'), 'notes-palette': s.page.run('notesUi.sub') !== null,
+    'search-panel': s.page.run('searchPanelOpen'), light: s.litId() !== null, selection: s.picked().length > 0,
+  })[name]);
+  const seen = [up().join()];
+  for (let i = 0; i < 20 && up().length; i++) { await s.back(); seen.push(up().join()); }
+  assert.deepStrictEqual(seen, names.map((_, i) => names.slice(i).join()).concat(['']), "each Back takes the first of what stands, in Esc's order");
 });
