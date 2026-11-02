@@ -39,8 +39,10 @@ async function tap(page, x, y) {
 }
 
 // Two taps at one point, straight after each other: Chrome counts the second click as detail 2 when its
-// touchStart follows the first touchEnd within about 250 ms. A pause between them goes through page.sleep,
-// which a throttled run stretches 4x, so there is none.
+// touchStart follows the first touchEnd within its double-tap window (300 ms on Android). A pause between
+// them goes through page.sleep, which a throttled run stretches 4x, so there is none. The second finger
+// is down and up within a few milliseconds, which no hand does: a page that waits out the window from
+// the first tap alone passes with it and fails under a real second press (pacedDoubleTap).
 async function doubleTap(page, x, y) {
   await tap(page, x, y);
   await tap(page, x, y);
@@ -61,6 +63,20 @@ const moveHeld = (page, x, y) => touchEvent(page, 'touchMove', [{ x, y }]);
 const liftUp = (page) => touchEvent(page, 'touchEnd', []);
 // Time that passes in the real world whatever the page's speed: a wait for the page's own timers, which a throttled page does not stretch.
 const realWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A double tap the way a hand makes it, in real time: a first press of `press` ms, `gap` ms from its lift
+// to the second finger down, and a second press of `press2` ms, whose lift makes the second click. The
+// defaults (80, 200, 120) put the second finger down inside the page's double-tap window and its lift
+// after the window, which counts from the first click. The waits are real time, never page.sleep.
+async function pacedDoubleTap(page, x, y, { press = 80, gap = 200, press2 = 120 } = {}) {
+  await holdDown(page, x, y);
+  await realWait(press);
+  await liftUp(page);
+  await realWait(gap);
+  await holdDown(page, x, y);
+  await realWait(press2);
+  await liftUp(page);
+}
 
 // A long press: the finger goes down, stays until the page shows it has noticed (an expression the page
 // answers true to, waited for with page.waitFor, so it does not depend on the machine's speed) or, with no
@@ -97,4 +113,4 @@ async function refreshNow(page) {
   return page.waitFor(`window.__applied>${before}`, 5000);
 }
 
-module.exports = { runSteps, freshStart, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, LONG_PRESS_HOLD_MS, swipe, pinch, refreshNow };
+module.exports = { runSteps, freshStart, tap, doubleTap, pacedDoubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, LONG_PRESS_HOLD_MS, swipe, pinch, refreshNow };

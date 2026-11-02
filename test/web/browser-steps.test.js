@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, swipe, pinch } = require('./browser/steps');
+const { runSteps, tap, doubleTap, pacedDoubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, swipe, pinch } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
 const phoneFlip = require('./browser/scenarios/phone-flip');
@@ -119,8 +119,25 @@ test('doubleTap is two taps at the same point one straight after the other, with
   assert.deepStrictEqual(page.calls.map((c) => c[0]), Array(4).fill('Input.dispatchTouchEvent'), 'nothing else is sent between the taps');
 });
 
-test('the double-tap wait is real time, longer than Chrome\'s 250 ms window and shorter than the 400 ms where two taps are plainly two', async () => {
-  assert.ok(DOUBLE_TAP_WINDOW_MS > 250 && DOUBLE_TAP_WINDOW_MS < 700, String(DOUBLE_TAP_WINDOW_MS));
+test('pacedDoubleTap is two presses at one point with a real pause between them: the second finger comes down inside the double-tap window and lifts after it', async () => {
+  const page = standIn();
+  const at = [];
+  const send = page.send;
+  page.send = async (method, params) => { at.push(Date.now()); return send.call(page, method, params); };
+  await pacedDoubleTap(page, 100, 200);
+  const down = { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] };
+  const up = { type: 'touchEnd', touchPoints: [] };
+  assert.deepStrictEqual(touches(page), [down, up, down, up]);
+  const gap = at[2] - at[1];
+  assert.ok(gap >= 180 && gap < 300, `the second finger comes down inside 300 ms of the first lift: ${gap}`);
+  assert.ok(at[3] - at[1] > 300, `and lifts after 300 ms from it: ${at[3] - at[1]}`);
+  const t0 = Date.now();
+  await pacedDoubleTap(standIn(), 1, 2, { press: 10, gap: 20, press2: 30 });
+  assert.ok(Date.now() - t0 >= 55 && Date.now() - t0 < 200, 'the pauses are the ones given');
+});
+
+test('the double-tap wait is real time, longer than the 300 ms double-tap window and shorter than the 700 ms where two taps are plainly two', async () => {
+  assert.ok(DOUBLE_TAP_WINDOW_MS > 300 && DOUBLE_TAP_WINDOW_MS < 700, String(DOUBLE_TAP_WINDOW_MS));
   const t0 = Date.now();
   await outwaitDoubleTap();
   assert.ok(Date.now() - t0 >= DOUBLE_TAP_WINDOW_MS - 20, 'it waited');

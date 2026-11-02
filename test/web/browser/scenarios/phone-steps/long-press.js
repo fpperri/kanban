@@ -86,6 +86,8 @@ module.exports = {
     await waitFor(held(2), 4000);
     await liftUp(page);
     await waitFor(menuOpen, 4000);
+    // The selection bar follows a lift one double-tap window later and takes the foot of the Board when it rises, so the empty point is read once it has.
+    await waitFor(`!document.getElementById('selection-bar').classList.contains('hidden')===(selectedIds.size>0)`, 4000);
     const empty = await emptyPoint();
     check('the Board has a point that is neither card nor control', !!empty);
     await tap(page, empty.x, empty.y);

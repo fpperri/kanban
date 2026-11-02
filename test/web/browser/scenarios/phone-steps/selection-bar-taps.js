@@ -1,5 +1,5 @@
 'use strict';
-// The selection bar keeps up with the taps of every view, and nothing it does happens inside a double tap.
+// The selection bar keeps up with the taps of every view, and does nothing while a double tap can still come.
 // On a 390 px phone with touch. In the Graph, which paints a tap in place and never draws the board again, a
 // tap on a dot raises the bar reading 1 selected, a tap on a second dot reads 2 selected, a tap that takes one
 // out lowers the count, and the last one out takes the bar away: each change comes one double-tap window after
@@ -7,11 +7,14 @@
 // scrolls, a double tap on the last card of the list, where the bar would rise, opens the card and puts the
 // selection back, and the bar never rises: the second tap lands on the card, not on the bar. A double tap on the
 // only selected card of the list scrolled to its end opens that card, and the bar neither goes nor moves the
-// list under the finger. The step leaves the board as it found it.
+// list under the finger. Both double taps are made twice: with the second finger down and up straight after the
+// first lift, and the way a hand makes it, the second finger down 200 ms after the first lift and up 120 ms
+// later, when a wait counted from the first click alone has run out under it. The step leaves the board as it
+// found it.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): DOUBLE_CLICK_MS, graphCur, selectedIds.
 
-const { tap, doubleTap, outwaitDoubleTap } = require('../../steps');
+const { tap, doubleTap, pacedDoubleTap, outwaitDoubleTap } = require('../../steps');
 const { ASK_UP } = require('../../ask');
 
 // A log of the bar in the page: each click that reaches the document, each time the bar goes up or away,
@@ -90,6 +93,10 @@ module.exports = {
     check('one window after the tap', waited(await lagOf('bar')), String(await lagOf('bar')));
 
     // --- a double tap on the last card of the list, where the bar would rise ---------------------------------
+    // Done twice. The instant double tap sends the second finger down and up within a few milliseconds of
+    // the first lift, before any wait of the page could run out. The paced one is a hand's: the second
+    // finger down 200 ms after the first lift (inside Chrome's window) and up 120 ms later, after 300 ms
+    // from the first click, so a wait counted from the first click alone runs out under the finger.
     await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 560, deviceScaleFactor: 1, mobile: true });
     await phoneBoard();
     const cardTitle = (id) => `#board .column .card-el[data-id="${id}"] .card-title`;
@@ -104,47 +111,56 @@ module.exports = {
     check('Clear puts the bar away', await pickedIs([]) && await barGone());
     await outwaitDoubleTap();
 
-    await ev(`(()=>{const l=document.querySelector('#board .column .column-cards');l.scrollTop=l.scrollHeight;return true})()`);
-    const viewBar = await rectOf(`document.getElementById('view-bar')`);
-    const y = viewBar.t - 26;
-    const x = archive.x;
-    const last = await ev(`(()=>{const hit=document.elementFromPoint(${x},${y});const el=hit&&hit.closest('.card-el');return el?el.dataset.id:null})()`);
-    const lastOfList = await ev(`(()=>{const cards=document.querySelectorAll('#board .column .card-el');return cards[cards.length-1].dataset.id})()`);
-    check('the last card of the list stands where the bar rose', last !== null && last === lastOfList && y >= bar.t && y <= bar.b, JSON.stringify({ x, y, last, lastOfList, bar }));
+    const atTheFoot = async (label, double) => {
+      await ev(`(()=>{const l=document.querySelector('#board .column .column-cards');l.scrollTop=l.scrollHeight;return true})()`);
+      const viewBar = await rectOf(`document.getElementById('view-bar')`);
+      const y = viewBar.t - 26;
+      const x = archive.x;
+      const last = await ev(`(()=>{const hit=document.elementFromPoint(${x},${y});const el=hit&&hit.closest('.card-el');return el?el.dataset.id:null})()`);
+      const lastOfList = await ev(`(()=>{const cards=document.querySelectorAll('#board .column .card-el');return cards[cards.length-1].dataset.id})()`);
+      check(`the last card of the list stands where the bar rose${label}`, last !== null && last === lastOfList && y >= bar.t && y <= bar.b, JSON.stringify({ x, y, last, lastOfList, bar }));
 
-    await ev(WATCH);
-    const historyBefore = await ev('history.length');
-    await doubleTap(page, x, y);
-    check('a double tap on it opens the card', await waitFor(`new URLSearchParams(location.search).get('card')==='${last}'&&!document.querySelector('#detail-modal').classList.contains('hidden')`, 3000), await ev('location.search'));
-    check('the selection is as it was before the first tap', await pickedIs([]), await ev(picked));
-    await page.sleep(windowMs + 200);
-    check('and the bar never rose, not for a moment', !(await barWentUp()) && !(await ev(barShown)), JSON.stringify(await ev('window.__barLog')));
-    check('no question was asked', !(await ev(ASK_UP)));
-    check('and the card opened once', (await ev('history.length')) === historyBefore + 1, await ev('history.length'));
-    check('nothing was archived', await ev(`state.archived.every((c)=>String(c.id)!=='${last}')`));
-    await shot('double-tap-at-the-foot');
+      await ev(WATCH);
+      const historyBefore = await ev('history.length');
+      await double(page, x, y);
+      check(`a double tap on it opens the card${label}`, await waitFor(`new URLSearchParams(location.search).get('card')==='${last}'&&!document.querySelector('#detail-modal').classList.contains('hidden')`, 3000), await ev('location.search'));
+      check(`the selection is as it was before the first tap${label}`, await pickedIs([]), await ev(picked));
+      await page.sleep(windowMs + 200);
+      check(`and the bar never rose, not for a moment${label}`, !(await barWentUp()) && !(await ev(barShown)), JSON.stringify(await ev('window.__barLog')));
+      check(`no question was asked${label}`, !(await ev(ASK_UP)));
+      check(`and the card opened once${label}`, (await ev('history.length')) === historyBefore + 1, await ev('history.length'));
+      check(`nothing was archived${label}`, await ev(`state.archived.every((c)=>String(c.id)!=='${last}')`));
+      await shot(`double-tap-at-the-foot${label ? '-paced' : ''}`);
+    };
+    await atTheFoot('', doubleTap);
+    await phoneBoard();
+    await atTheFoot(' (paced double tap)', pacedDoubleTap);
 
     // --- a double tap on the only selected card, the list scrolled to its end ---------------------------------
-    await phoneBoard();
-    const lastCard = await ev(`(()=>{const cards=document.querySelectorAll('#board .column .card-el');return cards[cards.length-1].dataset.id})()`);
-    await tapOn(cardTitle(lastCard));
-    check('a tap on the last card selects it', await pickedIs([Number(lastCard)]), await ev(picked));
-    check('and the bar rises', await barReads('1 selected'));
-    await ev(`(()=>{const l=document.querySelector('#board .column .column-cards');l.scrollTop=l.scrollHeight;return true})()`);
-    const scrolled = await ev(`document.querySelector('#board .column .column-cards').scrollTop`);
-    check('the list is scrolled to its end, with the bar up', scrolled > 0, String(scrolled));
-    const card = await rectOf(`document.querySelector(${JSON.stringify(cardTitle(lastCard))})`);
-    const under = await ev(`(()=>{const hit=document.elementFromPoint(${card.x},${card.y});const el=hit&&hit.closest('.card-el');return el?el.dataset.id:null})()`);
-    check('the last card is the one under the point to tap, above the bar', under === lastCard && card.b <= (await rectOf(BAR)).t + 1.5, JSON.stringify({ under, lastCard, card }));
-    await outwaitDoubleTap();
-    await ev(WATCH);
-    const listTop = () => ev(`document.querySelector('#board .column .column-cards').scrollTop`);
-    const scrollBefore = await listTop();
-    await doubleTap(page, card.x, card.y);
-    check('a double tap on it opens that card', await waitFor(`new URLSearchParams(location.search).get('card')==='${lastCard}'&&!document.querySelector('#detail-modal').classList.contains('hidden')`, 3000), await ev('location.search'));
-    check('the card is selected again, as before the first tap', await pickedIs([Number(lastCard)]), await ev(picked));
-    await page.sleep(windowMs + 200);
-    check('the bar did not go away, not for a moment, and still reads 1 selected', !(await barWentAway()) && await ev(`${barShown}&&document.getElementById('selection-bar-count').textContent==='1 selected'`), JSON.stringify(await ev('window.__barLog')));
-    check('and the list did not move under the finger', (await listTop()) === scrollBefore, `${scrollBefore} -> ${await listTop()}`);
+    const onTheOnlySelected = async (label, double) => {
+      await phoneBoard();
+      const lastCard = await ev(`(()=>{const cards=document.querySelectorAll('#board .column .card-el');return cards[cards.length-1].dataset.id})()`);
+      await tapOn(cardTitle(lastCard));
+      check(`a tap on the last card selects it${label}`, await pickedIs([Number(lastCard)]), await ev(picked));
+      check(`and the bar rises${label}`, await barReads('1 selected'));
+      await ev(`(()=>{const l=document.querySelector('#board .column .column-cards');l.scrollTop=l.scrollHeight;return true})()`);
+      const scrolled = await ev(`document.querySelector('#board .column .column-cards').scrollTop`);
+      check(`the list is scrolled to its end, with the bar up${label}`, scrolled > 0, String(scrolled));
+      const card = await rectOf(`document.querySelector(${JSON.stringify(cardTitle(lastCard))})`);
+      const under = await ev(`(()=>{const hit=document.elementFromPoint(${card.x},${card.y});const el=hit&&hit.closest('.card-el');return el?el.dataset.id:null})()`);
+      check(`the last card is the one under the point to tap, above the bar${label}`, under === lastCard && card.b <= (await rectOf(BAR)).t + 1.5, JSON.stringify({ under, lastCard, card }));
+      await outwaitDoubleTap();
+      await ev(WATCH);
+      const listTop = () => ev(`document.querySelector('#board .column .column-cards').scrollTop`);
+      const scrollBefore = await listTop();
+      await double(page, card.x, card.y);
+      check(`a double tap on it opens that card${label}`, await waitFor(`new URLSearchParams(location.search).get('card')==='${lastCard}'&&!document.querySelector('#detail-modal').classList.contains('hidden')`, 3000), await ev('location.search'));
+      check(`the card is selected again, as before the first tap${label}`, await pickedIs([Number(lastCard)]), await ev(picked));
+      await page.sleep(windowMs + 200);
+      check(`the bar did not go away, not for a moment, and still reads 1 selected${label}`, !(await barWentAway()) && await ev(`${barShown}&&document.getElementById('selection-bar-count').textContent==='1 selected'`), JSON.stringify(await ev('window.__barLog')));
+      check(`and the list did not move under the finger${label}`, (await listTop()) === scrollBefore, `${scrollBefore} -> ${await listTop()}`);
+    };
+    await onTheOnlySelected('', doubleTap);
+    await onTheOnlySelected(' (paced double tap)', pacedDoubleTap);
   },
 };
