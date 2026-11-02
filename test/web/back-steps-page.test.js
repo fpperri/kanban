@@ -7,10 +7,12 @@ const { BACK_ENTRY_SETTLE_MS } = require('../../plugin/skills/web/web/back-steps
 
 // Android Back on the phone layout, run through the listeners the real page puts on the document and
 // on the window, over a browser session history (helpers/session-history.js) the page pushes to and
-// steps through the way the browser does. While a menu, a light or a selection stands the page keeps
-// one entry of its own; the Back that pops it runs one step of Esc and the page keeps the entry again
-// while something is left. The rules are back-steps.test.js's; the browser scenarios run it with
-// history.back() in a real browser.
+// steps through the way the browser does, with the Back button's rule that entries a page made without
+// a tap are skipped (helpers/session-history.js: s.back() is the button, not history.back()). While a
+// menu, a light or a selection stands the page keeps one entry of its own, made by a tap; the Back that
+// pops it runs one step of Esc and the page goes forward to the entry again while something is left,
+// never pushing one. The rules are back-steps.test.js's; the browser scenarios run it with history.back()
+// in a real browser.
 
 const card = (id, over = {}) => ({
   id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', waiting_for: [], blocked: null,
@@ -45,6 +47,7 @@ async function open({ phone = true } = {}) {
   });
   // The page the person came from, and the board's own entry above it.
   page.ctx.history.pushState(null, '', '/');
+  session.startDocument();
   const pushedBefore = session.pushes;
   await page.start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
@@ -64,8 +67,16 @@ async function open({ phone = true } = {}) {
     above: () => session.index - 1,
     pushes: () => session.pushes - pushedBefore,
     onEntry: () => !!(session.states[session.index] && session.states[session.index].kanbanBack),
-    // The browser's Back: the address and the entry step down, then popstate reaches the page.
-    async back() { session.back(); await page.settle(); },
+    // A tap, a press or a key: the browser counts it as a user activation, and so does the page.
+    activate() {
+      session.activate();
+      for (const fn of page.windowListeners.touchend || []) fn({ type: 'touchend' });
+    },
+    // The browser's Back button: the address and the entry step down, over the entries a page made
+    // without a tap, then popstate reaches the page.
+    async back() { session.uiBack(); await page.settle(); },
+    async openCard(id) { s.activate(); page.run(`openCard("${id}")`); await page.settle(); },
+    detailMenu() { s.activate(); page.run('menuSubject = cardMenuFor(selectedIds, "3", { fromDetail: true }); showContextMenu(0, 0)'); },
     picked: () => [...page.run('selectedIds')].map(String).sort(),
     litId: () => page.run('pinnedLitId'),
     menuOpen: () => !menu.classList.contains('hidden'),
@@ -82,7 +93,10 @@ function cardTarget(id) {
   const inCard = (sel) => sel.split(',').some((part) => part.trim() === '.card-el');
   return new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (inCard(sel) ? el : (sel === CUES ? null : null)) : harmless(String(key))) });
 }
-const tap = (s, target, extra = {}) => s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });
+const tap = (s, target, extra = {}) => {
+  s.activate();
+  return s.page.fireDocument('click', { target, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, ...extra });
+};
 
 // A press held on a card and lifted in place, as card-press-page.test.js drives it.
 function tile(id) {
@@ -103,6 +117,7 @@ function longPress(s, id) {
   const at = { clientX: 100, clientY: 200 };
   s.page.fireDocument('touchstart', { target, touches: [at], changedTouches: [at] });
   s.wait(600);
+  s.activate();
   target.fire('touchend', { touches: [], changedTouches: [at] });
 }
 
@@ -150,13 +165,29 @@ test('Back steps the selection back as Esc does, one step per Back: the addition
   assert.deepStrictEqual(s.picked(), ['2', '3', '4']);
   await s.back();
   assert.deepStrictEqual(s.picked(), ['2'], 'the additions went at once, the anchor stays');
-  assert.ok(s.onEntry(), 'the entry is back at once, with the anchor left');
+  assert.ok(s.onEntry(), 'the page is on its entry again at once, with the anchor left');
   assert.strictEqual(s.session.index, 2, 'the page stays on its own entry');
   await s.back();
   assert.deepStrictEqual(s.picked(), [], 'the anchor went');
   assert.strictEqual(s.session.index, 1, 'on the board\'s entry; nothing is left to keep');
   assert.ok(!s.onEntry());
   assert.strictEqual(s.above(), 0, 'and no entry stands above it');
+  assert.strictEqual(s.pushes(), 1, 'the one entry a tap made: a Back goes forward to it, and pushes none');
+});
+
+test('three Backs in a row with no tap between each take their step, and the third leaves: the page makes no entry without a tap for the browser to skip', async () => {
+  const s = await open();
+  s.tap(2); s.tap(3); s.tap(4);
+  s.settle();
+  await s.back();
+  assert.deepStrictEqual(s.picked(), ['2'], 'the first Back drops the additions');
+  assert.ok(s.session.index > 1, 'and the page stays');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'the second Back drops the anchor, which the browser\'s Back button reaches only if the page made its entry with a tap');
+  assert.strictEqual(s.session.index, 1, 'and the page stays');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'the third leaves the page');
+  assert.ok(s.session.skipped.every((skipped) => !skipped), 'no entry of the page was ever marked to be skipped');
 });
 
 test('with nothing lit or selected Back is the browser\'s: it leaves the page', async () => {
@@ -186,13 +217,16 @@ test('Back closes an open menu, then drops the light, then steps the selection, 
   assert.deepStrictEqual([s.menuOpen(), s.litId(), s.picked()], [false, null, []], 'then the selection');
   assert.ok(!s.onEntry());
   assert.strictEqual(s.session.index, 1, 'the page stayed through all three');
-  assert.strictEqual(s.pushes(), 3, 'one entry kept again after each of the first two');
+  assert.strictEqual(s.pushes(), 1, 'on the one entry the long press made, which each of the first two Backs went forward to again');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'the fourth Back leaves the page');
 });
 
 test('an open More menu is closed before anything else, as Esc closes it first, and the selection stands', async () => {
   const s = await open();
   s.tap(2);
   s.settle();
+  s.activate();
   s.page.run('moreMenuOpen()');
   assert.strictEqual(s.page.run('moreMenuIsOpen()'), true);
   await s.back();
@@ -215,6 +249,27 @@ test('a light alone keeps an entry: Back drops it and the page stays', async () 
   assert.strictEqual(s.session.index, 1);
 });
 
+test('the page asks for no entry without a tap since the last Back: the browser would skip every entry it made', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  await s.back();
+  assert.deepStrictEqual(s.picked(), []);
+  assert.strictEqual(s.pushes(), 1);
+  s.page.run('setPinnedLight("3")');
+  s.settle();
+  assert.strictEqual(s.pushes(), 1, 'a light with no tap since the Back keeps no entry');
+  s.activate();
+  s.page.run('setPinnedLight("4")');
+  s.settle();
+  assert.strictEqual(s.pushes(), 2, 'the next tap makes the entry');
+  assert.ok(s.onEntry());
+  assert.ok(s.session.skipped.every((skipped) => !skipped), 'none of the page\'s entries is marked to be skipped');
+  await s.back();
+  assert.strictEqual(s.litId(), null, 'and a Back steps the light');
+  assert.strictEqual(s.session.index, 1);
+});
+
 test('a Back that finds an entry the selection no longer wants is a Back through: Esc left it behind', async () => {
   const s = await open();
   s.tap(2);
@@ -230,8 +285,7 @@ test('the card details\' steps work as today with a selection, in both orders', 
   const s = await open();
   s.tap(2);
   s.settle();
-  s.page.run('openCard("3")');
-  await s.page.settle();
+  await s.openCard(3);
   assert.ok(s.detailUp());
   assert.match(s.session.search, /card=3/);
   s.settle();
@@ -247,13 +301,13 @@ test('the card details\' steps work as today with a selection, in both orders', 
 
 test('a card first, then a selection made while it is open: Back closes the card, and the selection is stepped by the Back after', async () => {
   const s = await open();
-  s.page.run('openCard("3")');
-  await s.page.settle();
+  await s.openCard(3);
   assert.ok(s.detailUp());
-  s.page.run('menuSubject = cardMenuFor(selectedIds, "3", { fromDetail: true }); showContextMenu(0, 0)');
+  s.detailMenu();
   s.settle();
   assert.ok(s.menuOpen());
   assert.strictEqual(s.pushes(), 2, 'a menu over the details keeps an entry');
+  s.activate();
   s.page.run('addCardToSelection()');
   s.settle();
   assert.deepStrictEqual([s.menuOpen(), s.picked()], [false, ['3']]);
@@ -261,22 +315,46 @@ test('a card first, then a selection made while it is open: Back closes the card
   assert.ok(!s.detailUp(), 'the Back closes the card, not the selection behind it');
   assert.deepStrictEqual(s.picked(), ['3'], 'the selection is as it was');
   assert.doesNotMatch(s.session.search, /card=/);
+  assert.ok(s.onEntry(), 'the card\'s step is the page\'s entry now, made without a push, and it holds the selection');
+  assert.strictEqual(s.pushes(), 2, 'the Back that closed the card pushed nothing');
   s.settle();
   await s.back();
   assert.deepStrictEqual(s.picked(), [], 'the Back after steps it');
   assert.strictEqual(s.session.index, 1);
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the Back after that leaves the page');
 });
 
 test('a menu over the card details is closed by Back before the details are', async () => {
   const s = await open();
-  s.page.run('openCard("3")');
-  await s.page.settle();
-  s.page.run('menuSubject = cardMenuFor(selectedIds, "3", { fromDetail: true }); showContextMenu(0, 0)');
+  await s.openCard(3);
+  s.detailMenu();
   s.settle();
   await s.back();
   assert.deepStrictEqual([s.menuOpen(), s.detailUp()], [false, true]);
   await s.back();
   assert.ok(!s.detailUp());
+});
+
+test('a Back that closes the menu over the card details, with a selection behind, leaves the details as they are and keeps the entry for the Back after', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  await s.openCard(3);
+  s.detailMenu();
+  s.settle();
+  const asked = [];
+  const fetched = s.page.ctx.fetch;
+  s.page.ctx.fetch = (url, init) => { asked.push(String(url)); return fetched(url, init); };
+  await s.back();
+  assert.deepStrictEqual([s.menuOpen(), s.detailUp()], [false, true], 'the menu closed and the details stand');
+  assert.deepStrictEqual(asked, [], 'and the card was not read again to draw them');
+  assert.ok(s.onEntry(), 'the selection behind them keeps the page\'s entry');
+  await s.back();
+  assert.ok(!s.detailUp(), 'the next Back closes the details');
+  assert.deepStrictEqual(s.picked(), ['2'], 'and leaves the selection');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'the Back after steps it');
 });
 
 test('with nothing lit or selected the card\'s steps are the browser\'s, as today: Back closes the details, then leaves', async () => {
@@ -298,7 +376,10 @@ test('a popup over the page keeps its place: Back moves nothing and the entry co
   s.session.popupOpen = true;
   await s.back();
   assert.deepStrictEqual(s.picked(), ['2'], 'the selection is untouched');
-  assert.ok(s.onEntry(), 'the entry is kept again');
+  assert.ok(s.onEntry(), 'the page is on its entry again');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), ['2'], 'however often the Back is pressed');
+  assert.strictEqual(s.pushes(), 1, 'and the page pushed none to come back to');
   s.session.popupOpen = false;
   await s.back();
   assert.deepStrictEqual(s.picked(), []);
@@ -314,6 +395,40 @@ test('the search box writes the address without taking the entry\'s mark off it'
   assert.ok(s.onEntry(), 'and the entry is still the page\'s own');
   await s.back();
   assert.deepStrictEqual(s.picked(), ['2'], 'so Back still steps');
+});
+
+test('a press on a Graph option writes the address without taking the page\'s mark off its entry, so a Back from a card above the entry still lands on it', async () => {
+  const s = await open();
+  s.tap(2); s.tap(3);
+  s.settle();
+  assert.ok(s.onEntry());
+  const written = s.session.replaces;
+  s.activate();
+  s.page.run('graphSetLayoutKind("flow")');
+  assert.ok(s.session.replaces > written, 'the Graph wrote its choice into the address');
+  assert.match(s.session.search, /graph=flow/);
+  assert.ok(s.onEntry(), "and the entry still carries the page's mark");
+  await s.openCard(4);
+  await s.back();
+  assert.ok(!s.detailUp(), 'a Back closes the card');
+  assert.deepStrictEqual(s.picked(), ['2', '3'], 'and lands on the entry, the selection standing');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), ['2'], 'so the next Back steps it, and the page stays');
+  assert.ok(s.session.index > 1);
+});
+
+test('a card that is gone when the edit form returns to the details is taken out of the address without taking the page\'s mark off its entry', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.detailMenu();
+  s.settle();
+  assert.ok(s.onEntry(), "the menu over the details has the page's entry");
+  const seen = s.page.run('detailRequestId');
+  s.page.run(`(() => { const real = api; api = (m, p, b) => (/\\/detail$/.test(p) ? Promise.reject(Object.assign(new Error('gone'), { status: 404 })) : real(m, p, b)); })()`);
+  s.page.run(`returnToDetails(${seen})`);
+  await s.page.settle();
+  assert.doesNotMatch(s.session.search, /card=/, 'the card is out of the address');
+  assert.ok(s.onEntry(), "and the entry still carries the page's mark");
 });
 
 test('crossing the width line to the desk layout keeps the entry stale and lets the Back through', async () => {

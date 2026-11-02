@@ -3481,7 +3481,7 @@ function closeDetailModal() {
 function pushCardHistoryStep(targetId) {
   const search = nextCardHistorySearch(location.search, targetId);
   if (search == null) return; // already there — no duplicate entry
-  history.pushState(null, '', location.pathname + search);
+  history.pushState(backCardState(history.state), '', location.pathname + search);
   backOnEntry = false; // the card's step is the entry the person is on now
   scheduleBackSync(); // the details opened or closed over a selection, a light or a menu that may want an entry again
 }
@@ -3513,16 +3513,25 @@ function closeCard() {
 // --- Android Back on the phone layout (back-steps.js). While a card menu, a light or a selection stands
 // the page keeps one history entry of its own, marked in its history state, so that Back has something to
 // pop. The Back that pops it takes one step the way Esc does (the open menu, then the light, then the
-// selection's steps) and the entry is pushed again while something is left; with nothing lit or selected
-// there is no entry and Back is the browser's. The entry is kept once the double-tap window has passed,
-// so the first tap of a double tap, which the second undoes, leaves none behind; the Back that pops it
-// pushes it again at once, because another Back may follow within that window. The card's steps
-// (pushCardHistoryStep) are untouched: the entry stands beside them in the history, and a Back that lands
-// on a card's step is the card's. An entry nothing wants any more (Esc took the last step, a tap cleared the selection) stays
-// where it is, and the Back that pops it lets itself through (history.back()) so that it costs no press.
+// selection's steps) and the page goes forward to the entry again while something is left; with nothing
+// lit or selected there is no entry and Back is the browser's. The entry is kept once the double-tap
+// window has passed, so the first tap of a double tap, which the second undoes, leaves none behind.
+// The page makes the entry from a tap, never from a Back: the browser's Back button skips every entry of
+// a document that added one without a user activation, and a back or forward uses the activation up, so
+// an entry pushed while a Back was answered would be skipped by the next press. Going forward to the entry
+// the Back popped adds none. The card's steps (pushCardHistoryStep) are untouched: the entry stands beside
+// them in the history, and a Back that lands on a card's step is the card's. An entry nothing wants any
+// more (Esc took the last step, a tap cleared the selection) stays where it is, and the Back that pops it
+// lets itself through (history.back()) so that it costs no press.
 // `backOnEntry` is whether the page is on its own entry now; a reload on one keeps its state.
 let backOnEntry = isBackEntry(history.state);
 let backSyncTimer = null;
+let backActivated = false; // a tap or a key since the last back or forward: the browser would honour an entry now
+let backReturnAt = null; // when the page went forward to its entry, until the landing
+for (const type of BACK_ACTIVATION_EVENTS) {
+  // key-guard: exempt (only notes that a tap or a key came; acts on nothing)
+  window.addEventListener(type, (e) => { if (activatesHistory(type, e)) backActivated = true; }, true);
+}
 
 function contextMenuOpen() {
   return !$('#context-menu').classList.contains('hidden');
@@ -3545,7 +3554,7 @@ function backEntryWantedNow() {
 
 function syncBackEntry() {
   backSyncTimer = null;
-  if (backOnEntry || !backEntryWantedNow()) return;
+  if (backOnEntry || !backActivated || !backEntryWantedNow()) return;
   try {
     history.pushState(backEntryState(), '', location.pathname + location.search);
     backOnEntry = true;
@@ -3556,7 +3565,7 @@ function syncBackEntry() {
 
 // Whatever may make the page want an entry (a selection, a menu, a light, the details closing, the width
 // line crossed) calls this; the entry itself waits out the double-tap window, and is not kept if nothing
-// wants it by then.
+// wants it by then, or if no tap has come since the last back or forward.
 function scheduleBackSync() {
   if (backOnEntry || backSyncTimer !== null || !backEntryWantedNow()) return;
   backSyncTimer = setTimeout(syncBackEntry, BACK_ENTRY_SETTLE_MS);
@@ -3573,29 +3582,60 @@ function takeBackStep(step) {
   else if (step === 'selection') stepSelectionBack();
 }
 
-// The Back that popped the page's entry: one step, the entry again while something is left, or the Back
+// Goes forward to the entry the Back popped, while something is left for the next Back to step. Forward
+// adds no entry, so the browser has none to skip; the landing is the page's own (onBackTraversal).
+function returnToBackEntry() {
+  if (nextBackStep() === null) return;
+  backReturnAt = performance.now();
+  history.forward();
+}
+
+// The Back that popped the entry the menu over the card details had, with a light or a selection behind
+// the details and no entry of the page's below the details' step (the card opened with nothing standing):
+// the details close here, and the step they stood on becomes the page's entry (replaced, not pushed), so
+// the light or the selection keeps one for the Back after. With an entry below the step the Back passes
+// through to it instead (backPopAction), which closes the details and leaves the entry as it was.
+function uncoverDetails() {
+  const search = nextCardHistorySearch(location.search, null);
+  backOnEntry = true;
+  closeDetailModal();
+  try {
+    history.replaceState(backEntryState(), '', location.pathname + (search === null ? location.search : search));
+  } catch (e) {
+    backOnEntry = false;
+  }
+}
+
+// The Back that popped the page's entry: one step and the entry again while something is left, or the Back
 // let through (back-steps.js says which).
-function answerBackPop() {
+function answerBackPop(landedOn) {
   const step = nextBackStep();
   const action = backPopAction({
     phone: onPhoneLayout(),
     modalOpen: !!document.querySelector('.modal-backdrop:not(#detail-modal):not(.hidden)'),
     details: !$('#detail-modal').classList.contains('hidden'),
     step,
+    under: isBackUnder(landedOn),
   });
   if (action === 'pass') { history.back(); return; }
+  if (action === 'uncover') { uncoverDetails(); return; }
   if (action === 'step') takeBackStep(step);
-  syncBackEntry();
+  returnToBackEntry();
 }
 
-// True when the traversal was a Back from the page's own entry, answered here; the popstate listener then
-// leaves the card alone. A traversal that lands on the entry (a Back from a card's step above it, or
-// Forward) or moves between others is not, and may leave something wanting an entry.
+// True when the traversal was a Back from the page's own entry, answered here, or the page going forward
+// to it again; the popstate listener then leaves the card alone. A traversal that lands on the entry (a
+// Back from a card's step above it, or Forward) or moves between others is not, and may leave something
+// wanting an entry. Any of them ends the activation the browser counts.
 function onBackTraversal(e) {
-  const kind = backTraversal({ onEntry: backOnEntry, state: e && e.state });
-  backOnEntry = kind === 'landed';
+  backActivated = false;
+  const returning = backReturnAt !== null && performance.now() - backReturnAt < BACK_RETURN_MS;
+  backReturnAt = null;
+  const kind = backTraversal({ onEntry: backOnEntry, state: e && e.state, returning });
+  backOnEntry = kind === 'landed' || kind === 'returned';
+  if (kind === 'returned') return true;
   if (kind !== 'popped') { scheduleBackSync(); return false; }
-  answerBackPop();
+  answerBackPop(e && e.state);
   return true;
 }
 
