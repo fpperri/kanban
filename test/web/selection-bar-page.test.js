@@ -166,6 +166,36 @@ test('after Archive the selection is empty and the bar is gone, as after bulk Ar
   assert.strictEqual(s.bar.shown(), false);
 });
 
+// A tap at the phone width, a Ctrl-click at the desk: either way the click selects the card and writes it into the box.
+const pick = (s, id, phone) => s.page.fireDocument('click', { target: cardTarget(id), detail: 1, shiftKey: false, ctrlKey: !phone, metaKey: false });
+
+test('after bulk Archive the selection clears through the step Esc takes, so the box that said it is empty and no archived id stays lit, from the bar and from the menu, at both widths', async () => {
+  for (const phone of [true, false]) {
+    for (const via of ['bar', 'menu']) {
+      if (!phone && via === 'bar') continue;
+      const s = await open({ phone });
+      pick(s, 2, phone);
+      pick(s, 3, phone);
+      s.clock.tick(s.window());
+      assert.strictEqual(s.page.input.value, '#2 | #3', `${phone ? 'phone' : 'desk'} ${via}: the box says what is selected`);
+      if (via === 'bar') await s.bar.press('archive');
+      else {
+        s.page.run("menuSubject = cardMenuFor(selectedIds, '2')");
+        s.elements['#ctx-archive'].fire('click', {});
+        await s.page.settle();
+      }
+      await s.ask.yes();
+      s.elements['#bulk-archive-apply'].fire('click', {});
+      await s.page.settle();
+      const where = `${phone ? 'phone' : 'desk'} ${via}`;
+      assert.deepStrictEqual(s.cardRequests(), ['POST /api/cards/2/archive', 'POST /api/cards/3/archive'], where);
+      assert.deepStrictEqual(s.ids(), [], `${where}: nothing is selected`);
+      assert.strictEqual(s.page.input.value, '', `${where}: the box that mirrored the selection follows it down`);
+      assert.strictEqual(s.page.run('selectionState.rangeStart'), null, `${where}: no invisible range start is left behind`);
+    }
+  }
+});
+
 test('a no to the confirmation archives nothing and leaves the selection and the bar as they were', async () => {
   const s = await open();
   s.select(1, 2);

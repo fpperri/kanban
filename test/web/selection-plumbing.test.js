@@ -116,7 +116,7 @@ test('the pieces that wrote the selection before now call the entry point', () =
     selectByClick: /setSelection\(next\.selection, next\.rangeStart, \{ tap: onPhoneLayout\(\) \}\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,
-    applyBulkArchive: /setSelection\(NO_SELECTION\)/,
+    applyBulkArchive: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     bulkDelete: /setSelection\(NO_SELECTION\)/,
     onBulkDrop: /setSelection\(NO_SELECTION\)/,
   };
@@ -644,6 +644,7 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   vm.runInContext([
     declaration('selectionState'), declaration('selectedIds'), fn('setSelection'),
+    'function moveSelectionTo(next) { setSelection(next.selection, next.rangeStart); } // the box and the pills the page\'s step also settles are the page tests\' business',
     'let bulkSingleMode = null; let bulkPopupIds = [];',
     declaration('menuSubject'),
     scheduleRows[0],

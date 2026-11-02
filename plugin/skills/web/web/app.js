@@ -7186,7 +7186,7 @@ async function applyBulkArchive() {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  if (bulkPopupInSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
+  if (bulkPopupInSelection) moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // the step Esc takes, so the box that said the selection follows it; a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';
