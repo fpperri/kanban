@@ -127,7 +127,7 @@ module.exports = {
 
     // --- sideways, quickly: no swipe -------------------------------------------------------------------
     // The hold takes over half a second and the swipe is read under 700 ms, so a hold and a quick sideways drag is the case the swipe could take.
-    // A tile no hold has been on yet: the light a hold leaves pinned on its card would answer the wait for this hold at once.
+    // The hold and drag before it ended its light, so the wait for this hold is answered only once this hold has lit its tile.
     const [, s1] = await wholeTiles();
     const picksBefore = await ev(picked);
     await holdDrag(page, { x: s1.x, y: s1.y }, [{ x: s1.x - 150, y: s1.y }], { until: held(s1.id) });
