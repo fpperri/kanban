@@ -13,6 +13,7 @@ const PAGE_GLOBALS = [
   'api',
   'applyBoardData',
   'askBeforeLeaving',
+  'askState',
   'autoRefreshTick',
   'boardControlFocused',
   'calendarAnchor',

@@ -11,11 +11,17 @@
 // page and above every other popup, so the poll pauses and the single-key shortcuts stand still behind it,
 // as behind the others. Esc is caught first, at the window's capture phase, and goes no further, so the
 // Esc chain behind the ask (the edit form's Discard unsaved changes among it) never runs a second time.
+// The ask holds the keyboard while it is up: Tab and Shift+Tab cycle its own three buttons, and a key but
+// Esc, Enter, Space and Tab goes no further than the window, so the chords the page behind answers (Ctrl+S
+// saves the edit form, Alt+Enter makes it full screen) do nothing, the browser's save-page included.
+// A click on the backdrop in the first DOUBLE_CLICK_MS after the ask opened is ignored: the second click
+// of a double click or a double tap on the button that raised it lands there, and is no answer.
 //
 // askSegments is pure; the rest reads the page's $ at the moment it runs. Same dual-environment export
 // pattern as more-menu.js.
 
-const askState = { resolve: null, opener: null };
+const askState = { resolve: null, opener: null, openedAt: 0 };
+const ASK_BUTTONS = ['#ask-close', '#ask-no', '#ask-yes']; // in the order the page draws them
 
 // The message split at its backtick pairs: { text, code } in order. A backtick that closes nothing stays
 // in the text as typed.
@@ -48,6 +54,7 @@ function askInPage(message, { yes = 'OK', code = false } = {}) {
   return new Promise((resolve) => {
     askState.resolve = resolve;
     askState.opener = document.activeElement;
+    askState.openedAt = performance.now();
     askFill(message, code);
     $('#ask-yes').textContent = yes;
     $('#ask').classList.remove('hidden');
@@ -68,10 +75,32 @@ function askAnswer(answer) {
 }
 
 function askOnKey(e) {
-  if (e.key !== 'Escape' || !askState.resolve) return;
+  if (!askState.resolve) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (!e.repeat) askAnswer(false); // a held Esc is one press: the repeats of the one that opened the ask answer nothing
+  } else if (e.key === 'Tab') askCycleFocus(e);
+  else if ((e.key === 'Enter' || e.key === ' ') && !(e.ctrlKey || e.metaKey || e.altKey)) return; // the focused button's own
+  else askKeepKey(e);
+}
+
+// Tab moves the focus along the ask's buttons, round the ring; a focus that got away is brought back to the first (the last with Shift).
+function askCycleFocus(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
-  if (!e.repeat) askAnswer(false); // a held Esc is one press: the repeats of the one that opened the ask answer nothing
+  const buttons = ASK_BUTTONS.map((sel) => $(sel));
+  const at = buttons.indexOf(document.activeElement);
+  const last = buttons.length - 1;
+  const next = at === -1 ? (e.shiftKey ? last : 0) : (at + (e.shiftKey ? last : 1)) % buttons.length;
+  buttons[next].focus();
+}
+
+// The page behind does not hear the key. The chords it claims are cancelled too, or the browser would answer them (Ctrl+S opens its save-page).
+function askKeepKey(e) {
+  e.stopImmediatePropagation();
+  const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
+  if (((e.ctrlKey || e.metaKey) && key === 's') || (e.altKey && e.key === 'Enter')) e.preventDefault();
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -82,6 +111,6 @@ if (typeof module !== 'undefined' && module.exports) {
     $('#ask-yes').addEventListener('click', () => askAnswer(true));
     $('#ask-no').addEventListener('click', () => askAnswer(false));
     $('#ask-close').addEventListener('click', () => askAnswer(false));
-    $('#ask').addEventListener('click', (e) => { if (e.target.id === 'ask') askAnswer(false); });
+    $('#ask').addEventListener('click', (e) => { if (e.target.id === 'ask' && performance.now() - askState.openedAt >= DOUBLE_CLICK_MS) askAnswer(false); });
   });
 }

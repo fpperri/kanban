@@ -180,7 +180,9 @@ test('Esc in a form with unsaved changes asks first: yes returns to the details,
 
 test('the X and a click on the backdrop of a form with unsaved changes ask the same question; Esc, Cancel, the close button and a click outside the ask answer no', async () => {
   const ways = [(s) => s.elements['#modal-close'].fire('click'), (s) => s.elements['#modal'].fire('click', { target: { id: 'modal' } })];
-  const answers = [(s) => s.ask.no(), (s) => s.ask.close(), (s) => s.ask.backdrop(), (s) => s.ask.esc()];
+  // A click on the backdrop in the double-click window after the question opened is no answer (ask-ui.test.js), so this one comes after it.
+  const afterTheWindow = (s) => { const real = s.page.ctx.performance; s.page.ctx.performance = { now: () => real.now() + 1000 }; return s.ask.backdrop(); };
+  const answers = [(s) => s.ask.no(), (s) => s.ask.close(), afterTheWindow, (s) => s.ask.esc()];
   for (const leave of ways) {
     for (const answer of answers) {
       const s = await open();

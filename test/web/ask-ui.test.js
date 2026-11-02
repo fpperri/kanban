@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadPage } = require('./helpers/page-vm');
+const { loadPage, control } = require('./helpers/page-vm');
 const { askElements, askDriver } = require('./helpers/ask-page');
 const { blankNonCode } = require('./helpers/global-scope');
 const { askSegments } = require('../../plugin/skills/web/web/ask-ui');
@@ -18,11 +18,13 @@ const WEB = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
 const read = (f) => fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('app.html');
 
-async function open() {
-  const elements = askElements();
+async function open(extra = {}) {
+  const elements = { ...askElements(), ...extra };
   const page = await loadPage({ board: { projectName: 'kanban', statuses: ['todo'], priorities: [], assignees: [], tags: [], types: [], notifications: [], active: [], archived: [] }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  return { page, elements, ask: askDriver(page, elements) };
+  const clock = { at: 1000 };
+  page.ctx.performance = { now: () => clock.at };
+  return { page, elements, ask: askDriver(page, elements), clock };
 }
 
 // What the page awaits: the promise's answer, once it has one.
@@ -64,13 +66,39 @@ test('yes answers true and closes the ask', async () => {
 
 test('Cancel, the close button, a click on the backdrop and Esc each answer no and close the ask', async () => {
   for (const way of ['no', 'close', 'backdrop', 'esc']) {
-    const { page, ask } = await open();
+    const { page, ask, clock } = await open();
     const seen = watch(page, 'Clear all 3 notification(s)? They move to archived/notifications.md.');
     assert.strictEqual(ask.open(), true, way);
+    clock.at += 300;
     await ask[way]();
     assert.strictEqual(seen.answer, false, way);
     assert.strictEqual(ask.open(), false, way);
   }
+});
+
+test('a click on the backdrop within the double-click window of the ask opening is ignored: the second click of a double click on the button that raised it answers nothing', async () => {
+  const { page, ask, clock } = await open();
+  const seen = watch(page, 'Archive 2 card(s)? (moves their files to archived/)', { yes: 'Archive' });
+  clock.at += 299;
+  await ask.backdrop();
+  assert.strictEqual(seen.answer, undefined, 'the ask the first click raised is still up');
+  assert.strictEqual(ask.open(), true);
+  clock.at += 1;
+  await ask.backdrop();
+  assert.strictEqual(seen.answer, false, 'a click once the window has passed answers no, as it did');
+  assert.strictEqual(ask.open(), false);
+});
+
+test('the window counts from the opening of each ask, not the first', async () => {
+  const { page, ask, clock } = await open();
+  watch(page, 'one');
+  clock.at += 1000;
+  await ask.no();
+  const second = watch(page, 'two');
+  clock.at += 100;
+  await ask.backdrop();
+  assert.strictEqual(second.answer, undefined, 'the second ask is as new as the first was');
+  assert.strictEqual(ask.open(), true);
 });
 
 test('a click inside the dialog, not on the backdrop, answers nothing', async () => {
@@ -108,16 +136,80 @@ test('a held Esc is one press: the repeats the open ask sees answer nothing and 
   assert.strictEqual(behind, 0);
 });
 
-test('a key other than Esc is left alone while the ask is up', async () => {
+test('Enter and Space are left alone while the ask is up: they press the button that has the focus', async () => {
   const { page, ask } = await open();
   let behind = 0;
   page.documentListeners.keydown.push(() => { behind++; });
   const seen = watch(page, 'Discard unsaved changes to this card?');
-  const e = await ask.press('a');
-  assert.strictEqual(e.stopped, false);
-  assert.strictEqual(behind, 1);
+  const onButton = { target: { closest: () => null } }; // the keys land on a button of the ask, no card
+  for (const key of ['Enter', ' ']) {
+    const e = await ask.press(key, onButton);
+    assert.strictEqual(e.stopped, false, JSON.stringify(key));
+    assert.strictEqual(e.defaultPrevented, false, JSON.stringify(key));
+  }
+  assert.strictEqual(behind, 2);
   assert.strictEqual(seen.answer, undefined);
   assert.strictEqual(ask.open(), true);
+});
+
+test('a key but Esc, Enter, Space and Tab does not reach the page behind the ask: Ctrl+S and Alt+Enter on the edit form do nothing', async () => {
+  const { page, elements, ask } = await open({ '#modal': control(), '#card-form': control() });
+  let saved = 0;
+  elements['#card-form'].requestSubmit = () => { saved++; };
+  let behind = 0;
+  page.documentListeners.keydown.push(() => { behind++; });
+  watch(page, 'Discard unsaved changes to this card?');
+  const chords = [{ key: 's', ctrlKey: true }, { key: 's', metaKey: true }, { key: 'Enter', altKey: true }, { key: 'Enter', ctrlKey: true }, { key: 'a' }, { key: 'n' }, { key: 'F5' }];
+  for (const chord of chords) {
+    const e = await ask.press(chord.key, chord);
+    assert.strictEqual(e.stopped, true, `${JSON.stringify(chord)} goes no further`);
+  }
+  assert.strictEqual(saved, 0, 'the form behind the ask was not saved');
+  assert.strictEqual(behind, 0, 'no listener of the page saw a key');
+  assert.strictEqual(ask.open(), true);
+  const save = await ask.press('s', { ctrlKey: true });
+  assert.strictEqual(save.defaultPrevented, true, 'the browser\'s own save-page does not open either');
+  const full = await ask.press('Enter', { altKey: true });
+  assert.strictEqual(full.defaultPrevented, true);
+  const plain = await ask.press('a');
+  assert.strictEqual(plain.defaultPrevented, false, 'a key the page does not claim keeps the browser\'s own meaning');
+  await ask.no();
+  const after = await ask.press('s', { ctrlKey: true });
+  assert.strictEqual(after.stopped, false, 'with the ask closed the page hears the key again');
+  assert.strictEqual(saved, 1, 'and saves');
+});
+
+test('Tab and Shift+Tab cycle the ask\'s own buttons and never leave them: the page behind is out of reach of the keyboard', async () => {
+  const { page, elements, ask } = await open();
+  let behind = 0;
+  page.documentListeners.keydown.push(() => { behind++; });
+  const buttons = ['#ask-close', '#ask-no', '#ask-yes'];
+  for (const sel of buttons) elements[sel].focus = () => { page.ctx.document.activeElement = elements[sel]; };
+  watch(page, 'Discard unsaved changes to this card?');
+  const at = () => buttons.find((sel) => page.ctx.document.activeElement === elements[sel]) || null;
+  elements['#ask-no'].focus();
+  assert.strictEqual(at(), '#ask-no', 'Cancel has the focus when the ask opens');
+  const forward = [];
+  for (let i = 0; i < 4; i++) {
+    const e = await ask.press('Tab');
+    assert.strictEqual(e.defaultPrevented, true, 'the browser\'s own focus step does not run');
+    assert.strictEqual(e.stopped, true);
+    forward.push(at());
+  }
+  assert.deepStrictEqual(forward, ['#ask-yes', '#ask-close', '#ask-no', '#ask-yes'], 'forward, wrapping from the last button to the first');
+  const backward = [];
+  for (let i = 0; i < 4; i++) { await ask.press('Tab', { shiftKey: true }); backward.push(at()); }
+  assert.deepStrictEqual(backward, ['#ask-no', '#ask-close', '#ask-yes', '#ask-no'], 'backward, wrapping from the first button to the last');
+  page.ctx.document.activeElement = { id: 'behind' };
+  await ask.press('Tab');
+  assert.strictEqual(at(), '#ask-close', 'a focus that got away is brought back to the first button');
+  page.ctx.document.activeElement = { id: 'behind' };
+  await ask.press('Tab', { shiftKey: true });
+  assert.strictEqual(at(), '#ask-yes', 'and to the last with Shift');
+  assert.strictEqual(behind, 0);
+  await ask.no();
+  const free = await ask.press('Tab');
+  assert.strictEqual(free.defaultPrevented, false, 'with the ask closed Tab is the browser\'s again');
 });
 
 test('a second ask while one is up answers no at once and leaves the first one up', async () => {
