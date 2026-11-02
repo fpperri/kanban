@@ -71,6 +71,7 @@ function askAnswer(answer) {
   askState.opener = null;
   $('#ask').classList.add('hidden');
   if (opener && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+  scheduleBackSync(); // the entry the question kept goes with it, when nothing else wants it
   resolve(answer);
 }
 

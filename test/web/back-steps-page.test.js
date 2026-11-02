@@ -564,6 +564,100 @@ test('a selection taken down by a tap that clears it keeps an entry that the nex
   assert.strictEqual(s.session.index, 0);
 });
 
+// An entry nothing wants any more is taken off by the page itself, once the double-tap window has passed: it goes
+// back one entry, onto the one the person was on before. That traversal touches no entry but the page's own, which
+// a sandboxed frame (the Board artifact in its viewer) may make, where it refuses a Back that leaves the page's first
+// entry; so the person's next Back leaves in one press. history.back() is counted: the page calls it to drop
+// the entry and never to leave.
+function countBacks(s) {
+  const counts = { back: 0 };
+  const real = s.page.ctx.history.back;
+  s.page.ctx.history.back = () => { counts.back++; return real(); };
+  return counts;
+}
+
+test('an entry nothing wants any more, the selection emptied by a tap, is taken off by the page once the double-tap window has passed, and the next Back leaves in one press', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  assert.strictEqual(s.session.index, 2, 'the entry stands above the board\'s own');
+  const backs = countBacks(s);
+  s.tap(2);
+  assert.deepStrictEqual(s.picked(), []);
+  s.wait(BACK_ENTRY_SETTLE_MS - 1);
+  assert.strictEqual(s.session.index, 2, 'the window has not passed: the entry stays');
+  s.wait(1);
+  assert.deepStrictEqual([s.session.index, s.onEntry(), backs.back, s.session.left], [1, false, 1, false], 'the page went back onto the board\'s own entry, once, and did not leave');
+  assert.strictEqual(s.session.search, '', 'at the address it had');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'one Back leaves the page');
+  assert.strictEqual(backs.back, 1, 'and the page called history.back() for the drop alone');
+});
+
+test('the entry stays when something wants it again inside the window: a tap that selects after the tap that emptied the selection', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  s.tap(2);
+  s.wait(BACK_ENTRY_SETTLE_MS - 1);
+  s.tap(3);
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry(), s.picked()], [2, true, ['3']]);
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'and the Back steps it');
+});
+
+test('the drop is the page\'s own pop: it answers no question, opens or closes no card and leaves the next entry as it was', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.detailMenu();
+  s.settle();
+  assert.strictEqual(s.session.index, 3, 'the card\'s step and the entry the menu kept above it');
+  s.activate();
+  s.page.run('hideContextMenu()');
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry(), s.detailUp()], [2, false, true], 'the entry went and the card stands, on its own step');
+  assert.match(s.session.search, /card=3/);
+  await s.back();
+  assert.ok(!s.detailUp(), 'the Back after closes the card');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('a card menu closed with nothing lit or selected leaves an entry that is taken off, as a question answered does', async () => {
+  const s = await open();
+  s.activate();
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(0, 0)');
+  s.settle();
+  assert.strictEqual(s.session.index, 2);
+  s.page.run('hideContextMenu()');
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry()], [1, false]);
+  const asked = [];
+  s.activate();
+  s.page.run('askInPage("Archive card 3?", { yes: "Archive" })').then((value) => asked.push(value));
+  s.settle();
+  assert.strictEqual(s.session.index, 2, 'the question keeps an entry');
+  await s.ask.no();
+  s.settle();
+  assert.deepStrictEqual([asked, s.session.index, s.onEntry()], [[false], 1, false], 'and loses it with its answer');
+});
+
+test('the entry of a window widened to the desk is taken off too, and a Back that comes before the window has passed is let through as before', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  s.cross(false);
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry(), s.picked()], [1, false, ['2']], 'the desk layout keeps no entry');
+  const early = await open();
+  early.tap(2);
+  early.settle();
+  early.cross(false);
+  await early.back();
+  assert.strictEqual(early.session.index, 0, 'a Back inside the window passes through, as it did');
+});
+
 // --- Back closes what Esc closes, in Esc's order ------------------------------------------------------
 
 // A popup the person opened with a tap, over a selection that keeps the page's entry.

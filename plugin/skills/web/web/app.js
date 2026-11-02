@@ -3539,8 +3539,9 @@ function closeCard() {
 // an entry pushed while a Back was answered would be skipped by the next press. Going forward to the entry
 // the Back popped adds none. The card's steps (pushCardHistoryStep) are untouched: the entry stands beside
 // them in the history, and a Back that lands on a card's step is the card's. An entry nothing wants any
-// more (Esc took the last step, a tap cleared the selection) stays where it is, and the Back that pops it
-// lets itself through (history.back()) so that it costs no press.
+// more (a tap cleared the selection, the menu closed) is taken off by the page once the double-tap window
+// has passed (dropBackEntry); one still there when a Back pops it (Esc took the last step) lets itself
+// through (history.back()) so that it costs no press, where the frame allows it.
 // `backOnEntry` is whether the page is on its own entry now; a reload on one keeps its state.
 let backOnEntry = isBackEntry(history.state);
 // Every state the page pushes is numbered, each above the last (back-steps.js): `backAt` is the number of the
@@ -3550,6 +3551,7 @@ let backSeq = backAt;
 let backSyncTimer = null;
 let backActivated = false; // a tap or a key since the last back or forward: the browser would honour an entry now
 let backReturnAt = null; // when the page went forward to its entry, until the landing
+let backDropAt = null; // when the page went back off an entry nothing wanted, until the landing
 for (const type of BACK_ACTIVATION_EVENTS) {
   // key-guard: exempt (only notes that a tap or a key came; acts on nothing)
   window.addEventListener(type, (e) => {
@@ -3572,7 +3574,9 @@ function selectionStands() {
   return partsOf(selectionState.selection).length > 0;
 }
 
-function backEntryWantedNow() {
+// Whether the page wants an entry now. `afterDetails` asks it as it will be once the card details close: an entry
+// that stands under the details for a light or a selection is wanted by the Back that will close them.
+function backEntryWantedNow(afterDetails = false) {
   if (!onPhoneLayout()) return false;
   return backEntryWanted({
     phone: true,
@@ -3580,13 +3584,14 @@ function backEntryWantedNow() {
     ask: askState.resolve !== null,
     light: pinnedLitId !== null,
     selection: selectionStands(),
-    details: !$('#detail-modal').classList.contains('hidden'),
+    details: !afterDetails && !$('#detail-modal').classList.contains('hidden'),
   });
 }
 
 function syncBackEntry() {
   backSyncTimer = null;
-  if (backOnEntry || !backActivated || !backEntryWantedNow()) return;
+  if (backOnEntry) { if (!backEntryWantedNow(true)) dropBackEntry(); return; }
+  if (!backActivated || !backEntryWantedNow()) return;
   try {
     const seq = nextBackSeq();
     history.pushState(backEntryState(seq), '', location.pathname + location.search);
@@ -3597,11 +3602,28 @@ function syncBackEntry() {
   }
 }
 
-// Whatever may make the page want an entry (a selection, a menu, a light, the details closing, the width
-// line crossed) calls this; the entry itself waits out the double-tap window, and is not kept if nothing
-// wants it by then, or if no tap has come since the last back or forward.
+// An entry nothing wants any more (a tap emptied the selection, the menu closed, the window was widened to the
+// desk; one that stands under the card details for a light or a selection is wanted, by the Back that closes
+// them) is taken off by the page once the double-tap window has passed with nothing wanting it: the page goes back
+// one entry, onto the one the person was on before it. That traversal touches no entry but the page's own, which a
+// sandboxed frame (the Board artifact in its viewer) may make, where it may not make the Back that leaves the
+// page's first entry (answerBackPop's 'pass'), so the person's next Back leaves in one press. The popstate
+// it makes is the page's own (onBackTraversal).
+function dropBackEntry() {
+  if (!isBackEntry(history.state)) { backOnEntry = false; return; }
+  backDropAt = performance.now();
+  try {
+    history.back();
+  } catch (e) {
+    backDropAt = null; /* a host that refuses it leaves the entry for a Back to let through */
+  }
+}
+
+// Whatever may make the page want an entry, or stop wanting one (a selection, a menu, a light, a question, the
+// details closing, the width line crossed) calls this; the entry is made, or taken off, once the double-tap
+// window has passed and the page still wants it so, and the push waits for a tap since the last back or forward.
 function scheduleBackSync() {
-  if (backOnEntry || backSyncTimer !== null || !backEntryWantedNow()) return;
+  if (backSyncTimer !== null || backOnEntry === backEntryWantedNow(backOnEntry)) return;
   backSyncTimer = setTimeout(syncBackEntry, BACK_ENTRY_SETTLE_MS);
 }
 
@@ -3723,12 +3745,15 @@ function answerBackPop(landedOn) {
 function onBackTraversal(e) {
   backActivated = false;
   const returning = backReturnAt !== null && performance.now() - backReturnAt < BACK_RETURN_MS;
+  const dropping = backDropAt !== null && performance.now() - backDropAt < BACK_RETURN_MS;
   backReturnAt = null;
+  backDropAt = null;
   const kind = backTraversal({ onEntry: backOnEntry, state: e && e.state, returning, at: backAt });
   backAt = backSeqOf(e && e.state);
   backSeq = Math.max(backSeq, backAt);
   backOnEntry = kind === 'landed' || kind === 'returned';
   if (kind === 'returned') return true;
+  if (dropping && kind === 'popped') { scheduleBackSync(); return true; } // the page's own pop of an entry nothing wanted: nothing to answer, and the card is as it was
   if (kind !== 'popped') { scheduleBackSync(); return false; }
   answerBackPop(e && e.state);
   return true;
@@ -6693,6 +6718,7 @@ function hideContextMenu() {
   menuNestRelease();
   $('#context-menu').classList.add('hidden');
   $('#selection-bar-more').setAttribute('aria-expanded', 'false');
+  scheduleBackSync(); // the entry the menu kept goes with it, when nothing else wants it
 }
 
 // The menu's subject is decided by cardMenuFor (selection.js) and nothing is
