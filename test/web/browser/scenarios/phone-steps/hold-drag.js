@@ -9,7 +9,7 @@
 // Map selects nothing.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): isDragging,
-// pinnedLitId, renderBoard, selectedIds, selectionState.
+// pinnedLitId, renderBoard, selectedIds, selectionState, state.
 
 const { tap, swipe, holdDrag, realWait } = require('../../steps');
 
@@ -38,25 +38,17 @@ module.exports = {
     const renders = () => ev('window.__renders');
     const tabOf = (col) => ev(`(()=>{const t=document.querySelector('#board-tabs .board-tab[data-col="${col}"]');if(!t)return null;t.scrollIntoView({inline:'center',block:'nearest'});const b=t.getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()`);
 
-    // The tab with the most tiles on screen: the finger needs a few tiles to pass.
-    const richestTab = async () => {
-      const cols = await ev(`[...document.querySelectorAll('#board-tabs .board-tab')].map((t)=>t.dataset.col)`);
-      let best = null;
-      for (const col of cols) {
-        const at = await tabOf(col);
-        await tap(page, at.x, at.y);
-        await waitFor(`${shown}===${JSON.stringify(col)}`, 4000);
-        const n = (await wholeTiles()).length;
-        if (!best || n > best.n) best = { col, n };
-      }
-      return best;
+    // The status with the most cards: the finger needs a few tiles to pass, and the list has to run past the screen.
+    const fullest = () => ev(`(()=>{const n={};for(const c of state.active)n[c.status]=(n[c.status]||0)+1;return Object.entries(n).sort((x,y)=>y[1]-x[1])[0][0]})()`);
+    const showTab = async (col) => {
+      const at = await tabOf(col);
+      await tap(page, at.x, at.y);
+      return waitFor(`${shown}===${JSON.stringify(col)}`, 4000);
     };
     const boardOn = async (col) => {
       await open('/');
       if (!await waitFor(`document.querySelectorAll('#board .column .card-el').length>0`, 10000)) return false;
-      const at = await tabOf(col);
-      await tap(page, at.x, at.y);
-      return waitFor(`${shown}===${JSON.stringify(col)}`, 4000);
+      return showTab(col);
     };
 
     // --- the Board -------------------------------------------------------------------------------------
@@ -64,9 +56,9 @@ module.exports = {
     await page.send('Emulation.setDeviceMetricsOverride', { width: 390, height: SHORT_PHONE_HEIGHT, deviceScaleFactor: 1, mobile: true });
     await open('/');
     check('the Board draws', await waitFor(`document.querySelectorAll('#board .column .card-el').length>0`, 10000));
-    const best = await richestTab();
-    check('a status shows four tiles whole', best.n >= 4, best);
-    check('the Board on that status', await boardOn(best.col));
+    const best = { col: await fullest() };
+    check('the Board on the status with the most cards', await showTab(best.col), best);
+    check('it shows four tiles whole', (await wholeTiles()).length >= 4, (await wholeTiles()).length);
     const [t0, , , t3] = await wholeTiles();
 
     // The list scrolls under a plain drag: what hold and drag must not do.
