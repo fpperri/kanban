@@ -11,7 +11,7 @@ const { tap, doubleTap, outwaitDoubleTap, realWait, backOut } = require('../../s
 
 module.exports = {
   async run(page) {
-    const { ev, open, waitFor, check, rightClick } = page;
+    const { ev, open, waitFor, check } = page;
 
     const picked = `[...selectedIds].map(String).sort((a,b)=>a-b).join()`;
     const kept = `!!history.state&&history.state.kanbanBack===true`;
@@ -23,6 +23,13 @@ module.exports = {
     const tapOn = async (sel) => { const p = await pointOf(sel); await tap(page, p.x, p.y); };
     const doubleTapOn = async (sel) => { const p = await pointOf(sel); await outwaitDoubleTap(); await doubleTap(page, p.x, p.y); };
     const back = () => ev('history.back()');
+    // A real press of the right button on the details: the browser counts it as a user activation, which
+    // a contextmenu event dispatched from the page is not, and the page makes its entry only after one.
+    const detailsMenu = async () => {
+      const p = await pointOf('#detail-modal .modal');
+      await page.mouse('mousePressed', p.x, p.y, { button: 'right', buttons: 2 });
+      await page.mouse('mouseReleased', p.x, p.y, { button: 'right', buttons: 2 });
+    };
     const titleOf = (id) => `#board .column .card-el[data-id="${id}"] .card-title`;
     const start = async (what) => {
       await open('/');
@@ -63,16 +70,16 @@ module.exports = {
     [, , c] = await start('with a card first');
     await doubleTapOn(titleOf(c));
     check('a double tap opens the card', await waitFor(detailUp, 3000));
-    await rightClick('#detail-modal .modal');
+    await detailsMenu();
     check('the details\' menu opens', await waitFor(menuOpen, 3000));
     check('the page keeps an entry of its own for it', await waitFor(kept, 5000));
     await back();
     check('a Back closes the menu and not the card', await waitFor(`!(${menuOpen})`, 3000) && await ev(detailUp));
     await realWait(700);
     check('no entry is kept with nothing but the card open', !(await ev(kept)));
-    await rightClick('#detail-modal .modal');
-    await waitFor(menuOpen, 3000);
-    await waitFor(kept, 5000);
+    await detailsMenu();
+    check('the menu opens again', await waitFor(menuOpen, 3000));
+    check('and the press that opened it, the first since the Back, makes the page\'s entry', await waitFor(kept, 5000));
     const add = await pointOf('#ctx-add');
     await tap(page, add.x, add.y);
     check('Add to selection puts the card in the selection and closes the menu', await waitFor(`${picked}===${JSON.stringify(c)}&&!(${menuOpen})`, 3000), await ev(picked));

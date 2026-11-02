@@ -260,9 +260,8 @@ test('the page asks for no entry without a tap since the last Back: the browser 
   s.settle();
   assert.strictEqual(s.pushes(), 1, 'a light with no tap since the Back keeps no entry');
   s.activate();
-  s.page.run('setPinnedLight("4")');
   s.settle();
-  assert.strictEqual(s.pushes(), 2, 'the next tap makes the entry');
+  assert.strictEqual(s.pushes(), 2, 'the next tap makes the entry, whatever it taps: the light is still there');
   assert.ok(s.onEntry());
   assert.ok(s.session.skipped.every((skipped) => !skipped), 'none of the page\'s entries is marked to be skipped');
   await s.back();

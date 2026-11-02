@@ -40,16 +40,17 @@ module.exports = {
     check('a tap selects a card', await waitFor(`${picked}===${JSON.stringify(a)}`, 3000));
     check('a long press on another lights it and opens its menu', await longPressOn(b));
     check('the page keeps an entry of its own', await waitFor(kept, 5000));
+    const entries = await ev('history.length');
 
     await back();
     check('a Back closes the menu', await waitFor(`!(${menuOpen})`, 3000));
     check('and leaves the light and the selection', await ev(`${held(b)}&&${picked}===${JSON.stringify(a)}`), await ev(`pinnedLitId+'|'+${picked}`));
-    check('the page stays and keeps its entry again', await ev(stays) && await waitFor(kept, 5000));
+    check('the page stays and is on its entry again, which the page went forward to: no entry was added', await ev(stays) && await waitFor(kept, 5000) && await ev('history.length') === entries, await ev('history.length'));
 
     await back();
     check('the next Back drops the light', await waitFor(`pinnedLitId===null`, 3000));
     check('and leaves the selection', await ev(`${picked}===${JSON.stringify(a)}`), await ev(picked));
-    check('the page stays and keeps its entry again', await ev(stays) && await waitFor(kept, 5000));
+    check('the page stays and is on its entry again, with no entry added', await ev(stays) && await waitFor(kept, 5000) && await ev('history.length') === entries, await ev('history.length'));
 
     await back();
     check('the next Back steps the selection back', await waitFor(`${picked}===''`, 3000));

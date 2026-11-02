@@ -7,6 +7,7 @@ const path = require('node:path');
 const { runSteps, tap, doubleTap, pacedDoubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, backOut, swipe, pinch } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
+const phoneBack = require('./browser/scenarios/phone-back');
 const phoneFlip = require('./browser/scenarios/phone-flip');
 
 // The step runner of the phone and phone-flip scenarios, and the touch helpers a step uses, driven
@@ -226,6 +227,13 @@ test('phone is 390 by 844 with touch on, on the plan board with the feature boar
   assert.deepStrictEqual(phone.start, { width: 390, height: 844, touch: true });
 });
 
+test('phone-back is the phone start with steps of its own for Back, on the plan board, 120 s', () => {
+  assert.strictEqual(phoneBack.name, 'phone-back');
+  assert.strictEqual(phoneBack.board, 'plan');
+  assert.strictEqual(phoneBack.timeoutMs, 120000);
+  assert.deepStrictEqual(phoneBack.start, phone.start);
+});
+
 test('phone-flip is 390 by 844 with touch off, on the plan board, 120 s', () => {
   assert.strictEqual(phoneFlip.name, 'phone-flip');
   assert.strictEqual(phoneFlip.board, 'plan');
@@ -234,7 +242,7 @@ test('phone-flip is 390 by 844 with touch off, on the plan board, 120 s', () => 
 });
 
 test('both are registered once', () => {
-  for (const sc of [phone, phoneFlip]) assert.strictEqual(scenarios.filter((s) => s === sc).length, 1, sc.name);
+  for (const sc of [phone, phoneBack, phoneFlip]) assert.strictEqual(scenarios.filter((s) => s === sc).length, 1, sc.name);
 });
 
 test('touch is off after phone ends, also when a step threw', async () => {
@@ -252,9 +260,17 @@ test('touch is off after phone ends when every step passes', async () => {
   assert.deepStrictEqual(touch[touch.length - 1][1], { enabled: false });
 });
 
+test('touch is off after phone-back ends, also when a step threw', async () => {
+  const dir = stepsFolder({ '00-a.js': "module.exports = { async run() { throw new Error('boom'); } };" });
+  const page = standIn();
+  await assert.rejects(phoneBack.run(page, { stepsDir: dir }), /boom/);
+  const touch = page.calls.filter((c) => c[0] === 'Emulation.setTouchEmulationEnabled');
+  assert.deepStrictEqual(touch[touch.length - 1][1], { enabled: false });
+});
+
 test('each scenario folder holds a boot step', () => {
   const dir = path.join(__dirname, 'browser', 'scenarios');
-  for (const f of ['phone-steps', 'phone-flip-steps']) {
+  for (const f of ['phone-steps', 'phone-back-steps', 'phone-flip-steps']) {
     assert.strictEqual(typeof require(path.join(dir, f, '00-boot.js')).run, 'function', f);
   }
 });

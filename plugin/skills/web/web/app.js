@@ -3530,7 +3530,11 @@ let backActivated = false; // a tap or a key since the last back or forward: the
 let backReturnAt = null; // when the page went forward to its entry, until the landing
 for (const type of BACK_ACTIVATION_EVENTS) {
   // key-guard: exempt (only notes that a tap or a key came; acts on nothing)
-  window.addEventListener(type, (e) => { if (activatesHistory(type, e)) backActivated = true; }, true);
+  window.addEventListener(type, (e) => {
+    if (!activatesHistory(type, e)) return;
+    backActivated = true;
+    scheduleBackSync(); // a menu or a light that opened before the finger lifted, or after a Back, gets its entry now
+  }, true);
 }
 
 function contextMenuOpen() {
