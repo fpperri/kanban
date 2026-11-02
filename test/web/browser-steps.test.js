@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, swipe, pinch } = require('./browser/steps');
+const { runSteps, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, LONG_PRESS_HOLD_MS, swipe, pinch, backOut } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
 const phoneFlip = require('./browser/scenarios/phone-flip');
@@ -148,6 +148,14 @@ test('longPress given an expression holds until the page answers true to it, and
   assert.ok(Date.now() - t0 < LONG_PRESS_HOLD_MS - 100, 'it did not wait the fixed time');
   assert.deepStrictEqual(waited, [['card.lit', 4000, 1]], 'asked once, with the finger down and not yet lifted');
   assert.deepStrictEqual(touches(page).map((t) => t.type), ['touchStart', 'touchEnd']);
+});
+
+test('backOut asks the page for a history.back() made after it has answered, so the answer is not lost with the document', async () => {
+  const asked = [];
+  const page = { ev: async (expr) => { asked.push(expr); return true; } };
+  assert.strictEqual(await backOut(page), true);
+  assert.strictEqual(asked.length, 1);
+  assert.match(asked[0], /setTimeout\(\(\)=>history\.back\(\),\d+\);true$/);
 });
 
 test('holdDown, moveHeld and liftUp are the three touches of a hold that moves', async () => {

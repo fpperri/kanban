@@ -452,7 +452,7 @@ test('the Esc chain keeps its order and ends in the one step, behind a single do
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
   assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');
   assert.strictEqual(appSrc.split('escapeStep(e)').length - 1, 2, 'the step is called from the handler alone (and defined once)');
-  assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 2, 'the selection step is called from the Esc step alone (and defined once)');
+  assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 3, 'the selection step is called from the Esc step and from the Back step alone (and defined once)');
 });
 
 // The step reads the shared key guard (key-guard.js) through its Esc question, and

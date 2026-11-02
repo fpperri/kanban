@@ -72,6 +72,10 @@ async function longPress(page, x, y, { until = null } = {}) {
   await liftUp(page);
 }
 
+// A Back that leaves the page ends the document an evaluation answers from, and the answer is lost with it. This
+// asks for the history.back() to be made after the answer; the step then waits for where it landed.
+const backOut = (page) => page.ev('setTimeout(()=>history.back(),200);true');
+
 async function swipe(page, from, to, { steps = 8 } = {}) {
   await touchEvent(page, 'touchStart', [from]);
   for (let i = 1; i <= steps; i++) {
@@ -97,4 +101,4 @@ async function refreshNow(page) {
   return page.waitFor(`window.__applied>${before}`, 5000);
 }
 
-module.exports = { runSteps, freshStart, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, LONG_PRESS_HOLD_MS, swipe, pinch, refreshNow };
+module.exports = { runSteps, freshStart, tap, doubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, realWait, longPress, LONG_PRESS_HOLD_MS, backOut, swipe, pinch, refreshNow };
