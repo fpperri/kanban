@@ -3607,7 +3607,9 @@ function scheduleBackSync() {
 
 // The layers above the page that Esc and a Back both close, by the names back-steps.js puts in Esc's order
 // (BACK_STEP_ORDER): the in-page question, the popups that take Esc in a listener of their own (the date
-// picker, the group dialog, the tray), the menus, the popups, the notes palette, the search panel. The Esc
+// picker, the group dialog, the tray), the menus (an open panel of the card menu before the menu), the popups, a
+// note's own menu and the scratchpad's narrow file list (each takes Esc in a listener of its own, before the
+// palette that holds them), the notes palette, the search panel. The Esc
 // listener walks the same list, with the card details (a Back leaves them to the browser's history) and a
 // popup it has no closer for, so there is one order and one set of closers. The four popups with a listener
 // of their own take the key before this list does and keep it from it, so Esc never reaches them here; they
@@ -3620,6 +3622,7 @@ function standingLayers(forEsc) {
   if (groupDialogOpenNow()) layers.push('group-dialog');
   if (trayIsOpen()) layers.push('tray');
   if (moreMenuIsOpen()) layers.push('more-menu');
+  if (contextMenuOpen() && menuNestOpenTopGroup() !== null) layers.push('menu-panel');
   if (contextMenuOpen()) layers.push('menu');
   if (up('#notif-modal')) layers.push('notifications');
   if (up('#prefs-sheet')) layers.push('settings');
@@ -3627,6 +3630,8 @@ function standingLayers(forEsc) {
   if (up('#modal')) layers.push('edit-form');
   if (bulkPopupOpen()) layers.push('bulk-popup');
   if (forEsc && anyModalOpen()) layers.push('other-popup'); // defensive catch-all: any future .modal-backdrop popup not listed above
+  if (notesUi.menu) layers.push('note-menu');
+  if (spfOpenList()) layers.push('scratch-list');
   if (notesIsOpen()) layers.push('notes-palette');
   if (searchPanelOpen) layers.push('search-panel');
   return layers;
@@ -3648,7 +3653,10 @@ function takeLayer(step, e) {
   else if (step === 'tray') trayEscape();
   else if (step === 'notes-palette') notesEscape();
   else if (step === 'more-menu') { moreMenuClose(); if (e) e.preventDefault(); $('#more-btn').focus(); }
+  else if (step === 'menu-panel') menuNestStepBack();
   else if (step === 'menu') hideContextMenu();
+  else if (step === 'note-menu') notesMenuClose();
+  else if (step === 'scratch-list') spfCloseList(true);
   else if (step === 'notifications') closeNotifModal();
   else if (step === 'settings') settingsStepBack();
   else if (step === 'details') closeCard();

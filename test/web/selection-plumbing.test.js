@@ -449,10 +449,10 @@ test('the Esc chain keeps its order and ends in the one step, behind a single do
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
   assert.match(handler, /backStep\(standingLayers\(true\)\)/, 'the popups take Esc in the order a Back walks (back-steps.js)');
   const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
-  const closers = { 'date-picker': 'closeDatePicker()', 'group-dialog': 'closeGroupDialog()', tray: 'trayEscape()', 'more-menu': 'moreMenuClose()', menu: 'hideContextMenu()', notifications: 'closeNotifModal()', settings: 'settingsStepBack()', details: 'closeCard()', 'edit-form': 'requestCloseModal()', 'bulk-popup': 'closeAnyBulkPopup()', 'notes-palette': 'notesEscape()', 'search-panel': 'closeSearchPanel()' };
+  const closers = { 'date-picker': 'closeDatePicker()', 'group-dialog': 'closeGroupDialog()', tray: 'trayEscape()', 'more-menu': 'moreMenuClose()', 'menu-panel': 'menuNestStepBack()', menu: 'hideContextMenu()', notifications: 'closeNotifModal()', settings: 'settingsStepBack()', details: 'closeCard()', 'edit-form': 'requestCloseModal()', 'bulk-popup': 'closeAnyBulkPopup()', 'note-menu': 'notesMenuClose()', 'scratch-list': 'spfCloseList(true)', 'notes-palette': 'notesEscape()', 'search-panel': 'closeSearchPanel()' };
   const take = fn('takeLayer');
   for (const [step, call] of Object.entries(closers)) assert.ok(BACK_STEP_ORDER.includes(step) && take.includes(call), `${step} closes with ${call}`);
-  assert.deepStrictEqual(BACK_STEP_ORDER.filter((s) => s !== 'ask' && s !== 'other-popup'), ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'notes-palette', 'search-panel', 'light', 'selection'], 'the order is Esc\'s');
+  assert.deepStrictEqual(BACK_STEP_ORDER.filter((s) => s !== 'ask' && s !== 'other-popup'), ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'], 'the order is Esc\'s');
   const order = ['takeLayer(layer, e)', 'e.repeat', 'clearPinnedLight()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');

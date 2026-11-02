@@ -576,6 +576,7 @@ function escPage({ open = [], lit = false } = {}) {
     backStep: require('../../plugin/skills/web/web/back-steps').backStep,
     askState: { resolve: null }, datePickerFor: null, groupDialogOpenNow: () => false, trayIsOpen: () => false, notesIsOpen: () => false,
     moreMenuIsOpen: () => false, contextMenuOpen: () => !els['#context-menu'].classList.contains('hidden'), bulkPopupOpen: () => false,
+    menuNestOpenTopGroup: () => null, notesUi: { menu: null }, spfOpenList: () => null,
     searchPanelOpen: open.includes('#search-panel'),
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),

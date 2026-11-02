@@ -85,14 +85,17 @@ function backEntryWanted({ phone, menu, ask = false, light, selection, details }
 // What Esc closes, top first. The keydown listener and a Back both walk it, so that a Back takes the step Esc
 // takes: the in-page question (it answers no), then the four popups that take Esc in a listener of their own,
 // which runs before the chain and keeps the key from it (the date picker, the group dialog, the tray),
-// the More menu, the card menu, the notifications, the preferences sheet, the card details, the edit form, a
-// bulk popup, any other popup (Esc closes nothing there, and a Back holds), the notes palette (its own listener
-// yields to every popup above it, and to the card details it does not: it draws above them), the search panel,
-// then the light, then the selection.
-const BACK_STEP_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
+// the More menu, an open panel of the card menu (Group, Explore, Path, Tree: the menu's own listener closes
+// it alone, the nested panel first), the card menu, the notifications, the preferences sheet, the card
+// details, the edit form, a bulk popup, any other popup (Esc closes nothing there, and a Back holds), a note's
+// own menu and the scratchpad's narrow file list (each closes alone on its own listener, in the notes
+// palette that holds them: a row menu in the list before the list), the notes palette (its own listener
+// yields to every popup above it, and to the card details it does not: it draws above them), the search
+// panel, then the light, then the selection.
+const BACK_STEP_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'];
 
 // The steps a Back closes whatever the card details are doing: a popup or a menu, which stands above them.
-const BACK_OVER_STEPS = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'notes-palette'];
+const BACK_OVER_STEPS = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'note-menu', 'scratch-list', 'notes-palette'];
 
 // The one step a Back takes, given the names of what stands: the first of them in Esc's order. null when
 // nothing is left.

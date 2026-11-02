@@ -4,6 +4,7 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { attachSessionHistory } = require('./helpers/session-history');
 const { askElements, askDriver } = require('./helpers/ask-page');
 const { paletteDocument, TEXT_AREA } = require('./helpers/palette-page');
+const { buildMenu } = require('./helpers/menu-dom');
 const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 const { BACK_ENTRY_SETTLE_MS } = require('../../plugin/skills/web/web/back-steps');
 
@@ -40,14 +41,18 @@ const hidden = () => { const el = control(); el.classList.add('hidden'); return 
 // `link` opens the page on a card's address, the document's first entry, as a link to a card does.
 // `palette` gives the page the document the notes palette builds itself in (helpers/palette-page.js) and a
 // logbook, so that openNotes draws the real palette.
-async function open({ phone = true, link = null, palette = false } = {}) {
+// `menu` builds the card menu from app.html's own markup (helpers/menu-dom.js), groups and panels included.
+async function open({ phone = true, link = null, palette = false, menu: withMenu = false } = {}) {
   const board = makeBoard();
   if (palette) board.logbook = { folder: 'logbook', notes: [] };
   const holder = { document: null };
   const clock = { at: 1000, timers: [] };
   const elements = { ...askElements() };
   for (const sel of HIDDEN) elements[sel] = hidden();
-  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}`, documentExtras: palette ? paletteDocument(holder) : {} });
+  const extras = palette || withMenu ? paletteDocument(holder) : {};
+  const built = withMenu ? buildMenu(extras) : null;
+  if (built) Object.assign(elements, { '#context-menu': built.root, ...built.byId });
+  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}`, documentExtras: extras });
   holder.document = page.ctx.document;
   if (palette) page.ctx.getComputedStyle = () => TEXT_AREA;
   const media = { phone };
@@ -859,22 +864,94 @@ test('Back closes each of the four as Esc closes it, press for press, with a sel
   }
 });
 
-test('Back takes all thirteen layers down in the order Esc keeps, one per Back, with the four popups among them', async () => {
-  const names = ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
+// The inner layers a Back closes alone, as Esc does, each before the layer around it. Stand-ins for what the
+// page draws where the test has no DOM for it: a note's own menu (notesUi.menu), and the scratchpad's narrow
+// file list (the element .spf.open, which the page asks the document for).
+function noteMenuStandIn(s) {
+  const seen = { removed: 0 };
+  s.page.ctx.__noteMenu = { el: { contains: () => false, remove() { seen.removed++; } }, row: { isConnected: false, classList: { contains: () => false }, focus() {} }, items: [], acts: {} };
+  s.page.run('notesUi.menu = __noteMenu');
+  return seen;
+}
+function fileListStandIn(s) {
+  const seen = { open: true, bar: [] };
+  const bar = { setAttribute: (name, value) => seen.bar.push([name, value]), focus() { seen.focused = true; } };
+  const list = { classList: { remove: () => { seen.open = false; }, contains: () => seen.open }, querySelector: () => bar };
+  const realQuery = s.page.ctx.document.querySelector;
+  s.page.ctx.document.querySelector = (sel) => (sel === '.spf.open' ? (seen.open ? list : null) : realQuery(sel));
+  return seen;
+}
+const atPhoneWidth = (s) => Object.assign(s.page.ctx, { innerWidth: 390, innerHeight: 844 });
+
+test('an open panel of the card menu is closed by Back alone, the nested panel before the group\'s, then the menu, then the selection steps', async () => {
+  const s = await selectedWithEntry({ menu: true });
+  atPhoneWidth(s);
+  const el = (id) => s.page.ctx.document.querySelector('#' + id);
+  const open = (id) => el(id).parent.classList.contains('open');
+  const click = (id) => s.menu.fire('click', { target: el(id), detail: 1 });
+  s.activate();
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(10, 10)');
+  click('ctx-explore');
+  click('ctx-path');
+  assert.deepStrictEqual([s.menuOpen(), open('ctx-explore'), open('ctx-path')], [true, true, true], 'the Explore panel and the Path panel in it stand');
+  await s.back();
+  assert.deepStrictEqual([s.menuOpen(), open('ctx-explore'), open('ctx-path')], [true, true, false], 'the first Back closes the nested panel and leaves the one around it');
+  await s.back();
+  assert.deepStrictEqual([s.menuOpen(), open('ctx-explore'), open('ctx-path')], [true, false, false], 'the next closes the group\'s own panel and leaves the menu');
+  assert.deepStrictEqual(s.picked(), ['2'], 'the selection stands');
+  assert.ok(s.onEntry(), 'and the page is on its entry again');
+  await s.back();
+  assert.strictEqual(s.menuOpen(), false, 'then the menu closes');
+  await afterPopup(s);
+});
+
+test('a note\'s own menu in the notes palette is closed by Back alone, before the palette', async () => {
   const s = await selectedWithEntry({ palette: true });
+  s.activate();
+  s.page.run('openNotes({})');
+  const menu = noteMenuStandIn(s);
+  await s.back();
+  assert.deepStrictEqual([menu.removed, s.page.run('notesUi.menu'), s.page.run('notesIsOpen()')], [1, null, true], 'the menu went and the palette stays');
+  await s.back();
+  assert.strictEqual(s.page.run('notesIsOpen()'), false, 'the next Back closes the palette');
+  await afterPopup(s);
+});
+
+test('the scratchpad\'s narrow file list is closed by Back alone, before the palette it stands in, and a row menu in it before the list', async () => {
+  const s = await selectedWithEntry({ palette: true });
+  s.activate();
+  s.page.run('openNotes({})');
+  const list = fileListStandIn(s);
+  const menu = noteMenuStandIn(s);
+  await s.back();
+  assert.deepStrictEqual([menu.removed, list.open], [1, true], 'a row menu in the list closes first');
+  await s.back();
+  assert.deepStrictEqual([list.open, list.bar, list.focused, s.page.run('notesIsOpen()')], [false, [['aria-expanded', 'false']], true, true], 'then the list, which goes back to its bar, and the palette stays');
+  await s.back();
+  assert.strictEqual(s.page.run('notesIsOpen()'), false, 'then the palette');
+  await afterPopup(s);
+});
+
+test('Back takes all sixteen layers down in the order Esc keeps, one per Back, with the four popups and the three inner layers among them', async () => {
+  const names = ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'];
+  const s = await selectedWithEntry({ palette: true, menu: true });
+  atPhoneWidth(s);
   s.activate();
   s.page.run('setPinnedLight("3")');
   s.page.run('menuSubject = cardMenuFor(selectedIds, "3"); showContextMenu(0, 0)');
+  s.menu.fire('click', { target: s.page.ctx.document.querySelector('#ctx-explore'), detail: 1 });
   s.page.run('moreMenuOpen()');
   s.page.run('setSearchPanelOpen(true)');
   s.page.run('openNotes({})');
+  const note = noteMenuStandIn(s);
+  const list = fileListStandIn(s);
   for (const sel of ['#notif-modal', '#prefs-sheet', '#modal', '#bulk-status', '#tray-sheet']) s.elements[sel].classList.remove('hidden');
   s.page.run('openGroupDialog("Group", { querySelector: () => null })');
   s.page.run('datePickerFor = { value: "", focus() {} }');
   const up = () => names.filter((name) => ({
     'date-picker': s.page.run('datePickerFor') !== null, 'group-dialog': s.shown('#group-dialog'), tray: s.shown('#tray-sheet'),
-    'more-menu': s.page.run('moreMenuIsOpen()'), menu: s.menuOpen(), notifications: s.shown('#notif-modal'), settings: s.shown('#prefs-sheet'),
-    'edit-form': s.shown('#modal'), 'bulk-popup': s.shown('#bulk-status'), 'notes-palette': s.page.run('notesUi.sub') !== null,
+    'more-menu': s.page.run('moreMenuIsOpen()'), 'menu-panel': s.page.run('menuNestOpenTopGroup() !== null'), menu: s.menuOpen(), notifications: s.shown('#notif-modal'), settings: s.shown('#prefs-sheet'),
+    'edit-form': s.shown('#modal'), 'bulk-popup': s.shown('#bulk-status'), 'note-menu': note.removed === 0, 'scratch-list': list.open, 'notes-palette': s.page.run('notesUi.sub') !== null,
     'search-panel': s.page.run('searchPanelOpen'), light: s.litId() !== null, selection: s.picked().length > 0,
   })[name]);
   const seen = [up().join()];
