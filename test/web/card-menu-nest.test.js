@@ -51,7 +51,7 @@ test('the menu is Peek, Add note…, Add child…, a separator, Edit, Group, Exp
   const rows = p.menu.root.children.map(describe);
   assert.deepStrictEqual(rows, [
     'ctx-peek', 'ctx-note', 'ctx-child', '---',
-    'ctx-edit[ctx-assign,ctx-priority,ctx-tags,ctx-schedule]',
+    'ctx-edit[ctx-status,ctx-assign,ctx-priority,ctx-tags,ctx-schedule]',
     'ctx-group[ctx-group-add,ctx-group-make]',
     'ctx-explore[ctx-isolate,ctx-path[ctx-hpath,ctx-dpath],ctx-tree[ctx-htree,ctx-dtree]]',
     'ctx-scratch', 'ctx-todos', 'ctx-add', 'ctx-lit', '---', 'ctx-archive', 'ctx-restore', 'ctx-delete',
@@ -127,6 +127,19 @@ test('Path and Tree are groups of Hierarchy and Dependency on every card menu, a
   }
   p.showMenu('menuSubject = canvasMenuFor()');
   assert.deepStrictEqual(['ctx-path', 'ctx-tree'].map(p.subShown), [false, false]);
+});
+
+test('the menu the selection bar\'s More opens names no card: Path and Tree are out, Explore stays for Isolate, and a card menu after it has them back', async () => {
+  const p = await open();
+  p.showMenu("menuSubject = selectionMenuFor(new Set(['3', '7']))");
+  assert.deepStrictEqual(['ctx-path', 'ctx-tree'].map(p.subShown), [false, false]);
+  assert.deepStrictEqual(['ctx-hpath', 'ctx-dpath', 'ctx-htree', 'ctx-dtree'].map(p.shown), [false, false, false, false]);
+  assert.strictEqual(p.subShown('ctx-explore'), true, 'Isolate is its entry');
+  assert.strictEqual(p.shown('ctx-isolate'), true);
+  assert.deepStrictEqual(['ctx-edit', 'ctx-archive', 'ctx-delete'].map((id) => (id === 'ctx-edit' ? p.subShown(id) : p.shown(id))), [true, true, true], 'every bulk entry stays');
+  p.card();
+  assert.deepStrictEqual(['ctx-path', 'ctx-tree'].map(p.subShown), [true, true]);
+  assert.deepStrictEqual(['ctx-hpath', 'ctx-dpath', 'ctx-htree', 'ctx-dtree'].map(p.shown), [true, true, true, true]);
 });
 
 test('a separator shows between the groups it divides and goes when one side is empty', async () => {
@@ -354,9 +367,9 @@ test('Right on a group row opens its panel and highlights its first entry; Down 
   const e = p.key('ArrowRight');
   assert.strictEqual(e.prevented, true);
   assert.strictEqual(p.isOpen('ctx-edit'), true);
-  assert.strictEqual(p.focused(), 'ctx-assign');
+  assert.strictEqual(p.focused(), 'ctx-status');
   p.key('ArrowDown');
-  assert.strictEqual(p.focused(), 'ctx-priority');
+  assert.strictEqual(p.focused(), 'ctx-assign');
   p.key('ArrowUp');
   p.key('ArrowUp');
   assert.strictEqual(p.focused(), 'ctx-schedule', 'it wraps inside the panel, never out of it');
@@ -481,7 +494,7 @@ test('Home and End highlight the first and last entry, and in a panel its own fi
   p.key('End');
   assert.strictEqual(p.focused(), 'ctx-schedule');
   p.key('Home');
-  assert.strictEqual(p.focused(), 'ctx-assign');
+  assert.strictEqual(p.focused(), 'ctx-status');
 });
 
 test('each group row names the panel it controls', async () => {

@@ -28,7 +28,7 @@ const makeBoard = () => ({
   archived: [],
 });
 
-const HIDDEN = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#search-panel', '#ctx-lit'];
+const HIDDEN = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status', '#search-panel', '#ctx-lit'];
 const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
 
 async function open({ phone = true } = {}) {

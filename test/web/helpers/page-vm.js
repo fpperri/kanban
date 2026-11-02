@@ -177,11 +177,19 @@ function loadPage({ board, search = '', stored = {}, scripts, elements: more = {
     },
     // A key or click on the document, as the page's own listeners see it: the capture listeners
     // first, then the rest, each in the order it was added, and none after one that stops the event.
-    fireDocument(type, event) {
+    // `atTarget`, when given, is the target's own listener: it runs between the capture listeners and the
+    // rest, as a button's handler does, and not at all when a capture listener stopped the event.
+    fireDocument(type, event, { atTarget = null } = {}) {
       let stopped = false;
       const e = Object.assign({ defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, stopPropagation() {}, stopImmediatePropagation() { stopped = true; } }, event);
       const all = (documentListeners[type] || []).slice();
-      for (const fn of all.filter((f) => capturing.has(f)).concat(all.filter((f) => !capturing.has(f)))) {
+      const capture = all.filter((f) => capturing.has(f));
+      for (const fn of capture) {
+        fn(e);
+        if (stopped) return e;
+      }
+      if (atTarget) atTarget(e);
+      for (const fn of all.filter((f) => !capturing.has(f))) {
         fn(e);
         if (stopped) break;
       }
