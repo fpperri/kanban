@@ -457,6 +457,55 @@ test('a question asked over the card details with a selection behind them: Back 
   assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
 });
 
+// A popup that stands over the card details (the delete popup, which the Delete button of the details opens in the
+// group dialog; the notes palette, from the details' icons) is closed by a Back, which then leaves the details for
+// the Back after.
+test('the delete popup over the card details is closed by Back, and the details stand for the Back after', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.activate();
+  s.page.run('openGroupDialog("Delete card", { querySelector: () => null })');
+  s.settle();
+  assert.ok(s.shown('#group-dialog') && s.onEntry(), 'the page keeps an entry above the card\'s step for the popup');
+  await s.back();
+  assert.deepStrictEqual([s.shown('#group-dialog'), s.detailUp()], [false, true], 'the popup closed and the details stand');
+  assert.match(s.session.search, /card=3/);
+  await s.back();
+  assert.ok(!s.detailUp(), 'the next Back closes the details');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('the notes palette over the card details is closed by Back, then the details', async () => {
+  const s = await open({ palette: true });
+  await s.openCard(3);
+  s.activate();
+  s.page.run("openNotes({})");
+  s.settle();
+  assert.ok(s.page.run('notesIsOpen()') && s.onEntry(), 'the page keeps an entry above the card\'s step for the palette');
+  await s.back();
+  assert.deepStrictEqual([s.page.run('notesIsOpen()'), s.detailUp()], [false, true]);
+  await s.back();
+  assert.ok(!s.detailUp());
+  await s.back();
+  assert.strictEqual(s.session.index, 0);
+});
+
+test('a popup closed before the double-tap window has passed, or one with no card details under it, leaves no entry behind', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.activate();
+  s.page.run('openGroupDialog("Delete card", { querySelector: () => null })');
+  s.page.run('closeGroupDialog()');
+  s.settle();
+  assert.deepStrictEqual([s.onEntry(), s.pushes()], [false, 1], 'the card\'s step alone');
+  const bare = await open();
+  bare.activate();
+  bare.page.run('openGroupDialog("Delete card", { querySelector: () => null })');
+  bare.settle();
+  assert.deepStrictEqual([bare.onEntry(), bare.pushes()], [false, 0], 'a popup on the board alone keeps none: Back is the browser\'s there');
+});
+
 test('a question answered before the double-tap window has passed leaves no entry behind', async () => {
   const s = await open();
   await s.openCard(3);

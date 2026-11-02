@@ -3527,7 +3527,7 @@ function closeCard() {
   closeDetailModal();
 }
 
-// --- Android Back on the phone layout (back-steps.js). While a card menu, an in-page question, a light or a selection stands
+// --- Android Back on the phone layout (back-steps.js). While a card menu, an in-page question, a popup over the card details, a light or a selection stands
 // the page keeps one history entry of its own, marked in its history state, so that Back has something to
 // pop. The Back that pops it takes one step the way Esc does, in Esc's order (the in-page question, the open
 // menu, a popup, the search panel, then the light, then the selection's steps) and the page goes forward
@@ -3582,6 +3582,7 @@ function backEntryWantedNow(afterDetails = false) {
     phone: true,
     menu: contextMenuOpen(),
     ask: askState.resolve !== null,
+    popup: !$('#detail-modal').classList.contains('hidden') && standingLayers(false).some((layer) => BACK_OVER_STEPS.includes(layer)),
     light: pinnedLitId !== null,
     selection: selectionStands(),
     details: !afterDetails && !$('#detail-modal').classList.contains('hidden'),

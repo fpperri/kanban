@@ -59,6 +59,13 @@ test('an open question keeps an entry whatever stands behind it, over the card d
   assert.strictEqual(backEntryWanted({ ...quiet, ask: true, phone: false }), false, 'and none at the desk layout');
 });
 
+test('a popup over the card details keeps an entry, as a menu or a question does, so a Back can close it and leave the details', () => {
+  assert.strictEqual(backEntryWanted({ ...quiet, popup: true, details: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, popup: true, details: true, selection: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, popup: true, phone: false, details: true }), false, 'and none at the desk layout');
+  assert.strictEqual(backEntryWanted({ ...quiet, details: true }), false, 'the details alone keep none: Back is the browser\'s there');
+});
+
 test('no entry is kept at the desk layout, whatever stands', () => {
   for (const stands of [{ menu: true }, { light: true }, { selection: true }, { menu: true, light: true, selection: true }]) {
     assert.strictEqual(backEntryWanted({ ...quiet, ...stands, phone: false }), false, JSON.stringify(stands));

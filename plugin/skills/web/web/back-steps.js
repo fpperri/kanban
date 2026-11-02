@@ -1,6 +1,6 @@
 'use strict';
 // Android Back on the phone layout steps back the way Esc does. The page keeps one history entry of its
-// own while a menu, an in-page question, a light or a selection stands (the entry is marked in its history state), so that
+// own while a menu, an in-page question, a popup over the card details, a light or a selection stands (the entry is marked in its history state), so that
 // Back has something to pop; the Back that pops it runs one step of Esc, in Esc's order (the in-page
 // question, the open menu, a popup, the search panel, then the light, then the selection's steps) and the
 // page goes forward to the entry again while something is left. With nothing lit or selected there is no
@@ -74,12 +74,13 @@ function isBackUnder(state) {
 }
 
 // Whether the page should hold its entry: at the phone layout while a card menu or an in-page question
-// stands, or a light or a selection. Over the card details a light or a selection keeps none (the details
-// cover them, and Back closes the details first); a menu over the details does, and so does a question,
-// which a popup reached through the menu does not need because the menu has made the entry already.
-function backEntryWanted({ phone, menu, ask = false, light, selection, details }) {
+// stands, or a popup over the card details (`popup`: one of BACK_OVER_STEPS stands with the details open),
+// or a light or a selection. Over the card details a light or a selection keeps none (the details cover
+// them, and Back closes the details first); a menu, a question or a popup over the details does, so that
+// the Back that closes it finds the details as they were. A popup with no details under it keeps none.
+function backEntryWanted({ phone, menu, ask = false, popup = false, light, selection, details }) {
   if (!phone) return false;
-  return !!(menu || ask || (!details && (light || selection)));
+  return !!(menu || ask || popup || (!details && (light || selection)));
 }
 
 // What Esc closes, top first. The keydown listener and a Back both walk it, so that a Back takes the step Esc
@@ -134,12 +135,13 @@ function backPopAction({ phone, modalOpen, details, step, under = false }) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, BACK_STEP_ORDER, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction };
+  module.exports = { BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, BACK_STEP_ORDER, BACK_OVER_STEPS, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction };
 } else {
   window.BACK_ENTRY_SETTLE_MS = BACK_ENTRY_SETTLE_MS;
   window.BACK_RETURN_MS = BACK_RETURN_MS;
   window.BACK_ACTIVATION_EVENTS = BACK_ACTIVATION_EVENTS;
   window.BACK_STEP_ORDER = BACK_STEP_ORDER;
+  window.BACK_OVER_STEPS = BACK_OVER_STEPS;
   window.activatesHistory = activatesHistory;
   window.backEntryState = backEntryState;
   window.isBackEntry = isBackEntry;

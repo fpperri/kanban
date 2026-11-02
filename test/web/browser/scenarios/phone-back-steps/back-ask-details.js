@@ -1,9 +1,9 @@
 'use strict';
 // Android Back and the Archive question over the card details on the phone layout. With touch on, 390 by
 // 844: a double tap opens a card, Archive on its details asks in the page, and one history.back() answers
-// the question no and leaves the details open. The Back after closes the details; with a card selected
-// first, the Back after that steps the selection, and without one it leaves the page. Each wait is for the
-// page's state.
+// the question no and leaves the details open. The delete popup their Delete button opens is closed by a Back
+// the same way. The Back after closes the details; with a card selected first, the Back after that steps the
+// selection, and without one it leaves the page. Each wait is for the page's state.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): selectedIds, state.
 
@@ -46,6 +46,12 @@ module.exports = {
     await back();
     check('a Back answers the question no', await askGone(page));
     check('the card stays open and is not archived', await ev(detailUp) && await ev('state.active.length') === before && await ev(stays));
+    const popupUp = `!document.getElementById('group-dialog').classList.contains('hidden')`;
+    await tapOn('#detail-delete-btn');
+    check('Delete on the details opens the delete popup', await waitFor(popupUp, 3000));
+    check('the page keeps an entry of its own for it', await waitFor(kept, 5000));
+    await back();
+    check('a Back closes the popup and leaves the details', await waitFor(`!(${popupUp})`, 3000) && await ev(detailUp) && await ev(stays));
     await back();
     check('the Back after closes the details', await waitFor(detailShut, 3000) && await ev(stays));
     await backOut(page);
