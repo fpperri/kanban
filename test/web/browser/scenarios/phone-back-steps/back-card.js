@@ -1,7 +1,8 @@
 'use strict';
 // Android Back and the card's details on the phone layout. The details' history steps work as they do
 // without a selection: Back closes the card, then leaves the page. With a selection they work in both
-// orders: a selection and then a card, where Back closes the card and the Back after steps the selection;
+// orders: a selection and then a card, where Back closes the card, a Forward opens it again (it is no Back
+// from the page's entry) and the Back after steps the selection;
 // and a card and then a selection made from the details' own menu, where Back closes a menu first and
 // then the card, whatever the selection behind it. Each wait is for the page's state.
 //
@@ -61,6 +62,12 @@ module.exports = {
     check('a Back closes the card', await waitFor(detailShut, 3000) && await ev(stays));
     check('and leaves the selection', await ev(`${picked}===${JSON.stringify(a)}`));
     check('the entry is the page\'s own again', await waitFor(kept, 5000));
+    await ev('history.forward()');
+    check('a Forward opens the card again, and is not taken for a Back', await waitFor(detailUp, 3000) && await ev(stays));
+    check('with the selection as it was', await ev(`${picked}===${JSON.stringify(a)}`), await ev(picked));
+    await back();
+    check('a Back closes it again', await waitFor(detailShut, 3000) && await ev(stays));
+    check('the selection stands, on the entry of the page\'s own', await ev(`${picked}===${JSON.stringify(a)}`) && await waitFor(kept, 5000), await ev(picked));
     await back();
     check('the Back after steps the selection back', await waitFor(`${picked}===''`, 3000) && await ev(stays));
     await backOut(page);
