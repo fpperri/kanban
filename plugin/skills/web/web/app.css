@@ -538,8 +538,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
   .board-tab-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
   .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
-  main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h)); }
-  .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); overflow: auto; }
+  main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h) - var(--selection-bar-h)); }
+  .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h) - var(--selection-bar-h)); overflow: auto; }
   #view-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 14; display: flex; height: var(--view-bar-h); padding-bottom: env(safe-area-inset-bottom); background: var(--paper); border-top: 1px solid var(--line-strong); }
   #view-bar .view-bar-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; background: transparent; border: 0; border-radius: 0; color: var(--mut); font-size: 0.7em; }
   #view-bar .view-bar-btn .btn-icon svg { width: 22px; height: 22px; display: block; }
@@ -547,6 +547,21 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   #view-bar .view-bar-btn .btn-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
   .column { min-width: 0; }
   .column-header { display: none; }
+}
+/* The selection bar: while anything is selected, the resolved count and Clear, Archive, Status and More sit
+   above the view bar of a phone (bottom: the view bar's height), and every view gives up the bar's height
+   (--selection-bar-h, 0 while the bar is hidden) beside the view bar's, so the bar covers neither the view
+   bar nor the last card. Hidden from 760 px. Like the view bar it steps aside while the search field has
+   the keyboard up; the focus rule follows the one that gives the bar its height, which it ties with. */
+.selection-bar { display: none; }
+@media (max-width: 759.98px) {
+  :root { --selection-bar-h: 0px; }
+  :root:has(.selection-bar:not(.hidden)) { --selection-bar-h: 52px; }
+  :root:has(.search-input:focus) { --selection-bar-h: 0px; }
+  :root:has(.search-input:focus) .selection-bar { display: none; }
+  .selection-bar { position: fixed; left: 0; right: 0; bottom: var(--view-bar-h); z-index: 14; display: flex; align-items: center; gap: 6px; height: var(--selection-bar-h); padding: 0 8px; background: var(--paper); border-top: 1px solid var(--line-strong); }
+  .selection-bar-count { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink-strong); }
+  .selection-bar-btn { flex: 0 0 auto; min-width: 48px; min-height: 44px; padding: 0 10px; }
 }
 /* The header's action buttons do not wrap, so their words alone are wider than a phone and a mobile layout viewport widens to them,
    which pushes every full-width phone box past the screen. Under 760 px they wrap onto a second row until the phone header takes them. */
@@ -606,6 +621,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen.bulk-modal { max-width: none; }
 .bulk-hint { color: var(--mut); font-size: 12px; margin: 2px 0 8px; }
 .bulk-actions { display: flex; gap: 8px; margin: 10px 0 4px; }
+.bulk-status-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.bulk-status-btn { min-height: 44px; text-align: left; font-weight: 600; border-left: 4px solid currentColor; }
 /* tag rows: checkbox + name + count side by side, wrapping into as many
    columns as the width allows */
 #bulk-tag-list { display: flex; flex-wrap: wrap; gap: 2px 16px; margin-top: 8px; }
@@ -1508,7 +1525,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-main { position: relative; flex: 1; min-width: 0; padding: 0 14px 14px; display: flex; flex-direction: column; }
 
 @media (max-width: 759.98px) {
-  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); }
+  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h) - var(--selection-bar-h)); }
 }
 /* Graph view */
 /* The (i) and the option button float in the drawing's top-right corner and take no row. */

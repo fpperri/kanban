@@ -1178,6 +1178,7 @@ function setView(mode) {
     isolateStartFollowing(typingIsolatesIn(to)); // a typed query isolates where this view's Typing isolates is on
     renderBoard();
   }
+  settleSelectionBar(); // a switch is no tap: the bar follows what this view resolves the selection to, at once
   followSearchInAddress($('#search-input').value); // isolate=0 where this view's Typing isolates is on, nothing elsewhere
   moveViewToNearestMatch(); // entering the Calendar or the Gantt makes the check once; any other view does nothing
 }
@@ -2483,12 +2484,20 @@ function wireDrag() {
       bulkDragIds = null;
       const dest = col.dataset.col;
       if (isReorderDrop(ids, dest)) { reorderDrop(col, ids[0], e.clientY); return; }
-      const touchesArchive = dest === 'archive' || ids.some((i) => state.archived.some((a) => a.id === i));
-      if (touchesArchive) archiveAwareDrop(ids, dest);
-      else if (ids.length > 1) onBulkDrop(ids, dest);
-      else onDrop(ids[0], dest);
+      routeMove(ids, dest);
     });
   });
+}
+
+// The route a move of cards to a column takes, whether the cards were dropped there or Set status…
+// named the status: anything touching archive asks first (archiveAwareDrop), a batch moves card by
+// card behind the doing gate (onBulkDrop), a lone card moves on its own (onDrop). A batch dropped
+// clears the selection; `keepSelection` (Set status…) leaves it.
+function routeMove(ids, dest, { keepSelection = false } = {}) {
+  const touchesArchive = dest === 'archive' || ids.some((i) => state.archived.some((a) => a.id === i));
+  if (touchesArchive) return archiveAwareDrop(ids, dest);
+  if (ids.length > 1) return onBulkDrop(ids, dest, { keepSelection });
+  return onDrop(ids[0], dest);
 }
 
 // Drops that touch archive in either direction. No optimistic
@@ -5314,9 +5323,17 @@ function onCalNotesDividerDblClick(e) {
 const CALENDAR_CREATE_DAY_CELLS = '.cal-day, .cal-tg-allday-cell';
 const CALENDAR_CREATE_COLUMNS = '.cal-tg-col';
 
-// A single click on an empty hour opens the notes palette once the double click that would make
-// a card there can no longer follow it.
-const CAL_DOUBLE_CLICK_MS = 300;
+// The window in which a second click or tap on a card or an empty hour still counts as the second of
+// a double one, and the one number the page waits it out by: a single click on an empty hour opens
+// the notes palette once the double click that would make a card there can no longer follow it, and
+// the selection bar waits it out after a tap before it changes (holdSelectionBar). The browser counts a
+// double tap from the first lift to the second touch down (Android's own timeout is 300 ms), and the
+// click of the second tap comes when that finger lifts, a press later. So the bar's wait is counted
+// from a lift too: it stops while a finger is down and starts again at the lift (onBarFingerDown,
+// onBarFingerUp). 300 ms is Android's window, the phone this layout is for. Desktop Chrome counts a
+// double tap for up to about 400 ms and a mouse double click for the system's time (500 ms on
+// Windows), so in a narrow desktop window a slower double tap or click can still meet the bar.
+const DOUBLE_CLICK_MS = 300;
 let calHourClickTimer = 0;
 
 // --- Calendar view wiring: header toggle + the
@@ -5359,7 +5376,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const r = col.getBoundingClientRect();
     const req = noteHourRequest(col.dataset.day, calScaleCur.minOf(e.clientY - r.top));
     clearTimeout(calHourClickTimer);
-    calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, CAL_DOUBLE_CLICK_MS);
+    calHourClickTimer = setTimeout(() => { if (calendarNotesOn()) openNotes(req); }, DOUBLE_CLICK_MS);
   });
   // Click-to-create rides double-click on the empty cells, the one empty space
   // where a double click already means something, so the click-away rule leaves
@@ -6242,6 +6259,89 @@ function paintsSelected(id) {
   return selectedIds.has(id) || (boxLitIds !== null && boxLitIds.has(id));
 }
 
+// The selection bar's count and whether it shows, from the resolved selection: setSelection calls
+// it each time it works the id set out, so the bar follows every gesture, poll and view switch,
+// the Graph's taps that paint in place included. The stylesheet draws the bar on the phone layout
+// only. The count is a live region, announced when written, so it is written only when it changes.
+function syncSelectionBar() {
+  const count = selectedIds.size;
+  $('#selection-bar').classList.toggle('hidden', count < 1);
+  const text = `${count} selected`;
+  const label = $('#selection-bar-count');
+  if (label.textContent !== text) label.textContent = text;
+}
+
+// The bar takes the page's room (--selection-bar-h), so each time it goes up or away the lists
+// change height: one scrolled near its end shifts, and a card near the foot has the bar rise over it,
+// under the finger of the second tap of a double tap. So the bar does nothing while a double tap can
+// still be coming. A tap that changes the selection on the phone layout leaves the bar as it was
+// (holdSelectionBar) until DOUBLE_CLICK_MS has passed with no finger down since the tap's lift, and a
+// tap on another card puts the wait off again. The window is the browser's: it counts a double tap from
+// the first lift to the second touch down, and the click of the second tap comes when that finger
+// lifts, a press later. So the wait does not run while a finger is down (onBarFingerDown) and runs
+// again from the lift (onBarFingerUp), and the click the lift makes decides. The second tap of a
+// double tap puts the selection back (reopenAfterDoubleTap), and the bar is decided once, after it;
+// a first tap elsewhere holds the bar again from its own click. Every other write to the selection
+// (the card menu, Select lit, Clear, Archive, Status, Esc, a view switch, a poll that changes what
+// the selection resolves to) moves the bar at once (settleSelectionBar). `barHeldIds` is the id set
+// the tap made, null while no tap is being waited out; a render that works out the same set (the
+// tap's own repaint, a poll that changed nothing) is not another write and leaves the wait alone.
+let barWait = 0;
+let barHeldIds = null;
+
+function holdSelectionBar() {
+  clearTimeout(barWait);
+  barHeldIds = selectedIds;
+  barWait = setTimeout(settleSelectionBar, DOUBLE_CLICK_MS);
+}
+
+// A finger down, on a card or not (the mouse at this width makes a pointerdown too): a second tap may
+// be coming, and its click comes at the lift, so the wait stops until then.
+function onBarFingerDown() {
+  if (barHeldIds === null) return;
+  clearTimeout(barWait);
+  barWait = 0;
+}
+
+// The finger came up, or the browser took it (a scroll, a cancel). A click that follows decides ahead
+// of this wait (a second tap settles the bar, a first tap holds it again from its own click); one that
+// never comes leaves the wait to run out a window after the lift.
+function onBarFingerUp() {
+  if (barHeldIds === null || barWait) return;
+  barWait = setTimeout(settleSelectionBar, DOUBLE_CLICK_MS);
+}
+
+function settleSelectionBar() {
+  clearTimeout(barWait);
+  barWait = 0;
+  barHeldIds = null;
+  syncSelectionBar();
+}
+
+function barHoldsFor(ids) {
+  return barHeldIds !== null && ids.size === barHeldIds.size && [...ids].every((id) => barHeldIds.has(id));
+}
+
+// The bar's Archive, Status and More act on the resolved selection the way the card menu's bulk
+// entries act on their subject: the subject is made of the selection first (the menu of a
+// right-click inside it, but it names no card, so Explore's Path and Tree are out of it), then the
+// same function runs. False when nothing is selected.
+function selectionBarSubject() {
+  if (!selectedIds.size) return false;
+  menuSubject = selectionMenuFor(selectedIds);
+  return true;
+}
+
+// More: the card menu for the whole selection, rising from the bar. With the menu open a tap on it
+// (or on any other button of the bar) only closes the menu, in the phone tap gate (onPhoneTapGate),
+// so this runs with the menu shut. The click that opens it must not reach the document's
+// close-on-outside-click rule.
+function openSelectionMenu(e) {
+  if (!selectionBarSubject()) return;
+  const more = e.currentTarget.getBoundingClientRect();
+  showContextMenu(more.left, $('#selection-bar').getBoundingClientRect().top, { above: true });
+}
+
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
 let dragCardId = null; // set at dragstart: dragover cannot read the data transfer
 
@@ -6255,10 +6355,14 @@ function dropGoneCards() {
 // set is worked out. A write that names no range start keeps the one the
 // selection had. Writing the selection it already holds works the id set out
 // again, which is what every render does: the parts persist and the set is what
-// they reach among the cards the view shows.
-function setSelection(selection, rangeStart = selectionState.rangeStart) {
+// they reach among the cards the view shows. `tap` is a tap on a card on the phone layout: the
+// selection bar waits out the double-tap window before it follows it (holdSelectionBar); any other
+// write moves the bar at once, unless it only works out the set a tap made again.
+function setSelection(selection, rangeStart = selectionState.rangeStart, { tap = false } = {}) {
   selectionState = { selection, rangeStart };
   selectedIds = resolveSelection(selection, selectionMatchIds, shownCardIds);
+  if (tap) holdSelectionBar();
+  else if (!barHoldsFor(selectedIds)) settleSelectionBar();
 }
 
 // Hover/focus highlight (kanban.proj#261): the pointer or keyboard focus
@@ -6573,7 +6677,7 @@ function selectByClick(action, id) {
     order: action === 'range' ? visibleCardIds() : [],
     matchQuery: selectionMatchIds,
   });
-  setSelection(next.selection, next.rangeStart);
+  setSelection(next.selection, next.rangeStart, { tap: onPhoneLayout() });
 }
 
 // The selection and range start from before the last tap that toggled a card, kept with the card it
@@ -6601,6 +6705,7 @@ function reopenAfterDoubleTap(id) {
   tapBefore = null;
   if (!back) return false;
   moveSelectionTo(back);
+  settleSelectionBar(); // the selection the first tap changed is back: the bar is decided once, here
   openCard(id);
   return true;
 }
@@ -6718,7 +6823,9 @@ function openCanvasContextMenu(e) {
   showContextMenu(e.clientX, e.clientY);
 }
 
-function showContextMenu(x, y) {
+// `above` puts the menu's bottom edge at y instead of its top, so a menu opened from a bar at the
+// foot of the screen rises from it, and a group opened inside it grows up, not off the screen.
+function showContextMenu(x, y, { above = false } = {}) {
   const menu = $('#context-menu');
   // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
   // stylesheet makes of one entry; a card's menu has them all again.
@@ -6726,9 +6833,11 @@ function showContextMenu(x, y) {
   $('#ctx-isolate').classList.toggle('hidden', !menuSubject.isolate);
   $('#ctx-isolate').textContent = isolateMenuLabel();
   // Peek and Add to selection lead a menu for a card outside the selection; the
-  // card details' menu leaves Peek out. Path and Tree show on every card's menu, whatever
-  // the subject; the empty canvas's menu hides them with the rest of its group. The caller has
-  // already decided menuSubject.
+  // card details' menu leaves Peek out. Path and Tree act on the card the menu was opened on, so they
+  // show whenever it names one, whatever the subject; the menu the selection bar's More opens names
+  // none and leaves them out (and the empty canvas's menu hides them with the rest of its group).
+  // The caller has already decided menuSubject.
+  for (const id of ['#ctx-hpath', '#ctx-dpath', '#ctx-htree', '#ctx-dtree']) $(id).classList.toggle('hidden', menuSubject.clicked == null);
   $('#ctx-peek').classList.toggle('hidden', !menuSubject.peek);
   $('#ctx-add').classList.toggle('hidden', !menuSubject.add);
   const litCount = menuSubject.lit ? menuSubject.lit.length : 0; // only a long press's menu has the light's cards
@@ -6746,7 +6855,13 @@ function showContextMenu(x, y) {
   // Clamp to the viewport so the menu never opens half off-screen.
   const rect = menu.getBoundingClientRect();
   menu.style.left = `${Math.min(x, window.innerWidth - rect.width - 8)}px`;
-  menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
+  if (above) {
+    menu.style.top = '';
+    menu.style.bottom = `${Math.max(8, window.innerHeight - y + 4)}px`;
+  } else {
+    menu.style.bottom = '';
+    menu.style.top = `${Math.min(y, window.innerHeight - rect.height - 8)}px`;
+  }
 }
 
 // Peek opens the card's details through the same path a plain open takes (so card
@@ -6867,7 +6982,7 @@ function bulkDelete() {
 // Bulk move (drag): the doing entry gate (waiting + blocked)
 // stays per card — refused cards are skipped with one honest summary toast
 // naming which gate, the rest move (no all-or-nothing rule).
-async function onBulkDrop(ids, status) {
+async function onBulkDrop(ids, status, { keepSelection = false } = {}) {
   const byId = new Map(state.active.map((c) => [c.id, c]));
   // same in-place rule as onDrop: cards already rendering in the target
   // column (incl. parked unlisted statuses) drop out of the batch untouched
@@ -6876,7 +6991,7 @@ async function onBulkDrop(ids, status) {
   if (!movable.length && !refused.length) return;
   const prev = new Map(movable.map((c) => [c.id, c.status]));
   movable.forEach((c) => { c.status = status; }); // optimistic
-  setSelection(NO_SELECTION);
+  if (!keepSelection) setSelection(NO_SELECTION);
   renderBoard();
   pendingDrops++; // same poll guard as single onDrop
   const failed = [];
@@ -7075,12 +7190,42 @@ async function applyBulkSchedule() {
   await bulkPatch(bulkTargets(bulkPopupIds).map((c) => c.id), () => changes, (n) => `Scheduled ${n} card(s): ${scheduleSummary(changes)}`);
 }
 
+// --- Set status… popup: one button per status of the board. Like the other bulk popups it acts on the
+// cards it opened for (the menu's subject, captured when it opens) and the selection survives. A tap
+// on a status is the act: the cards move by the route a drop on that status's column takes (routeMove),
+// so the doing gate, the question that names a restore and the toasts are the drop's own.
+function openBulkStatus() {
+  hideContextMenu();
+  captureBulkTargets();
+  if (!bulkPopupIds.length) return;
+  $('#bulk-status-title').textContent = `Set status on ${bulkPopupIds.length} card(s)`;
+  const list = $('#bulk-status-list');
+  list.textContent = '';
+  for (const status of boardStatuses()) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bulk-status-btn';
+    btn.dataset.status = status;
+    btn.textContent = columnLabel(status);
+    btn.style.color = statusColorVar(status);
+    list.append(btn);
+  }
+  $('#bulk-status').classList.remove('hidden');
+  if (list.firstElementChild) list.firstElementChild.focus(); // a key reaches the statuses without a tab
+}
+
+function applyBulkStatus(status) {
+  $('#bulk-status').classList.add('hidden');
+  const ids = bulkTargets(bulkPopupIds).map((c) => c.id);
+  if (ids.length) routeMove(ids, status, { keepSelection: true });
+}
+
 // Esc must never be a true no-op on a fullscreen
 // bulk popup. Esc closes whichever one is open, directly,
 // same as its own backdrop-click — no confirm, since bulk edits are
 // speedbump-exempt (Apply is the speedbump, same reasoning as backdrop-close).
 function closeAnyBulkPopup() {
-  for (const sel of ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive']) {
+  for (const sel of ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status']) {
     const el = $(sel);
     if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return true; }
   }
@@ -7103,6 +7248,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // the click built.
   document.addEventListener('click', onPhoneTapGate, true);
   document.addEventListener('touchstart', onCardPressStart, { passive: true, capture: true });
+  document.addEventListener('pointerdown', onBarFingerDown, { passive: true, capture: true });
+  document.addEventListener('pointerup', onBarFingerUp, { passive: true, capture: true });
+  document.addEventListener('pointercancel', onBarFingerUp, { passive: true, capture: true });
   document.addEventListener('click', (e) => {
     if (e.target.closest('.rollup') && !(e.ctrlKey || e.metaKey || e.shiftKey)) { forgetTap(); toggleRollupBar(); return; } // a modified click still belongs to multi-select
     const el = e.target.closest('.card-el');
@@ -7169,10 +7317,17 @@ window.addEventListener('DOMContentLoaded', () => {
     hideContextMenu();
     openModal(null, newCardStatus(), undefined, parent);
   });
+  // Clear takes the whole selection down in one step, the one Esc's steps and a double click on empty space
+  // take, so the search box that said the selection follows it.
+  $('#selection-bar-clear').addEventListener('click', () => moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }));
+  $('#selection-bar-archive').addEventListener('click', () => { if (selectionBarSubject()) bulkArchive(); });
+  $('#selection-bar-status').addEventListener('click', () => { if (selectionBarSubject()) openBulkStatus(); });
+  $('#selection-bar-more').addEventListener('click', openSelectionMenu);
   $('#ctx-archive').addEventListener('click', bulkArchive);
   $('#ctx-restore').addEventListener('click', bulkRestore);
   $('#ctx-delete').addEventListener('click', bulkDelete);
   // Bulk edits
+  $('#ctx-status').addEventListener('click', openBulkStatus);
   $('#ctx-assign').addEventListener('click', () => openBulkSingle('assignee'));
   $('#ctx-priority').addEventListener('click', () => openBulkSingle('priority'));
   $('#ctx-tags').addEventListener('click', openBulkTags);
@@ -7199,6 +7354,12 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#bulk-single-input').addEventListener('input', () => {
     $('#bulk-single-apply').disabled = bulkSingleMode === 'priority' && !$('#bulk-single-input').value.trim();
   });
+  $('#bulk-status-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-status]');
+    if (btn) applyBulkStatus(btn.dataset.status);
+  });
+  $('#bulk-status-close').addEventListener('click', () => $('#bulk-status').classList.add('hidden'));
+  $('#bulk-status').addEventListener('click', (e) => { if (e.target.id === 'bulk-status') $('#bulk-status').classList.add('hidden'); });
   $('#bulk-archive-apply').addEventListener('click', applyBulkArchive);
   $('#bulk-archive-close').addEventListener('click', () => $('#bulk-archive').classList.add('hidden'));
   $('#bulk-tag-add').addEventListener('click', bulkAddTag);
@@ -7223,7 +7384,7 @@ window.addEventListener('DOMContentLoaded', () => {
   attachCombobox($('#bulk-archive-input'), () => state.archivePackages.map((v) => ({ value: v })));
   // Any left-click outside the menu dismisses it (actions inside handle themselves).
   document.addEventListener('click', (e) => {
-    if (!$('#context-menu').classList.contains('hidden') && !e.target.closest('#context-menu')) hideContextMenu();
+    if (!$('#context-menu').classList.contains('hidden') && !e.target.closest('#context-menu') && !e.target.closest('#selection-bar-more')) hideContextMenu();
   });
   document.addEventListener('click', onClickAway);
   window.addEventListener('resize', hideContextMenu);

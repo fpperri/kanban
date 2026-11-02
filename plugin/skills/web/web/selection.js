@@ -49,6 +49,14 @@ function cardMenuFor(resolved, id, { fromDetail = false } = {}) {
   return { ids, inSelection, peek: !inSelection && !fromDetail, add: !inSelection, isolate: inSelection && !fromDetail, clicked: id };
 }
 
+// The menu the selection bar's More opens: for the whole resolved selection, as a right-click inside
+// it opens, but nobody pointed at a card, so `clicked` is none and Explore's Path and Tree, which act
+// on one named card, have nothing to act on. Isolate stays, and so does every bulk entry. Returns the
+// same keys as cardMenuFor.
+function selectionMenuFor(resolved) {
+  return { ids: [...resolved], inSelection: true, peek: false, add: false, isolate: true, clicked: null };
+}
+
 // The menu a right-click on the empty Graph or Map canvas opens: Isolate alone. It has no
 // card, so no bulk entry, Peek, Add, Path or Tree (`clicked` is none); `canvas` tells the page to show nothing
 // else. Isolate acts on the selection as it is, whatever it holds (nothing selected says
@@ -660,7 +668,7 @@ function loneCard(selection) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, graphDblClickOpens, selectionBeforeTap, cardOpenAction, shiftAddsRange, selectionAfterClick };
+  module.exports = { NO_SELECTION, selectionAfterPill, selectionAfterBoxEdit, pillQueriesDropped, pillQueriesAdded, typedQueryPart, isTypedAnchor, selectionAfterTyping, selectionOnViewSwitch, loneCard, cardPart, pathPart, treePart, queryPart, setAnchor, addPart, selectionFromParts, rangeStartOf, partsOf, partCards, resolveSelection, selectionWithoutCard, stepBack, selectionAfterEscape, escapeStage, pruneSelectionParts, isolateAfterWrite, boxHidingTerms, boxLightsMatches, typingTurnsIsolateOn, ISOLATING_REASONS, SELECTION_OWN_REASONS, PILL_EDITING_REASONS, writeKeepsSelection, writeIsCut, writeEditsPills, writeIsIsolateSwitch, writeSkipsJump, linkWriteReason, isolateRecord, isolateKeptFrom, cardMenuFor, selectionMenuFor, canvasMenuFor, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection, isHoverHighlighted, plainClickBehaviour, plainTapBehaviour, plainBehaviour, cardClickAction, graphDblClickOpens, selectionBeforeTap, cardOpenAction, shiftAddsRange, selectionAfterClick };
 } else {
   window.NO_SELECTION = NO_SELECTION;
   window.selectionAfterPill = selectionAfterPill;
@@ -701,6 +709,7 @@ if (typeof module !== 'undefined' && module.exports) {
   window.isolateRecord = isolateRecord;
   window.isolateKeptFrom = isolateKeptFrom;
   window.cardMenuFor = cardMenuFor;
+  window.selectionMenuFor = selectionMenuFor;
   window.canvasMenuFor = canvasMenuFor;
   window.partitionByMovable = partitionByMovable;
   window.dragPlan = dragPlan;
