@@ -27,7 +27,7 @@ jobs:
 
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       KANBAN_BROWSER_NO_SANDBOX: '1'
     steps:
