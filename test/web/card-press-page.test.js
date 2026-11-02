@@ -338,11 +338,32 @@ test('with the menu open at phone width a tap outside it only closes the menu: n
   const s = await open();
   longPress(s, 2).up();
   s.wait(1000);
-  clickOn(s, cardTarget(4));
+  const e = clickOn(s, cardTarget(4));
+  assert.strictEqual(e.defaultPrevented, true, 'a link or a checkbox under the tap does nothing either');
   assert.strictEqual(s.menuOpen(), false);
   assert.deepStrictEqual(s.picked(), [], 'the tap on card 4 did not select it');
   assert.deepStrictEqual(s.opened, []);
   assert.deepStrictEqual(s.litIds(), ['1', '2', '3'], 'and the light stays');
+});
+
+test('the tap that closes the menu is cancelled whatever it landed on: a link, a checkbox, a button or empty space', async () => {
+  const s = await open();
+  for (const target of [cardTarget(4), outside(), new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (/a|input|button/.test(sel) ? {} : null) : harmless(String(key))) })]) {
+    longPress(s, 2).up();
+    s.wait(1000);
+    assert.strictEqual(s.menuOpen(), true);
+    const e = clickOn(s, target);
+    assert.strictEqual(s.menuOpen(), false);
+    assert.strictEqual(e.defaultPrevented, true);
+  }
+});
+
+test('a tap on the menu itself is left to the menu: the gate cancels nothing', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.wait(1000);
+  const e = clickOn(s, insideMenu());
+  assert.strictEqual(e.defaultPrevented, false);
 });
 
 test('a tap on the menu itself is not outside it', async () => {
@@ -656,8 +677,9 @@ test('at the desk width a click outside an open menu does what it does today: th
   const s = await open({ phone: false });
   contextmenuOn(s, cardTarget(2));
   assert.strictEqual(s.menuOpen(), true);
-  clickOn(s, cardTarget(3));
+  const e = clickOn(s, cardTarget(3));
   assert.strictEqual(s.menuOpen(), false);
+  assert.strictEqual(e.defaultPrevented, false, 'the desk click is not cancelled');
   assert.deepStrictEqual(s.opened, ['3'], 'the desk click opened the card, as it does with the menu shut');
 });
 

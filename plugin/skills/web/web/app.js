@@ -6864,7 +6864,8 @@ function selectAllShown() {
 // The first listener to hear a click, ahead of the card grammar. The click the lifted finger makes
 // does nothing at all (the next finger down ends that echo, so a quick tap on the menu is a tap). On
 // the phone layout a tap outside the open card menu only closes it, the light staying; any other tap
-// ends the light and goes on to do its job (a tap on empty space does nothing else). A tap on the menu
+// ends the light and goes on to do its job (a tap on empty space does nothing else). The tap that only
+// closes the menu is cancelled (preventDefault), so a link or a checkbox under it does nothing. A tap on the menu
 // is part of the press that opened it and leaves the light alone. A click the gate stops never reaches
 // the card grammar, which would have remembered or forgotten the tap: it is a tap that came between,
 // so the first tap of a double tap before it is gone (forgetTap), but for the tap that closes the menu
@@ -6875,6 +6876,7 @@ function onPhoneTapGate(e) {
   if (onPhoneLayout() && !inMenu && !$('#context-menu').classList.contains('hidden')) {
     rememberClosingTap(e.target);
     hideContextMenu();
+    e.preventDefault(); // a link or a checkbox under the tap does nothing: the tap closed the menu
     e.stopImmediatePropagation();
     return;
   }
