@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { attachSessionHistory } = require('./helpers/session-history');
+const { askElements, askDriver } = require('./helpers/ask-page');
 const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 const { BACK_ENTRY_SETTLE_MS } = require('../../plugin/skills/web/web/back-steps');
 
@@ -33,20 +34,21 @@ const makeBoard = () => ({
 const HIDDEN = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status', '#search-panel', '#ctx-lit'];
 const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
 
-async function open({ phone = true } = {}) {
+// `link` opens the page on a card's address, the document's first entry, as a link to a card does.
+async function open({ phone = true, link = null } = {}) {
   const board = makeBoard();
   const clock = { at: 1000, timers: [] };
-  const elements = {};
+  const elements = { ...askElements() };
   for (const sel of HIDDEN) elements[sel] = hidden();
-  const page = loadPage({ board, elements });
+  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}` });
   const media = { phone };
   const crossings = [];
   page.ctx.matchMedia = (q) => ({ get matches() { return q === PHONE_WIDTH_QUERY && media.phone; }, addEventListener: (type, fn) => crossings.push(fn) });
   const session = attachSessionHistory(page, {
     detail: (id) => ({ id, title: board.active.find((c) => c.id === id).title, frontmatter: '', body: '', path: `/board/${id}.card.md`, archived: false }),
   });
-  // The page the person came from, and the board's own entry above it.
-  page.ctx.history.pushState(null, '', '/');
+  // The page the person came from, and the board's own entry above it; a link has the board's entry alone.
+  if (link === null) page.ctx.history.pushState(null, '', '/');
   session.startDocument();
   const pushedBefore = session.pushes;
   await page.start();
@@ -57,6 +59,8 @@ async function open({ phone = true } = {}) {
   const menu = page.ctx.document.querySelector('#context-menu');
   const s = {
     page, session, elements, menu, clock, board,
+    ask: askDriver(page, elements),
+    shown: (sel) => !elements[sel].classList.contains('hidden'),
     cross(to) { media.phone = to; crossings.forEach((fn) => fn({})); },
     wait(ms) {
       clock.at += ms;
@@ -75,6 +79,8 @@ async function open({ phone = true } = {}) {
     // The browser's Back button: the address and the entry step down, over the entries a page made
     // without a tap, then popstate reaches the page.
     async back() { session.uiBack(); await page.settle(); },
+    // The browser's Forward button.
+    async forward() { session.forward(); await page.settle(); },
     async openCard(id) { s.activate(); page.run(`openCard("${id}")`); await page.settle(); },
     detailMenu() { s.activate(); page.run('menuSubject = cardMenuFor(selectedIds, "3", { fromDetail: true }); showContextMenu(0, 0)'); },
     picked: () => [...page.run('selectedIds')].map(String).sort(),
@@ -188,6 +194,41 @@ test('three Backs in a row with no tap between each take their step, and the thi
   await s.back();
   assert.strictEqual(s.session.index, 0, 'the third leaves the page');
   assert.ok(s.session.skipped.every((skipped) => !skipped), 'no entry of the page was ever marked to be skipped');
+});
+
+test('a Forward is never a Back: a selection, a card, Back, Forward opens the card again and the selection stands', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  await s.openCard(3);
+  assert.ok(s.detailUp());
+  await s.back();
+  assert.ok(!s.detailUp(), 'Back closes the card');
+  assert.deepStrictEqual(s.picked(), ['2']);
+  await s.forward();
+  assert.ok(s.detailUp(), 'Forward opens the card again');
+  assert.deepStrictEqual(s.picked(), ['2'], 'and the selection is as it was');
+  assert.match(s.session.search, /card=3/, 'the address names the card');
+  assert.strictEqual(s.page.run('currentDetailId'), '3');
+  await s.back();
+  assert.ok(!s.detailUp(), 'a Back closes it again');
+  assert.deepStrictEqual(s.picked(), ['2'], 'the selection standing');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'and the Back after it steps the selection');
+});
+
+test('a Forward to the card step over a page entry that stands with a light is not a Back either', async () => {
+  const s = await open();
+  longPress(s, 2);
+  s.settle();
+  await s.back();
+  assert.strictEqual(s.menuOpen(), false);
+  await s.openCard(3);
+  await s.back();
+  assert.ok(!s.detailUp());
+  await s.forward();
+  assert.ok(s.detailUp(), 'the card opens again');
+  assert.strictEqual(s.litId(), '2', 'and the light stands');
 });
 
 test('with nothing lit or selected Back is the browser\'s: it leaves the page', async () => {
@@ -368,7 +409,7 @@ test('with nothing lit or selected the card\'s steps are the browser\'s, as toda
   assert.strictEqual(s.session.index, 0);
 });
 
-test('a popup over the page keeps its place: Back moves nothing and the entry comes back', async () => {
+test('a popup Back has no closer for keeps its place over a selection: Back moves nothing and the entry comes back', async () => {
   const s = await open();
   s.tap(2);
   s.settle();
@@ -449,4 +490,192 @@ test('a selection taken down by a tap that clears it keeps an entry that the nex
   s.settle();
   await s.back();
   assert.strictEqual(s.session.index, 0);
+});
+
+// --- Back closes what Esc closes, in Esc's order ------------------------------------------------------
+
+// A popup the person opened with a tap, over a selection that keeps the page's entry.
+async function selectedWithEntry() {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  assert.ok(s.onEntry());
+  return s;
+}
+
+// After a Back that closed a popup: the selection stands, the page is on its entry again with nothing
+// pushed, and the Back after it steps the selection as before.
+async function afterPopup(s) {
+  assert.deepStrictEqual(s.picked(), ['2'], 'the selection stands');
+  assert.ok(s.onEntry(), 'and the page is on its entry again');
+  assert.strictEqual(s.pushes(), 1, 'the entry the tap made: no other was pushed');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'the Back after steps the selection');
+  assert.strictEqual(s.session.index, 1, 'and the page stays');
+}
+
+test('the notifications popup is closed by Back first, as Esc closes it, and the selection stands', async () => {
+  const s = await selectedWithEntry();
+  s.elements['#notif-modal'].classList.remove('hidden');
+  await s.back();
+  assert.ok(!s.shown('#notif-modal'), 'the popup closed');
+  await afterPopup(s);
+});
+
+test('the preferences sheet takes its own step back, as Esc does: a narrow sheet on a page goes back to its menu, then closes', async () => {
+  const s = await selectedWithEntry();
+  s.page.ctx.innerWidth = 390;
+  s.elements['#prefs-sheet'].classList.remove('hidden');
+  s.page.run('settingsUi.page = "board:prefixes"');
+  await s.back();
+  assert.ok(s.shown('#prefs-sheet'), 'the sheet stays: its page went back to the menu');
+  assert.strictEqual(s.page.run('settingsUi.page'), null);
+  assert.deepStrictEqual(s.picked(), ['2']);
+  await s.back();
+  assert.ok(!s.shown('#prefs-sheet'), 'the next Back closes it');
+  await afterPopup(s);
+});
+
+test('a wide preferences sheet closes on the first Back', async () => {
+  const s = await selectedWithEntry();
+  s.elements['#prefs-sheet'].classList.remove('hidden');
+  await s.back();
+  assert.ok(!s.shown('#prefs-sheet'));
+  await afterPopup(s);
+});
+
+test('the edit form is closed by Back through its guard: untouched it closes, and the selection stands', async () => {
+  const s = await selectedWithEntry();
+  s.elements['#modal'].classList.remove('hidden');
+  await s.back();
+  assert.ok(!s.shown('#modal'), 'the form closed');
+  assert.ok(!s.ask.open(), 'with no question: nothing was typed');
+  await afterPopup(s);
+});
+
+test('the edit form with unsaved changes asks in the page when Back closes it, and the question decides', async () => {
+  const s = await selectedWithEntry();
+  s.elements['#modal'].classList.remove('hidden');
+  s.page.run('formSnapshot = { title: "was" }');
+  await s.back();
+  assert.ok(s.shown('#modal'), 'the form stays while the question is up');
+  assert.ok(s.ask.open(), 'the question is asked in the page');
+  assert.match(s.ask.text(), /Discard unsaved changes/);
+  assert.deepStrictEqual(s.picked(), ['2']);
+  assert.ok(s.onEntry(), 'and the page kept its entry, for the Back that answers it');
+  await s.back();
+  assert.ok(!s.ask.open(), 'a Back answers the question no');
+  assert.ok(s.shown('#modal'), 'so the form stays');
+  assert.deepStrictEqual(s.picked(), ['2'], 'and so does the selection');
+  await s.back();
+  assert.ok(s.ask.open(), 'the next Back asks again');
+  await s.ask.yes();
+  assert.ok(!s.shown('#modal'), 'and a yes closes the form');
+  assert.deepStrictEqual(s.picked(), ['2']);
+  assert.ok(s.onEntry());
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'then the Back after steps the selection');
+});
+
+test('every bulk popup is closed by Back, as Esc closes it, and the selection stands', async () => {
+  for (const sel of ['#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status']) {
+    const s = await selectedWithEntry();
+    s.elements[sel].classList.remove('hidden');
+    await s.back();
+    assert.ok(!s.shown(sel), `${sel} closed`);
+    await afterPopup(s);
+  }
+});
+
+test('an open in-page question is answered no by Back, with the popup it was asked over left as it was', async () => {
+  const s = await selectedWithEntry();
+  s.elements['#bulk-archive'].classList.remove('hidden');
+  const answers = [];
+  s.page.run('askInPage("Archive 1 card?", { yes: "Archive" })').then((value) => answers.push(value));
+  assert.ok(s.ask.open());
+  await s.back();
+  assert.ok(!s.ask.open(), 'the question closed');
+  assert.deepStrictEqual(answers, [false], 'and said no');
+  assert.ok(s.shown('#bulk-archive'), 'the popup behind it stays');
+  assert.deepStrictEqual(s.picked(), ['2']);
+  await s.back();
+  assert.ok(!s.shown('#bulk-archive'), 'the next Back closes the popup');
+  await afterPopup(s);
+});
+
+test('an open search panel is closed by Back before the light or the selection, as Esc closes it', async () => {
+  const s = await open();
+  s.tap(2);
+  longPress(s, 3);
+  s.settle();
+  await s.back();
+  assert.strictEqual(s.menuOpen(), false);
+  s.activate();
+  s.page.run('setSearchPanelOpen(true)');
+  assert.strictEqual(s.page.run('searchPanelOpen'), true);
+  await s.back();
+  assert.strictEqual(s.page.run('searchPanelOpen'), false, 'the panel closed');
+  assert.deepStrictEqual([s.litId(), s.picked()], ['3', ['2']], 'the light and the selection stand');
+  assert.ok(s.onEntry());
+  await s.back();
+  assert.deepStrictEqual([s.litId(), s.picked()], [null, ['2']], 'then the light');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'then the selection');
+});
+
+test('Back takes the layers down in the order Esc does, one at a time, whatever stands at once', async () => {
+  const names = ['more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'search-panel', 'light', 'selection'];
+  const stand = (s) => {
+    s.activate();
+    s.page.run('setPinnedLight("3")');
+    s.page.run('menuSubject = cardMenuFor(selectedIds, "3"); showContextMenu(0, 0)');
+    s.page.run('moreMenuOpen()');
+    s.page.run('setSearchPanelOpen(true)');
+    for (const sel of ['#notif-modal', '#prefs-sheet', '#modal', '#bulk-status']) s.elements[sel].classList.remove('hidden');
+  };
+  const up = (s) => names.filter((name) => ({
+    'more-menu': s.page.run('moreMenuIsOpen()'), menu: s.menuOpen(), notifications: s.shown('#notif-modal'), settings: s.shown('#prefs-sheet'),
+    'edit-form': s.shown('#modal'), 'bulk-popup': s.shown('#bulk-status'), 'search-panel': s.page.run('searchPanelOpen'), light: s.litId() !== null, selection: s.picked().length > 0,
+  })[name]);
+  const trace = async (press) => {
+    const s = await selectedWithEntry();
+    stand(s);
+    const seen = [up(s).join()];
+    for (let i = 0; i < 20 && up(s).length; i++) { await press(s); seen.push(up(s).join()); }
+    return seen;
+  };
+  const esc = async (s) => {
+    s.page.fireDocument('keydown', { key: 'Escape', repeat: false, preventDefault() {} });
+    await s.page.settle();
+  };
+  const byBack = await trace((s) => s.back());
+  assert.deepStrictEqual(byBack, names.map((_, i) => names.slice(i).join()).concat(['']), 'each Back takes the first of what stands, in Esc\'s order');
+  assert.deepStrictEqual(await trace(esc), byBack, 'and Esc takes the same, one at a time');
+});
+
+test('a card opened from a link is the first entry of the page: with nothing standing the first Back leaves the page', async () => {
+  const s = await open({ link: 3 });
+  assert.ok(s.detailUp(), 'the card opens from the link');
+  assert.strictEqual(s.session.index, 0);
+  await s.back();
+  assert.ok(s.session.left, 'Back is the browser\'s: the page is left');
+});
+
+test('a card opened from a link keeps no entry of the page below it: with a selection made over the details, the Back that pops the page\'s entry closes the details and the next leaves the page, the selection never stepped', async () => {
+  const s = await open({ link: 3 });
+  s.detailMenu();
+  s.settle();
+  assert.ok(s.menuOpen());
+  s.activate();
+  s.page.run('addCardToSelection()');
+  s.settle();
+  assert.deepStrictEqual(s.picked(), ['3']);
+  assert.strictEqual(s.session.index, 1, 'the page made its entry above the link\'s');
+  await s.back();
+  assert.ok(!s.detailUp(), 'the first Back closes the details');
+  assert.deepStrictEqual(s.picked(), ['3'], 'the selection stands');
+  assert.strictEqual(s.session.left, false);
+  await s.back();
+  assert.ok(s.session.left, 'and the next leaves the page');
+  assert.deepStrictEqual(s.picked(), ['3'], 'the selection was never stepped');
 });

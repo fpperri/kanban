@@ -447,7 +447,13 @@ test('Esc with no popup open runs the one step function', () => {
 // while its menu is open, before this document listener ever sees the key.
 test('the Esc chain keeps its order and ends in the one step, behind a single document listener', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['hideContextMenu()', 'closeNotifModal()', 'settingsStepBack()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
+  assert.match(handler, /backStep\(standingLayers\(true\)\)/, 'the popups take Esc in the order a Back walks (back-steps.js)');
+  const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
+  const closers = { 'more-menu': 'moreMenuClose()', menu: 'hideContextMenu()', notifications: 'closeNotifModal()', settings: 'settingsStepBack()', details: 'closeCard()', 'edit-form': 'requestCloseModal()', 'bulk-popup': 'closeAnyBulkPopup()', 'search-panel': 'closeSearchPanel()' };
+  const take = fn('takeLayer');
+  for (const [step, call] of Object.entries(closers)) assert.ok(BACK_STEP_ORDER.includes(step) && take.includes(call), `${step} closes with ${call}`);
+  assert.deepStrictEqual(BACK_STEP_ORDER.filter((s) => s !== 'ask' && s !== 'other-popup'), ['more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'search-panel', 'light', 'selection'], 'the order is Esc\'s');
+  const order = ['takeLayer(layer, e)', 'e.repeat', 'clearPinnedLight()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
   assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');

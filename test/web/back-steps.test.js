@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, activatesHistory, backEntryState, isBackEntry, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction,
+  BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction,
 } = require('../../plugin/skills/web/web/back-steps');
 
 // Back on the phone layout, as the rules the page asks. The page keeps one history entry of its own
@@ -12,20 +12,32 @@ const {
 const quiet = { phone: true, menu: false, light: false, selection: false, details: false };
 
 test('the page marks its own entry in the history state, and no other state reads as one', () => {
-  assert.strictEqual(isBackEntry(backEntryState()), true);
+  assert.strictEqual(isBackEntry(backEntryState(3)), true);
   for (const other of [null, undefined, {}, { card: 7 }, { kanbanBack: false }, { kanbanBack: 1 }, 'kanbanBack', 7]) {
     assert.strictEqual(isBackEntry(other), false, JSON.stringify(other));
   }
 });
 
+test('every state the page pushes carries a rising number, and a state without one is below them all', () => {
+  assert.strictEqual(backSeqOf(backEntryState(3)), 3);
+  assert.strictEqual(backSeqOf(backCardState(null, 4)), 4);
+  assert.strictEqual(backSeqOf(backCardState(backEntryState(3), 5)), 5);
+  for (const other of [null, undefined, {}, { card: 7 }, { kanbanSeq: '3' }, { kanbanSeq: NaN }, { kanbanSeq: -1 }, 'kanbanSeq', 7]) {
+    assert.strictEqual(backSeqOf(other), 0, JSON.stringify(other));
+  }
+});
+
 test("a card's step pushed from the page's entry, or from a step marked so, is marked: the entry stands below the card", () => {
-  const entry = backEntryState();
-  const under = backCardState(entry);
+  const entry = backEntryState(1);
+  const under = backCardState(entry, 2);
   assert.strictEqual(isBackUnder(under), true);
   assert.strictEqual(isBackEntry(under), false, "it is a card's step, not an entry");
-  assert.strictEqual(isBackUnder(backCardState(under)), true, 'and so is the step after it');
+  assert.strictEqual(isBackUnder(backCardState(under, 3)), true, 'and so is the step after it');
   for (const other of [null, undefined, {}, { card: 7 }, 'x']) {
-    assert.strictEqual(backCardState(other), null, JSON.stringify(other));
+    const step = backCardState(other, 2);
+    assert.strictEqual(isBackUnder(step), false, JSON.stringify(other));
+    assert.strictEqual(isBackEntry(step), false);
+    assert.strictEqual(backSeqOf(step), 2, 'a step with no entry below it still carries its number');
   }
   for (const other of [null, undefined, {}, entry, { kanbanBackUnder: 1 }, 'kanbanBackUnder']) {
     assert.strictEqual(isBackUnder(other), false, JSON.stringify(other));
@@ -69,30 +81,68 @@ test('what the browser counts as a user activation is a mouse press, a finger li
   assert.strictEqual(activatesHistory('keydown', null), false);
 });
 
+test('an event the page dispatched itself is no activation, whatever its type', () => {
+  assert.strictEqual(activatesHistory('touchend', { isTrusted: true }), true);
+  assert.strictEqual(activatesHistory('touchend', { isTrusted: false }), false);
+  assert.strictEqual(activatesHistory('mousedown', { isTrusted: false }), false);
+  assert.strictEqual(activatesHistory('keydown', { key: 'n', isTrusted: false }), false);
+  assert.strictEqual(activatesHistory('pointerup', { pointerType: 'touch', isTrusted: false }), false);
+  assert.strictEqual(activatesHistory('pointerdown', { pointerType: 'mouse', isTrusted: false }), false);
+});
+
 test('the entry waits out the double-tap window before it is kept, so a double tap that undoes its first tap leaves none', () => {
   assert.ok(BACK_ENTRY_SETTLE_MS >= 300, 'longer than the browser lets two taps be one double tap');
   assert.ok(BACK_ENTRY_SETTLE_MS <= 1000, 'short enough that a Back a moment after a tap still finds it');
 });
 
-test('Back steps the open More menu, then the card menu, then the light, then the selection, one at a time', () => {
-  assert.strictEqual(backStep({ moreMenu: true, menu: true, light: true, selection: true }), 'more-menu');
-  assert.strictEqual(backStep({ moreMenu: false, menu: true, light: true, selection: true }), 'menu');
-  assert.strictEqual(backStep({ moreMenu: false, menu: false, light: true, selection: true }), 'light');
-  assert.strictEqual(backStep({ moreMenu: false, menu: false, light: false, selection: true }), 'selection');
-  assert.strictEqual(backStep({ moreMenu: false, menu: false, light: false, selection: false }), null);
+// Esc's order, top first, written out from the chain the keydown listener walks: the in-page question, the More
+// menu, the card menu, the notifications, the preferences sheet, the card details, the edit form, a bulk
+// popup, any other popup, the search panel, then the light, then the selection.
+const ESC_ORDER = ['ask', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'search-panel', 'light', 'selection'];
+
+test("Back takes the first thing standing in Esc's order, one at a time, and nothing when nothing stands", () => {
+  ESC_ORDER.forEach((step, i) => {
+    assert.strictEqual(backStep(ESC_ORDER.slice(i)), step, `with ${step} and everything below it standing`);
+    assert.strictEqual(backStep([step]), step, `with ${step} alone`);
+  });
+  assert.strictEqual(backStep([]), null);
+  assert.strictEqual(backStep([...ESC_ORDER].reverse()), 'ask', "the order is the table's, not the list's");
 });
 
-test('a Back that pops the page\'s entry is the one step of Esc, the next entry down is not touched', () => {
-  const entry = backEntryState();
-  assert.strictEqual(backTraversal({ onEntry: true, state: null }), 'popped');
-  assert.strictEqual(backTraversal({ onEntry: true, state: { card: 7 } }), 'popped');
-  assert.strictEqual(backTraversal({ onEntry: false, state: entry }), 'landed');
-  assert.strictEqual(backTraversal({ onEntry: true, state: entry }), 'landed');
-  assert.strictEqual(backTraversal({ onEntry: false, state: null }), 'moved');
+test('the search panel closes after the menus and the popups and before the light and the selection', () => {
+  assert.strictEqual(backStep(['search-panel', 'light', 'selection']), 'search-panel');
+  assert.strictEqual(backStep(['search-panel', 'menu']), 'menu');
+  assert.strictEqual(backStep(['search-panel', 'bulk-popup']), 'bulk-popup');
+  assert.strictEqual(backStep(['light', 'selection']), 'light');
+});
+
+test('a name the table does not know is no step', () => {
+  assert.strictEqual(backStep(['somewhere']), null);
+  assert.strictEqual(backStep(['somewhere', 'light']), 'light');
+});
+
+test("a Back that pops the page's entry is the one step of Esc, the next entry down is not touched", () => {
+  const entry = backEntryState(2);
+  assert.strictEqual(backTraversal({ onEntry: true, state: null, at: 2 }), 'popped');
+  assert.strictEqual(backTraversal({ onEntry: true, state: { card: 7 }, at: 2 }), 'popped');
+  assert.strictEqual(backTraversal({ onEntry: false, state: entry, at: 3 }), 'landed');
+  assert.strictEqual(backTraversal({ onEntry: true, state: entry, at: 3 }), 'landed');
+  assert.strictEqual(backTraversal({ onEntry: false, state: null, at: 2 }), 'moved');
+  assert.strictEqual(backTraversal({ onEntry: true, state: null }), 'popped', 'a page that knows no position is on the lowest');
+});
+
+test("a traversal to a higher position is a Forward, never a Back: from the entry it is not popped", () => {
+  const card = backCardState(backEntryState(1), 2);
+  assert.strictEqual(backTraversal({ onEntry: true, state: card, at: 1 }), 'moved', 'Forward to the card step above the entry');
+  assert.strictEqual(backTraversal({ onEntry: true, state: backCardState(null, 9), at: 1 }), 'moved', 'however far above');
+  assert.strictEqual(backTraversal({ onEntry: true, state: backCardState(null, 1), at: 1 }), 'popped', 'the same position is no Forward');
+  assert.strictEqual(backTraversal({ onEntry: true, state: backCardState(null, 1), at: 2 }), 'popped', 'a lower one is the Back');
+  assert.strictEqual(backTraversal({ onEntry: true, state: null, at: 2 }), 'popped', 'a state with no number is the lowest');
+  assert.strictEqual(backTraversal({ onEntry: true, state: backEntryState(4), at: 1 }), 'landed', "Forward to an entry of the page's own is its landing");
 });
 
 test('the landing on the entry the page went forward to after a step is its own return, and nothing else is', () => {
-  const entry = backEntryState();
+  const entry = backEntryState(2);
   assert.strictEqual(backTraversal({ onEntry: false, state: entry, returning: true }), 'returned');
   assert.strictEqual(backTraversal({ onEntry: false, state: entry, returning: false }), 'landed');
   assert.strictEqual(backTraversal({ onEntry: false, state: null, returning: true }), 'moved', 'a landing elsewhere is not the return');
@@ -100,22 +150,34 @@ test('the landing on the entry the page went forward to after a step is its own 
   assert.ok(BACK_RETURN_MS >= 500 && BACK_RETURN_MS <= 5000, 'long enough for the browser to go forward, short enough that a stray landing is not taken for it');
 });
 
-test('a popped entry steps at the phone layout, passes through when there is nothing to step, and holds under a popup', () => {
+test('a popped entry steps at the phone layout, passes through when there is nothing to step, and holds under a popup Back does not close', () => {
   const ask = (over) => backPopAction({ phone: true, modalOpen: false, details: false, step: 'selection', ...over });
   assert.strictEqual(ask({}), 'step');
   assert.strictEqual(ask({ step: 'light' }), 'step');
+  assert.strictEqual(ask({ step: 'search-panel' }), 'step');
   assert.strictEqual(ask({ step: 'menu' }), 'step');
   assert.strictEqual(ask({ step: 'more-menu' }), 'step');
-  assert.strictEqual(ask({ step: null }), 'pass', 'nothing lit or selected: the Back is the browser\'s');
+  assert.strictEqual(ask({ step: null }), 'pass', "nothing lit or selected: the Back is the browser's");
   assert.strictEqual(ask({ phone: false }), 'pass', 'the window was widened to the desk layout since');
-  assert.strictEqual(ask({ modalOpen: true }), 'hold', 'a popup over the page keeps its place');
-  assert.strictEqual(ask({ modalOpen: true, step: null }), 'hold');
+  assert.strictEqual(ask({ modalOpen: true }), 'hold', 'a popup Back does not close keeps its place while something stands under it');
+  assert.strictEqual(ask({ modalOpen: true, step: 'light' }), 'hold');
+  assert.strictEqual(ask({ modalOpen: true, step: 'search-panel' }), 'hold');
+  assert.strictEqual(ask({ modalOpen: true, step: null }), 'pass', 'with nothing left to step the Back goes through, popup or not');
+});
+
+test('a popup Back closes is a step, with a popup standing or not, and over the card details too', () => {
+  const ask = (over) => backPopAction({ phone: true, modalOpen: true, details: false, step: 'selection', ...over });
+  for (const step of ['ask', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup']) {
+    assert.strictEqual(ask({ step }), 'step', step);
+    assert.strictEqual(ask({ step, details: true }), 'step', `${step}, over the card details`);
+  }
 });
 
 test('over the card details a Back closes the menu first; a light or a selection behind them is uncovered by closing the details here, and nothing behind them passes through', () => {
   const ask = (over) => backPopAction({ phone: true, modalOpen: false, details: true, step: 'selection', ...over });
   assert.strictEqual(ask({ step: 'menu' }), 'step');
   assert.strictEqual(ask({ step: 'more-menu' }), 'step');
+  assert.strictEqual(ask({ step: 'search-panel' }), 'uncover');
   assert.strictEqual(ask({ step: 'light' }), 'uncover');
   assert.strictEqual(ask({ step: 'selection' }), 'uncover');
   assert.strictEqual(ask({ step: null }), 'pass');

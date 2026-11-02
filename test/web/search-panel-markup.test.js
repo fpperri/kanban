@@ -235,12 +235,15 @@ test('renderBoard repaints the panel after the view, inside its try, and the pol
   assert.doesNotMatch(guard, /#search|search-panel|query-pill/);
 });
 
-test('the Esc handler gains one line for the panel, after the popups and before the held-key check and the end of the chain', () => {
+test('the panel takes Esc after the popups and before the held-key check and the end of the chain', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['anyModalOpen()', 'closeSearchPanel()', 'e.repeat', 'escapeStep(e)'].map((s) => handler.indexOf(s));
+  const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
+  assert.ok(BACK_STEP_ORDER.indexOf('search-panel') > BACK_STEP_ORDER.indexOf('other-popup'), 'after the popups, the catch-all included');
+  assert.ok(BACK_STEP_ORDER.indexOf('search-panel') < BACK_STEP_ORDER.indexOf('light'), 'and before the light and the selection');
+  const order = ['takeLayer(layer, e)', 'e.repeat', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((i) => i > -1), 'every link is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
-  assert.strictEqual(appSrc.split('closeSearchPanel()').length - 1, 1, 'called from the handler alone');
+  assert.strictEqual(appSrc.split('closeSearchPanel()').length - 1, 1, 'called from the one place that closes the layers (takeLayer)');
   const lines = handler.trimEnd().split('\n');
   assert.strictEqual(lines[lines.length - 2].trim(), 'escapeStep(e);');
 });

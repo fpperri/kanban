@@ -15,7 +15,8 @@
 // (it ends the skipping), pushState without an activation marks the document's entries to be skipped, and
 // `session.uiBack()` is the Back button: it steps back over the entries marked. history.back() ignores
 // the marks, as the browser's does. The model is Chromium's documentation
-// (docs/history_manipulation_intervention.md), not a phone's.
+// (docs/history_manipulation_intervention.md), not a phone's. A Back from the document's first entry leaves
+// the page: nothing reaches the page's listener, and `session.left` says it happened.
 // Not a test file (the suite runs *.test.js only).
 const { harmless } = require('./page-vm');
 
@@ -47,7 +48,7 @@ function attachSessionHistory(page, { detail = (id) => ({ id, title: `Card ${id}
   const { ctx } = page;
   const entries = [ctx.location.search];
   const states = [null];
-  const session = { entries, states, pushes: 0, replaces: 0, popupOpen: false, close: listening('detail-close') };
+  const session = { entries, states, pushes: 0, replaces: 0, left: false, popupOpen: false, close: listening('detail-close') };
   let index = 0;
   const skipped = [false];
   let documentFrom = null;
@@ -85,7 +86,7 @@ function attachSessionHistory(page, { detail = (id) => ({ id, title: `Card ${id}
       session.replaces++;
       move(entries[index]);
     },
-    back() { if (index > 0) land(index - 1); },
+    back() { if (index > 0) land(index - 1); else session.left = true; },
     forward() { if (index < entries.length - 1) land(index + 1); },
   };
   session.back = () => ctx.history.back();
@@ -95,6 +96,7 @@ function attachSessionHistory(page, { detail = (id) => ({ id, title: `Card ${id}
     let to = index - 1;
     while (to > 0 && skipped[to]) to--;
     if (index > 0) land(Math.max(to, 0));
+    else session.left = true;
   };
   session.forward = () => ctx.history.forward();
   Object.defineProperty(session, 'index', { get: () => index });

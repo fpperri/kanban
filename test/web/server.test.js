@@ -2493,16 +2493,18 @@ test('Esc closes the open popup directly on the first press — no exit-fullscre
   assert.doesNotMatch(body, /openFullscreenModalType/, 'Esc no longer looks up which modal is fullscreen');
   assert.doesNotMatch(body, /setModalFullscreenVisual/,
     'Esc never flips fullscreen — the persisted #20 preference and the toggle button stay untouched');
-  assert.match(body, /if \(!\$\('#detail-modal'\)\.classList\.contains\('hidden'\)\) \{ closeCard\(\); return; \}/,
+  assert.match(body, /backStep\(standingLayers\(true\)\)[\s\S]*takeLayer\(layer, e\)/, 'Esc closes the layer that stands, in the order back-steps.js sets');
+  const closer = js.match(/function takeLayer\([\s\S]*?\n\}/)[0];
+  assert.match(closer, /step === 'details'\) closeCard\(\);/,
     'an open detail popup closes on the very first Esc, fullscreen or not (closeCard: a real close is also a history step)');
-  assert.match(body, /if \(!\$\('#modal'\)\.classList\.contains\('hidden'\)\) \{ requestCloseModal\(\); return; \}/,
+  assert.match(closer, /step === 'edit-form'\) requestCloseModal\(\);/,
     'the edit/new-card modal now closes on Esc through the #26 unsaved-changes guard, same call the X button makes');
   // Before this, a fullscreen-capable bulk popup (bulkSingle/
   // Tags/Schedule) left Esc a true no-op — the old fullscreen-exit step was
   // removed and nothing replaced it for these three. Esc must close them
   // directly too, same as their own backdrop-click (no confirm — bulk edits
   // are speedbump-exempt, Apply is the speedbump).
-  assert.match(body, /if \(closeAnyBulkPopup\(\)\) return;/,
+  assert.match(closer, /step === 'bulk-popup'\) closeAnyBulkPopup\(\);/,
     'Esc closes an open bulk-edit popup directly, same as its backdrop-click');
 });
 
@@ -2510,9 +2512,12 @@ test('closeAnyBulkPopup closes whichever bulk popup is open, no confirm — the 
   const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/function closeAnyBulkPopup\([\s\S]*?\n\}/);
   assert.ok(fn, 'closeAnyBulkPopup found in app.js');
-  assert.match(fn[0], /#bulk-single/);
-  assert.match(fn[0], /#bulk-tags/);
-  assert.match(fn[0], /#bulk-schedule/);
+  const list = js.match(/const BULK_POPUPS = \[[^\]]*\];/);
+  assert.ok(list, 'the list of bulk popups found in app.js');
+  assert.match(list[0], /#bulk-single/);
+  assert.match(list[0], /#bulk-tags/);
+  assert.match(list[0], /#bulk-schedule/);
+  assert.match(fn[0], /BULK_POPUPS/);
   assert.doesNotMatch(fn[0], /confirm\(/, 'bulk-edit popups are speedbump-exempt — Esc closes them with no confirm, same as backdrop-click');
 });
 
