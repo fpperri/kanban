@@ -1,6 +1,6 @@
 'use strict';
 // Android Back on the phone layout steps back the way Esc does. The page keeps one history entry of its
-// own while a menu, a light or a selection stands (the entry is marked in its history state), so that
+// own while a menu, an in-page question, a light or a selection stands (the entry is marked in its history state), so that
 // Back has something to pop; the Back that pops it runs one step of Esc, in Esc's order (the in-page
 // question, the open menu, a popup, the search panel, then the light, then the selection's steps) and the
 // page goes forward to the entry again while something is left. With nothing lit or selected there is no
@@ -73,12 +73,13 @@ function isBackUnder(state) {
   return !!state && typeof state === 'object' && state[BACK_UNDER_KEY] === true;
 }
 
-// Whether the page should hold its entry: at the phone layout while a card menu stands, or a light or a
-// selection. Over the card details a light or a selection keeps none (the details cover them, and Back
-// closes the details first); a menu over the details does.
-function backEntryWanted({ phone, menu, light, selection, details }) {
+// Whether the page should hold its entry: at the phone layout while a card menu or an in-page question
+// stands, or a light or a selection. Over the card details a light or a selection keeps none (the details
+// cover them, and Back closes the details first); a menu over the details does, and so does a question,
+// which a popup reached through the menu does not need because the menu has made the entry already.
+function backEntryWanted({ phone, menu, ask = false, light, selection, details }) {
   if (!phone) return false;
-  return !!(menu || (!details && (light || selection)));
+  return !!(menu || ask || (!details && (light || selection)));
 }
 
 // What Esc closes, top first. The keydown listener and a Back both walk it, so that a Back takes the step Esc

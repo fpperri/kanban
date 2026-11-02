@@ -52,6 +52,7 @@ function askInPage(message, { yes = 'OK', code = false } = {}) {
     $('#ask-yes').textContent = yes;
     $('#ask').classList.remove('hidden');
     $('#ask-no').focus();
+    scheduleBackSync(); // a Back answers the question no, so the page keeps an entry for it
   });
 }
 

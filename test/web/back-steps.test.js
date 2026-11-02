@@ -52,6 +52,13 @@ test('an entry is kept at the phone layout while a menu, a light or a selection 
   assert.strictEqual(backEntryWanted({ ...quiet, menu: true, light: true, selection: true }), true);
 });
 
+test('an open question keeps an entry whatever stands behind it, over the card details or not, so a Back can answer it no', () => {
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true, details: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true, details: true, selection: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true, phone: false }), false, 'and none at the desk layout');
+});
+
 test('no entry is kept at the desk layout, whatever stands', () => {
   for (const stands of [{ menu: true }, { light: true }, { selection: true }, { menu: true, light: true, selection: true }]) {
     assert.strictEqual(backEntryWanted({ ...quiet, ...stands, phone: false }), false, JSON.stringify(stands));

@@ -411,6 +411,59 @@ test('a Back that closes the menu over the card details, with a selection behind
   assert.deepStrictEqual(s.picked(), [], 'the Back after steps it');
 });
 
+// The Archive question over the card details (its Archive button): a Back answers it no and leaves the
+// details, as Android's Back answered the native confirm() before the question moved into the page.
+function askOverDetails(s, answers) {
+  s.activate();
+  s.page.run('askInPage("Archive card 3?", { yes: "Archive" })').then((value) => answers.push(value));
+}
+
+test('a question asked over the card details is answered no by Back, and the details stand for the Back after, then the page is left', async () => {
+  const s = await open();
+  await s.openCard(3);
+  const answers = [];
+  askOverDetails(s, answers);
+  s.settle();
+  assert.ok(s.onEntry(), 'the page keeps an entry above the card\'s step for the question');
+  await s.back();
+  assert.deepStrictEqual([s.ask.open(), answers, s.detailUp()], [false, [false], true], 'the question said no and the details stand');
+  assert.match(s.session.search, /card=3/, 'at the card\'s address');
+  await s.back();
+  assert.ok(!s.detailUp(), 'the next Back closes the details');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('a question asked over the card details with a selection behind them: Back answers it, closes the details, steps the selection, then leaves', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  await s.openCard(3);
+  const answers = [];
+  askOverDetails(s, answers);
+  s.settle();
+  await s.back();
+  assert.deepStrictEqual([s.ask.open(), answers, s.detailUp(), s.picked()], [false, [false], true, ['2']]);
+  await s.back();
+  assert.deepStrictEqual([s.detailUp(), s.picked()], [false, ['2']], 'the next Back closes the details and leaves the selection');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'the Back after steps the selection');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('a question answered before the double-tap window has passed leaves no entry behind', async () => {
+  const s = await open();
+  await s.openCard(3);
+  const answers = [];
+  askOverDetails(s, answers);
+  await s.ask.no();
+  s.settle();
+  assert.deepStrictEqual(answers, [false]);
+  assert.ok(!s.onEntry(), 'no entry was made');
+  assert.strictEqual(s.pushes(), 1, 'the card\'s step alone');
+});
+
 test('with nothing lit or selected the card\'s steps are the browser\'s, as today: Back closes the details, then leaves', async () => {
   const s = await open();
   s.page.run('openCard("3")');
