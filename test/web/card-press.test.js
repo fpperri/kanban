@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { CARD_PRESS_MS, CARD_PRESS_SLOP_PX, CARD_PRESS_ECHO_MS, createCardPress, litCardsShown, selectionWithCards } = require('../../plugin/skills/web/web/card-press');
+const { CARD_PRESS_MS, CARD_PRESS_SLOP_PX, CARD_PRESS_ECHO_MS, createCardPress, litCardsShown, selectionWithCards, pointsAlong, CARD_DRAG_STEP_PX } = require('../../plugin/skills/web/web/card-press');
 const { NO_SELECTION, cardPart, addPart } = require('../../plugin/skills/web/web/selection');
 
 // The long press on a card, as a pure rule with the clock and the timer handed in: when a hold fires,
@@ -11,18 +11,20 @@ const { NO_SELECTION, cardPart, addPart } = require('../../plugin/skills/web/web
 function press() {
   const clock = { at: 1000, timers: [] };
   const log = [];
+  const drags = [];
   const rule = createCardPress({
     now: () => clock.at,
     setTimer: (fn, ms) => { const t = { fn, at: clock.at + ms }; clock.timers.push(t); return t; },
     clearTimer: (t) => { clock.timers = clock.timers.filter((o) => o !== t); },
     onHold: (who, x, y) => log.push(['hold', who, x, y]),
     onLift: (who, x, y) => log.push(['lift', who, x, y]),
+    onDrag: (who, x, y) => drags.push([who, x, y]),
   });
   const wait = (ms) => {
     clock.at += ms;
     for (const t of clock.timers.filter((o) => o.at <= clock.at)) { clock.timers = clock.timers.filter((o) => o !== t); t.fn(); }
   };
-  return { rule, log, wait, clock };
+  return { rule, log, drags, wait, clock };
 }
 
 test('the hold is 500 ms, the slop 10 px, the echo 800 ms', () => {
@@ -110,6 +112,92 @@ test('a move back to where it started does not undo the drag', () => {
   p.rule.move(100, 230);
   p.rule.move(100, 200);
   assert.strictEqual(p.rule.end(), 'dragged');
+});
+
+test('every move of a held finger past the slop is a drag, with the card held and the point the finger is at', () => {
+  const p = press();
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  p.rule.move(104, 204);
+  assert.deepStrictEqual(p.drags, [], 'inside the slop the hold is still a hold in place');
+  p.rule.move(100, 230);
+  p.rule.move(100, 260);
+  assert.deepStrictEqual(p.drags, [['12', 100, 230], ['12', 100, 260]]);
+});
+
+test('once the hold is a drag every move is one, back inside the slop of the point it went down on too', () => {
+  const p = press();
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  p.rule.move(100, 230);
+  p.rule.move(103, 202);
+  assert.deepStrictEqual(p.drags, [['12', 100, 230], ['12', 103, 202]]);
+});
+
+test('a move before the hold is a scroll or a swipe, not a drag, and so is a move after the lift', () => {
+  const early = press();
+  early.rule.start(100, 200, '12');
+  early.wait(200);
+  early.rule.move(100, 260);
+  early.wait(1000);
+  early.rule.move(100, 300);
+  assert.deepStrictEqual(early.drags, []);
+
+  const lifted = press();
+  lifted.rule.start(100, 200, '12');
+  lifted.wait(500);
+  lifted.rule.end();
+  lifted.rule.move(100, 300);
+  assert.deepStrictEqual(lifted.drags, []);
+});
+
+test('the press is holding from the hold to the lift, the moment the page keeps the browser from scrolling', () => {
+  const p = press();
+  assert.strictEqual(p.rule.holding(), false);
+  p.rule.start(100, 200, '12');
+  p.wait(499);
+  assert.strictEqual(p.rule.holding(), false, 'not before 500 ms');
+  p.wait(1);
+  assert.strictEqual(p.rule.holding(), true);
+  p.rule.move(100, 260);
+  assert.strictEqual(p.rule.holding(), true, 'and a drag holds too');
+  p.rule.end();
+  assert.strictEqual(p.rule.holding(), false);
+
+  const scroll = press();
+  scroll.rule.start(100, 200, '12');
+  scroll.wait(200);
+  scroll.rule.move(100, 260);
+  scroll.wait(1000);
+  assert.strictEqual(scroll.rule.holding(), false, 'a finger that scrolled before the hold never holds');
+
+  const taken = press();
+  taken.rule.start(100, 200, '12');
+  taken.wait(500);
+  taken.rule.cancel();
+  assert.strictEqual(taken.rule.holding(), false);
+});
+
+test('a touch that dragged is dragging until the next finger comes down, so the listeners that hear its lift after the press can tell', () => {
+  const p = press();
+  assert.strictEqual(p.rule.dragging(), false);
+  p.rule.start(100, 200, '12');
+  p.wait(500);
+  assert.strictEqual(p.rule.dragging(), false, 'held in place is no drag');
+  p.rule.move(100, 260);
+  assert.strictEqual(p.rule.dragging(), true);
+  p.rule.end();
+  assert.strictEqual(p.rule.dragging(), true, 'through the lift');
+  p.rule.fingerDown();
+  assert.strictEqual(p.rule.dragging(), false);
+
+  const again = press();
+  again.rule.start(100, 200, '12');
+  again.wait(500);
+  again.rule.move(100, 260);
+  again.rule.end();
+  again.rule.start(100, 200, '12');
+  assert.strictEqual(again.rule.dragging(), false, 'a new press starts clean');
 });
 
 test('the browser cancelling the touch before the hold ends the press; after the hold it ends it without a lift', () => {
@@ -230,4 +318,32 @@ test('Select lit adds the cards as card parts, after what the selection holds, a
 test('with nothing selected the first card becomes the anchor', () => {
   assert.deepStrictEqual(selectionWithCards(NO_SELECTION, ['7', '4']), { anchor: cardPart('7'), additions: [cardPart('4')] });
   assert.strictEqual(selectionWithCards(NO_SELECTION, []), NO_SELECTION);
+});
+
+// --- the points a dragging finger passes -----------------------------------------------------------
+
+test('the points between two touch samples are no further apart than a step, the end point last and the start point left out', () => {
+  assert.strictEqual(CARD_DRAG_STEP_PX, 16);
+  const along = pointsAlong({ x: 10, y: 0 }, { x: 10, y: 80 }, 16);
+  assert.deepStrictEqual(along, [{ x: 10, y: 16 }, { x: 10, y: 32 }, { x: 10, y: 48 }, { x: 10, y: 64 }, { x: 10, y: 80 }]);
+});
+
+test('a distance that is not a whole number of steps is split evenly, so no gap is wider than a step', () => {
+  const along = pointsAlong({ x: 0, y: 0 }, { x: 0, y: 50 }, 16);
+  assert.strictEqual(along.length, 4);
+  assert.deepStrictEqual(along[along.length - 1], { x: 0, y: 50 });
+  const ys = [0, ...along.map((p) => p.y)];
+  for (let i = 1; i < ys.length; i++) assert.ok(ys[i] - ys[i - 1] <= 16, `${ys[i - 1]} to ${ys[i]}`);
+});
+
+test('a short move, or none, is just the end point', () => {
+  assert.deepStrictEqual(pointsAlong({ x: 5, y: 5 }, { x: 9, y: 8 }, 16), [{ x: 9, y: 8 }]);
+  assert.deepStrictEqual(pointsAlong({ x: 5, y: 5 }, { x: 5, y: 5 }, 16), [{ x: 5, y: 5 }]);
+});
+
+test('a diagonal is sampled along its length', () => {
+  const along = pointsAlong({ x: 0, y: 0 }, { x: 60, y: 80 }, 20);
+  assert.strictEqual(along.length, 5);
+  assert.deepStrictEqual(along[0], { x: 12, y: 16 });
+  assert.deepStrictEqual(along[4], { x: 60, y: 80 });
 });
