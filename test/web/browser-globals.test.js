@@ -19,6 +19,7 @@ const PAGE_GLOBALS = [
   'cardPart',
   'closeCard',
   'currentDetailId',
+  'DOUBLE_CLICK_MS',
   'graphCur',
   'graphFanLines',
   'graphFanNames',

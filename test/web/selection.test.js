@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { cardMenuFor, canvasMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../../plugin/skills/web/web/selection');
+const { cardMenuFor, selectionMenuFor, canvasMenuFor, NO_SELECTION, cardPart, pathPart, addPart, resolveSelection, partitionByMovable, dragPlan, archiveNeedsConfirm, rangeSelection } = require('../../plugin/skills/web/web/selection');
 
 // --- shift+click adds a RANGE between the range start and the target,
 // in the active view's rendered order. Additive (union), never replacing —
@@ -89,6 +89,20 @@ test('outside the selection the menu leads with Peek and Add to selection; insid
   const inside = cardMenuFor(new Set([1, 2]), 2);
   assert.strictEqual(inside.peek, false);
   assert.strictEqual(inside.add, false);
+});
+
+test('the menu the selection bar opens is for the whole resolved selection and names no card, so Path and Tree have none to act on', () => {
+  const resolved = new Set(['4', '1', '9']);
+  const menu = selectionMenuFor(resolved);
+  assert.deepStrictEqual(menu.ids, ['4', '1', '9'], 'in the order they were picked');
+  assert.strictEqual(menu.inSelection, true);
+  assert.strictEqual(menu.peek, false);
+  assert.strictEqual(menu.add, false);
+  assert.strictEqual(menu.isolate, true, 'Isolate shows the selection, which is what the menu is for');
+  assert.strictEqual(menu.clicked, null, 'no card was pointed at');
+  assert.deepStrictEqual(Object.keys(menu).sort(), Object.keys(cardMenuFor(resolved, '4')).sort(), 'it carries the keys of a card menu');
+  menu.ids.push('99');
+  assert.deepStrictEqual([...resolved], ['4', '1', '9'], 'a copy: changing it does not change the resolved set');
 });
 
 test('the card details\' own menu has no Peek, and still offers Add to selection for a card outside the selection', () => {

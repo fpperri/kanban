@@ -29,7 +29,7 @@ async function open({ phone = true, view = 'board' } = {}) {
   const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
   const menu = hidden();
   const lit = hidden();
-  const closed = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive'];
+  const closed = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status'];
   const stored = { 'kanban.kanban.view.mode': view };
   const graph = control();
   const page = loadPage({ board: makeBoard(), stored, elements: { '#graph-view': graph, '#context-menu': menu, '#ctx-lit': lit, ...Object.fromEntries(closed.map((sel) => [sel, hidden()])) } });
