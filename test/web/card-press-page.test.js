@@ -409,9 +409,9 @@ test('a poll that repaints the board carries the light with it', async () => {
   assert.deepStrictEqual(s.litIds(), ['1', '2', '3']);
 });
 
-// --- a tap before the press is not the first tap of a later double tap -------------------------------
+// --- the tap that closes the menu, and a double tap that begins with it -----------------------------
 
-test('the tap that only closes the menu is no first tap: a double tap on a card tapped before the press does not open it', async () => {
+test('the tap that only closes the menu changes nothing, so a double tap on a card while the menu is open opens it and leaves the selection as it was', async () => {
   const s = await open();
   clickOn(s, cardTarget(4));
   s.wait(1000);
@@ -422,11 +422,24 @@ test('the tap that only closes the menu is no first tap: a double tap on a card 
   assert.strictEqual(s.menuOpen(), false, 'the first tap of the pair closed the menu');
   assert.deepStrictEqual(s.picked(), ['4'], 'and selected nothing');
   clickOn(s, cardTarget(4), { detail: 2 });
-  assert.deepStrictEqual(s.opened, [], 'the second tap is a first tap again: the old tap on 4 is gone');
-  assert.deepStrictEqual(s.picked(), [], 'it toggled the selected card out, as a first tap does');
+  assert.deepStrictEqual(s.opened, ['4'], 'the second tap opens the card');
+  assert.deepStrictEqual(s.picked(), ['4'], 'and the selection is as it was before the first tap');
 });
 
-test('the tap that closes a right-click menu is no first tap either: the gate forgets it where no press came before', async () => {
+test('with nothing selected, a double tap on a card outside the open menu opens it and picks nothing, the search box untouched', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.wait(1000);
+  assert.strictEqual(s.menuOpen(), true);
+  clickOn(s, cardTarget(4));
+  assert.strictEqual(s.menuOpen(), false);
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, ['4']);
+  assert.deepStrictEqual(s.picked(), [], 'the selection stays empty');
+  assert.strictEqual(s.page.run("document.querySelector('#search-input').value"), '', 'and the box says nothing');
+});
+
+test('the tap that closes a right-click menu is no different: the double tap that begins with it opens the card and keeps the selection', async () => {
   const s = await open();
   clickOn(s, cardTarget(4));
   s.wait(1000);
@@ -435,8 +448,25 @@ test('the tap that closes a right-click menu is no first tap either: the gate fo
   clickOn(s, cardTarget(4));
   assert.strictEqual(s.menuOpen(), false);
   clickOn(s, cardTarget(4), { detail: 2 });
-  assert.deepStrictEqual(s.opened, []);
-  assert.deepStrictEqual(s.picked(), []);
+  assert.deepStrictEqual(s.opened, ['4']);
+  assert.deepStrictEqual(s.picked(), ['4']);
+});
+
+test('a second tap on another card than the one that closed the menu is a first tap, and a closing tap on a control inside a card is no first tap', async () => {
+  const s = await open();
+  longPress(s, 2).up();
+  s.wait(1000);
+  clickOn(s, cardTarget(4));
+  clickOn(s, cardTarget(1), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [], 'not the card the first tap closed the menu on');
+  assert.deepStrictEqual(s.picked(), ['1'], 'it toggled in as a first tap does');
+  const control = new Proxy({}, { get: (t, key) => (key === 'closest' ? (sel) => (sel === '.card-el' ? { dataset: { id: '4' } } : (/button/.test(sel) ? {} : null)) : harmless(String(key))) });
+  longPress(s, 2).up();
+  s.wait(1000);
+  clickOn(s, control);
+  assert.strictEqual(s.menuOpen(), false);
+  clickOn(s, cardTarget(4), { detail: 2 });
+  assert.deepStrictEqual(s.opened, [], 'a press on a button inside the card closed the menu and left no first tap');
 });
 
 test('a click the echo swallows forgets the last tap too', async () => {

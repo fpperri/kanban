@@ -6865,12 +6865,13 @@ function selectAllShown() {
 // ends the light and goes on to do its job (a tap on empty space does nothing else). A tap on the menu
 // is part of the press that opened it and leaves the light alone. A click the gate stops never reaches
 // the card grammar, which would have remembered or forgotten the tap: it is a tap that came between,
-// so the first tap of a double tap before it is gone (forgetTap).
+// so the first tap of a double tap before it is gone (forgetTap), but for the tap that closes the menu
+// on a card, which changed nothing and is remembered as it is (rememberClosingTap).
 function onPhoneTapGate(e) {
   if (cardPress.echoing()) { forgetTap(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   const inMenu = e.target.closest('#context-menu');
   if (onPhoneLayout() && !inMenu && !$('#context-menu').classList.contains('hidden')) {
-    forgetTap();
+    rememberClosingTap(e.target);
     hideContextMenu();
     e.stopImmediatePropagation();
     return;
@@ -6925,15 +6926,27 @@ function forgetTap() {
   tapBefore = null;
 }
 
+// The tap that only closes the card menu, on a card, is the first tap of a double tap whose second tap
+// opens the card, and it changed nothing: the selection it remembers is the one standing, so the second
+// tap opens the card and writes no selection. A tap on a cue or a control inside a card, or off the cards,
+// is no first tap.
+function rememberClosingTap(target) {
+  const el = target.closest('.card-el');
+  if (!el || target.closest('button, select, input, a, .card-assignee, .tag, .blocked-pill, .review-pill, .rollup')) { forgetTap(); return; }
+  const { selection, rangeStart } = selectionState;
+  tapBefore = { id: el.dataset.id, selection, rangeStart, after: selection };
+}
+
 // The second tap of a double tap on the phone layout: the selection and range start go back to what
 // they were before the first tap, through the step Esc and a double click on empty space use so the
 // box follows, then the card opens. False when there is no first tap on this card to undo; the
-// caller then treats the tap as a first tap.
+// caller then treats the tap as a first tap. A first tap that changed nothing (the one that closed the
+// card menu) leaves nothing to put back.
 function reopenAfterDoubleTap(id) {
   const back = selectionBeforeTap(tapBefore, id, selectionState.selection);
   tapBefore = null;
   if (!back) return false;
-  moveSelectionTo(back);
+  if (back.selection !== selectionState.selection || back.rangeStart !== selectionState.rangeStart) moveSelectionTo(back);
   settleSelectionBar(); // the selection the first tap changed is back: the bar is decided once, here
   openCard(id);
   return true;
