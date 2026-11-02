@@ -75,7 +75,7 @@ function tile(id, { el = { dataset: { id: String(id) }, closest: () => null } } 
       if (key === 'addEventListener') return (type, fn, options) => { (listeners[type] = listeners[type] || []).push(fn); passive[type] = !!(options && options.passive); };
       if (key === 'passiveOf') return (type) => passive[type];
       if (key === 'removeEventListener') return (type, fn) => { listeners[type] = (listeners[type] || []).filter((f) => f !== fn); };
-      if (key === 'fire') return (type, event = {}) => { const e = { cancelable: true, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, ...event }; (listeners[type] || []).slice().forEach((fn) => fn(e)); return e; };
+      if (key === 'fire') return (type, event = {}) => { const e = event.preventDefault ? event : { cancelable: true, defaultPrevented: false, preventDefault() { e.defaultPrevented = true; }, ...event }; (listeners[type] || []).slice().forEach((fn) => fn(e)); return e; };
       if (key === 'listening') return (type) => (listeners[type] || []).length;
       return harmless(String(key));
     },
@@ -745,14 +745,29 @@ test('lifting ends it: no menu opens, the tiles stay selected, and the touch is 
   assert.deepStrictEqual(s.opened, []);
 });
 
+// A touchmove as the browser dispatches it: aimed at the card the finger went down on, then bubbling up to the Board.
+function moveBubbling(s, target, x, y, { cancelable = true } = {}) {
+  const e = { touches: [touchAt(x, y)], cancelable, defaultPrevented: false, preventDefault() { if (e.cancelable) e.defaultPrevented = true; } };
+  target.fire('touchmove', e);
+  s.boardEl.fire('touchmove', e);
+  return e;
+}
+
 test('the list does not scroll during that touch: every move from the hold on is cancelled, the small ones too', async () => {
-  const { target, b } = await holdOn(1);
-  assert.strictEqual(target.passiveOf('touchmove'), false, 'a passive listener could not stop the scroll');
-  const small = moveTo(target, 50, b.y(1) + 3);
-  const big = moveTo(target, 50, b.y(3));
+  const { s, target, b } = await holdOn(1);
+  const small = moveBubbling(s, target, 50, b.y(1) + 3);
+  const big = moveBubbling(s, target, 50, b.y(3));
   assert.deepStrictEqual([small.defaultPrevented, big.defaultPrevented], [true, true]);
-  const late = target.fire('touchmove', { touches: [touchAt(50, b.y(4))], cancelable: false });
+  const late = moveBubbling(s, target, 50, b.y(4), { cancelable: false });
   assert.strictEqual(late.defaultPrevented, false, 'a move the browser no longer lets the page cancel is left alone');
+});
+
+test('the Board listens for a touchmove it can cancel from the start of the page, not from the touch: the browser decides at the touchstart whether a move can be cancelled', async () => {
+  const s = await open();
+  assert.ok(s.boardEl.passives.touchmove && s.boardEl.passives.touchmove.includes(false), 'a listener on the Board that is not passive');
+  const target = tile(1);
+  down(s, target);
+  assert.strictEqual(target.passiveOf('touchmove'), true, 'the touch\'s own listener, added at the touchstart, only reads');
 });
 
 test('a touch without a hold scrolls as it did: nothing is cancelled, nothing is selected', async () => {
@@ -761,10 +776,10 @@ test('a touch without a hold scrolls as it did: nothing is cancelled, nothing is
   const target = b.target(1);
   down(s, target, 50, b.y(1));
   s.wait(200);
-  const before = moveTo(target, 50, b.y(1) + 4);
-  const scroll = moveTo(target, 50, b.y(3));
+  const before = moveBubbling(s, target, 50, b.y(1) + 4);
+  const scroll = moveBubbling(s, target, 50, b.y(3));
   s.wait(1000);
-  const more = moveTo(target, 50, b.y(4));
+  const more = moveBubbling(s, target, 50, b.y(4));
   assert.deepStrictEqual([before, scroll, more].map((e) => e.defaultPrevented), [false, false, false]);
   const end = lift(target);
   assert.strictEqual(end.defaultPrevented, false);
@@ -803,9 +818,8 @@ test('a finger over no tile adds nothing: the gap between tiles, and the page be
 
 test('only the Board\'s tiles select by hold and drag: a hold on a tile of another view, and a drag over it, selects nothing and cancels nothing', async () => {
   const { s, target, b } = await holdOn(1, { board: false });
-  assert.strictEqual(target.passiveOf('touchmove'), true, 'the Calendar\'s and the Gantt\'s own drags are left to their handlers');
   const move = moveTo(target, 50, b.y(3));
-  assert.strictEqual(move.defaultPrevented, false);
+  assert.strictEqual(move.defaultPrevented, false, 'the Calendar\'s and the Gantt\'s own drags are left to their handlers');
   const end = lift(target);
   assert.deepStrictEqual(s.picked(), []);
   assert.strictEqual(s.menuOpen(), false);
@@ -813,12 +827,30 @@ test('only the Board\'s tiles select by hold and drag: a hold on a tile of anoth
   assert.strictEqual(s.renders, 0);
 });
 
-test('while the finger drags the poll keeps away from the board, and after the lift it does not', async () => {
-  const { s, target, to } = await holdOn(1);
-  assert.strictEqual(s.page.run('isDragging'), false, 'a hold is no drag');
-  to(2);
+test('from the hold to the lift the poll keeps away from the board: it would replace the tiles under the finger', async () => {
+  const s = await open();
+  const b = drawBoard(s, [1, 2, 3, 4]);
+  const target = b.target(1);
+  down(s, target, 50, b.y(1));
+  assert.strictEqual(s.page.run('isDragging'), false, 'before the hold the touch may be a scroll');
+  s.wait(600);
+  assert.strictEqual(s.page.run('isDragging'), true);
+  moveTo(target, 50, b.y(2));
   assert.strictEqual(s.page.run('isDragging'), true);
   lift(target);
+  assert.strictEqual(s.page.run('isDragging'), false);
+});
+
+test('a hold that lifts in place lets the poll back in as well', async () => {
+  const { s, target } = await holdOn(1);
+  assert.strictEqual(s.page.run('isDragging'), true);
+  lift(target);
+  assert.strictEqual(s.page.run('isDragging'), false);
+  assert.strictEqual(s.menuOpen(), true);
+});
+
+test('a hold on a tile of another view leaves the poll alone: those drags keep their own guards', async () => {
+  const { s } = await holdOn(1, { board: false });
   assert.strictEqual(s.page.run('isDragging'), false);
 });
 
