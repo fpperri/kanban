@@ -113,9 +113,10 @@ function backTraversal({ onEntry, state, returning = false, at = 0 }) {
 
 // What to do with the Back that popped the entry. 'step' runs the step. 'pass' lets the Back through
 // (history.back() once more): nothing is left to step, or the window is wider than the line now. 'hold'
-// leaves a popup Back does not close alone, over a light, a selection or the search panel: nothing moves,
-// and the page goes forward to the entry again. A popup or a menu Back closes is a step whatever stands
-// under it. With the card details open under a light or a selection (the Back popped the entry the menu
+// leaves a popup that has no step in BACK_STEP_ORDER, over a light, a selection or the search panel (none
+// has one today: every popup the page draws is a step, and this keeps a popup added without one from being
+// stepped behind): nothing moves, and the page goes forward to the entry again. A popup or a menu Back
+// closes is a step whatever stands under it. With the card details open under a light or a selection (the Back popped the entry the menu
 // over the details had): when the page's entry stands below the details' step (`under`) the Back passes
 // through and lands on it, closing the details; otherwise 'uncover': the details close here and their
 // step becomes the page's entry, so the light or the selection has one without one being pushed.
