@@ -2,11 +2,12 @@
 // The long press on a card, on the phone layout. A finger held on a card for 500 ms lights the card
 // (the hold), and lifted without having moved it opens the card menu (the lift). A move of more than
 // 10 px before the hold is a scroll or a swipe and ends the press; a move after it turns the hold into
-// a drag, which reports every point the finger reaches (onDrag) and whose lift opens nothing. The page runs its own timer because iOS fires no contextmenu for
-// a long press, and Android's fires while the finger is still down. Both are held back while a press
-// is on and for 800 ms after it (the echo), together with the click the lifted finger makes, so the
-// menu opens once. The next finger to come down, on a card or not, ends the echo. The notes list has a
-// press of its own (notes-palette.js); this one shares nothing with it.
+// a drag, which reports every point the finger reaches (onDrag) and whose lift opens nothing. The page
+// runs its own timer because iOS fires no contextmenu for a long press, and Android's fires while the
+// finger is still down. Both are held back while a press is on and for 800 ms after it (the echo),
+// together with the click the lifted finger makes, so the menu opens once. The next finger to come
+// down, on a card or not, ends the echo. The notes list has a press of its own (notes-palette.js);
+// this one shares nothing with it.
 //
 // The rule takes the clock and the timer, so a test drives it without waiting. Pure. Same
 // dual-environment export pattern as phone-width.js.
