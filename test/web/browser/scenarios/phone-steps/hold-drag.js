@@ -5,12 +5,14 @@
 // The tiles are painted selected as the finger reaches them, in the elements already on the page, and
 // the board is drawn once, when the finger lifts: no menu opens and the tiles stay selected. A second
 // hold and drag in a row works as the first. A touch without a hold scrolls the list and swipes
-// between statuses as before, and a hold and a quick sideways drag is no swipe.
+// between statuses as before, and a hold and a quick sideways drag is no swipe. A draw of the board in the
+// half second before the hold (the poll's) does not let the list scroll, and a hold and drag shuts the card
+// menu a long press had opened.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): isDragging,
 // pinnedLitId, renderBoard, selectedIds, selectionState, state.
 
-const { tap, swipe, holdDrag, realWait } = require('../../steps');
+const { tap, swipe, holdDrag, longPress, realWait } = require('../../steps');
 
 const SHORT_PHONE_HEIGHT = 620;
 
@@ -138,5 +140,40 @@ module.exports = {
     const mid = await wholeTiles();
     await swipe(page, { x: mid[0].x + 80, y: mid[0].y }, { x: mid[0].x - 120, y: mid[0].y });
     check('a swipe without a hold still moves to the next status', await waitFor(`${shown}!==${JSON.stringify(first)}`, 4000), await ev(shown));
+
+    // --- a draw between the touchstart and the hold ---------------------------------------------------------
+    // The poll draws the board every 5 s, and a draw in the half second before the hold replaces the tile the
+    // finger is on: its moves stop bubbling to the Board, so the tile has to cancel them itself. A fresh page,
+    // the same status, the list at rest and nothing selected.
+    await open('/');
+    check('the Board draws again', await waitFor(`document.querySelectorAll('#board .column .card-el').length>0`, 10000));
+    check('on the status with the most cards again', await showTab(best.col), best);
+    await ev(`(()=>{document.scrollingElement.scrollTop=0;document.getElementById('board').scrollTop=0;document.querySelectorAll('#board .column-cards').forEach((e)=>{e.scrollTop=0});return true})()`);
+    await realWait(300);
+    const [r0, r1, r2, r3] = await wholeTiles();
+    check('four tiles whole again', [r0, r1, r2, r3].every(Boolean), { r0, r1, r2, r3 });
+    const calm = await ev(scrolled);
+    const redrawn = [r2.id, r1.id, r0.id];
+    let drawn = null;
+    await holdDrag(page, { x: r2.x, y: r2.y }, [{ x: r1.x, y: r1.y }, { x: r0.x, y: r0.y }], {
+      until: held(r2.id),
+      afterDown: () => ev(`(()=>{renderBoard();return true})()`),
+      whileHeld: async () => {
+        await waitFor(`${picked}===${JSON.stringify(byId(redrawn))}`, 4000);
+        drawn = { picked: await ev(picked), scrolled: await ev(scrolled) };
+      },
+    });
+    check('a hold after a draw of the board still adds every tile the finger passes over', drawn.picked === byId(redrawn), drawn);
+    check('and the list did not scroll during that touch', drawn.scrolled === calm, { calm, scrolled: drawn.scrolled });
+
+    // --- a hold and drag shuts the card menu ------------------------------------------------------------
+    // A long press on a selected tile opens the menu for the whole selection. The hold and drag after it is
+    // made on the left of the tiles and the long press on their right, clear of the menu, which opens at the press.
+    await longPress(page, r0.x + 100, r0.y, { until: held(r0.id) });
+    check('a long press on a selected tile opens the card menu', await waitFor(menuOpen, 3000));
+    await holdDrag(page, { x: r3.x - 100, y: r3.y }, [{ x: r2.x - 100, y: r2.y }], { until: held(r3.id) });
+    await realWait(300);
+    check('a hold and drag elsewhere shuts the menu, which would have acted on the card it was opened for', await ev(`!(${menuOpen})`));
+    check('and adds the tile held to the selection', await ev(picked) === byId([...redrawn, r3.id]), await ev(picked));
   },
 };

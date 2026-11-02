@@ -74,10 +74,13 @@ async function longPress(page, x, y, { until = null } = {}) {
 
 // A hold and then a drag: the finger goes down at `from`, stays until the page shows it has noticed the hold
 // (as longPress waits) or for 700 ms, moves to each point of `path` in turn (one point or a list) and
-// lifts at the last. `whileHeld`, an async function, runs after the last move with the finger still down,
-// for a step that looks at the page before the lift.
-async function holdDrag(page, from, path, { until = null, whileHeld = null } = {}) {
+// lifts at the last. `afterDown`, an async function, runs once the finger is down and before the wait for
+// the hold, for a step that does something to the page in the half second the hold takes. `whileHeld`,
+// an async function, runs after the last move with the finger still down, for a step that looks at the
+// page before the lift.
+async function holdDrag(page, from, path, { until = null, afterDown = null, whileHeld = null } = {}) {
   await holdDown(page, from.x, from.y);
+  if (afterDown) await afterDown();
   if (until) await page.waitFor(until, 4000);
   else await realWait(LONG_PRESS_HOLD_MS);
   for (const point of [].concat(path)) await moveHeld(page, point.x, point.y);
