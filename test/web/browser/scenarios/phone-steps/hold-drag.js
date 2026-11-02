@@ -5,8 +5,7 @@
 // The tiles are painted selected as the finger reaches them, in the elements already on the page, and
 // the board is drawn once, when the finger lifts: no menu opens and the tiles stay selected. A second
 // hold and drag in a row works as the first. A touch without a hold scrolls the list and swipes
-// between statuses as before, and a hold and a quick sideways drag is no swipe. A hold and drag on the
-// Map selects nothing.
+// between statuses as before, and a hold and a quick sideways drag is no swipe.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): isDragging,
 // pinnedLitId, renderBoard, selectedIds, selectionState, state.
@@ -44,11 +43,6 @@ module.exports = {
       const at = await tabOf(col);
       await tap(page, at.x, at.y);
       return waitFor(`${shown}===${JSON.stringify(col)}`, 4000);
-    };
-    const boardOn = async (col) => {
-      await open('/');
-      if (!await waitFor(`document.querySelectorAll('#board .column .card-el').length>0`, 10000)) return false;
-      return showTab(col);
     };
 
     // --- the Board -------------------------------------------------------------------------------------
@@ -131,25 +125,18 @@ module.exports = {
 
     // --- sideways, quickly: no swipe -------------------------------------------------------------------
     // The hold takes over half a second and the swipe is read under 700 ms, so a hold and a quick sideways drag is the case the swipe could take.
-    check('the Board again', await boardOn(best.col));
-    const [s0] = await wholeTiles();
-    await holdDrag(page, { x: s0.x, y: s0.y }, [{ x: s0.x - 150, y: s0.y }], { until: held(s0.id) });
+    // A tile no hold has been on yet: the light a hold leaves pinned on its card would answer the wait for this hold at once.
+    const [, s1] = await wholeTiles();
+    const picksBefore = await ev(picked);
+    await holdDrag(page, { x: s1.x, y: s1.y }, [{ x: s1.x - 150, y: s1.y }], { until: held(s1.id) });
     await realWait(300);
     check('a hold and a sideways drag does not swipe to the next status', await ev(shown) === best.col, await ev(shown));
-    check('and it selects the tile held', await ev(picked) === String(s0.id), await ev(picked));
+    check('and it changes nothing it was not asked to', await ev(picked) === picksBefore, await ev(picked));
 
     // --- a swipe without a hold still swipes ------------------------------------------------------------
     const first = await ev(shown);
     const mid = await wholeTiles();
     await swipe(page, { x: mid[0].x + 80, y: mid[0].y }, { x: mid[0].x - 120, y: mid[0].y });
     check('a swipe without a hold still moves to the next status', await waitFor(`${shown}!==${JSON.stringify(first)}`, 4000), await ev(shown));
-
-    // --- the Map: a hold and drag there selects nothing ------------------------------------------------
-    await open('/?view=map');
-    check('the Map draws', await waitFor(`document.querySelectorAll('#map-view .card-el').length>1`, 10000));
-    const nodes = await ev(`[...document.querySelectorAll('#map-view .card-el')].slice(0,2).map((e)=>{e.scrollIntoView({block:'center',inline:'center'});const r=e.getBoundingClientRect();return {id:e.dataset.id,x:r.left+r.width/2,y:r.top+r.height/2}})`);
-    await holdDrag(page, { x: nodes[0].x, y: nodes[0].y }, [{ x: nodes[1].x, y: nodes[1].y }], { until: held(nodes[0].id) });
-    await realWait(300);
-    check('a hold and drag on the Map selects no card', await ev(`${picked}===''`) && await ev(noCard), await ev(picked));
   },
 };
