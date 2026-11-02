@@ -6718,14 +6718,15 @@ function onDetailContextMenu(e) {
 // (onBoardTouchMove). The Calendar's, the Gantt's and the Map's pointer drags and the Graph's pan hear
 // the same finger and are left alone, so a finger that moves after the hold does what it did before. On
 // the Board a finger that moves after the hold selects the tiles it passes over (holdDragMove) and
-// shuts the card menu, and the Board's swipe is told that touch was no swipe.
+// shuts the card menu, and the Board's swipe is told that touch was no swipe. The move that turns the
+// hold into a drag ends the light, on every view: Back and Esc would otherwise spend their first step on it.
 const cardPress = createCardPress({
   now: () => performance.now(),
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t),
   onHold: (id) => { forgetTap(); setPinnedLight(id); beginHoldDrag(); }, // a press between two taps: the first of a pair is gone
   onLift: (id, x, y) => openCardMenuByPress(id, x, y),
-  onDrag: (id, x, y) => holdDragMove(id, x, y),
+  onDrag: (id, x, y) => { clearPinnedLight(); holdDragMove(id, x, y); }, // a hold that turns into a drag, on any view, is no longer a look at the card's relations
 });
 
 let releaseCardPress = null;

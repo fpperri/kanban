@@ -175,12 +175,14 @@ test('a touch that moves more than 10 px before 500 ms is a scroll: no light, no
   assert.strictEqual(s.menuOpen(), false);
 });
 
-test('a finger that moves after the hold keeps the light and opens no menu when it lifts', async () => {
+test('a finger that moves after the hold ends the light and opens no menu when it lifts', async () => {
   const s = await open();
   const { target } = longPress(s, 2);
+  assert.deepStrictEqual(s.litIds(), ['1', '2', '3'], 'the hold lit the card');
   moveTo(target, 100, 260);
+  assert.strictEqual(s.litIds(), null, 'the move that makes it a drag ends the light');
   const end = lift(target);
-  assert.deepStrictEqual(s.litIds(), ['1', '2', '3']);
+  assert.strictEqual(s.litIds(), null);
   assert.strictEqual(s.menuOpen(), false);
   assert.strictEqual(end.defaultPrevented, false, 'the touch is left to whatever moved with it');
 });
@@ -916,6 +918,15 @@ test('a hold that lifts in place lets the poll back in as well', async () => {
   assert.strictEqual(s.menuOpen(), true);
 });
 
+test('after a hold and drag the first Back steps the selection: no light is left standing for it to drop', async () => {
+  const { s, target, to } = await holdOn(1);
+  to(2);
+  to(3);
+  lift(target);
+  assert.deepStrictEqual(s.picked(), ['1', '2', '3']);
+  assert.strictEqual(s.page.run('nextBackStep()'), 'selection');
+});
+
 test('a hold on a tile of another view leaves the poll alone: those drags keep their own guards', async () => {
   const { s } = await holdOn(1, { board: false });
   assert.strictEqual(s.page.run('isDragging'), false);
@@ -978,11 +989,11 @@ test('a window that crosses the width line in the middle of the drag selects no 
   assert.strictEqual(s.page.run('isDragging'), false);
 });
 
-test('a hold and drag leaves the light on the card held, and a second one adds to the first', async () => {
+test('a hold and drag ends the light, and a second one adds to the first', async () => {
   const { s, target, to } = await holdOn(1);
   to(2);
   lift(target);
-  assert.strictEqual(s.page.run('pinnedLitId'), '1');
+  assert.strictEqual(s.page.run('pinnedLitId'), null);
   s.wait(1000);
   const b = drawBoard(s, [1, 2, 3, 4]);
   down(s, b.target(4), 50, b.y(4));
@@ -1028,7 +1039,7 @@ test('a hold and drag with the card menu open closes it: it would act on the car
   lift(b.target(1));
   assert.strictEqual(s.menuOpen(), false, 'and the lift opens none');
   assert.deepStrictEqual(s.picked(), ['1', '2']);
-  assert.strictEqual(s.page.run('pinnedLitId'), '1', 'the light is on the card held');
+  assert.strictEqual(s.page.run('pinnedLitId'), null, 'the drag ended the light');
 });
 
 test('a long press with the card menu open still opens it again for the card held, a wobble inside the slop included', async () => {

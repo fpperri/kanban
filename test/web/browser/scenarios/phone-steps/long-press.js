@@ -178,7 +178,7 @@ module.exports = {
     await moveHeld(page, m2.x, m2.y + 30);
     await liftUp(page);
     await realWait(300);
-    check('a finger that moves after the hold keeps the light and opens no menu', await ev(lit(2)) && await menus() === 0 && await ev(`!(${menuOpen})`), await menus());
+    check('a finger that moves after the hold ends the light and opens no menu', await ev(`!(${lit(2)})`) && await menus() === 0 && await ev(`!(${menuOpen})`), await menus());
 
     const before = await ev(`[...document.querySelectorAll('#board-tabs .board-tab')].filter((t)=>t.getAttribute('aria-selected')==='true').map((t)=>t.dataset.col).join()`);
     const s = await pointOf(titleOf(2));
