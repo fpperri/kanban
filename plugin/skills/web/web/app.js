@@ -6684,6 +6684,7 @@ function hideContextMenu() {
   menuNestClose();
   menuNestRelease();
   $('#context-menu').classList.add('hidden');
+  $('#selection-bar-more').setAttribute('aria-expanded', 'false');
 }
 
 // The menu's subject is decided by cardMenuFor (selection.js) and nothing is
@@ -7070,6 +7071,7 @@ function openCanvasContextMenu(e) {
 // foot of the screen rises from it, and a group opened inside it grows up, not off the screen.
 function showContextMenu(x, y, { above = false } = {}) {
   const menu = $('#context-menu');
+  $('#selection-bar-more').setAttribute('aria-expanded', String(above)); // the selection bar's More is the one entry that opens it above
   // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
   // stylesheet makes of one entry; a card's menu has them all again.
   menu.classList.toggle('canvas-menu', !!menuSubject.canvas);

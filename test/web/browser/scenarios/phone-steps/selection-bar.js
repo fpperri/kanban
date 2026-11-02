@@ -124,7 +124,9 @@ module.exports = {
     check('closing it moves nothing and keeps the selection', await waitFor(`document.getElementById('bulk-status').classList.contains('hidden')`, 3000) && await ev(`${picked}===${JSON.stringify(pair.join())}`) && (await statusOf(13)) === 'todo');
     await tapOn('#selection-bar-more');
     await waitFor(`!${MENU}.classList.contains('hidden')`, 3000);
+    check('More says its menu is open', await ev(`document.getElementById('selection-bar-more').getAttribute('aria-expanded')==='true'`));
     await tapOn('#selection-bar-more');
     check('a second tap on More closes the menu', await waitFor(`${MENU}.classList.contains('hidden')`, 3000));
+    check('and More says it is closed', await ev(`document.getElementById('selection-bar-more').getAttribute('aria-expanded')==='false'`));
   },
 };

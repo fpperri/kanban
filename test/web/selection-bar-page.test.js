@@ -402,6 +402,25 @@ test('More on an open menu closes it', async () => {
   assert.strictEqual(s.menuOpen(), false);
 });
 
+test('More is expanded while its menu is open, and collapsed again however the menu closes', async () => {
+  const s = await open();
+  const attrs = [];
+  s.elements['#selection-bar-more'].setAttribute = (name, value) => { if (name === 'aria-expanded') attrs.push(value); };
+  const expanded = () => attrs[attrs.length - 1];
+  s.select(1, 2);
+  await pressMore(s);
+  assert.strictEqual(expanded(), 'true', 'the menu More opened is up');
+  await pressMore(s);
+  assert.strictEqual(expanded(), 'false', 'a second tap on More closes it');
+  await pressMore(s);
+  assert.strictEqual(expanded(), 'true');
+  s.page.run('hideContextMenu()');
+  assert.strictEqual(expanded(), 'false', 'Esc, a tap outside or an entry closes it the same way');
+  await pressMore(s);
+  s.page.run('hideContextMenu(); menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(10, 10)');
+  assert.strictEqual(expanded(), 'false', 'a menu another card opened is not the one More opened');
+});
+
 test('a tap on Clear, Archive or Status with the menu open only closes the menu, as a tap outside it does at phone width', async () => {
   for (const name of ['clear', 'archive', 'status']) {
     const s = await open();
