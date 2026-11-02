@@ -100,7 +100,7 @@ const tap = (s, target, extra = {}) => {
 
 // A press held on a card and lifted in place, as card-press-page.test.js drives it.
 function tile(id) {
-  const el = { dataset: { id: String(id) } };
+  const el = { dataset: { id: String(id) }, closest: () => null };
   const listeners = {};
   return new Proxy({}, {
     get: (t, key) => {
