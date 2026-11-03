@@ -126,6 +126,28 @@ function noteStripLayout(dayNotes, each, scale) {
   return nCalLanes(items);
 }
 
+// A drag of a note's chip or block (docs/adr/0016). `min` is the minute the pointer put the note's start
+// at, already on the 15-minute grid. A move stays inside the day: a range ends by 24:00 (a card's block
+// stops at 23:59, a note may end at midnight), a point note starts by 23:45 (the last quarter hour).
+const NCAL_POINT_LAST = NCAL_DAY_MIN - 15;
+
+function noteMoveTarget(note, min) {
+  const length = nCalLength(note);
+  const last = length === null ? NCAL_POINT_LAST : NCAL_DAY_MIN - length;
+  return Math.max(0, Math.min(last, min));
+}
+
+// The fields of the one PATCH a move writes: `at`, and `day` when the note leaves its day; null when it
+// ends where it started, or when it has no time to move.
+function noteMoveFields(note, day, min) {
+  const start = nCalMinutes(note.at);
+  if (start === null) return null;
+  const to = noteMoveTarget(note, min);
+  if (to === start && day === note.day) return null;
+  const at = NCAL_DURATIONS.hhmm(to);
+  return day === note.day ? { at } : { day, at };
+}
+
 // How many timed notes a day has in each of the 24 hours (all zeros for a day with none).
 function noteHourCounts(dayNotes) {
   const counts = Array(24).fill(0);
@@ -280,7 +302,7 @@ function noteHourRequest(day, rawMin) {
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
   noteLayerState, noteLayerNext, noteLayerParts, noteLayerLabel, noteLayerPressed, noteLayerTitle,
-  noteEachChips, noteHourCounts, noteStripLayout, noteModeLoad, noteModeSave,
+  noteEachChips, noteHourCounts, noteStripLayout, noteMoveTarget, noteMoveFields, noteModeLoad, noteModeSave,
   noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };
 
