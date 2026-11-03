@@ -887,7 +887,8 @@ field decides the day a note is written to, and a note written outside the range
 Todos, as the tab row shows them; each tab carries its key), from the note box too. On a listed
 note, `e` edits it (its time, its duration and its text: the duration field is the create row's, with
 the same menu trimmed to what ends by midnight from the time in the row, and a length typed as there;
-one Enter in the field saves the row with its menu open, taking the highlighted length first;
+one Enter in the field saves the row with its menu open, taking the highlighted length first, and the
+menu closes when the list scrolls or the field leaves the list's view;
 clearing it and saving removes the duration; the save sends the duration only when it changed, and
 names the duration the page read in its ref, so a note whose duration changed at the desk since is refused
 as one whose time changed is), `a` assigns it to another card (or to none) and `d d` deletes it. The palette's

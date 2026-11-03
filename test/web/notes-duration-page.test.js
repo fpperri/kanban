@@ -368,6 +368,38 @@ test('one Enter in the row\'s duration field saves it with its menu open: the le
   assert.deepStrictEqual(p.patches.map((b) => b.duration), ['2h', '15m']);
 });
 
+test('the row\'s duration menu closes when the list scrolls, so it never floats away from its field', async () => {
+  const p = await openEdit();
+  const row = p.edit(1);
+  const menu = () => p.doc.body.querySelectorAll('.np-edit-duration-menu')[0];
+  row.duration.fire('focus', {});
+  assert.strictEqual(menu().hidden, false);
+  p.ui().body.fire('scroll', {});
+  assert.strictEqual(menu().hidden, true);
+});
+
+test('the row\'s duration menu closes when its field leaves the list\'s view, and stops watching when the row closes', async () => {
+  const p = await openEdit();
+  const watchers = [];
+  p.page.ctx.IntersectionObserver = class {
+    constructor(seen, o) { this.seen = seen; this.root = o && o.root; this.targets = []; this.off = false; watchers.push(this); }
+    observe(el) { this.targets.push(el); }
+    disconnect() { this.off = true; }
+  };
+  const row = p.edit(1);
+  const menu = () => p.doc.body.querySelectorAll('.np-edit-duration-menu')[0];
+  const [watch] = watchers;
+  assert.ok(watch, 'the row watches its duration field');
+  assert.deepStrictEqual([watch.root === p.ui().body, watch.targets.map((t) => t.classes.join(' '))], [true, ['np-edit-duration']]);
+  row.duration.fire('focus', {});
+  watch.seen([{ isIntersecting: true }]);
+  assert.strictEqual(menu().hidden, false);
+  watch.seen([{ isIntersecting: false }]);
+  assert.strictEqual(menu().hidden, true);
+  p.find('.np-edit-cancel').click();
+  assert.strictEqual(watch.off, true);
+});
+
 test('Enter in the row\'s other fields saves it as before, and Shift+Enter in the text saves nothing', async () => {
   const p = await openEdit();
   const row = p.edit(1);

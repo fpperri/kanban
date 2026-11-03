@@ -1277,8 +1277,9 @@ function notesPlaceMenu(input, menu, minWidth) {
 
 // A field's menu (app.js attachCombobox, given `opts`), hung off the page with the class `cls` and placed
 // under its field (at least `minWidth` wide) each time it opens: the palette clips what overflows it.
-// A field in the list (`inList`, an edit row's) keeps its menu only while its row does
-// (notesDropListMenus). -> the menu.
+// A field in the list (`inList`, an edit row's) moves when the list scrolls and its fixed menu would
+// not, so the menu closes then and when the field leaves the list's view; it is kept only while its row
+// is (notesDropListMenus). -> the menu.
 function notesHangMenu(input, getOptions, cls, { minWidth = 0, inList = false, ...opts } = {}) {
   attachCombobox(input, getOptions, opts);
   const menu = input.parentElement.querySelector('.combobox-menu');
@@ -1288,7 +1289,18 @@ function notesHangMenu(input, getOptions, cls, { minWidth = 0, inList = false, .
   const place = () => notesPlaceMenu(input, menu, minWidth);
   input.addEventListener('focus', place);
   input.addEventListener('input', place);
-  if (inList) notesUi.listMenus.set(menu, () => menu.remove());
+  if (inList) {
+    const list = notesUi.body;
+    const hide = () => { menu.hidden = true; };
+    list.addEventListener('scroll', hide, { passive: true });
+    const watch = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((seen) => { if (!seen[seen.length - 1].isIntersecting) hide(); }, { root: list });
+    if (watch) watch.observe(input);
+    notesUi.listMenus.set(menu, () => {
+      list.removeEventListener('scroll', hide);
+      if (watch) watch.disconnect();
+      menu.remove();
+    });
+  }
   return menu;
 }
 
