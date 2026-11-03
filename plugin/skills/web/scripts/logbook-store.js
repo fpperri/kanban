@@ -516,21 +516,38 @@ function checkPatchDay(day) {
   return day;
 }
 
+// The time, duration and text a PATCH sends, each checked, or undefined where it sends none.
+function checkPatch(patch) {
+  return {
+    at: patch.at === undefined ? undefined : checkTime(patch.at),
+    duration: patch.duration === undefined ? undefined : checkDuration(patch.duration),
+    note: patch.note === undefined ? undefined : checkText(patch.note),
+  };
+}
+
+// The rules are held only to a time or a duration the PATCH changes, so a note can always have its
+// text edited, or its day moved.
+function checkLengthIfChanged({ at, duration }, entry) {
+  if ((at !== undefined && at !== entry.at) || (duration !== undefined && duration !== entry.duration)) checkLength(duration === undefined ? entry.duration : duration, at === undefined ? entry.at : at);
+}
+
+// A duration sent, or none, replaces every `duration:` line, one that did not read included.
+function withoutDurationLines(chunks, duration) {
+  return duration === undefined ? chunks : chunks.filter((c) => c.key !== 'duration');
+}
+
 function editNote(dir, ref, patch, hooks) {
   const where = fileOfRef(dir, ref);
   const day = checkPatchDay(patch.day);
   if (day !== undefined && day !== where.day) return moveNoteToDay(dir, ref, where, day, patch, hooks);
-  const at = patch.at === undefined ? undefined : checkTime(patch.at);
-  const duration = patch.duration === undefined ? undefined : checkDuration(patch.duration);
-  const note = patch.note === undefined ? undefined : checkText(patch.note);
+  const { at, duration, note } = checkPatch(patch);
   return withFile(where.file, hooks, (model) => {
     const entry = locate(model, ref);
-    // The rules are held only to a time or a duration the edit changes, so a note can always have its text edited.
-    if ((at !== undefined && at !== entry.at) || (duration !== undefined && duration !== entry.duration)) checkLength(duration === undefined ? entry.duration : duration, at === undefined ? entry.at : at);
+    checkLengthIfChanged({ at, duration }, entry);
     if (at !== undefined) entry.at = at;
     if (duration !== undefined) {
       entry.duration = duration;
-      entry.chunks = entry.chunks.filter((c) => c.key !== 'duration'); // a duration sent, or none, replaces every `duration:` line, one that did not read included
+      entry.chunks = withoutDurationLines(entry.chunks, duration);
     }
     if (note !== undefined) entry.note = note;
     entry.dirty = true;
@@ -543,9 +560,7 @@ function editNote(dir, ref, patch, hooks) {
 // leaves it twice, never lost. The file is made in the folder the note is in, or joins the one that
 // day already has.
 function moveNoteToDay(dir, ref, where, day, patch, hooks) {
-  const at = patch.at === undefined ? undefined : checkTime(patch.at);
-  const duration = patch.duration === undefined ? undefined : checkDuration(patch.duration);
-  const note = patch.note === undefined ? undefined : checkText(patch.note);
+  const { at, duration, note } = checkPatch(patch);
   const { value, digits } = mustLogbook(dir);
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
   const seen = { at: found.at, duration: found.duration, by: found.by, note: found.note };
@@ -554,11 +569,11 @@ function moveNoteToDay(dir, ref, where, day, patch, hooks) {
     duration: duration === undefined ? found.duration : duration,
     note: note === undefined ? found.note : note,
   };
-  checkLength(next.duration, next.at);
+  checkLengthIfChanged({ at, duration }, found);
   iter.checkWritable(value);
   const here = { label: where.label, abs: path.dirname(where.file), parts: where.parts, segs: [] };
   const { folder, file: dest } = homeOf(dir, value, digits, day, where.target, here, here);
-  const kept = found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key) && !(duration !== undefined && c.key === 'duration'));
+  const kept = withoutDurationLines(found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)), duration);
   const made = withFile(dest, hooks, (model) => {
     const entry = newEntry(next.at, found.by, next.note, kept, next.duration);
     model.entries.push(entry);

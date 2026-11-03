@@ -48,6 +48,15 @@ test('a day with a time and a duration applies them on the target day and holds 
   assert.strictEqual(bad.file(D3), before);
 });
 
+test('a day alone moves a note whose stored time and duration already run past midnight, as an edit of its text would', () => {
+  const OVER = '---\nentries:\n  - at: "23:30"\n    duration: "1h"\n    by: "@human"\n    note: late\n---\n';
+  const b = board({ [D3]: OVER });
+  const r = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), day: '2026-11-04' });
+  assert.deepStrictEqual([r.status, r.body.note.day, r.body.note.at, r.body.note.duration], [200, '2026-11-04', '23:30', null]);
+  assert.strictEqual(b.file(D4), OVER);
+  assert.deepStrictEqual(b.names(), [D4]);
+});
+
 test('a day that already has a file joins it, the entries kept in time order, and the source keeps its other notes', () => {
   const b = board({
     [D3]: '---\nentries:\n  - at: "08:00"\n    by: "@human"\n    note: early\n  - at: "10:30"\n    by: "@human"\n    note: moving\n---\n',
@@ -94,7 +103,7 @@ test('the source file left with no entries is removed as assign removes it', () 
 
 test('the body api.md gives for moving a note to another day moves it', () => {
   const api = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'references', 'api.md'), 'utf8');
-  const given = /moves the note to another day[^`]*`(\{[^`]*"day"[^`]*\})`/.exec(api);
+  const given = /`(\{[^`]*"day"[^`]*\})`/.exec(api);
   assert.ok(given, 'api.md shows the body of a move to another day');
   const body = JSON.parse(given[1]);
   const b = board({ [D3]: ONE });

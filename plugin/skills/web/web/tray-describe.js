@@ -43,12 +43,12 @@ const trayDescribeModule = (() => {
   function noteNow(body) {
     const seen = isObject(body.ref) && isObject(body.ref.expect) ? body.ref.expect : {};
     const day = body.day === undefined ? (body.ref && body.ref.day) : body.day;
-    const at = body.at === undefined ? seen.at || '' : body.at || '';
+    const time = body.at === undefined ? seen.at || '' : body.at || '';
     const minutes = durations.parseDuration(body.duration === undefined ? seen.duration : body.duration);
-    const same = day === (body.ref && body.ref.day) && at === (seen.at || '') && minutes === durations.parseDuration(seen.duration);
+    const same = day === (body.ref && body.ref.day) && time === (seen.at || '') && minutes === durations.parseDuration(seen.duration);
     if (same || !day) return '';
     const length = minutes === null ? '' : durations.formatDuration(minutes);
-    const when = at === '' ? `untimed${length ? `, ${length}` : ''}` : length ? durations.durationRange(at, minutes) : at;
+    const when = time === '' ? `untimed${length ? `, ${length}` : ''}` : length ? durations.durationRange(time, minutes) : time;
     return `, now ${day} ${when}`;
   }
 

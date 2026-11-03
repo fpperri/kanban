@@ -5378,16 +5378,30 @@ function calTimePointer(e) {
   return { day: col.dataset.day, col, rawMin: calScaleCur.minOf(e.clientY - r.top) };
 }
 
+// A dragged block shown over the column under the pointer and the minute it would start at: the
+// horizontal translate is the target column's left minus the base column's (equal-width columns, so
+// it overlays the target slot), the vertical one the minute delta. Cosmetic only; the PATCH is authoritative.
+function calTranslateBlock(el, baseCol, targetCol, fromMin, toMin) {
+  const dxPx = targetCol && baseCol ? targetCol.getBoundingClientRect().left - baseCol.getBoundingClientRect().left : 0;
+  el.style.transform = `translate(${dxPx}px, ${calScaleCur.yOf(toMin) - calScaleCur.yOf(fromMin)}px)`;
+}
+
+// A block as it was before the drag drew over it; `box` is its top and height, kept when the drag resized it.
+function calRestoreBlock(el, box) {
+  el.style.transform = '';
+  if (box) {
+    el.style.top = box.top;
+    el.style.height = box.height;
+  }
+}
+
+// The edge a resize handle drags, 'start' for the top one and 'end' for the bottom one.
+const calHandleEdge = (handle) => (handle.classList.contains('top') ? 'start' : 'end');
+
 function calTimeApplyPreview(drag) {
   const el = drag.blockEl;
   if (drag.mode === 'shift' || drag.mode === 'due') {
-    // 2-axis translate: horizontal = target column's left minus the base
-    // column's (equal-width cols, so this overlays the target slot), vertical =
-    // the minute delta. Cosmetic only — onCalTimeDragEnd's PATCH is authoritative.
-    const baseCol = el.closest('.cal-tg-col');
-    const dxPx = drag.targetCol && baseCol ? drag.targetCol.getBoundingClientRect().left - baseCol.getBoundingClientRect().left : 0;
-    const dyPx = calScaleCur.yOf(drag.targetMin) - calScaleCur.yOf(drag.baseStartMin);
-    el.style.transform = `translate(${dxPx}px, ${dyPx}px)`;
+    calTranslateBlock(el, el.closest('.cal-tg-col'), drag.targetCol, drag.baseStartMin, drag.targetMin);
     return;
   }
   // resize: mutate top/height directly (mirrors the gantt's left/width split).
@@ -5434,12 +5448,12 @@ function wireCalendarTimeDrag() {
   }, true);
 
   container.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || calTimeDrag) return;
+    if (e.button !== 0 || calTimeDrag || calNoteDrag) return;
     const blockEl = e.target.closest('.cal-timeblock');
     if (!blockEl) return;
     const handleEl = e.target.closest('.cal-resize-handle');
     const mode = handleEl
-      ? (handleEl.classList.contains('top') ? 'resize-start' : 'resize-end')
+      ? `resize-${calHandleEdge(handleEl)}`
       : (blockEl.dataset.due === '1' ? 'due' : 'shift');
     const id = blockEl.dataset.id;
     // Archived guard, BEFORE any capture/state (same as the gantt): an archived
@@ -5502,11 +5516,8 @@ function wireCalendarTimeDrag() {
     calTimeDrag = null;
     isDragging = false;
     drag.blockEl.classList.remove('dragging');
-    drag.blockEl.style.transform = '';
-    if (drag.mode === 'resize-start' || drag.mode === 'resize-end') {
-      drag.blockEl.style.top = `${drag.baseTop}px`;
-      drag.blockEl.style.height = `${drag.baseHeight}px`;
-    }
+    const resized = drag.mode === 'resize-start' || drag.mode === 'resize-end';
+    calRestoreBlock(drag.blockEl, resized ? { top: `${drag.baseTop}px`, height: `${drag.baseHeight}px` } : null);
     if (!commit || !drag.moved) return;
     suppressCalTimeClick();
     onCalTimeDragEnd(drag);
@@ -5582,9 +5593,9 @@ function onCalNotesDividerDblClick(e) {
 // (suppressCalTimeClick). A move keeps the point the note was grabbed by, taken from the note's own
 // start and not from where its chip sits (in Notes a chip is in its hour's stack, not at its minute),
 // snaps to 15 minutes, and follows the day column under the pointer. A block's top and bottom edge, as a
-// card block's, change the note's start or its end instead, on the same day and 15 minutes at least. A count bubble and the untimed box
-// are no chip or block and never move. isDragging holds the poll, so every guard that skips a live card
-// drag skips this one.
+// card block's, change the note's start or its end instead, on the same day and 15 minutes at least. A
+// count bubble and the untimed box are no chip or block and never move. isDragging holds the poll, so
+// every guard that skips a live card drag skips this one.
 let calNoteDrag = null;
 
 function onCalNoteDown(e) {
@@ -5596,7 +5607,7 @@ function onCalNoteDown(e) {
   const p = calTimePointer(e);
   if (start === null || !p) return;
   const handle = e.target.closest('.cal-resize-handle');
-  const edge = handle && el.classList.contains('cal-note-block') ? (handle.classList.contains('top') ? 'start' : 'end') : null;
+  const edge = handle && el.classList.contains('cal-note-block') ? calHandleEdge(handle) : null;
   calNoteDrag = {
     note, el, edge, baseTop: el.style.top, baseHeight: el.style.height, pointerId: e.pointerId, originX: e.clientX, originY: e.clientY, moved: false,
     baseCol: el.closest('.cal-tg-col'), baseStartMin: start, grabOffsetMin: start - p.rawMin,
@@ -5618,8 +5629,7 @@ function onCalNoteMove(e) {
   drag.targetDay = p.day;
   drag.targetCol = p.col;
   drag.targetMin = noteMoveTarget(drag.note, calTimeSnap(p.rawMin + drag.grabOffsetMin));
-  const dx = drag.baseCol ? p.col.getBoundingClientRect().left - drag.baseCol.getBoundingClientRect().left : 0;
-  drag.el.style.transform = `translate(${dx}px, ${calScaleCur.yOf(drag.targetMin) - calScaleCur.yOf(drag.baseStartMin)}px)`;
+  calTranslateBlock(drag.el, drag.baseCol, p.col, drag.baseStartMin, drag.targetMin);
 }
 
 // A dragged edge is drawn as a block's layout draws it (noteStripLayout): from its start to its end, never under a chip, a pixel off each side.
@@ -5638,9 +5648,7 @@ function endCalNoteDrag(e, commit) {
   calNoteDrag = null;
   isDragging = false;
   drag.el.classList.remove('dragging');
-  drag.el.style.transform = '';
-  drag.el.style.top = drag.baseTop;
-  drag.el.style.height = drag.baseHeight;
+  calRestoreBlock(drag.el, { top: drag.baseTop, height: drag.baseHeight });
   if (!commit || !drag.moved) return;
   suppressCalTimeClick();
   onCalNoteDragEnd(drag);
