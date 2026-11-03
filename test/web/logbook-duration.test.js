@@ -173,6 +173,12 @@ test('PATCH refuses a duration that is no length, under a minute, past 24:00 fro
   assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(untimed), duration: '24h' }).status, 200);
 });
 
+test('a note\'s text is edited with its time sent as it was, whatever its hand-written duration says', () => {
+  const b = board({ [DAY7]: '---\nentries:\n  - at: "23:30"\n    duration: 1h\n    by: "@afk"\n    note: late\n---\n' });
+  const r = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), at: '23:30', note: 'late, changed' });
+  assert.deepStrictEqual([r.status, r.body.note && r.body.note.note], [200, 'late, changed']);
+});
+
 test('PATCH takes a time and a duration together, and untimed with a duration, in one save', () => {
   const b = board();
   b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', duration: '45m', note: 'a' });

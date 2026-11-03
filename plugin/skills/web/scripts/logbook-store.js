@@ -514,7 +514,8 @@ function editNote(dir, ref, patch, hooks) {
   const note = patch.note === undefined ? undefined : checkText(patch.note);
   return withFile(where.file, hooks, (model) => {
     const entry = locate(model, ref);
-    if (at !== undefined || duration !== undefined) checkLength(duration === undefined ? entry.duration : duration, at === undefined ? entry.at : at);
+    // The rules are held only to a time or a duration the edit changes, so a note can always have its text edited.
+    if ((at !== undefined && at !== entry.at) || (duration !== undefined && duration !== entry.duration)) checkLength(duration === undefined ? entry.duration : duration, at === undefined ? entry.at : at);
     if (at !== undefined) entry.at = at;
     if (duration !== undefined) entry.duration = duration;
     if (note !== undefined) entry.note = note;
