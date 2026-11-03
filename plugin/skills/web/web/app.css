@@ -2065,7 +2065,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .np-chip-x { flex: 0 0 auto; padding: 0 4px; font-size: 0.85em; line-height: 1.2; border: 0; background: transparent; color: var(--mut); cursor: pointer; }
 .np-chip-x:hover { background: transparent; color: var(--accent); }
-.np-when { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); font-size: 0.82em; }
+.np-when { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: var(--mut); font-size: 0.82em; } /* wraps where a phone has no room for the date, time, duration, tick and picker on one line */
 .np-date-wrap { display: inline-flex; align-items: center; gap: 2px; }
 .np-date { width: 6.8em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
 .np-date-btn { padding: 1px 4px; border: 0; background: transparent; cursor: pointer; font-size: 1em; line-height: 1; }
@@ -2077,9 +2077,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-pick { position: relative; display: inline-flex; min-width: 0; }
 .np-pick-input { width: 14em; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1em; text-overflow: ellipsis; }
 .combobox-menu.np-pick-menu { position: fixed; right: auto; z-index: 40; max-width: min(40em, 92vw); }
-.np-time { width: 4.6em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
-.np-time:focus, .np-date:focus, .np-pick-input:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
+.np-time, .np-duration { width: 4.6em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
+.np-time:focus, .np-duration:focus, .np-date:focus, .np-pick-input:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
 .np-time:disabled { opacity: .45; }
+.np-duration-wrap { display: inline-flex; align-items: center; position: relative; }
+.np-duration { width: 6.4em; }
 .np-untimed-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .np-input { padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-input::placeholder, .np-filter::placeholder { color: var(--mut); }
@@ -2113,11 +2115,13 @@ button.np-nhead-label { cursor: pointer; }
 button.np-nhead-label:hover { color: var(--accent); }
 .np-nday { color: var(--mut); white-space: nowrap; }
 .np-nhead-count { margin-left: auto; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
-.np-note { -webkit-touch-callout: none; display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
+/* A note's time column; a list with a range in it (10:30–11:15) widens it for every row, so they stay aligned. */
+.np-notes.np-ranges { --np-time-col: 6.9em; }
+.np-note { -webkit-touch-callout: none; display: grid; grid-template-columns: var(--np-time-col, 4.2em) auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; padding: 3px 4px; border-radius: .15rem; font-size: 0.85em; min-width: 0; outline: none; }
 .np-note:hover, .np-note:focus-within { background: var(--hover-wash); }
 .np-note:focus { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
-.np-note.np-tl { grid-template-columns: 4.2em auto minmax(0, 5em) minmax(0, 1fr); }
-.np-note.np-tl.np-one { grid-template-columns: 4.2em auto minmax(0, 1fr); }
+.np-note.np-tl { grid-template-columns: var(--np-time-col, 4.2em) auto minmax(0, 5em) minmax(0, 1fr); }
+.np-note.np-tl.np-one { grid-template-columns: var(--np-time-col, 4.2em) auto minmax(0, 1fr); }
 .np-note.np-tl .np-note-by:empty { display: block; }
 .np-note-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--mut); font: inherit; text-align: left; }
 button.np-note-card { cursor: pointer; }
@@ -2137,7 +2141,7 @@ button.np-note-card:hover { color: var(--accent); }
    share a line and the text runs under them at the list's full width. It reads the list's own width, not the
    window's, as the palette and the card's details are not the same width. */
 @container np-list (max-width: 30em) {
-  .np-note, .np-note.np-tl, .np-note.np-tl.np-one { grid-template-columns: 4.2em auto minmax(0, 1fr); }
+  .np-note, .np-note.np-tl, .np-note.np-tl.np-one { grid-template-columns: var(--np-time-col, 4.2em) auto minmax(0, 1fr); }
   .np-note-text { grid-column: 1 / -1; }
 }
 .np-act { padding: 1px 7px; border: 1px solid transparent; border-radius: .15rem; background: transparent; color: var(--mut); font-size: 0.9em; cursor: pointer; }

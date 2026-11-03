@@ -46,11 +46,11 @@ const setBox = (p, text) => { p.ui().input.value = text; p.ui().input.fire('inpu
 
 // --- the date beside the time ------------------------------------------------------------------
 
-test('the subject row holds a date, a time, the untimed tick and the card picker, in that order', async () => {
+test('the subject row holds a date, a time, a duration, the untimed tick and the card picker, in that order', async () => {
   const p = await open();
   p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
-  const names = p.find('.np-when').children.map((c) => c.classes.find((k) => /^np-(date-wrap|time-wrap|untimed-label|pick)$/.test(k)) || c.classes.join(' ') || c.tag);
-  assert.deepStrictEqual(names.filter((n) => n !== 'span'), ['np-date-wrap', 'np-time-wrap', 'np-untimed-label', 'np-pick']);
+  const names = p.find('.np-when').children.map((c) => c.classes.find((k) => /^np-(date-wrap|time-wrap|duration-wrap|untimed-label|pick)$/.test(k)) || c.classes.join(' ') || c.tag);
+  assert.deepStrictEqual(names.filter((n) => n !== 'span'), ['np-date-wrap', 'np-time-wrap', 'np-duration-wrap', 'np-untimed-label', 'np-pick']);
 });
 
 test('the date starts on Today and the time on Now, which Enter works out when it is pressed', async () => {

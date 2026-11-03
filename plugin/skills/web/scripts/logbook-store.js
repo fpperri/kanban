@@ -10,6 +10,7 @@
 //   ---
 //   entries:
 //     - at: "09:10"       # optional; absent = untimed; always quoted
+//       duration: "45m"   # optional; a length of work (web/durations.js), with at a range
 //       by: "@human"      # an assignee handle
 //       note: two enum renames left
 //   ---
@@ -40,6 +41,7 @@ const path = require('path');
 const cfg = require('./config-store');
 const ids = require('../web/ids');
 const { validDay } = require('../web/days');
+const { parseDuration, formatDuration, durationProblem } = require('../web/durations');
 const { StatusError } = require('./store-common');
 const { writeAtomic } = require('./card-store');
 const iter = require('./iteration-folders');
@@ -75,6 +77,20 @@ function checkTime(at) {
   if (at === undefined || at === null || at === '') return null;
   if (typeof at !== 'string' || !TIME_RE.test(at.trim())) throw new StatusError('A time reads HH:MM, e.g. 09:10.', 400);
   return at.trim();
+}
+
+// A duration in any form the reader takes, as whole minutes; none is null. The rules it keeps with
+// the note's time are checked where the time is known (checkLength).
+function checkDuration(duration) {
+  if (duration === undefined || duration === null || duration === '') return null;
+  const minutes = parseDuration(duration);
+  if (minutes === null) throw new StatusError('A duration reads like 45m, 1h or 1h30m.', 400);
+  return minutes;
+}
+
+function checkLength(minutes, at) {
+  const problem = minutes === null ? '' : durationProblem(minutes, at);
+  if (problem) throw new StatusError(problem, 400);
 }
 
 function checkText(note) {
@@ -237,7 +253,7 @@ const KEY_LINE = /^( *)([\w-]+):(?:\s+(.*)|\s*)$/;
 function parseEntry(lines) {
   const dash = /^(\s*)-(\s*)(.*)$/.exec(lines[0]);
   const indent = dash[1].length;
-  const entry = { raw: lines, dirty: false, chunks: [], at: null, by: '', note: '' };
+  const entry = { raw: lines, dirty: false, chunks: [], at: null, duration: null, by: '', note: '' };
   let keyCol = dash[3] === '' ? -1 : indent + 1 + dash[2].length;
   const sources = [];
   if (dash[3] !== '') sources.push(' '.repeat(keyCol) + dash[3]);
@@ -260,10 +276,21 @@ function parseEntry(lines) {
     const folded = c.cont.filter((l) => l.trim() !== '').map((l) => l.trim());
     const value = block ? blockText(block[1], c.cont) : [decodeInline(c.inline, c.key !== 'note'), ...folded].filter((p) => p !== '').join(' ');
     if (c.key === 'at') entry.at = normaliseTime(value);
+    else if (c.key === 'duration') readLength(entry, c, value);
     else if (c.key === 'by') entry.by = value;
     else if (c.key === 'note') entry.note = value;
   }
   return entry;
+}
+
+// A `duration:` that reads as a length the rules allow on some note (1 minute to 24h) is the entry's
+// duration, and its line is written afresh like the time's; any other value is a key the web does
+// not know, kept as it was.
+function readLength(entry, chunk, value) {
+  const minutes = parseDuration(value);
+  if (minutes === null || durationProblem(minutes, null)) return;
+  entry.duration = minutes;
+  chunk.known = true;
 }
 
 function isItem(line, indent) {
@@ -327,16 +354,19 @@ function inOrder(entries) {
 }
 
 // An entry written out from what it holds. Keys the web does not know ride along as they
-// were; at, by and note are written afresh, the time first.
+// were; at, duration, by and note are written afresh, the time first and the duration after it.
+// A duration set replaces a `duration:` line that did not read as one.
 function renderEntry(e, indent, keyCol) {
   const pad = ' '.repeat(keyCol);
-  const chunks = e.chunks.map((c) => ({ key: c.key, lines: [pad + c.first, ...c.cont] }));
+  const chunks = e.chunks.filter((c) => !(c.key === 'duration' && (c.known || e.duration !== null)))
+    .map((c) => ({ key: c.key, lines: [pad + c.first, ...c.cont] }));
   const put = (key, lines) => {
     const i = chunks.findIndex((c) => c.key === key);
     if (i !== -1) chunks[i] = { key, lines };
     else chunks.push({ key, lines });
   };
   chunks.splice(0, chunks.length, ...chunks.filter((c) => c.key !== 'at'));
+  if (e.duration !== null) chunks.unshift({ key: 'duration', lines: [`${pad}duration: "${formatDuration(e.duration)}"`] });
   if (e.at) chunks.unshift({ key: 'at', lines: [`${pad}at: "${e.at}"`] });
   if (e.by) put('by', [`${pad}by: ${doubleQuote(e.by)}`]);
   put('note', noteLines(e.note, pad));
@@ -367,12 +397,13 @@ function hasOtherContent(model) {
   return model.head.slice(1).some((l) => l.trim() !== '') || model.rest.some((l, i) => i !== model.closeAt && l.trim() !== '');
 }
 
-function newEntry(at, by, note, chunks = []) {
-  return { raw: null, dirty: true, chunks, at, by, note };
+function newEntry(at, by, note, chunks = [], duration = null) {
+  return { raw: null, dirty: true, chunks, at, duration, by, note };
 }
 
+// A note as the board payload and the routes answer it: its duration in the written form, or null.
 function record(e, day, target, file, index) {
-  return { day, target, index, at: e.at, by: e.by, note: e.note, file };
+  return { day, target, index, at: e.at, duration: e.duration === null ? null : formatDuration(e.duration), by: e.by, note: e.note, file };
 }
 
 // ---------- reading ----------
@@ -459,13 +490,15 @@ function addNote(dir, input, hooks) {
   const day = checkDay(input.day);
   const target = checkTarget(input.target);
   const at = checkTime(input.at);
+  const duration = checkDuration(input.duration);
+  checkLength(duration, at);
   const by = checkAuthor(input.by);
   const note = checkText(input.note);
   iter.checkWritable(value);
   const ruled = iter.folderOfNote(dir, value, target, day);
   const { folder, file } = homeOf(dir, value, digits, day, target, ruled, ruled);
   return withFile(file, hooks, (model) => {
-    const entry = newEntry(at, by, note);
+    const entry = newEntry(at, by, note, [], duration);
     model.entries.push(entry);
     return record(entry, day, target, refOf(folder.label, path.basename(file)), indexOf(model, entry));
   });
@@ -477,6 +510,7 @@ function editNote(dir, ref, patch, hooks) {
   const note = patch.note === undefined ? undefined : checkText(patch.note);
   return withFile(where.file, hooks, (model) => {
     const entry = locate(model, ref);
+    if (at !== undefined) checkLength(entry.duration, at);
     if (at !== undefined) entry.at = at;
     if (note !== undefined) entry.note = note;
     entry.dirty = true;
@@ -510,7 +544,7 @@ function assignNote(dir, ref, to, hooks) {
   const stay = iter.folderOfAssigned(dir, value, here, target);
   const { folder, file: dest } = aimed ? { folder: aimed, file: fileToWrite(aimed.abs, digits, where.day, target) } : homeOf(dir, value, digits, where.day, target, stay, stay);
   const made = withFile(dest, hooks, (model) => {
-    const entry = newEntry(found.at, found.by, found.note, found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)));
+    const entry = newEntry(found.at, found.by, found.note, found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key)), found.duration);
     model.entries.push(entry);
     return record(entry, where.day, target, refOf(folder.label, path.basename(dest)), indexOf(model, entry));
   });

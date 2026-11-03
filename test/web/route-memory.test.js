@@ -78,6 +78,16 @@ const ROWS = [
   ['notes: edit one', ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, at: '09:30', note: 'first, changed' }]],
   ['notes: assign one to another card', ['POST', '/api/notes/assign', { ref: { day: '2026-10-16', target: '7', index: 1, file: '2026.10.16.0007.logbook.md', expect: { at: '10:00', by: '@human', note: 'second' } }, to: '3' }]],
   ['notes: delete one', ['DELETE', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } } }]],
+  ['notes: add one with a time and a duration', ['POST', '/api/notes', { day: '2026-10-16', target: '7', at: '11:00', duration: '1h30', note: 'third' }]],
+  ['notes: add one with a duration and no time', ['POST', '/api/notes', { day: '2026-10-17', duration: '45m', note: 'reviews' }]],
+  ['notes: a duration past 24:00 is refused', ['POST', '/api/notes', { day: '2026-10-16', target: '7', at: '23:30', duration: '1h', note: 'x' }]],
+  ['notes: assign one with a duration, which it keeps',
+    ['POST', '/api/notes', { day: '2026-10-16', target: '7', at: '11:00', duration: '45m', note: 'timed' }],
+    ['POST', '/api/notes/assign', (call) => {
+      const n = call('GET', '/api/board').body.logbook.notes.find((x) => x.note === 'timed');
+      return { ref: { day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, by: n.by, note: n.note } }, to: '3' };
+    }],
+    ['GET', '/api/board']],
 
   // the scratchpad page
   ['scratchpad: write a card\'s page', ['PUT', '/api/scratchpad/7', { body: 'first\nsecond' }]],

@@ -2,20 +2,22 @@ The kanban notes kit: the logbook's day files, a card's or group's scratchpad pa
 
 ## The logbook: notes in day files
 
-A **note** is a short line, optionally timed, about one card, one group or nothing: the working log of who did what and when. It is not a narrative entry (the narrative stays the durable record of what happened to a card) and not a notification (that is addressed to the human). Notes live in the folder `logbook:` names, **one Markdown file per target per day**. The file name is the identity and nothing else carries the day or the target:
+A **note** is a short line, optionally timed and optionally carrying a duration, about one card, one group or nothing: the working log of who did what and when. It is not a narrative entry (the narrative stays the durable record of what happened to a card) and not a notification (that is addressed to the human). Notes live in the folder `logbook:` names, **one Markdown file per target per day**. The file name is the identity and nothing else carries the day or the target:
 
 - `2026.10.16.logbook.md` — notes about nothing, on 2026-10-16.
 - `2026.10.16.0007.logbook.md` — notes about card `#7` (the id padded to `idDigits` after its prefix: `2026.10.16.G0003.logbook.md` for `#G3`). The number is what is read, so any padding resolves; renaming a file moves its notes to another day or target.
 
-The notes are a list in the frontmatter, each with an optional time, an author and the text:
+The notes are a list in the frontmatter, each with an optional time, an optional duration, an author and the text:
 
 ```yaml
 ---
 entries:
   - at: "09:10"        # optional; absent = untimed; always quoted (YAML reads 10:30 as a number)
+    duration: "45m"    # optional; how long the work took: with at, 09:10 to 09:55
     by: "@afk"         # an assignee handle; sign your notes with your own
     note: two enum renames left
-  - by: "@human"
+  - duration: "1h30m"  # a duration with no time: that much work on that day
+    by: "@human"
     note: |-
       a note of several lines
       is a block scalar
@@ -23,9 +25,11 @@ entries:
 free markdown, kept as written
 ```
 
+**A duration** (optional, written after `at:`) is the length of work a note logs. Write it quoted, in one form: whole hours as `"1h"`, minutes under an hour as `"45m"`, both as `"1h30m"`; the board also reads `1h30` and `90m`, quoted or not, and treats any other value as a key it does not know. It is whole minutes, at least 1. With a time the note is a range from that time to the time plus the duration, which ends by 24:00 (`"23:00"` with `"1h"` is allowed, `"23:30"` with `"1h"` is not); without a time it is that much work on that day, at most 24h. Write no end time: the end is worked out where the note is drawn. Nothing on the board adds durations up.
+
 **Writing a note (agents may).** Re-read the day file just before you write it (the web may have written it a moment ago), add an entry, keep the entries in time order with untimed last, and write the file back whole through a temporary file and a rename, creating it when absent. Never change another entry, another frontmatter key, a key an entry carries that you do not know, or the body below: they are the person's, and the web keeps them byte for byte too. Quote a note that would otherwise read as something other than a string (`note: "fixed #12 today"`, a leading `-`, `@` or `[`, a `: ` inside). A file with nothing left in it is deleted.
 
-The web reads the same files, shows a card's notes behind a small count on its tile, and lets a person edit, delete and **assign** a note: assign moves that one note into the other target's file for the same day. When the web and an agent write one file at once, the web re-reads and retries once, then reports a conflict, so a re-read before every write is what keeps both notes.
+The web reads the same files, shows a card's notes behind a small count on its tile, and lets a person edit, delete and **assign** a note: assign moves that one note, its duration with it, into the other target's file for the same day. When the web and an agent write one file at once, the web re-reads and retries once, then reports a conflict, so a re-read before every write is what keeps both notes.
 
 ## The scratchpad: a disposable page per card or group
 

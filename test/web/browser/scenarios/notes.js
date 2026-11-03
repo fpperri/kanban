@@ -7,7 +7,8 @@
 // open the palette aimed at a card, and with nothing aimed at it starts on the card last noted.
 // Enter writes the note at the time field's time, keeps the palette open and clears the box;
 // Shift+Enter starts a new line; a leading HH:MM, the untimed tick and a leading - each set the
-// time, and the preview line says exactly what Enter will write; a bare #22 then Enter aims the
+// time, and the preview line says exactly what Enter will write; a duration picked from its menu makes a
+// range (listed as 08:05–08:50), or with the untimed tick a length (listed as 45m); a bare #22 then Enter aims the
 // palette at that card and Backspace on the empty box clears the chip. Ctrl+F in an empty note box with
 // no card aimed puts # there, and the id typed after it narrows the list to that card until the # is
 // erased; a #id typed by hand narrows nothing, and with a draft in the box Ctrl+F leaves it alone. e, a and d d work on a
@@ -304,6 +305,37 @@ module.exports = {
     await key('Enter');
     check('notes: a note is written at the typed time', await written('7', 'typed a time') && (await ev(notesOf('7'))).includes('today|08:05|@human|typed a time'), await ev(notesOf('7')));
     check('notes: and a time the person typed stays after the write', await ev(`${q('.np-time')}.value`) === '08:05');
+
+    // --- a duration picked in the palette makes a range, or with the untimed tick a length ------------------------
+    // The duration menu: focus the field and choose a row, as the combobox's own rows are chosen (on mousedown).
+    const pickDuration = async (length) => {
+      await ev(`(()=>{const t=${q('.np-duration')};t.blur();t.focus()})()`);
+      const rows = `[...document.querySelectorAll('.np-duration-menu .combobox-item')]`;
+      if (!(await waitFor(`${rows}.some((r)=>r.textContent===${JSON.stringify(length)})`, 3000))) return false;
+      await ev(`${rows}.find((r)=>r.textContent===${JSON.stringify(length)}).dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))`);
+      return waitFor(`${q('.np-duration')}.value===${JSON.stringify(length)}`, 3000);
+    };
+    const rowOf = (text) => `[...document.querySelectorAll('#notes-palette .np-note')].find((r)=>r.querySelector('.np-note-text').textContent===${JSON.stringify(text)})`;
+    const timeOf = (text) => `(()=>{const r=${rowOf(text)};return r?r.querySelector('.np-note-time').textContent:null})()`;
+    // The label's text ends inside its own cell: the time column is wide enough for a range.
+    const timeWhole = (text) => `(()=>{const t=${rowOf(text)}.querySelector('.np-note-time');const r=document.createRange();r.selectNodeContents(t);return r.getBoundingClientRect().right<=t.getBoundingClientRect().right+0.5})()`;
+    check('notes: the duration field starts empty', await ev(`${q('.np-duration')}.value`) === '');
+    check('notes: its menu offers 45m, which a pick puts in the field', await pickDuration('45m'));
+    await setBox('logged a range');
+    check('notes: the preview names the range Enter will write', await preview() === 'Note 08:05–08:50 on #7 Port the zephyr schema', await preview());
+    await key('Enter');
+    check('notes: the note is written with its time and its duration', await waitFor(`${NOTES}.some((n)=>n.note==='logged a range'&&n.at==='08:05'&&n.duration==='45m')`, 4000), await ev(notesOf('7')));
+    check('notes: the list shows it as its range, whole in its time column', await waitFor(`${timeOf('logged a range')}==='08:05–08:50'`, 3000) && await ev(timeWhole('logged a range')), await ev(timeOf('logged a range')));
+    await ev(`(()=>{const u=${q('.np-untimed')};u.checked=true;u.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+    check('notes: the untimed tick keeps the duration', await ev(`${q('.np-duration')}.value`) === '45m' && !(await ev(`${q('.np-duration')}.disabled`)));
+    await setBox('logged a length');
+    check('notes: the preview names the length Enter will write', await preview() === 'Note 45m untimed on #7 Port the zephyr schema', await preview());
+    await key('Enter');
+    check('notes: it is written with no time and its duration', await waitFor(`${NOTES}.some((n)=>n.note==='logged a length'&&n.at===null&&n.duration==='45m')`, 4000), await ev(notesOf('7')));
+    check('notes: the list shows it as its length', await waitFor(`${timeOf('logged a length')}==='45m'`, 3000), await ev(timeOf('logged a length')));
+    await shot('palette-durations');
+    await ev(`(()=>{const u=${q('.np-untimed')};u.checked=false;u.dispatchEvent(new Event('change',{bubbles:true}));const d=${q('.np-duration')};d.value='';d.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    await ev(`${q('.np-input')}.focus()`);
 
     // --- the Grouped | Timeline switch -------------------------------------------------------------------------
     const LAYOUT_BTNS = `[...document.querySelectorAll('#notes-palette .np-layout-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
