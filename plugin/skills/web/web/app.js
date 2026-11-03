@@ -3560,6 +3560,18 @@ for (const type of BACK_ACTIVATION_EVENTS) {
     scheduleBackSync(); // a menu or a light that opened before the finger lifted, or after a Back, gets its entry now
   }, true);
 }
+// The double-tap window is the browser's, counted from the first lift to the second touch down, and the second
+// tap's click comes when that finger lifts, a press later: a wait counted from the first tap's click alone runs out
+// under the second finger, and the entry made there would stand below the card's step. So a finger coming down
+// stops the wait, and its lift or cancel starts it again, as the selection bar's wait does (onBarFingerDown). A
+// wait that starts while the finger is down (a menu a long press opened) runs.
+window.addEventListener('pointerdown', () => {
+  if (backSyncTimer === null) return;
+  clearTimeout(backSyncTimer);
+  backSyncTimer = null;
+}, true);
+window.addEventListener('pointerup', () => scheduleBackSync(), true);
+window.addEventListener('pointercancel', () => scheduleBackSync(), true);
 
 function nextBackSeq() {
   backSeq = Math.max(backSeq, backAt) + 1;

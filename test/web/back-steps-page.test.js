@@ -183,6 +183,61 @@ test('a double tap that undoes its first tap leaves no entry behind, and opens t
   assert.strictEqual(s.session.search, '?card=2');
 });
 
+// Chrome counts a double tap from the first finger's lift to the second finger's touch down, and the second
+// click comes when that finger lifts, a press later: a wait counted from the first tap's click alone runs out
+// under the second finger, and the entry made there would stand below the card's step. So a finger down stops
+// the wait, and the lift starts it again, as the selection bar's wait does. A pointer event as the browser
+// sends it: the window's listeners first, then the document's.
+const finger = (s, type, pointerType = 'touch') => {
+  const e = { type, pointerType, pointerId: 1, target: cardTarget(2) };
+  for (const fn of s.page.windowListeners[type] || []) fn(e);
+  s.page.fireDocument(type, e);
+};
+
+test('a double tap the way a hand makes it, the second finger lifted after the window has passed since the first tap, leaves no entry behind either: one step', async () => {
+  const s = await open();
+  finger(s, 'pointerdown');
+  finger(s, 'pointerup');
+  s.tap(2);
+  s.wait(200);
+  finger(s, 'pointerdown');
+  s.wait(BACK_ENTRY_SETTLE_MS);
+  assert.strictEqual(s.pushes(), 0, 'the window ran out with the finger down, and the page made no entry under it');
+  finger(s, 'pointerup');
+  tap(s, cardTarget(2), { detail: 2 });
+  await s.page.settle();
+  s.settle();
+  assert.ok(s.detailUp(), 'the card opens');
+  assert.deepStrictEqual(s.picked(), [], 'the selection is as it was before the first tap');
+  assert.strictEqual(s.pushes(), 1, 'the card\'s step alone');
+  assert.strictEqual(s.session.search, '?card=2');
+});
+
+test('a finger that comes down after a tap and lifts with no second tap (a scroll, a cancel, a press elsewhere) leaves the entry a window after the lift', async () => {
+  for (const [name, lift] of [['a lift', 'pointerup'], ['a cancel', 'pointercancel']]) {
+    const s = await open();
+    s.tap(2);
+    s.wait(200);
+    finger(s, 'pointerdown');
+    s.wait(5 * BACK_ENTRY_SETTLE_MS);
+    assert.strictEqual(s.pushes(), 0, `${name}: the finger is down, so the wait is not running`);
+    finger(s, lift);
+    s.wait(BACK_ENTRY_SETTLE_MS - 1);
+    assert.strictEqual(s.pushes(), 0, `${name}: one millisecond short of a window after the lift`);
+    s.wait(1);
+    assert.deepStrictEqual([s.pushes(), s.onEntry(), s.picked()], [1, true, ['2']], name);
+  }
+});
+
+test('a menu that opens under a held finger, as a long press opens it, gets its entry with the finger still down: only a finger coming down stops the wait', async () => {
+  const s = await open();
+  s.activate();
+  finger(s, 'pointerdown');
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(0, 0)');
+  s.settle();
+  assert.deepStrictEqual([s.pushes(), s.onEntry()], [1, true]);
+});
+
 test('Back steps the selection back as Esc does, one step per Back: the additions, then the anchor, and the page stays', async () => {
   const s = await open();
   s.tap(2); s.tap(3); s.tap(4);
