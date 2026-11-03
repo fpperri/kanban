@@ -185,6 +185,22 @@ test('a note with a duration queued in the page lands on the board with its dura
     '---\nentries:\n  - at: "10:30"\n    duration: "45m"\n    by: "@human"\n    note: logged on the phone\n  - duration: "1h30m"\n    by: "@human"\n    note: untimed on the phone\n---\n');
 });
 
+test('a duration edit queued in the page lands on the board, a changed duration at the desk refuses the edit, and clearing it takes the key away', () => {
+  const day = '---\nentries:\n  - at: "10:30"\n    by: "@human"\n    note: schema review\n  - at: "14:00"\n    duration: "1h"\n    by: "@human"\n    note: review\n---\n';
+  const board = makeBoard({ ...SEED, 'config.yaml': 'name: t\nnextId: 30\nlogbook: .logbook\n', '.logbook/2026.11.03.0003.logbook.md': day });
+  const ref = (index, at, duration, note) => ({ day: '2026-11-03', target: '3', index, file: '2026.11.03.0003.logbook.md', expect: { at, duration, by: '@human', note } });
+  const report = applyTray({ dir: board, records: [
+    rec('PATCH', '/api/notes', { ref: ref(0, '10:30', null, 'schema review'), at: '10:30', duration: '45m', note: 'schema review' }),
+    rec('PATCH', '/api/notes', { ref: ref(1, '14:00', '1h', 'review'), duration: null }),
+  ] });
+  assert.deepStrictEqual(report.refused, []);
+  assert.strictEqual(fs.readFileSync(path.join(board, '.logbook', '2026.11.03.0003.logbook.md'), 'utf8'),
+    '---\nentries:\n  - at: "10:30"\n    duration: "45m"\n    by: "@human"\n    note: schema review\n  - at: "14:00"\n    by: "@human"\n    note: review\n---\n');
+  const stale = applyTray({ dir: board, records: [rec('PATCH', '/api/notes', { ref: ref(0, '10:30', '30m', 'schema review'), duration: '2h' })] });
+  assert.strictEqual(stale.refused.length, 1);
+  assert.match(fs.readFileSync(path.join(board, '.logbook', '2026.11.03.0003.logbook.md'), 'utf8'), /duration: "45m"/);
+});
+
 test('a scratchpad folder outside the board is part of the dry run and of the apply', () => {
   const cfg = 'name: t\nnextId: 30\nscratchpad: ../pads/<card>\n';
   const board = makeBoard({ ...SEED, 'config.yaml': cfg });
