@@ -63,7 +63,7 @@ test('POST refuses a duration of nothing, one past 24:00 from its time, one over
   assert.strictEqual(b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', duration: '24h', note: 'a whole day' }).status, 201);
 });
 
-const refOf = (n) => ({ day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, by: n.by, note: n.note } });
+const refOf = (n) => ({ day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, duration: n.duration, by: n.by, note: n.note } });
 
 test('assigning a note to another card or to no card keeps its duration', () => {
   const b = board();
@@ -123,7 +123,90 @@ test('an entry written before durations reads and rewrites byte for byte, its re
 test('an edited entry writes its hand-written duration afresh after its time, in the written form', () => {
   const b = board({ [DAY7]: '---\nentries:\n  - by: "@afk"\n    note: first\n    duration: 90m\n    at: 9:10\n---\n' });
   const [n] = b.notes();
-  const ref = { day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, by: n.by, note: n.note } };
+  const ref = refOf(n);
   b.route('PATCH', '/api/notes', { ref, note: 'first, changed' });
   assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "09:10"\n    duration: "1h30m"\n    by: "@afk"\n    note: first, changed\n---\n');
+});
+
+test('PATCH sets a duration on a note, replaces it, and null (or an empty text) removes it', () => {
+  const b = board();
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', note: 'a' });
+  const set = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), duration: '1h30' });
+  assert.deepStrictEqual([set.status, set.body.note.at, set.body.note.duration], [200, '10:30', '1h30m']);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "10:30"\n    duration: "1h30m"\n    by: "@human"\n    note: a\n---\n');
+  const again = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), duration: '45m', note: 'a, changed' });
+  assert.deepStrictEqual([again.status, again.body.note.duration, again.body.note.note], [200, '45m', 'a, changed']);
+  const none = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), duration: null });
+  assert.deepStrictEqual([none.status, none.body.note.at, none.body.note.duration], [200, '10:30', null]);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "10:30"\n    by: "@human"\n    note: a, changed\n---\n');
+  b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), duration: '2h' });
+  const empty = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), duration: '' });
+  assert.deepStrictEqual([empty.status, empty.body.note.duration], [200, null]);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "10:30"\n    by: "@human"\n    note: a, changed\n---\n');
+});
+
+test('PATCH leaves the duration alone when the body has no duration key', () => {
+  const b = board();
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', duration: '45m', note: 'a' });
+  const r = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), note: 'a, changed' });
+  assert.deepStrictEqual([r.status, r.body.note.duration], [200, '45m']);
+});
+
+test('PATCH refuses a duration that is no length, under a minute, past 24:00 from the note\'s time or the time sent with it, or over 24h with no time', () => {
+  const b = board();
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '23:30', note: 'late' });
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', note: 'untimed' });
+  const [late, untimed] = [b.notes().find((n) => n.note === 'late'), b.notes().find((n) => n.note === 'untimed')];
+  const before = b.file(DAY7);
+  for (const [ref, body, error] of [
+    [late, { duration: 'an hour' }, 'A duration reads like 45m, 1h or 1h30m.'],
+    [late, { duration: '0m' }, 'A duration is at least 1 minute.'],
+    [late, { duration: '1h' }, 'A note with a time ends by 24:00; 23:30 plus 1h does not.'],
+    [late, { at: '23:45', duration: '30m' }, 'A note with a time ends by 24:00; 23:45 plus 30m does not.'],
+    [untimed, { duration: '25h' }, 'A duration with no time is at most 24h.'],
+  ]) {
+    const r = b.route('PATCH', '/api/notes', { ref: refOf(ref), ...body });
+    assert.deepStrictEqual([r.status, r.body.error], [400, error], JSON.stringify(body));
+  }
+  assert.strictEqual(b.file(DAY7), before);
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(late), at: '22:30', duration: '1h30m' }).status, 200);
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(untimed), duration: '24h' }).status, 200);
+});
+
+test('PATCH takes a time and a duration together, and untimed with a duration, in one save', () => {
+  const b = board();
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', duration: '45m', note: 'a' });
+  const r = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), at: '', duration: '2h' });
+  assert.deepStrictEqual([r.status, r.body.note.at, r.body.note.duration], [200, null, '2h']);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - duration: "2h"\n    by: "@human"\n    note: a\n---\n');
+});
+
+test('a note whose duration changed at the desk since it was read is refused as a changed time is, by edit, delete and assign', () => {
+  const b = board();
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', duration: '45m', note: 'a' });
+  const seen = refOf(b.notes()[0]);
+  fs.writeFileSync(path.join(b.dir, 'logbook', DAY7), b.file(DAY7).replace('"45m"', '"1h"'));
+  const before = b.file(DAY7);
+  for (const [method, p, body] of [
+    ['PATCH', '/api/notes', { ref: seen, note: 'edited' }],
+    ['PATCH', '/api/notes', { ref: seen, duration: null }],
+    ['DELETE', '/api/notes', { ref: seen }],
+    ['POST', '/api/notes/assign', { ref: seen, to: '22' }],
+  ]) {
+    const r = b.route(method, p, body);
+    assert.deepStrictEqual([r.status, r.body.error], [409, 'That note has changed or is gone; reload and try again.'], `${method} ${p}`);
+  }
+  assert.strictEqual(b.file(DAY7), before);
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), duration: '2h' }).status, 200);
+});
+
+test('a ref that says a note has no duration is refused once it has one, and a ref with no duration key says none', () => {
+  const b = board();
+  b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', note: 'a' });
+  const plain = refOf(b.notes()[0]);
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: { ...plain, expect: { at: '10:30', by: '@human', note: 'a' } }, note: 'a2' }).status, 200);
+  fs.writeFileSync(path.join(b.dir, 'logbook', DAY7), b.file(DAY7).replace('    by:', '    duration: "30m"\n    by:'));
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: { ...plain, expect: { at: '10:30', by: '@human', note: 'a2' } }, note: 'a3' }).status, 409);
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: { ...plain, expect: { at: '10:30', duration: '1h', by: '@human', note: 'a2' } }, note: 'a3' }).status, 409);
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: { ...plain, expect: { at: '10:30', duration: '30m', by: '@human', note: 'a2' } }, note: 'a3' }).status, 200);
 });

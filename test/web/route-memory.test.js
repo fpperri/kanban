@@ -85,9 +85,17 @@ const ROWS = [
     ['POST', '/api/notes', { day: '2026-10-16', target: '7', at: '11:00', duration: '45m', note: 'timed' }],
     ['POST', '/api/notes/assign', (call) => {
       const n = call('GET', '/api/board').body.logbook.notes.find((x) => x.note === 'timed');
-      return { ref: { day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, by: n.by, note: n.note } }, to: '3' };
+      return { ref: { day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, duration: n.duration, by: n.by, note: n.note } }, to: '3' };
     }],
     ['GET', '/api/board']],
+  ['notes: edit one, giving it a duration, then taking it away',
+    ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, duration: '1h30' }],
+    ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', duration: '1h30m', by: '@human', note: 'first' } }, duration: null }],
+    ['GET', '/api/board']],
+  ['notes: an edit that puts a duration past 24:00 is refused', ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, at: '23:30', duration: '1h' }]],
+  ['notes: an edit of a note whose duration is not the one the page read is refused',
+    ['POST', '/api/notes', { day: '2026-10-16', target: '7', at: '11:00', duration: '45m', note: 'timed' }],
+    ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 2, file: '2026.10.16.0007.logbook.md', expect: { at: '11:00', by: '@human', note: 'timed' } }, note: 'timed, changed' }]],
 
   // the scratchpad page
   ['scratchpad: write a card\'s page', ['PUT', '/api/scratchpad/7', { body: 'first\nsecond' }]],
