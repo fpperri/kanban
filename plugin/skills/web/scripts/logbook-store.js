@@ -509,8 +509,17 @@ function addNote(dir, input, hooks) {
   });
 }
 
+// The day a PATCH names: undefined leaves it; anything else must be a date, and the refusal names it.
+function checkPatchDay(day) {
+  if (day === undefined) return undefined;
+  if (!validDay(day)) throw new StatusError(`The day ${JSON.stringify(day)} is not a date; a day reads YYYY-MM-DD.`, 400);
+  return day;
+}
+
 function editNote(dir, ref, patch, hooks) {
   const where = fileOfRef(dir, ref);
+  const day = checkPatchDay(patch.day);
+  if (day !== undefined && day !== where.day) return moveNoteToDay(dir, ref, where, day, patch, hooks);
   const at = patch.at === undefined ? undefined : checkTime(patch.at);
   const duration = patch.duration === undefined ? undefined : checkDuration(patch.duration);
   const note = patch.note === undefined ? undefined : checkText(patch.note);
@@ -527,6 +536,38 @@ function editNote(dir, ref, patch, hooks) {
     entry.dirty = true;
     return record(entry, where.day, where.target, where.ref, indexOf(model, entry));
   });
+}
+
+// A note moved to another day: its entry, edited as editNote edits it, is added to the day file of
+// the new day for the same target before it leaves the first file, so a failure between the two
+// leaves it twice, never lost. The file is made in the folder the note is in, or joins the one that
+// day already has.
+function moveNoteToDay(dir, ref, where, day, patch, hooks) {
+  const at = patch.at === undefined ? undefined : checkTime(patch.at);
+  const duration = patch.duration === undefined ? undefined : checkDuration(patch.duration);
+  const note = patch.note === undefined ? undefined : checkText(patch.note);
+  const { value, digits } = mustLogbook(dir);
+  const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
+  const seen = { at: found.at, duration: found.duration, by: found.by, note: found.note };
+  const next = {
+    at: at === undefined ? found.at : at,
+    duration: duration === undefined ? found.duration : duration,
+    note: note === undefined ? found.note : note,
+  };
+  checkLength(next.duration, next.at);
+  iter.checkWritable(value);
+  const here = { label: where.label, abs: path.dirname(where.file), parts: where.parts, segs: [] };
+  const { folder, file: dest } = homeOf(dir, value, digits, day, where.target, here, here);
+  const kept = found.chunks.filter((c) => !['at', 'by', 'note'].includes(c.key) && !(duration !== undefined && c.key === 'duration'));
+  const made = withFile(dest, hooks, (model) => {
+    const entry = newEntry(next.at, found.by, next.note, kept, next.duration);
+    model.entries.push(entry);
+    return record(entry, day, where.target, refOf(folder.label, path.basename(dest)), indexOf(model, entry));
+  });
+  withFile(where.file, hooks, (model) => {
+    model.entries.splice(model.entries.indexOf(locate(model, { ...ref, expect: seen })), 1);
+  });
+  return made;
 }
 
 function deleteNote(dir, ref, hooks) {
