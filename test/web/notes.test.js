@@ -70,6 +70,91 @@ test('only the first line carries the time, the marker and the mention; later li
   assert.deepStrictEqual([p.at, p.mention, p.text], ['10:30', null, 'first\n#22 second\n- third']);
 });
 
+test('a leading length (45m, 1h30m, 1h30, 90m, in any case) is the note\'s duration, in the written form, and is cut from its text', () => {
+  const p = n.noteParseLine('45m schema review', KNOWN);
+  assert.deepStrictEqual([p.duration, p.at, p.untimed, p.text, p.bad], ['45m', null, false, 'schema review', '']);
+  for (const [typed, written] of [['1h30m', '1h30m'], ['1h30', '1h30m'], ['90m', '1h30m'], ['2h', '2h'], ['1H30M', '1h30m'], ['1h05', '1h5m']]) {
+    const q = n.noteParseLine(`${typed} x`, KNOWN);
+    assert.deepStrictEqual([q.duration, q.text], [written, 'x'], typed);
+  }
+  assert.strictEqual(n.noteParseLine('45m', KNOWN).text, '');
+  assert.strictEqual(n.noteParseLine('plain note', KNOWN).duration, null);
+});
+
+test('a length after a leading time, or after - or untimed, sets the duration beside it', () => {
+  const timed = n.noteParseLine('10:30 45m schema review', KNOWN);
+  assert.deepStrictEqual([timed.at, timed.duration, timed.untimed, timed.text], ['10:30', '45m', false, 'schema review']);
+  for (const line of ['- 45m logged', 'untimed 45m logged', 'Untimed 45m logged']) {
+    const p = n.noteParseLine(line, KNOWN);
+    assert.deepStrictEqual([p.at, p.duration, p.untimed, p.text], [null, '45m', true, 'logged'], line);
+  }
+  assert.strictEqual(n.noteParseLine('- 1h30 logged', KNOWN).duration, '1h30m');
+});
+
+test('a leading HH:MM-HH:MM, with a hyphen or an en dash and no spaces, sets the time and the duration between the two', () => {
+  for (const line of ['10:30-12:00 x', '10:30–12:00 x', '10.30-12.00 x', '10:30-12:00']) {
+    const p = n.noteParseLine(line, KNOWN);
+    assert.deepStrictEqual([p.at, p.duration, p.bad, p.untimed], ['10:30', '1h30m', '', false], line);
+  }
+  assert.strictEqual(n.noteParseLine('10:30-12:00 x', KNOWN).text, 'x');
+  assert.deepStrictEqual([n.noteParseLine('9:00-9:45 x', KNOWN).at, n.noteParseLine('9:00-9:45 x', KNOWN).duration], ['09:00', '45m']);
+  const toMidnight = n.noteParseLine('23:00-24:00 x', KNOWN);
+  assert.deepStrictEqual([toMidnight.at, toMidnight.duration, toMidnight.bad], ['23:00', '1h', '']);
+});
+
+test('a range whose end is at or before its start is refused, with the time and the duration left unread', () => {
+  for (const line of ['12:00-11:00 x', '23:30-00:30 x', '10:00-10:00 x', '10:00–09:59 x']) {
+    const p = n.noteParseLine(line, KNOWN);
+    assert.match(p.bad, /the end is not after the start/, line);
+    assert.deepStrictEqual([p.at, p.duration], [null, null], line);
+  }
+  assert.strictEqual(n.noteParseLine('12:00-11:00 x', KNOWN).bad, '12:00-11:00: the end is not after the start.');
+});
+
+test('a time in a range that is not a time, or a length that is not one, is reported and the text after it kept', () => {
+  assert.match(n.noteParseLine('25:00-26:00 x', KNOWN).bad, /25:00/);
+  assert.match(n.noteParseLine('10:00-12:75 x', KNOWN).bad, /12:75/);
+  assert.match(n.noteParseLine('10:00-25:00 x', KNOWN).bad, /25:00/);
+  const late = n.noteParseLine('10:00-24:30 x', KNOWN);
+  assert.match(late.bad, /24:30/);
+  const length = n.noteParseLine('1h75 x', KNOWN);
+  assert.strictEqual(length.bad, '1h75 is not a duration; a duration reads like 45m, 1h or 1h30m.');
+  assert.strictEqual(length.text, 'x');
+  assert.match(n.noteParseLine('10:30 1h75 x', KNOWN).bad, /1h75/);
+});
+
+test('a length or a range that is not whole at the start of the line, or is further in, is only text', () => {
+  for (const line of ['moved 45m of work', '45min review', '45 m review', '45minutes', '1h30min', '-45m x', '10:30 - 12:00 x', '10:30-12:00pm x']) {
+    const p = n.noteParseLine(line, KNOWN);
+    assert.strictEqual(p.duration, null, line);
+    assert.strictEqual(p.bad, '', line);
+  }
+  assert.strictEqual(n.noteParseLine('45min review', KNOWN).text, '45min review');
+  assert.strictEqual(n.noteParseLine('10:30 - 12:00 x', KNOWN).text, '- 12:00 x');
+  assert.strictEqual(n.noteParseLine('-45m x', KNOWN).text, '-45m x');
+  const stacked = n.noteParseLine('10:30 45m 15m x', KNOWN);
+  assert.deepStrictEqual([stacked.duration, stacked.text], ['45m', '15m x'], 'one length is read');
+  const ranged = n.noteParseLine('10:30-12:00 45m x', KNOWN);
+  assert.deepStrictEqual([ranged.duration, ranged.text], ['1h30m', '45m x'], 'a range already holds the length');
+});
+
+test('a time, a length, then a mention: all read in that order; a length after a mention is text; a length with the mention is not bare', () => {
+  const p = n.noteParseLine('10:30 45m #22 mid check', KNOWN);
+  assert.deepStrictEqual([p.at, p.duration, p.mention, p.text], ['10:30', '45m', '22', 'mid check']);
+  const range = n.noteParseLine('10:30-12:00 #22 mid check', KNOWN);
+  assert.deepStrictEqual([range.at, range.duration, range.mention, range.text], ['10:30', '1h30m', '22', 'mid check']);
+  const after = n.noteParseLine('#22 45m mid check', KNOWN);
+  assert.deepStrictEqual([after.duration, after.mention, after.text], [null, '22', '45m mid check']);
+  assert.strictEqual(n.noteParseLine('45m #22', KNOWN).bare, false);
+  assert.strictEqual(n.noteParseLine('10:30-12:00 #22', KNOWN).bare, false);
+  assert.strictEqual(n.noteParseLine('#22', KNOWN).bare, true);
+});
+
+test('only the first line carries the length and the range', () => {
+  const p = n.noteParseLine('10:30 first\n45m second\n10:30-12:00 third', KNOWN);
+  assert.deepStrictEqual([p.at, p.duration, p.text], ['10:30', null, 'first\n45m second\n10:30-12:00 third']);
+});
+
 // --- what Enter writes --------------------------------------------------------------------------
 
 test('the time comes from the line, else the untimed tick, else the time field, else now', () => {
@@ -141,6 +226,46 @@ test('the preview names the range or the length Enter will write', () => {
   assert.strictEqual(prev({ ...field('Now'), duration: '1h' }), 'Note 16:40–17:40 on #7 Port the zephyr schema');
   assert.strictEqual(prev({ ...field('10:30'), duration: '45m', day: '2026-10-14' }), 'Note 10:30–11:15, Day 14, on #7 Port the zephyr schema');
   assert.strictEqual(prev({ ...field('10:30'), duration: '' }), 'Note at 10:30 on #7 Port the zephyr schema');
+});
+
+test('a length or a range in the line is the note\'s duration over the duration field\'s, as a leading time is over the time field\'s', () => {
+  const plan = (raw, f, subject = { kind: 'card', id: '7', day: CTX.today }) => n.noteWritePlan(n.noteParseLine(raw, KNOWN), subject, f, CTX);
+  const got = (p) => [p.at, p.duration, p.bad, p.text];
+  assert.deepStrictEqual(got(plan('45m x', { ...field('10:30'), duration: '2h' })), ['10:30', '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('45m x', field('10:30'))), ['10:30', '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('45m x', field('Now'))), ['16:40', '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('45m x', field('10:30', true))), [null, '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('10:30 45m x', { ...field('12:00'), duration: '2h' })), ['10:30', '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('10:30-12:00 x', { ...field('15:00'), duration: '2h' })), ['10:30', '1h30m', '', 'x']);
+  assert.deepStrictEqual(got(plan('- 45m x', field('12:00'))), [null, '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('untimed 45m x', field('12:00'))), [null, '45m', '', 'x']);
+  assert.deepStrictEqual(got(plan('x', { ...field('10:30'), duration: '2h' })), ['10:30', '2h', '', 'x']);
+});
+
+test('a leading length is held to the rules with the time Enter would write; a range refused in the line is written nowhere', () => {
+  const plan = (raw, f) => n.noteWritePlan(n.noteParseLine(raw, KNOWN), { kind: 'card', id: '7', day: CTX.today }, f, CTX);
+  assert.strictEqual(plan('1h x', field('23:30')).bad, 'A note with a time ends by 24:00; 23:30 plus 1h does not.');
+  assert.strictEqual(plan('1h x', field('23:00')).bad, '');
+  assert.strictEqual(plan('25h x', field('', true)).bad, 'A duration with no time is at most 24h.');
+  assert.strictEqual(plan('0m x', field('10:30')).bad, 'A duration is at least 1 minute.');
+  assert.strictEqual(plan('23:30-00:30 x', field('10:30')).bad, '23:30-00:30: the end is not after the start.');
+  assert.strictEqual(plan('12:00-11:00 x', field('10:30')).bad, '12:00-11:00: the end is not after the start.');
+  assert.strictEqual(plan('1h75 x', field('10:30')).bad, '1h75 is not a duration; a duration reads like 45m, 1h or 1h30m.');
+});
+
+test('the preview says what each leading form will write', () => {
+  const label = (id) => ({ 7: '#7 Port the zephyr schema', 22: '#22 Plan the cutover', '': 'no card' }[id]);
+  const prev = (raw, f = field('10:30'), subject = { kind: 'card', id: '7', day: CTX.today }) => n.notePreview(n.noteWritePlan(n.noteParseLine(raw, KNOWN), subject, f, CTX), { label, dayName: (d) => `Day ${d.slice(8)}`, today: CTX.today });
+  assert.strictEqual(prev('45m x'), 'Note 10:30–11:15 on #7 Port the zephyr schema');
+  assert.strictEqual(prev('45m x', field('Now')), 'Note 16:40–17:25 on #7 Port the zephyr schema');
+  assert.strictEqual(prev('9:00 45m x'), 'Note 09:00–09:45 on #7 Port the zephyr schema');
+  assert.strictEqual(prev('10:30-12:00 x'), 'Note 10:30–12:00 on #7 Port the zephyr schema');
+  assert.strictEqual(prev('10:30–12:00 #22 x'), 'Note 10:30–12:00 on #22 Plan the cutover');
+  assert.strictEqual(prev('- 45m x'), 'Note 45m untimed on #7 Port the zephyr schema');
+  assert.strictEqual(prev('untimed 1h30 x'), 'Note 1h30m untimed on #7 Port the zephyr schema');
+  assert.strictEqual(prev('10:30-12:00'), 'Note 10:30–12:00 on #7 Port the zephyr schema · type the note');
+  assert.strictEqual(prev('12:00-11:00 x'), '12:00-11:00: the end is not after the start.');
+  assert.strictEqual(prev('1h x', field('23:30')), 'A note with a time ends by 24:00; 23:30 plus 1h does not.');
 });
 
 test('the duration menu lists 15m to 4h in 15-minute steps, and from a time only the lengths that end by midnight', () => {
