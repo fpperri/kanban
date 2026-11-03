@@ -343,18 +343,43 @@ test('the row\'s duration menu lists 15m to 4h, trimmed to what ends by midnight
   assert.deepStrictEqual(menu().children.map((c) => c.textContent), ['15m', '30m', '45m', '1h']);
 });
 
-test('Enter in the row saves it, but not the Enter that picks from an open duration menu', async () => {
+// A key pressed in a field of the edit row, as the browser delivers it: to the field, then up to the row's form.
+const rowKey = (p, field, key) => {
+  const e = p.press(field, key);
+  p.find('.np-edit').fire('keydown', e);
+  return e;
+};
+
+test('one Enter in the row\'s duration field saves it with its menu open: the length typed, or the one highlighted', async () => {
+  const p = await openEdit();
+  const menu = () => p.doc.body.querySelectorAll('.np-edit-duration-menu')[0];
+  const typed = p.edit(1);
+  typed.duration.fire('focus', {});
+  p.type(typed.duration, '2h');
+  assert.strictEqual(menu().hidden, false);
+  rowKey(p, typed.duration, 'Enter');
+  await p.page.settle();
+  assert.deepStrictEqual(p.patches.map((b) => b.duration), ['2h']);
+  const picked = p.edit(1);
+  picked.duration.fire('focus', {});
+  rowKey(p, picked.duration, 'ArrowDown');
+  rowKey(p, picked.duration, 'Enter');
+  await p.page.settle();
+  assert.deepStrictEqual(p.patches.map((b) => b.duration), ['2h', '15m']);
+});
+
+test('Enter in the row\'s other fields saves it as before, and Shift+Enter in the text saves nothing', async () => {
   const p = await openEdit();
   const row = p.edit(1);
-  const form = p.find('.np-edit');
-  p.type(row.duration, '2h');
-  form.fire('keydown', { key: 'Enter', shiftKey: false, defaultPrevented: true, target: row.duration, preventDefault() {} });
+  p.type(row.text, 'schema review, changed');
+  rowKey(p, row.text, 'Enter');
   await p.page.settle();
-  assert.deepStrictEqual(p.patches, []);
-  form.fire('keydown', { key: 'Enter', shiftKey: false, defaultPrevented: false, target: row.duration, preventDefault() {} });
+  assert.deepStrictEqual(p.patches.map((b) => b.note), ['schema review, changed']);
+  const again = p.edit(1);
+  const e = p.press(again.text, 'Enter', { shiftKey: true });
+  p.find('.np-edit').fire('keydown', e);
   await p.page.settle();
   assert.strictEqual(p.patches.length, 1);
-  assert.strictEqual(p.patches[0].duration, '2h');
 });
 
 test('the stylesheet gives the edit row\'s duration a field of its own', () => {

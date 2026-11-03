@@ -1007,7 +1007,7 @@ function notesRow(note, named = false, one = false) {
     };
     form.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); view(); row.focus(); }
-      else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && e.target !== cancel && e.target !== save) { e.preventDefault(); submit(); } // an open duration menu has taken the Enter that picks from it
+      else if (e.key === 'Enter' && !e.shiftKey && e.target !== cancel && e.target !== save) { e.preventDefault(); submit(); } // an open duration menu has already put its highlighted length in the field
     });
     row.replaceChildren(form);
     x.focus();

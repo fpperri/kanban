@@ -370,6 +370,22 @@ module.exports = {
     await key('Enter');
     check('notes: Enter saves the new duration, and the time and the text stay', await waitFor(noteWith('typed a length', '08:05', '1h'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
     check('notes: the list reads the new range and the row leaves no menu on the page', await waitFor(`${timeOf('typed a length')}==='08:05–09:05'`, 3000) && await ev(`document.querySelectorAll('.np-edit-duration-menu').length===0`), await ev(timeOf('typed a length')));
+    const editDuration = async () => {
+      await ev(`${rowOf('typed a length')}.focus()`);
+      await key('e');
+      await waitFor(`!!${q('.np-edit-duration')}`, 2500);
+      await ev(`${q('.np-edit-duration')}.focus()`);
+      return waitFor(`${EDIT_ITEMS}.length>0&&!document.querySelector('.np-edit-duration-menu').hidden`, 3000);
+    };
+    check('notes: the row\'s duration menu opens when its field takes the focus', await editDuration());
+    await key('ArrowDown');
+    await key('Enter');
+    check('notes: one Enter with the menu open saves the highlighted length', await waitFor(noteWith('typed a length', '08:05', '15m'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
+    await editDuration();
+    await send('Input.insertText', { text: '1h' });
+    check('notes: a length typed keeps the menu open on the lengths it matches', await waitFor(`${q('.np-edit-duration')}.value==='1h'&&!document.querySelector('.np-edit-duration-menu').hidden`, 3000), await ev(`${q('.np-edit-duration')}.value`));
+    await key('Enter');
+    check('notes: one Enter with the menu open saves the length typed', await waitFor(noteWith('typed a length', '08:05', '1h'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
     await ev(`${rowOf('typed a length')}.focus()`);
     await key('e');
     check('notes: e shows the new duration', await waitFor(`!!${q('.np-edit-duration')}&&${q('.np-edit-duration')}.value==='1h'`, 2500));
