@@ -8,7 +8,7 @@
 // Enter writes the note at the time field's time, keeps the palette open and clears the box;
 // Shift+Enter starts a new line; a leading HH:MM, the untimed tick and a leading - each set the
 // time, and the preview line says exactly what Enter will write; a duration picked from its menu makes a
-// range (listed as 08:05–08:50), or with the untimed tick a length (listed as 45m); a bare #22 then Enter aims the
+// range (listed as 08:05–08:50), or with the untimed tick a length (listed as 45m), and a leading 45m, 09:00-10:30 or - 20m types one; e shows and fixes a note's duration in the edit row; a bare #22 then Enter aims the
 // palette at that card and Backspace on the empty box clears the chip. Ctrl+F in an empty note box with
 // no card aimed puts # there, and the id typed after it narrows the list to that card until the # is
 // erased; a #id typed by hand narrows nothing, and with a draft in the box Ctrl+F leaves it alone. e, a and d d work on a
@@ -337,7 +337,56 @@ module.exports = {
     await ev(`(()=>{const u=${q('.np-untimed')};u.checked=false;u.dispatchEvent(new Event('change',{bubbles:true}));const d=${q('.np-duration')};d.value='';d.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     await ev(`${q('.np-input')}.focus()`);
 
-    // --- the Grouped | Timeline switch -------------------------------------------------------------------------
+    // --- a duration typed before the note, and fixed in the edit row -------------------------------------------
+    const noteWith = (text, at, duration) => `${NOTES}.some((n)=>n.note===${JSON.stringify(text)}&&n.at===${JSON.stringify(at)}&&n.duration===${JSON.stringify(duration)})`;
+    const toastText = `document.getElementById('toast').textContent`;
+    await setBox('45m typed a length');
+    check('notes: a leading length is previewed as a range from the time field', await preview() === 'Note 08:05–08:50 on #7 Port the zephyr schema', await preview());
+    await key('Enter');
+    check('notes: it is written with the length, and the length is cut from the text', await waitFor(noteWith('typed a length', '08:05', '45m'), 4000), await ev(notesOf('7')));
+    await setBox('09:00-10:30 typed a range');
+    check('notes: a leading range is previewed with both its ends', await preview() === 'Note 09:00–10:30 on #7 Port the zephyr schema', await preview());
+    await key('Enter');
+    check('notes: it is written as its start and a duration of 1h30m', await waitFor(noteWith('typed a range', '09:00', '1h30m'), 4000), await ev(notesOf('7')));
+    await setBox('- 20m typed untimed length');
+    check('notes: a leading - and a length is previewed as an untimed length', await preview() === 'Note 20m untimed on #7 Port the zephyr schema', await preview());
+    await key('Enter');
+    check('notes: it is written with no time and its duration', await waitFor(noteWith('typed untimed length', null, '20m'), 4000), await ev(notesOf('7')));
+    await setBox('12:00-11:00 backwards');
+    check('notes: a range that ends before it starts is refused in the preview', await preview() === '12:00-11:00: the end is not after the start.', await preview());
+    await key('Enter');
+    check('notes: Enter says so and writes nothing', await waitFor(`/the end is not after the start/.test(${toastText})`, 3000) && await ev(`!${NOTES}.some((n)=>n.note==='backwards')`), await ev(toastText));
+    await setBox('');
+    await ev(`${rowOf('typed a length')}.focus()`);
+    await key('e');
+    check('notes: e shows the note\'s duration beside its time, in the edit row', await waitFor(`!!${q('.np-edit-duration')}&&${q('.np-edit-time')}.value==='08:05'&&${q('.np-edit-duration')}.value==='45m'`, 2500));
+    await ev(`(()=>{const d=${q('.np-edit-duration')};d.blur();d.focus()})()`);
+    const EDIT_ITEMS = `[...document.querySelectorAll('.np-edit-duration-menu .combobox-item')]`;
+    check('notes: its menu lists 15m to 4h under the field', await waitFor(`${EDIT_ITEMS}.length===16&&${EDIT_ITEMS}[0].textContent==='15m'&&${EDIT_ITEMS}[15].textContent==='4h'`, 3000)
+      && await ev(`(()=>{const m=document.querySelector('.np-edit-duration-menu').getBoundingClientRect();const f=${q('.np-edit-duration')}.getBoundingClientRect();return m.top>=f.bottom-1&&Math.abs(m.left-f.left)<=2&&m.height>0})()`));
+    await shot('edit-row-duration');
+    await ev(`${EDIT_ITEMS}.find((r)=>r.textContent==='1h').dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))`);
+    check('notes: a pick puts the length in the field and closes the menu', await waitFor(`${q('.np-edit-duration')}.value==='1h'&&document.querySelector('.np-edit-duration-menu').hidden`, 3000));
+    await key('Enter');
+    check('notes: Enter saves the new duration, and the time and the text stay', await waitFor(noteWith('typed a length', '08:05', '1h'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
+    check('notes: the list reads the new range and the row leaves no menu on the page', await waitFor(`${timeOf('typed a length')}==='08:05–09:05'`, 3000) && await ev(`document.querySelectorAll('.np-edit-duration-menu').length===0`), await ev(timeOf('typed a length')));
+    await ev(`${rowOf('typed a length')}.focus()`);
+    await key('e');
+    check('notes: e shows the new duration', await waitFor(`!!${q('.np-edit-duration')}&&${q('.np-edit-duration')}.value==='1h'`, 2500));
+    await ev(`(()=>{const d=${q('.np-edit-duration')};d.value='';d.dispatchEvent(new Event('input',{bubbles:true}));${q('.np-edit-text')}.focus()})()`);
+    await key('Enter');
+    check('notes: clearing the duration and saving makes the note a point in time again', await waitFor(noteWith('typed a length', '08:05', null), 4000) && await waitFor(`${timeOf('typed a length')}==='08:05'`, 3000), await ev(notesOf('7')));
+    await ev(`${rowOf('typed untimed length')}.focus()`);
+    await key('e');
+    check('notes: a length with no time shows its duration and an empty time', await waitFor(`!!${q('.np-edit-duration')}&&${q('.np-edit-time')}.value===''&&${q('.np-edit-duration')}.value==='20m'`, 2500));
+    await ev(`(()=>{const d=${q('.np-edit-duration')};d.value='soon';d.dispatchEvent(new Event('input',{bubbles:true}));${q('.np-edit-text')}.focus()})()`);
+    await key('Enter');
+    check('notes: a duration that is no length is said and the row stays open', await waitFor(`/soon is not a duration/.test(${toastText})`, 3000) && await ev(`!!${q('.np-edit-text')}&&${NOTES}.some((n)=>n.note==='typed untimed length'&&n.duration==='20m')`), await ev(toastText));
+    await key('Escape');
+    check('notes: Esc leaves the edit row and nothing of its menu stays on the page', await waitFor(`!${q('.np-edit-text')}&&document.querySelectorAll('.np-edit-duration-menu').length===0`, 3000));
+    await ev(`${q('.np-input')}.focus()`);
+
+    // --- the Grouped | Timeline switch-------------------------------------------------------------------------
     const LAYOUT_BTNS = `[...document.querySelectorAll('#notes-palette .np-layout-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
     const pickLayout = async (layout) => { const p = await centre(`#notes-palette .np-by-btn[data-layout="${layout}"]`); await click(p.x, p.y); };
     check('notes: the filter row holds a Grouped and Timeline switch, Grouped pressed', JSON.stringify(await ev(LAYOUT_BTNS)) === JSON.stringify(['Grouped*', 'Timeline']), await ev(LAYOUT_BTNS));
@@ -346,7 +395,7 @@ module.exports = {
     check('notes: Timeline presses its button and lists the same notes', await waitFor(`JSON.stringify(${LAYOUT_BTNS})===${JSON.stringify(JSON.stringify(['Grouped', 'Timeline*']))}`, 2500) && (await ev(ROW_TEXTS)).length === rowsBefore.length, await ev(LAYOUT_BTNS));
     await shot('palette-timeline');
     check('notes: it is a flat list, one block per day, newest day first', await ev(`(()=>{const g=[...document.querySelectorAll('#notes-palette .np-ngroup')];const days=g.map((x)=>x.dataset.day);return g.length>=2&&g.every((x)=>x.classList.contains('np-tgroup'))&&days.every((d,i)=>i===0||days[i-1]>d)})()`));
-    check('notes: inside a day the timed notes come in time order and the untimed ones last', await ev(`[...document.querySelectorAll('#notes-palette .np-tgroup')].every((g)=>{const t=[...g.querySelectorAll('.np-note-time')].map((e)=>e.classList.contains('untimed')?'99:99':e.textContent);return t.every((v,i)=>i===0||t[i-1]<=v)})`));
+    check('notes: inside a day the timed notes come in time order and the untimed ones last', await ev(`[...document.querySelectorAll('#notes-palette .np-tgroup')].every((g)=>{const t=[...g.querySelectorAll('.np-note-time')].map((e)=>e.classList.contains('untimed')||!e.textContent.includes(':')?'99:99':e.textContent.slice(0,5));return t.every((v,i)=>i===0||t[i-1]<=v)})`));
     const ROW1 = '#notes-palette .np-tgroup .np-note';
     const MENU = `document.querySelector('.np-menu')`;
     const MENU_ITEMS = `[...document.querySelectorAll('.np-menu button')].map((b)=>b.textContent)`;
