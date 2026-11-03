@@ -677,9 +677,13 @@ function notesTimeOptions() {
   return options;
 }
 
-// The duration menu: 15m to 4h, only what ends by midnight from the time Enter would write now.
+// The duration menu: 15m to 4h, only what ends by midnight from the time Enter would write now. Every
+// keystroke opens it again, so it reads that time from the line's start and the fields alone, never the
+// whole write plan.
 function notesDurationOptions() {
-  return noteDurationOptions(notesUi.sub ? notesPlan().at : null).map((value) => ({ value }));
+  const u = notesUi;
+  const at = u.sub ? noteWriteTime(noteLineTime(u.input.value.trim().split('\n')[0]), u.sub, notesField(), { now: notesNow() }).at : null;
+  return noteDurationOptions(at).map((value) => ({ value }));
 }
 
 // The palette has a new subject: back to its Notes tab with nothing written yet, nothing highlighted

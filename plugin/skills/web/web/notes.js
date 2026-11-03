@@ -85,14 +85,11 @@ function noteRangeEnd(h, min) {
   return h > 23 || min > 59 ? NaN : h * 60 + min;
 }
 
-// The note box's text -> { text, at, duration, untimed, mention, bare, bad }. `duration` is a leading
-// length or range's, in the written form, or null. `known` is
-// { board, isTarget(id) }: the board's name and whether an id is a card or group of it.
-function noteParseLine(raw, known) {
-  const whole = String(raw == null ? '' : raw).trim();
-  const nl = whole.indexOf('\n');
-  let line = nl === -1 ? whole : whole.slice(0, nl);
-  const more = nl === -1 ? '' : whole.slice(nl);
+// The time the note box's line starts with -> { at, duration, untimed, bad, rest, range }: a range's
+// start and the length between its ends, a time, or untimed for a leading `-` or `untimed`; `rest` is
+// the line after it, and `range` says it was a range.
+function noteLineTime(text) {
+  let line = text;
   let at = null;
   let duration = null;
   let untimed = false;
@@ -123,7 +120,20 @@ function noteParseLine(raw, known) {
     untimed = true;
     line = line.replace(/^untimed\s*/i, '');
   }
-  const length = range ? null : NOTE_DURATIONS.leadingDuration(line);
+  return { at, duration, untimed, bad, rest: line, range: !!range };
+}
+
+// The note box's text -> { text, at, duration, untimed, mention, bare, bad }. `duration` is a leading
+// length or range's, in the written form, or null. `known` is
+// { board, isTarget(id) }: the board's name and whether an id is a card or group of it.
+function noteParseLine(raw, known) {
+  const whole = String(raw == null ? '' : raw).trim();
+  const nl = whole.indexOf('\n');
+  const more = nl === -1 ? '' : whole.slice(nl);
+  const lead = noteLineTime(nl === -1 ? whole : whole.slice(0, nl));
+  const { at, untimed } = lead;
+  let { duration, bad, rest: line } = lead;
+  const length = lead.range ? null : NOTE_DURATIONS.leadingDuration(line);
   if (length) {
     if (length.minutes === null) bad = bad || noteBadDuration(length.text);
     else duration = NOTE_DURATIONS.formatDuration(length.minutes);
@@ -275,17 +285,9 @@ function noteSubjectNotes(notes, subject, o = {}) {
 // (the subject 'each') `targets` lists them, one note is written on each and `target` is
 // empty, unless the line names one card, which takes that one note alone.
 function noteWritePlan(parsed, subject, field, o) {
-  let at = null;
-  let bad = parsed.bad;
-  const value = String(field.value == null ? '' : field.value).trim();
-  if (parsed.at) at = parsed.at;
-  else if (parsed.untimed || field.untimed) at = null;
-  else if (noteIsNow(value)) at = o.now;
-  else if (value === '') at = subject.kind === 'untimed' || subject.untimed ? null : subject.at || o.now;
-  else {
-    at = noteFieldTime(value);
-    if (at === null) bad = bad || noteBadTime(value);
-  }
+  const time = noteWriteTime(parsed, subject, field, o);
+  const at = time.at;
+  let bad = parsed.bad || time.bad;
   const { duration, bad: lengthBad } = noteCheckLength(parsed.duration || field.duration, at);
   bad = bad || lengthBad;
   let day = subject.clockDay ? o.today : subject.day || o.today;
@@ -305,6 +307,19 @@ function noteWritePlan(parsed, subject, field, o) {
   else if (subject.noCard) { target = ''; from = 'nocard'; }
   else { target = o.lastNoted || ''; from = 'last'; }
   return { text: parsed.text, at, duration, day, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
+}
+
+// The time Enter will write (HH:MM, null for none) -> { at, bad }: the line's (`lead`, noteLineTime's
+// or noteParseLine's { at, untimed }), else none when the untimed tick or a `-` says so, else the time
+// field's (`field` { value, untimed }), else now (`o.now`), or none in a day's untimed box.
+function noteWriteTime(lead, subject, field, o) {
+  const value = String(field.value == null ? '' : field.value).trim();
+  if (lead.at) return { at: lead.at, bad: '' };
+  if (lead.untimed || field.untimed) return { at: null, bad: '' };
+  if (noteIsNow(value)) return { at: o.now, bad: '' };
+  if (value === '') return { at: subject.kind === 'untimed' || subject.untimed ? null : subject.at || o.now, bad: '' };
+  const at = noteFieldTime(value);
+  return { at, bad: at === null ? noteBadTime(value) : '' };
 }
 
 // The duration field's menu: 15m to 4h in 15-minute steps, and from a time (HH:MM; null for none)
@@ -591,7 +606,7 @@ const NOTES_EXPORTS = {
   NOTE_TODAY, NOTE_NOW, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
-  noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteLineTime, noteWriteTime, noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
