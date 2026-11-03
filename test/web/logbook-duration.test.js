@@ -154,6 +154,12 @@ test('PATCH sets a duration on a note, replaces it, and null (or an empty text) 
   assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "10:30"\n    by: "@human"\n    note: a, changed\n---\n');
 });
 
+test('PATCH duration null removes a duration line whatever it holds, one the web did not read included', () => {
+  const b = board({ [DAY7]: '---\nentries:\n  - at: "09:00"\n    duration: soon\n    note: a\n  - at: "23:30"\n    duration: 1h\n    note: b\n---\n' });
+  for (const n of b.notes()) assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(b.notes().find((x) => x.note === n.note)), duration: null }).status, 200);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "09:00"\n    note: a\n  - at: "23:30"\n    note: b\n---\n');
+});
+
 test('PATCH leaves the duration alone when the body has no duration key', () => {
   const b = board();
   b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', duration: '45m', note: 'a' });

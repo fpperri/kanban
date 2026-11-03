@@ -519,7 +519,10 @@ function editNote(dir, ref, patch, hooks) {
     // The rules are held only to a time or a duration the edit changes, so a note can always have its text edited.
     if ((at !== undefined && at !== entry.at) || (duration !== undefined && duration !== entry.duration)) checkLength(duration === undefined ? entry.duration : duration, at === undefined ? entry.at : at);
     if (at !== undefined) entry.at = at;
-    if (duration !== undefined) entry.duration = duration;
+    if (duration !== undefined) {
+      entry.duration = duration;
+      entry.chunks = entry.chunks.filter((c) => c.key !== 'duration'); // a duration sent, or none, replaces every `duration:` line, one that did not read included
+    }
     if (note !== undefined) entry.note = note;
     entry.dirty = true;
     return record(entry, where.day, where.target, where.ref, indexOf(model, entry));
