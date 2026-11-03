@@ -38,6 +38,7 @@ const PAGE_GLOBALS = [
   'openNotes',
   'pinnedLitId',
   'noteClock',
+  'notesOnBoard',
   'notesUi',
   'renderBoard',
   'renderCalendarView',
