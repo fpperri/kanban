@@ -113,6 +113,53 @@ test('the preview says what Enter will write', () => {
   assert.strictEqual(prev('', { kind: 'card', id: '7', day: CTX.today }), 'Note at 10:30 on #7 Port the zephyr schema · type the note');
 });
 
+test('the duration comes from the duration field: none when it is empty, else its length in the written form', () => {
+  const plan = (f) => n.noteWritePlan(n.noteParseLine('x', KNOWN), { kind: 'card', id: '7', day: CTX.today }, f, CTX);
+  assert.strictEqual(plan(field('10:30')).duration, null);
+  assert.strictEqual(plan({ ...field('10:30'), duration: '' }).duration, null);
+  assert.deepStrictEqual([plan({ ...field('10:30'), duration: '45m' }).at, plan({ ...field('10:30'), duration: '45m' }).duration], ['10:30', '45m']);
+  for (const typed of ['1h40', '1h40m', '100m']) assert.strictEqual(plan({ ...field('10:30'), duration: typed }).duration, '1h40m', typed);
+  assert.deepStrictEqual([plan({ ...field('Now'), duration: '30m' }).at, plan({ ...field('Now'), duration: '30m' }).duration], ['16:40', '30m']);
+  const untimed = plan({ ...field('10:30', true), duration: '45m' });
+  assert.deepStrictEqual([untimed.at, untimed.duration, untimed.bad], [null, '45m', '']);
+});
+
+test('a duration that is no length, or that breaks a rule with the note\'s time, is said and written nowhere', () => {
+  const plan = (f) => n.noteWritePlan(n.noteParseLine('x', KNOWN), { kind: 'card', id: '7', day: CTX.today }, f, CTX);
+  assert.strictEqual(plan({ ...field('10:30'), duration: 'an hour' }).bad, 'an hour is not a duration; a duration reads like 45m, 1h or 1h30m.');
+  assert.strictEqual(plan({ ...field('10:30'), duration: '0m' }).bad, 'A duration is at least 1 minute.');
+  assert.strictEqual(plan({ ...field('23:30'), duration: '1h' }).bad, 'A note with a time ends by 24:00; 23:30 plus 1h does not.');
+  assert.strictEqual(plan({ ...field('', true), duration: '25h' }).bad, 'A duration with no time is at most 24h.');
+  assert.strictEqual(plan({ ...field('23:00'), duration: '1h' }).bad, '');
+});
+
+test('the preview names the range or the length Enter will write', () => {
+  const label = (id) => ({ 7: '#7 Port the zephyr schema', '': 'no card' }[id]);
+  const prev = (f, subject = { kind: 'card', id: '7', day: CTX.today }) => n.notePreview(n.noteWritePlan(n.noteParseLine('x', KNOWN), subject, f, CTX), { label, dayName: (d) => `Day ${d.slice(8)}`, today: CTX.today });
+  assert.strictEqual(prev({ ...field('10:30'), duration: '45m' }), 'Note 10:30–11:15 on #7 Port the zephyr schema');
+  assert.strictEqual(prev({ ...field('10:30', true), duration: '45m' }), 'Note 45m untimed on #7 Port the zephyr schema');
+  assert.strictEqual(prev({ ...field('Now'), duration: '1h' }), 'Note 16:40–17:40 on #7 Port the zephyr schema');
+  assert.strictEqual(prev({ ...field('10:30'), duration: '45m', day: '2026-10-14' }), 'Note 10:30–11:15, Day 14, on #7 Port the zephyr schema');
+  assert.strictEqual(prev({ ...field('10:30'), duration: '' }), 'Note at 10:30 on #7 Port the zephyr schema');
+});
+
+test('the duration menu lists 15m to 4h in 15-minute steps, and from a time only the lengths that end by midnight', () => {
+  const all = n.noteDurationOptions(null);
+  assert.deepStrictEqual(all, ['15m', '30m', '45m', '1h', '1h15m', '1h30m', '1h45m', '2h', '2h15m', '2h30m', '2h45m', '3h', '3h15m', '3h30m', '3h45m', '4h']);
+  assert.deepStrictEqual(n.noteDurationOptions('10:30'), all);
+  assert.deepStrictEqual(n.noteDurationOptions('22:30'), ['15m', '30m', '45m', '1h', '1h15m', '1h30m']);
+  assert.deepStrictEqual(n.noteDurationOptions('23:45'), ['15m']);
+  assert.deepStrictEqual(n.noteDurationOptions('23:50'), []);
+});
+
+test('a note\'s time reads as its range, its length with no time, its time, or untimed', () => {
+  assert.strictEqual(n.noteTimeLabel({ at: '10:30', duration: '45m' }), '10:30–11:15');
+  assert.strictEqual(n.noteTimeLabel({ at: null, duration: '45m' }), '45m');
+  assert.strictEqual(n.noteTimeLabel({ at: '09:10', duration: null }), '09:10');
+  assert.strictEqual(n.noteTimeLabel({ at: '09:10' }), '09:10');
+  assert.strictEqual(n.noteTimeLabel({ at: null, duration: null }), 'untimed');
+});
+
 test('the time field reads H:MM, HH:MM, HH.MM and HMM', () => {
   assert.strictEqual(n.noteFieldTime('9:30'), '09:30');
   assert.strictEqual(n.noteFieldTime('09.30'), '09:30');
