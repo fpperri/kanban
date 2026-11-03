@@ -273,6 +273,7 @@ function notesCalendarBlock(day, item) {
   else words.append(notesGlyph());
   words.append(document.createTextNode(note.note));
   el.append(words);
+  for (const edge of ['top', 'bottom']) el.append(notesEl('span', `cal-resize-handle ${edge}`));
   notesCalendarMark(el, note);
   el.dataset.range = `${day}|${item.startMin}|${item.endMin}`;
   el.style.top = `${item.top + 1}px`;

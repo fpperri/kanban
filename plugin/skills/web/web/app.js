@@ -5581,7 +5581,8 @@ function onCalNotesDividerDblClick(e) {
 // is a drag, a shorter one is a click that opens the note, and the click after a drag is swallowed
 // (suppressCalTimeClick). A move keeps the point the note was grabbed by, taken from the note's own
 // start and not from where its chip sits (in Notes a chip is in its hour's stack, not at its minute),
-// snaps to 15 minutes, and follows the day column under the pointer. A count bubble and the untimed box
+// snaps to 15 minutes, and follows the day column under the pointer. A block's top and bottom edge, as a
+// card block's, change the note's start or its end instead, on the same day and 15 minutes at least. A count bubble and the untimed box
 // are no chip or block and never move. isDragging holds the poll, so every guard that skips a live card
 // drag skips this one.
 let calNoteDrag = null;
@@ -5594,8 +5595,10 @@ function onCalNoteDown(e) {
   const start = note ? noteStartMin(note) : null;
   const p = calTimePointer(e);
   if (start === null || !p) return;
+  const handle = e.target.closest('.cal-resize-handle');
+  const edge = handle && el.classList.contains('cal-note-block') ? (handle.classList.contains('top') ? 'start' : 'end') : null;
   calNoteDrag = {
-    note, el, pointerId: e.pointerId, originX: e.clientX, originY: e.clientY, moved: false,
+    note, el, edge, baseTop: el.style.top, baseHeight: el.style.height, pointerId: e.pointerId, originX: e.clientX, originY: e.clientY, moved: false,
     baseCol: el.closest('.cal-tg-col'), baseStartMin: start, grabOffsetMin: start - p.rawMin,
     targetDay: note.day, targetMin: start, targetCol: null,
   };
@@ -5611,11 +5614,22 @@ function onCalNoteMove(e) {
   if (Math.hypot(e.clientX - drag.originX, e.clientY - drag.originY) > 3) drag.moved = true;
   const p = calTimePointer(e);
   if (!p || !drag.moved) return;
+  if (drag.edge) return previewCalNoteEdge(drag, calTimeSnap(p.rawMin));
   drag.targetDay = p.day;
   drag.targetCol = p.col;
   drag.targetMin = noteMoveTarget(drag.note, calTimeSnap(p.rawMin + drag.grabOffsetMin));
   const dx = drag.baseCol ? p.col.getBoundingClientRect().left - drag.baseCol.getBoundingClientRect().left : 0;
   drag.el.style.transform = `translate(${dx}px, ${calScaleCur.yOf(drag.targetMin) - calScaleCur.yOf(drag.baseStartMin)}px)`;
+}
+
+// A dragged edge is drawn as a block's layout draws it (noteStripLayout): from its start to its end, never under a chip, a pixel off each side.
+function previewCalNoteEdge(drag, min) {
+  drag.targetMin = noteResizeTarget(drag.note, drag.edge, min);
+  const start = drag.edge === 'start' ? drag.targetMin : drag.baseStartMin;
+  const end = drag.edge === 'end' ? drag.targetMin : noteEndMin(drag.note);
+  const top = calScaleCur.yOf(start);
+  drag.el.style.top = `${top + 1}px`;
+  drag.el.style.height = `${Math.max(HSCALE_CHIP_PX, calScaleCur.yOf(end) - top) - 2}px`;
 }
 
 function endCalNoteDrag(e, commit) {
@@ -5625,13 +5639,15 @@ function endCalNoteDrag(e, commit) {
   isDragging = false;
   drag.el.classList.remove('dragging');
   drag.el.style.transform = '';
+  drag.el.style.top = drag.baseTop;
+  drag.el.style.height = drag.baseHeight;
   if (!commit || !drag.moved) return;
   suppressCalTimeClick();
   onCalNoteDragEnd(drag);
 }
 
 async function onCalNoteDragEnd(drag) {
-  const fields = noteMoveFields(drag.note, drag.targetDay, drag.targetMin);
+  const fields = drag.edge ? noteResizeFields(drag.note, drag.edge, drag.targetMin) : noteMoveFields(drag.note, drag.targetDay, drag.targetMin);
   if (!fields) return; // it ends where it started: nothing to write
   pendingDrops++;
   try {

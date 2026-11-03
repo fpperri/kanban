@@ -133,6 +133,13 @@ const NCAL_POINT_LAST = NCAL_DAY_MIN - 15;
 
 const noteStartMin = (note) => nCalMinutes(note.at);
 
+// The minute a range ends at, null for a note that is no range.
+function noteEndMin(note) {
+  const start = nCalMinutes(note.at);
+  const length = nCalLength(note);
+  return start === null || length === null ? null : start + length;
+}
+
 function noteMoveTarget(note, min) {
   const length = nCalLength(note);
   const last = length === null ? NCAL_POINT_LAST : NCAL_DAY_MIN - length;
@@ -157,20 +164,22 @@ function noteMoveFields(note, day, min) {
 // 23:59). Null when the edge ends where it started, or for a note that is no range: a point note has no edge.
 const NCAL_RANGE_MIN = 15;
 
-function noteResizeFields(note, edge, min) {
+function noteResizeTarget(note, edge, min) {
   const start = nCalMinutes(note.at);
   const length = nCalLength(note);
   if (start === null || length === null) return null;
-  const end = start + length;
-  if (edge === 'start') {
-    const to = Math.max(0, Math.min(end - NCAL_RANGE_MIN, min));
-    return to === start ? null : { at: NCAL_DURATIONS.hhmm(to), duration: NCAL_DURATIONS.formatDuration(end - to) };
-  }
-  if (edge === 'end') {
-    const to = Math.max(start + NCAL_RANGE_MIN, Math.min(NCAL_DAY_MIN, min));
-    return to === end ? null : { duration: NCAL_DURATIONS.formatDuration(to - start) };
-  }
+  if (edge === 'start') return Math.max(0, Math.min(start + length - NCAL_RANGE_MIN, min));
+  if (edge === 'end') return Math.max(start + NCAL_RANGE_MIN, Math.min(NCAL_DAY_MIN, min));
   return null;
+}
+
+function noteResizeFields(note, edge, min) {
+  const to = noteResizeTarget(note, edge, min);
+  if (to === null) return null;
+  const start = nCalMinutes(note.at);
+  const end = start + nCalLength(note);
+  if (edge === 'start') return to === start ? null : { at: NCAL_DURATIONS.hhmm(to), duration: NCAL_DURATIONS.formatDuration(end - to) };
+  return to === end ? null : { duration: NCAL_DURATIONS.formatDuration(to - start) };
 }
 
 // How many timed notes a day has in each of the 24 hours (all zeros for a day with none).
@@ -327,7 +336,7 @@ function noteHourRequest(day, rawMin) {
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
   noteLayerState, noteLayerNext, noteLayerParts, noteLayerLabel, noteLayerPressed, noteLayerTitle,
-  noteEachChips, noteHourCounts, noteStripLayout, noteStartMin, noteMoveTarget, noteMoveFields, noteResizeFields, noteModeLoad, noteModeSave,
+  noteEachChips, noteHourCounts, noteStripLayout, noteStartMin, noteEndMin, noteMoveTarget, noteMoveFields, noteResizeTarget, noteResizeFields, noteModeLoad, noteModeSave,
   noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };
 
