@@ -25,7 +25,8 @@ const BACK_UNDER_KEY = 'kanbanBackUnder';
 const BACK_SEQ_KEY = 'kanbanSeq';
 
 // The entry is kept once the double-tap window has passed, so the first tap of a double tap, which the
-// second undoes, leaves none behind.
+// second undoes, leaves none behind. The second tap's click comes when its finger lifts, so app.js stops
+// the wait while a finger is down and runs it again from the lift.
 const BACK_ENTRY_SETTLE_MS = 400;
 
 // How long the page waits for the entry it went forward to: a landing on the entry within this is the
