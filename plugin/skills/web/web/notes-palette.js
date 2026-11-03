@@ -3,8 +3,8 @@
 // card whose details are open, else the hovered or selected card, a card's note count and the
 // right-click Add note... open it aimed at a card; with nothing aimed at it opens on the card last
 // noted. Over the card details it draws above them and Esc closes it before them. Rows, top down:
-// the subject row (the chip that says what it is about, the date and time fields, the untimed
-// tick and the card picker), the note box, the preview line that says what Enter will write, the
+// the subject row (the chip that says what it is about, the date, time and duration fields, the
+// untimed tick and the card picker), the note box, the preview line that says what Enter will write, the
 // filter row (the filter field, and beside it the Grouped or Timeline switch and the All, Human and
 // AI switch on a note's author), the range row (All, Month, Week, 3 days or Day, with previous and
 // next buttons and the range's label), then the notes list, newest day first: Grouped by day and
@@ -41,6 +41,7 @@
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
   date: null, dateBtn: null, dateWrap: null, dateTyped: false, todayBtn: null, timeWrap: null, timeMenu: null, nowBtn: null, pick: null, pickWrap: null,
+  duration: null, durationWrap: null, durationMenu: null,
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
@@ -102,11 +103,11 @@ const notesNow = () => noteClock(kanbanDays.now());
 const notesCtx = () => ({ today: localTodayStr(), now: notesNow(), lastNoted: notesLastNoted() });
 // The date and time fields as they read: Today and Now, which Enter works out from the clock at that
 // moment, or a picked or typed value, which it uses as it is (notes.js noteWritePlan).
-const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked, day: notesUi.date.value });
+const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked, day: notesUi.date.value, duration: notesUi.duration.value });
 const NOTES_LAYOUTS = [['grouped', 'Grouped', 'The notes grouped by day and card'], ['timeline', 'Timeline', 'One list of the notes by day and time, each naming its card']];
 const NOTES_RANGES = [['all', 'All', 'Every day'], ['month', 'Month', 'A month at a time'], ['week', 'Week', 'A week at a time, from Monday'], ['3day', '3 days', 'Three days at a time'], ['day', 'Day', 'A day at a time']];
 const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
-const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.note}|${n.by}`;
+const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.duration || ''}|${n.note}|${n.by}`;
 
 function notesEl(tag, className, text) {
   const el = document.createElement(tag);
@@ -297,6 +298,11 @@ function notesBuild() {
   u.nowBtn = notesButton('np-mode-btn np-now-btn', NOTE_NOW, 'The time of the moment Enter is pressed', () => notesChoose(u.time, NOTE_NOW));
   u.timeWrap = notesEl('span', 'np-time-wrap');
   u.timeWrap.append(u.time, u.nowBtn);
+  u.duration = notesEl('input', 'np-duration');
+  Object.assign(u.duration, { type: 'text', maxLength: 6, placeholder: 'duration', autocomplete: 'off' });
+  u.duration.setAttribute('aria-label', 'Duration of the note');
+  u.durationWrap = notesEl('span', 'np-duration-wrap');
+  u.durationWrap.append(u.duration);
   u.untimed = notesEl('input', 'np-untimed');
   u.untimed.type = 'checkbox';
   const untimedLabel = notesEl('label', 'np-untimed-label');
@@ -307,9 +313,10 @@ function notesBuild() {
   u.pick.setAttribute('aria-label', 'Card the note is about');
   u.pickWrap = notesEl('span', 'np-pick');
   u.pickWrap.append(u.pick);
-  when.append(u.dateWrap, notesEl('span', '', 'at'), u.timeWrap, untimedLabel, u.pickWrap);
+  when.append(u.dateWrap, notesEl('span', '', 'at'), u.timeWrap, u.durationWrap, untimedLabel, u.pickWrap);
   attachCombobox(u.pick, notesPickOptions, { onPick: notesPicked }); // app.js: the form's suggest-never-validate menu
-  attachCombobox(u.time, notesTimeOptions); // the same menu picks the time: Now, then every half hour
+  attachCombobox(u.time, notesTimeOptions); // the same menu picks the time: Now, then every 15 minutes
+  attachCombobox(u.duration, notesDurationOptions); // and the duration: 15m to 4h, to what ends by midnight
   // The menus hang off the page, fixed under their fields: the palette clips what overflows it.
   u.pickMenu = u.pickWrap.querySelector('.combobox-menu');
   u.pickMenu.classList.add('np-pick-menu');
@@ -317,6 +324,9 @@ function notesBuild() {
   u.timeMenu = u.timeWrap.querySelector('.combobox-menu');
   u.timeMenu.classList.add('np-pick-menu', 'np-time-menu');
   document.body.append(u.timeMenu);
+  u.durationMenu = u.durationWrap.querySelector('.combobox-menu');
+  u.durationMenu.classList.add('np-pick-menu', 'np-duration-menu');
+  document.body.append(u.durationMenu);
   u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
   subjectRow.append(u.chip, when);
@@ -408,6 +418,10 @@ function notesBuild() {
   const placeTime = () => notesPlaceMenu(u.time, u.timeMenu, 0);
   u.time.addEventListener('focus', placeTime);
   u.time.addEventListener('input', placeTime);
+  const placeDuration = () => notesPlaceMenu(u.duration, u.durationMenu, 0);
+  u.duration.addEventListener('focus', placeDuration);
+  u.duration.addEventListener('input', () => { placeDuration(); notesPaintPreview(); });
+  u.duration.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === 'ArrowDown') && u.durationMenu.hidden) { e.preventDefault(); u.input.focus(); } });
   u.pick.addEventListener('blur', notesCommitPick);
   u.pick.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); notesCommitPick(); } });
   u.untimed.addEventListener('change', () => { notesPaintMode(); notesPaintPreview(); u.input.focus(); });
@@ -570,6 +584,7 @@ function notesClose() {
   u.dateTyped = false;
   u.pickMenu.hidden = true;
   u.timeMenu.hidden = true;
+  u.durationMenu.hidden = true;
   const back = u.opener;
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
@@ -615,6 +630,7 @@ function notesResetTime() {
   const sub = u.sub || { clockDay: true };
   u.untimed.checked = sub.kind === 'untimed' || !!sub.untimed;
   u.time.value = noteTimeField(sub);
+  u.duration.value = '';
   if (!u.dateTyped) u.date.value = noteDayField(sub);
   notesPaintMode();
 }
@@ -640,11 +656,16 @@ function notesChoose(field, word) {
   u.input.focus();
 }
 
-// The time menu: Now first, then every half hour.
+// The time menu: Now first, then every 15 minutes.
 function notesTimeOptions() {
   const options = [{ value: NOTE_NOW }];
-  for (let min = 0; min < 24 * 60; min += 30) options.push({ value: noteHhmm(min) });
+  for (let min = 0; min < 24 * 60; min += 15) options.push({ value: noteHhmm(min) });
   return options;
+}
+
+// The duration menu: 15m to 4h, only what ends by midnight from the time Enter would write now.
+function notesDurationOptions() {
+  return noteDurationOptions(notesUi.sub ? notesPlan().at : null).map((value) => ({ value }));
 }
 
 // The palette has a new subject: back to its Notes tab with nothing written yet, nothing highlighted
@@ -814,7 +835,7 @@ function notesList() {
   }
   const today = localTodayStr();
   const multiDay = new Set(notes.map((n) => n.day)).size > 1;
-  const wrap = notesEl('div', 'np-notes');
+  const wrap = notesEl('div', `np-notes${notes.some((n) => n.at && n.duration) ? ' np-ranges' : ''}`); // a range is wider than a time: every row's time column widens with it
   const first = noteIsTarget(sub) ? sub.id : null;
   if (notesLayout() === 'timeline') {
     const one = noteOneTarget(notes);
@@ -898,7 +919,7 @@ function notesRow(note, named = false, one = false) {
   };
   const view = () => {
     if (row.classList.contains('editing')) { notesUi.editing -= 1; row.classList.remove('editing'); }
-    const time = notesEl('span', `np-note-time${note.at ? '' : ' untimed'}`, note.at || 'untimed');
+    const time = notesEl('span', `np-note-time${note.at || note.duration ? '' : ' untimed'}`, noteTimeLabel(note));
     const by = notesEl('span', 'np-note-by', note.by || '');
     by.title = note.by || '';
     const text = notesEl('span', 'np-note-text');
@@ -1163,7 +1184,7 @@ async function notesWrite() {
   const made = [];
   u.writing = true;
   try {
-    for (const target of targets) made.push(await api('POST', '/api/notes', { day: plan.day, target, at: plan.at || '', note: plan.text }));
+    for (const target of targets) made.push(await api('POST', '/api/notes', { day: plan.day, target, at: plan.at || '', ...(plan.duration ? { duration: plan.duration } : {}), note: plan.text }));
   } catch (e) {
     toast(made.length ? `${e.message} (${made.length} of ${targets.length} notes written)` : e.message);
     if (!made.length) return;
