@@ -19,6 +19,14 @@ test('anything else is not a length', () => {
   }
 });
 
+test('a line that starts with a length gives it, its minutes and the rest of the line; one shaped like a length that is none gives no minutes', () => {
+  assert.deepStrictEqual(d.leadingDuration('45m schema review'), { text: '45m', minutes: 45, rest: 'schema review' });
+  assert.deepStrictEqual(d.leadingDuration('1H30  x'), { text: '1H30', minutes: 90, rest: 'x' });
+  assert.deepStrictEqual(d.leadingDuration('2h'), { text: '2h', minutes: 120, rest: '' });
+  assert.deepStrictEqual(d.leadingDuration('1h60 x'), { text: '1h60', minutes: null, rest: 'x' });
+  for (const line of ['45mins x', 'schema 45m', '45 m', '', '10:30 x']) assert.strictEqual(d.leadingDuration(line), null, line);
+});
+
 test('a length is written in one form: hours then minutes, unpadded, a part that is nothing left out', () => {
   for (const [minutes, text] of [[1, '1m'], [45, '45m'], [60, '1h'], [90, '1h30m'], [125, '2h5m'], [240, '4h'], [1440, '24h']]) {
     assert.strictEqual(d.formatDuration(minutes), text, String(minutes));

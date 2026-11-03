@@ -6,7 +6,9 @@
 // window.kanbanDurations) AND required directly by node --test.
 
 const durationsModule = (() => {
-  const LENGTH_RE = /^(?:(\d+)h(?:(\d{1,2})m?)?|(\d+)m)$/i;
+  const LENGTH = String.raw`(?:(\d+)h(?:(\d{1,2})m?)?|(\d+)m)`;
+  const LENGTH_RE = new RegExp(`^${LENGTH}$`, 'i');
+  const LEADING_RE = new RegExp(String.raw`^(${LENGTH})(?=\s|$)\s*`, 'i');
 
   // A length's whole minutes, null for anything that is not one.
   function parseDuration(text) {
@@ -15,6 +17,14 @@ const durationsModule = (() => {
     if (m[3] !== undefined) return Number(m[3]);
     const minutes = m[2] === undefined ? 0 : Number(m[2]);
     return minutes < 60 ? Number(m[1]) * 60 + minutes : null;
+  }
+
+  // The length a line starts with, a space or nothing after it: { text, minutes, rest }, `text` as it is
+  // written, `minutes` null for one shaped like a length that is none (`1h60`), `rest` the line after it
+  // and its spaces. A line that starts with no length is null.
+  function leadingDuration(line) {
+    const m = LEADING_RE.exec(line);
+    return m ? { text: m[1], minutes: parseDuration(m[1]), rest: line.slice(m[0].length) } : null;
   }
 
   // The one written form of a length: `45m`, `1h`, `1h30m`, `2h5m`.
@@ -43,7 +53,7 @@ const durationsModule = (() => {
     return `${at}–${hhmm(minutesOf(at) + minutes)}`;
   }
 
-  return { parseDuration, formatDuration, durationProblem, durationRange };
+  return { parseDuration, leadingDuration, formatDuration, durationProblem, durationRange };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -42,7 +42,6 @@ const NOTE_LAYOUT_FEATURE = 'notes.layout';
 const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
 const NOTE_LINE_RANGE = /^(\d{1,2})[:.](\d{2})[-–](\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
-const NOTE_LINE_LENGTH = /^(\d+h(?:\d{1,2}m?)?|\d+m)(?=\s|$)\s*/i;
 const NOTE_FIELD_TIME = /^(\d{1,2})[:.]?(\d{2})$/;
 const NOTE_TODAY = 'Today';
 const NOTE_NOW = 'Now';
@@ -128,12 +127,11 @@ function noteParseLine(raw, known) {
     untimed = true;
     line = line.replace(/^untimed\s*/i, '');
   }
-  const length = range ? null : NOTE_LINE_LENGTH.exec(line);
+  const length = range ? null : NOTE_DURATIONS.leadingDuration(line);
   if (length) {
-    const minutes = NOTE_DURATIONS.parseDuration(length[1]);
-    if (minutes === null) bad = bad || noteBadDuration(length[1]);
-    else duration = NOTE_DURATIONS.formatDuration(minutes);
-    line = line.slice(length[0].length);
+    if (length.minutes === null) bad = bad || noteBadDuration(length.text);
+    else duration = NOTE_DURATIONS.formatDuration(length.minutes);
+    line = length.rest;
   }
   let mention = null;
   const first = NOTE_IDS.findMentions(line).find((m) => m.start === 0);
