@@ -110,11 +110,12 @@ function nCalLanes(items) {
 }
 
 // A day's notes strip laid out on `scale` (hour-scale.js), top to bottom. Each range is a block from
-// its start to its end, at least a chip tall: { kind: 'block', note, startMin, endMin, slot }, `slot`
-// the half hour it starts in (a block about nothing opens it, as its chip would). The point notes are
-// as they are drawn with no range: Grouped Notes one { kind: 'slot', slot } a half hour (a chip or a
-// bubble), Notes (`each`) one { kind: 'slot', slot, note } a note, stacked from its hour line. Every
-// item has its `top` and `height` in px and its `lane` of `lanes`.
+// its start to its end, at least a chip tall (one that would then pass midnight rises to end there):
+// { kind: 'block', note, startMin, endMin, slot }, `slot` the half hour it starts in (a block about
+// nothing opens it, as its chip would). The point notes are as they are drawn with no range: Grouped
+// Notes one { kind: 'slot', slot } a half hour (a chip or a bubble), Notes (`each`) one
+// { kind: 'slot', slot, note } a note, stacked from its hour line. Every item has its `top` and
+// `height` in px and its `lane` of `lanes`.
 function noteStripLayout(dayNotes, each, scale) {
   const chip = NCAL_SCALE.HSCALE_CHIP_PX;
   const items = each
@@ -122,7 +123,7 @@ function noteStripLayout(dayNotes, each, scale) {
     : dayNotes.slots.map((slot) => ({ kind: 'slot', slot, note: null, top: scale.yOf(slot.fromMin), height: chip }));
   for (const r of dayNotes.ranges) {
     const from = Math.floor(r.startMin / NCAL_SLOT_MIN) * NCAL_SLOT_MIN;
-    const top = scale.yOf(r.startMin);
+    const top = Math.min(scale.yOf(r.startMin), scale.total - chip);
     items.push({ kind: 'block', note: r.note, startMin: r.startMin, endMin: r.endMin, slot: { fromMin: from, toMin: from + NCAL_SLOT_MIN }, top, height: Math.max(chip, scale.yOf(r.endMin) - top) });
   }
   return nCalLanes(items);

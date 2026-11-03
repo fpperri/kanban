@@ -127,6 +127,12 @@ test('a block opens the half hour its range starts in, as the note\'s chip did',
   assert.deepStrictEqual(c.noteChipRequest({ ...block.note, target: '' }, block.slot), { kind: 'slot', day: DAY, fromMin: 630, toMin: 660 });
 });
 
+test('a short range at the end of the day is a chip tall and ends at midnight, not below the grid', () => {
+  assert.deepStrictEqual(placed(strip([ranged(DAY, '23:50', '10m', 'last')], false)), [['block last', 940, 20, 0, 1]]);
+  const late = strip([ranged(DAY, '23:00', '1h', 'the last hour')], true);
+  assert.deepStrictEqual([late[0].top, late[0].height], [920, 40], 'a block that reaches midnight on its own keeps its start');
+});
+
 test('a very short range is still a chip tall', () => {
   assert.deepStrictEqual(placed(strip([ranged(DAY, '16:05', '5m', 'quick')], false)), [['block quick', 643.3333333333333, 20, 0, 1]]);
   assert.strictEqual(strip([ranged(DAY, '16:05', '1m', 'quicker')], true)[0].height, 20);
