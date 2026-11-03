@@ -291,14 +291,8 @@ function noteWritePlan(parsed, subject, field, o) {
     at = noteFieldTime(value);
     if (at === null) bad = bad || noteBadTime(value);
   }
-  let duration = null;
-  const length = parsed.duration || String(field.duration == null ? '' : field.duration).trim();
-  if (length !== '') {
-    const minutes = NOTE_DURATIONS.parseDuration(length);
-    const problem = minutes === null ? noteBadDuration(length) : NOTE_DURATIONS.durationProblem(minutes, at);
-    if (problem) bad = bad || problem;
-    else duration = NOTE_DURATIONS.formatDuration(minutes);
-  }
+  const { duration, bad: lengthBad } = noteCheckLength(parsed.duration || field.duration, at);
+  bad = bad || lengthBad;
   let day = subject.clockDay ? o.today : subject.day || o.today;
   const dayText = String(field.day == null ? '' : field.day).trim();
   if (noteIsToday(dayText)) day = o.today;
@@ -334,17 +328,24 @@ function noteTimeLabel(note) {
   return note.at ? NOTE_DURATIONS.durationRange(note.at, length) : note.duration;
 }
 
+// A length typed in a field or the line, held to the rules with the time it goes with (HH:MM, null for
+// none): { duration, bad }, `duration` in the written form or null for nothing typed, `bad` what it
+// breaks ('' for nothing).
+function noteCheckLength(text, at) {
+  const typed = String(text == null ? '' : text).trim();
+  if (typed === '') return { duration: null, bad: '' };
+  const minutes = NOTE_DURATIONS.parseDuration(typed);
+  const bad = minutes === null ? noteBadDuration(typed) : NOTE_DURATIONS.durationProblem(minutes, at);
+  return bad ? { duration: null, bad } : { duration: NOTE_DURATIONS.formatDuration(minutes), bad: '' };
+}
+
 // The edit row's duration field read against the time the row will save (HH:MM, null for none) and
 // the duration the note has (written form, null for none): { duration, change, bad }. `change` says
 // the save sends it: an empty field sends none for a note without one, and null (removed) for a note with one.
 function noteEditDuration(text, at, was) {
-  const typed = String(text == null ? '' : text).trim();
-  if (typed === '') return { duration: null, change: !!was, bad: '' };
-  const minutes = NOTE_DURATIONS.parseDuration(typed);
-  const problem = minutes === null ? noteBadDuration(typed) : NOTE_DURATIONS.durationProblem(minutes, at);
-  if (problem) return { duration: null, change: false, bad: problem };
-  const written = NOTE_DURATIONS.formatDuration(minutes);
-  return { duration: written, change: written !== (was || null), bad: '' };
+  const { duration, bad } = noteCheckLength(text, at);
+  if (bad) return { duration: null, change: false, bad };
+  return { duration, change: duration !== (was || null), bad: '' };
 }
 
 // Several cards as the preview names them: how many, then the first six.
