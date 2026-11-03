@@ -377,3 +377,36 @@ test('only a note with a time can move', () => {
   assert.strictEqual(c.noteMoveFields(note(DAY, '', '7', 'untimed'), DAY, 600), null);
   assert.strictEqual(c.noteMoveFields(note(DAY, 'soon', '7', 'malformed'), DAY, 600), null);
 });
+
+// --- an edge drag turns into the fields of one PATCH ---------------------------------------------------
+
+test('the top edge changes the start and keeps the end, so it sends the time and the length; the bottom edge changes the end and keeps the start, so it sends the length', () => {
+  const block = ranged(DAY, '10:30', '1h30m', 'block');
+  assert.deepStrictEqual(c.noteResizeFields(block, 'start', 9 * 60 + 30), { at: '09:30', duration: '2h30m' });
+  assert.deepStrictEqual(c.noteResizeFields(block, 'start', 11 * 60), { at: '11:00', duration: '1h' });
+  assert.deepStrictEqual(c.noteResizeFields(block, 'end', 13 * 60), { duration: '2h30m' });
+  assert.deepStrictEqual(c.noteResizeFields(block, 'end', 11 * 60), { duration: '30m' });
+});
+
+test('an edge drag that ends where it started sends nothing, and a note that is no range has no edge', () => {
+  const block = ranged(DAY, '10:30', '1h30m', 'block');
+  assert.strictEqual(c.noteResizeFields(block, 'start', 630), null);
+  assert.strictEqual(c.noteResizeFields(block, 'end', 720), null);
+  assert.strictEqual(c.noteResizeFields(note(DAY, '10:00', '7', 'point'), 'end', 700), null);
+  assert.strictEqual(c.noteResizeFields(note(DAY, '', '7', 'untimed'), 'start', 600), null);
+  assert.strictEqual(c.noteResizeFields(block, 'middle', 700), null);
+});
+
+test('an edge drag leaves a range of 15 minutes at least, and the end may reach 24:00', () => {
+  const block = ranged(DAY, '10:30', '1h30m', 'block');
+  assert.deepStrictEqual(c.noteResizeFields(block, 'start', 13 * 60), { at: '11:45', duration: '15m' }, 'the top edge stops 15 minutes above the end');
+  assert.deepStrictEqual(c.noteResizeFields(block, 'end', 600), { duration: '15m' }, 'the bottom edge stops 15 minutes below the start');
+  assert.deepStrictEqual(c.noteResizeFields(block, 'start', -30), { at: '00:00', duration: '12h' });
+  assert.deepStrictEqual(c.noteResizeFields(block, 'end', 1500), { duration: '13h30m' }, 'a note may end at midnight, where a card\'s block stops at 23:59');
+  assert.deepStrictEqual(c.noteResizeFields(ranged(DAY, '23:00', '1h', 'late'), 'start', 22 * 60), { at: '22:00', duration: '2h' });
+});
+
+test('an edge of a range that is already under 15 minutes can still be dragged longer, and one that is not on the grid keeps its other edge', () => {
+  assert.deepStrictEqual(c.noteResizeFields(ranged(DAY, '10:00', '5m', 'short'), 'end', 630), { duration: '30m' });
+  assert.deepStrictEqual(c.noteResizeFields(ranged(DAY, '10:07', '1h', 'off grid'), 'start', 585), { at: '09:45', duration: '1h22m' });
+});
