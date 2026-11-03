@@ -242,7 +242,8 @@ function noteSubjectNotes(notes, subject, o = {}) {
 
 // What Enter will write: { text, at, duration, day, target, targets, from, bad, scopeTo }. `parsed` is
 // noteParseLine's, `field` the date, time and duration fields { value, untimed, day, duration }, `o`
-// { today, now, lastNoted }. The duration is in the written form (`1h30m`), or null. The day is the date field's, else the subject's. `from` says where the target came
+// { today, now, lastNoted }. The duration is in the written form (`1h30m`), or null. The day is the
+// date field's, else the subject's. `from` says where the target came
 // from: 'line', 'chip', 'each', 'nocard' (chosen in the picker) or 'last'. On several cards
 // (the subject 'each') `targets` lists them, one note is written on each and `target` is
 // empty, unless the line names one card, which takes that one note alone.
