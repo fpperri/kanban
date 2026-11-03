@@ -96,6 +96,15 @@ const ROWS = [
   ['notes: an edit of a note whose duration is not the one the page read is refused',
     ['POST', '/api/notes', { day: '2026-10-16', target: '7', at: '11:00', duration: '45m', note: 'timed' }],
     ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 2, file: '2026.10.16.0007.logbook.md', expect: { at: '11:00', by: '@human', note: 'timed' } }, note: 'timed, changed' }]],
+  ['notes: move one to another day, with a new time',
+    ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, day: '2026-10-17', at: '10:00', duration: '45m' }],
+    ['GET', '/api/board']],
+  ['notes: move one to a day that already has a file for its card',
+    ['POST', '/api/notes', { day: '2026-10-17', target: '7', at: '08:00', note: 'there' }],
+    ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, day: '2026-10-17' }],
+    ['GET', '/api/board']],
+  ['notes: a day that is no date is refused', ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, day: 'soon' }]],
+  ['notes: a move to another day that puts a duration past 24:00 is refused', ['PATCH', '/api/notes', { ref: { day: '2026-10-16', target: '7', index: 0, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'first' } }, day: '2026-10-17', at: '23:30', duration: '1h' }]],
 
   // the scratchpad page
   ['scratchpad: write a card\'s page', ['PUT', '/api/scratchpad/7', { body: 'first\nsecond' }]],

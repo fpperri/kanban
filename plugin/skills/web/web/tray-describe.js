@@ -38,6 +38,20 @@ const trayDescribeModule = (() => {
     return `added ${what} ${where}${range}`;
   }
 
+  // What a note is after a save that changes its day, its time or its length: the ref's old values with
+  // the body's applied; empty when the body changes none of the three.
+  function noteNow(body) {
+    const seen = isObject(body.ref) && isObject(body.ref.expect) ? body.ref.expect : {};
+    const day = body.day === undefined ? (body.ref && body.ref.day) : body.day;
+    const at = body.at === undefined ? seen.at || '' : body.at || '';
+    const minutes = durations.parseDuration(body.duration === undefined ? seen.duration : body.duration);
+    const same = day === (body.ref && body.ref.day) && at === (seen.at || '') && minutes === durations.parseDuration(seen.duration);
+    if (same || !day) return '';
+    const length = minutes === null ? '' : durations.formatDuration(minutes);
+    const when = at === '' ? `untimed${length ? `, ${length}` : ''}` : length ? durations.durationRange(at, minutes) : at;
+    return `, now ${day} ${when}`;
+  }
+
   const entry = (method, template, marker, pattern, words) => ({ key: `${method} ${template}`, method, marker, pattern, words });
   const at = (template) => new RegExp(`^${template.replace(/:id/g, '([^/]+)').replace(/\//g, '\\/')}$`);
 
@@ -67,7 +81,7 @@ const trayDescribeModule = (() => {
 
     entry('POST', '/api/notes', "method === 'POST' && p === '/api/notes')", at('/api/notes'), (m, body) => addedNote(body)),
     entry('PATCH', '/api/notes', "method === 'PATCH' && p === '/api/notes'", at('/api/notes'),
-      (m, body) => `edited a note ${refTarget(body) ? `on ${refTarget(body)}` : `of ${(body.ref && body.ref.day) || 'the board'}`}`),
+      (m, body) => `edited a note ${refTarget(body) ? `on ${refTarget(body)}` : `of ${(body.ref && body.ref.day) || 'the board'}`}${noteNow(body)}`),
     entry('DELETE', '/api/notes', "method === 'DELETE' && p === '/api/notes'", at('/api/notes'),
       (m, body) => `deleted a note ${refTarget(body) ? `on ${refTarget(body)}` : `of ${(body.ref && body.ref.day) || 'the board'}`}`),
     entry('POST', '/api/notes/assign', "method === 'POST' && p === '/api/notes/assign'", at('/api/notes/assign'),
