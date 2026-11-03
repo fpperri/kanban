@@ -41,3 +41,8 @@ test('a range reads from its start to its end with an en dash, midnight as 24:00
   assert.strictEqual(d.durationRange('09:05', 125), '09:05–11:10');
   assert.strictEqual(d.durationRange('23:00', 60), '23:00–24:00');
 });
+
+test('a range\'s end is its start plus its duration, never wrapped round to the morning', () => {
+  assert.strictEqual(d.durationRange('23:30', 60), '23:30–24:30');
+  assert.strictEqual(d.durationRange('00:00', 1440), '00:00–24:00');
+});

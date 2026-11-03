@@ -37,11 +37,10 @@ const durationsModule = (() => {
     return minutes <= DAY_MIN ? '' : 'A duration with no time is at most 24h.';
   }
 
-  // A note's range as it reads: its start, an en dash and its end, the start plus the duration.
-  // Midnight at the end is 24:00.
+  // A note's range as it reads: its start, an en dash and its end, the start plus the duration, never
+  // wrapped round to the morning. Midnight at the end is 24:00.
   function durationRange(at, minutes) {
-    const end = minutesOf(at) + minutes;
-    return `${at}–${end === DAY_MIN ? '24:00' : hhmm(end % DAY_MIN)}`;
+    return `${at}–${hhmm(minutesOf(at) + minutes)}`;
   }
 
   return { parseDuration, formatDuration, durationProblem, durationRange };
