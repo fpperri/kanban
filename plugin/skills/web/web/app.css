@@ -2065,7 +2065,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .np-chip-x { flex: 0 0 auto; padding: 0 4px; font-size: 0.85em; line-height: 1.2; border: 0; background: transparent; color: var(--mut); cursor: pointer; }
 .np-chip-x:hover { background: transparent; color: var(--accent); }
-.np-when { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); font-size: 0.82em; }
+.np-when { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: var(--mut); font-size: 0.82em; } /* wraps where a phone has no room for the date, time, duration, tick and picker on one line */
 .np-date-wrap { display: inline-flex; align-items: center; gap: 2px; }
 .np-date { width: 6.8em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
 .np-date-btn { padding: 1px 4px; border: 0; background: transparent; cursor: pointer; font-size: 1em; line-height: 1; }
@@ -2081,7 +2081,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-time:focus, .np-duration:focus, .np-date:focus, .np-pick-input:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
 .np-time:disabled { opacity: .45; }
 .np-duration-wrap { display: inline-flex; align-items: center; position: relative; }
-.np-duration { width: 5.6em; }
+.np-duration { width: 6.4em; }
 .np-untimed-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .np-input { padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-input::placeholder, .np-filter::placeholder { color: var(--mut); }
