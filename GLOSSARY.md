@@ -244,7 +244,7 @@ The board's notes, kept as one file per target per day, in one folder or in one 
 _Avoid_: journal, log, diary.
 
 **Note**:
-One entry in the logbook: a line of text written at a moment of a day (or untimed), about a card, a group or nothing, signed by its author, human or AI. Kept out of the card, unlike a narrative entry.
+One entry in the logbook: a line of text written at a moment of a day (or untimed), about a card, a group or nothing, signed by its author, human or AI. Kept out of the card, unlike a narrative entry. A note may carry a duration, the length of the work it logs, with a time (a range from that time) or without one.
 _Avoid_: log entry, logbook entry, comment, narrative entry (that lives in the card), notification (that is addressed to the human).
 
 **Todo list** (via **todos:**):
