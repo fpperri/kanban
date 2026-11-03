@@ -389,3 +389,160 @@ test('a press on a block starts no card drag, a click on it is no click on an em
   p.container.fire('dblclick', e);
   assert.strictEqual(made.length, 0);
 });
+
+// --- a drag moves a note ------------------------------------------------------------------------------------
+
+// The week of 15 October laid out in 100px columns (Monday 12th at x 0 to Sunday 18th at x 600), the plain
+// 40px hour (1.5 minutes a pixel), the page's api, board load, toast and redraw replaced by recorders.
+async function dragPage(notes, mode = 'grouped') {
+  const p = await weekWith(notes, mode);
+  const cols = p.host.querySelectorAll('.cal-tg-col');
+  cols.forEach((c, i) => { c.getBoundingClientRect = () => ({ left: i * 100, right: i * 100 + 100, top: 0, bottom: 960, width: 100, height: 960 }); });
+  p.container.querySelectorAll = (sel) => (sel === '.cal-tg-col' ? cols : []);
+  p.calls = [];
+  p.toasts = [];
+  p.redraws = 0;
+  p.reject = null;
+  p.page.ctx.api = async (method, url, body) => {
+    p.calls.push({ method, url, body: JSON.parse(JSON.stringify(body)) });
+    if (p.reject) throw new Error(p.reject);
+    return {};
+  };
+  p.page.ctx.loadBoard = async () => {};
+  p.page.ctx.toast = (m) => { p.toasts.push(m); };
+  p.page.ctx.renderCalendarView = () => { p.redraws++; };
+  p.press = (el, x, y) => { el.setPointerCapture = (id) => { el.captured = id; }; p.container.fire('pointerdown', ev({ target: el, clientX: x, clientY: y })); };
+  p.move = (x, y) => p.container.fire('pointermove', ev({ clientX: x, clientY: y }));
+  p.release = async (x, y) => { p.container.fire('pointerup', ev({ clientX: x, clientY: y })); await p.page.settle(); };
+  p.drag = async (el, from, to) => { p.press(el, ...from); p.move(...to); await p.release(...to); };
+  p.ref = (n) => ({ day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, duration: n.duration || null, by: n.by, note: n.note } });
+  return p;
+}
+test('a block dragged down 60px, 90 minutes, is written as one PATCH holding the note\'s ref and its new time', async () => {
+  const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
+  for (const mode of ['grouped', 'each']) {
+    const p = await dragPage([block], mode);
+    await p.drag(p.blocks()[0], [350, 430], [350, 490]);
+    assert.deepStrictEqual(p.calls, [{ method: 'PATCH', url: '/api/notes', body: { ref: p.ref(block), at: '12:00' } }], mode);
+  }
+});
+
+test('a move keeps the point where the note was grabbed, taken from the note\'s own time and not from where its chip sits', async () => {
+  const early = note('2026-10-15', '22', '10:20', '@afk', 'a chip', 5);
+  for (const mode of ['grouped', 'each']) {
+    const p = await dragPage([early], mode);
+    await p.drag(p.col('2026-10-15').querySelector('.cal-note-chip'), [350, 5], [350, 45]);
+    assert.deepStrictEqual(p.calls.map((c) => c.body.at), ['11:15'], `pressed at 00:07 and let go at 01:07: 10:20 + 60 minutes, then onto the 15-minute grid (${mode})`);
+  }
+});
+
+test('a move to the column under the pointer sends the day with the time, and a chip moves like a block', async () => {
+  const chip = note('2026-10-15', '22', '14:10', '@afk', 'cutover window agreed', 6);
+  const p = await dragPage([chip]);
+  await p.drag(p.col('2026-10-15').querySelector('.cal-note-chip'), [350, 100], [550, 100]);
+  assert.deepStrictEqual(p.calls.map((c) => c.body), [{ ref: p.ref(chip), day: '2026-10-17', at: '14:15' }], 'two columns right at the same height: 14:10 snaps to 14:15, the day follows');
+});
+
+test('a drag that ends where it started writes nothing, and a drag still swallows the click after it', async () => {
+  const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
+  const p = await dragPage([block]);
+  p.press(p.blocks()[0], 350, 430);
+  p.move(350, 470);
+  p.move(350, 430);
+  await p.release(350, 430);
+  assert.deepStrictEqual(p.calls, []);
+  assert.strictEqual(p.page.run('calTimeClickSuppressed'), true, 'the click that follows is swallowed, as after a card\'s drag');
+});
+
+test('a press that moves 3px or less is a click: nothing is written, the click opens the note and is not swallowed', async () => {
+  const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
+  const p = await dragPage([block]);
+  const opened = [];
+  p.page.ctx.openNotes = (req) => { opened.push(req); };
+  p.press(p.blocks()[0], 350, 430);
+  assert.strictEqual(p.page.run('isDragging'), true, 'the poll waits from the press');
+  p.move(352, 432);
+  await p.release(352, 432);
+  p.blocks()[0].click();
+  assert.deepStrictEqual([p.calls.length, opened.length, p.page.run('calTimeClickSuppressed'), p.page.run('isDragging')], [0, 1, false, false]);
+});
+
+test('a bubble and the untimed box start no drag, and neither does a press that is not a left button', async () => {
+  const p = await dragPage([note('2026-10-15', '7', '10:00', '@human', 'one', 1), note('2026-10-15', '22', '10:10', '@afk', 'two', 2), note('2026-10-14', '3', null, '@human', 'no time', 3), ranged('2026-10-16', '7', '09:00', '1h', 'range', 4)]);
+  const bubble = p.col('2026-10-15').querySelector('.cal-note-bubble');
+  assert.ok(bubble);
+  p.press(bubble, 350, 400);
+  assert.strictEqual(p.page.run('isDragging'), false);
+  p.move(350, 460);
+  await p.release(350, 460);
+  const untimed = p.host.querySelectorAll('.cal-tg-allday .cal-note-untimed')[0];
+  p.press(untimed, 250, 10);
+  assert.strictEqual(p.page.run('isDragging'), false);
+  p.container.fire('pointerdown', ev({ target: p.blocks('2026-10-16')[0], button: 2, clientX: 450, clientY: 390 }));
+  assert.strictEqual(p.page.run('isDragging'), false);
+  assert.deepStrictEqual(p.calls, []);
+});
+
+test('while a note is dragged the poll is held, and the empty-hour click, the double click and the context menu stand aside', async () => {
+  const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
+  const p = await dragPage([block]);
+  let release;
+  p.page.ctx.api = (method, url, body) => new Promise((resolve) => { release = () => resolve({}); p.calls.push({ method, url, body }); });
+  p.press(p.blocks()[0], 350, 430);
+  p.move(350, 490);
+  assert.strictEqual(p.page.run('isDragging'), true);
+  const timers = [];
+  p.page.ctx.setTimeout = (fn, ms) => { timers.push(ms); return 1; };
+  const made = [];
+  p.page.ctx.openModal = (...args) => { made.push(args); };
+  const empty = ev({ target: p.col('2026-10-15'), clientY: 100 });
+  p.container.fire('click', empty);
+  p.container.fire('dblclick', empty);
+  assert.deepStrictEqual([timers.length, made.length], [0, 0]);
+  const e = p.page.fireDocument('contextmenu', { target: { closest: () => null }, clientX: 0, clientY: 0 });
+  assert.strictEqual(e.defaultPrevented, false, 'the card menu does not open under a drag');
+  p.container.fire('pointerup', ev({ clientX: 350, clientY: 490 }));
+  assert.deepStrictEqual([p.page.run('isDragging'), p.page.run('pendingDrops')], [false, 1], 'the write holds the poll until it answers');
+  release();
+  await p.page.settle();
+  assert.strictEqual(p.page.run('pendingDrops'), 0);
+});
+
+test('a refusal redraws the Calendar and says Move failed with the server\'s message', async () => {
+  const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
+  const p = await dragPage([block]);
+  p.reject = 'That note has changed or is gone; reload and try again.';
+  await p.drag(p.blocks()[0], [350, 430], [350, 490]);
+  assert.deepStrictEqual(p.toasts, ['Move failed: That note has changed or is gone; reload and try again.']);
+  assert.strictEqual(p.redraws, 1);
+  assert.strictEqual(p.page.run('pendingDrops'), 0);
+});
+
+test('a cancelled press writes nothing, the preview follows the pointer and is cleared on release, and a move stays inside the day', async () => {
+  const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
+  const p = await dragPage([block]);
+  const el = p.blocks()[0];
+  p.press(el, 350, 430);
+  p.move(450, 490);
+  assert.strictEqual(el.style.transform, 'translate(100px, 60px)', 'a column right and 90 minutes down, the 40px hour');
+  assert.ok(el.classes.includes('dragging'));
+  p.container.fire('pointercancel', ev({}));
+  assert.deepStrictEqual([el.style.transform, el.classes.includes('dragging'), p.page.run('isDragging'), p.calls.length], ['', false, false, 0]);
+  await p.drag(el, [350, 430], [350, 5000]);
+  assert.deepStrictEqual(p.calls.map((c) => c.body.at), ['23:00'], 'let go below the grid: a range of an hour ends at midnight');
+});
+
+test('a note that is no longer on the board starts no drag', async () => {
+  const p = await dragPage([ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4)]);
+  const el = p.blocks()[0];
+  el.dataset.noteIndex = '99';
+  p.press(el, 350, 430);
+  assert.strictEqual(p.page.run('isDragging'), false);
+});
+
+test('the notes that can move are the chips and blocks, and the stylesheet lets a finger drag them at once', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+  const rule = css.split('\n').find((l) => /^\.cal-note-chip, \.cal-note-block \{/.test(l));
+  assert.ok(rule && /touch-action: none/.test(rule), 'chips and blocks get touch-action: none');
+  assert.ok(!/\.cal-note-bubble|\.cal-note-untimed/.test(rule), 'a bubble and the untimed box do not');
+});

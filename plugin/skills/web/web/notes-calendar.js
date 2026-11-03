@@ -131,6 +131,8 @@ function noteStripLayout(dayNotes, each, scale) {
 // stops at 23:59, a note may end at midnight), a point note starts by 23:45 (the last quarter hour).
 const NCAL_POINT_LAST = NCAL_DAY_MIN - 15;
 
+const noteStartMin = (note) => nCalMinutes(note.at);
+
 function noteMoveTarget(note, min) {
   const length = nCalLength(note);
   const last = length === null ? NCAL_POINT_LAST : NCAL_DAY_MIN - length;
@@ -302,7 +304,7 @@ function noteHourRequest(day, rawMin) {
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
   noteLayerState, noteLayerNext, noteLayerParts, noteLayerLabel, noteLayerPressed, noteLayerTitle,
-  noteEachChips, noteHourCounts, noteStripLayout, noteMoveTarget, noteMoveFields, noteModeLoad, noteModeSave,
+  noteEachChips, noteHourCounts, noteStripLayout, noteStartMin, noteMoveTarget, noteMoveFields, noteModeLoad, noteModeSave,
   noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };
 
