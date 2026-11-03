@@ -243,7 +243,7 @@ module.exports = {
     check('calnotes: the drag opened no palette: the click after it was swallowed', await ev(PAL_GONE));
     check('calnotes: and the poll is released', await ev(`isDragging===false`));
     // An edge is pressed at its centre and let go where the drag ends, on the 40px hour (1.5 minutes a pixel).
-    const edge = (range, which) => `${`#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|${range}"] .cal-resize-handle.${which}`}`;
+    const edge = (range, which) => `#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|${range}"] .cal-resize-handle.${which}`;
     const OVER = (selector) => `(()=>{const h=document.querySelector(${JSON.stringify(selector)});const r=h.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return e===h})()`;
     check('calnotes: a block has a top and a bottom edge, and the pointer meets each at its centre', await ev(OVER(edge('720|810', 'top'))) && await ev(OVER(edge('720|810', 'bottom'))));
     check('calnotes: a chip and a bubble have no edge', await ev(`document.querySelectorAll('#calendar-view .cal-note-chip .cal-resize-handle, #calendar-view .cal-note-bubble .cal-resize-handle').length===0`));

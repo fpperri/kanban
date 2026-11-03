@@ -126,7 +126,7 @@ function noteStripLayout(dayNotes, each, scale) {
   return nCalLanes(items);
 }
 
-// A drag of a note's chip or block (docs/adr/0016). `min` is the minute the pointer put the note's start
+// A drag of a note's chip or block (docs/web.md). `min` is the minute the pointer put the note's start
 // at, already on the 15-minute grid. A move stays inside the day: a range ends by 24:00 (a card's block
 // stops at 23:59, a note may end at midnight), a point note starts by 23:45 (the last quarter hour).
 const NCAL_POINT_LAST = NCAL_DAY_MIN - 15;

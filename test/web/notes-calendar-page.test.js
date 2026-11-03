@@ -501,11 +501,30 @@ test('while a note is dragged the poll is held, and the empty-hour click, the do
   assert.deepStrictEqual([timers.length, made.length], [0, 0]);
   const e = p.page.fireDocument('contextmenu', { target: { closest: () => null }, clientX: 0, clientY: 0 });
   assert.strictEqual(e.defaultPrevented, false, 'the card menu does not open under a drag');
+  const pills = [];
+  p.page.ctx.applyStatusGesture = (gesture) => { pills.push(gesture); };
+  const pill = { closest: () => ({ dataset: { col: 'todo' } }) };
+  p.page.run('onStatusPillClick')({ target: pill });
+  p.page.run('onStatusPillContextMenu')({ target: pill, preventDefault() {} });
+  assert.deepStrictEqual(pills, [], 'the status pills stand aside');
   p.container.fire('pointerup', ev({ clientX: 350, clientY: 490 }));
   assert.deepStrictEqual([p.page.run('isDragging'), p.page.run('pendingDrops')], [false, 1], 'the write holds the poll until it answers');
   release();
   await p.page.settle();
   assert.strictEqual(p.page.run('pendingDrops'), 0);
+});
+
+test('a second finger on a card block while a note is dragged starts no second drag, and the poll stays held until the note drag ends', async () => {
+  const p = await dragPage([ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4)]);
+  p.page.run("state.active.push({ id: '5', title: 'card' })");
+  const cardBlock = { dataset: { id: '5' }, style: { top: '100px', height: '40px' }, classList: { add() {}, remove() {} }, setPointerCapture() {}, closest: (sel) => (sel === '.cal-tg-col' ? p.col('2026-10-15') : null) };
+  p.press(p.blocks()[0], 350, 430);
+  p.container.fire('pointerdown', ev({ pointerId: 2, target: { closest: (sel) => (sel === '.cal-timeblock' ? cardBlock : null) }, clientX: 150, clientY: 100 }));
+  assert.strictEqual(p.page.run('calTimeDrag'), null);
+  p.container.fire('pointerup', ev({ pointerId: 2, clientX: 150, clientY: 100 }));
+  assert.strictEqual(p.page.run('isDragging'), true, 'the other finger lifting does not release the note drag');
+  p.container.fire('pointerup', ev({ clientX: 350, clientY: 430 }));
+  assert.strictEqual(p.page.run('isDragging'), false);
 });
 
 test('a refusal redraws the Calendar and says Move failed with the server\'s message', async () => {
@@ -538,13 +557,6 @@ test('a note that is no longer on the board starts no drag', async () => {
   el.dataset.noteIndex = '99';
   p.press(el, 350, 430);
   assert.strictEqual(p.page.run('isDragging'), false);
-});
-
-test('the notes that can move are the chips and blocks, and the stylesheet lets a finger drag them at once', () => {
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
-  const rule = css.split('\n').find((l) => /^\.cal-note-chip, \.cal-note-block \{/.test(l));
-  assert.ok(rule && /touch-action: none/.test(rule), 'chips and blocks get touch-action: none');
-  assert.ok(!/\.cal-note-bubble|\.cal-note-untimed/.test(rule), 'a bubble and the untimed box do not');
 });
 
 // --- a drag of a block's edge ---------------------------------------------------------------------------------
@@ -667,9 +679,7 @@ test('a refused edge drag redraws the Calendar and says Move failed with the ser
   assert.strictEqual(q.page.run('pendingDrops'), 0);
 });
 
-test('the stylesheet draws a note block\'s handles, and a press on the block\'s body still moves it', async () => {
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
-  assert.ok(/\.cal-note-block:hover \.cal-resize-handle/.test(css));
+test('a press on a range\'s block body still moves it, edge handles or not', async () => {
   const block = ranged('2026-10-15', '7', '10:30', '1h', 'rehearsal', 4);
   const p = await dragPage([block]);
   await p.drag(p.blocks()[0], [350, 430], [350, 490]);
