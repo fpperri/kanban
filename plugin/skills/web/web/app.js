@@ -5576,6 +5576,78 @@ function onCalNotesDividerDblClick(e) {
   setCalendarNotesStrip(null);
 }
 
+// --- A drag of a note's chip or block ---------------------------------------------------------------
+// The card block's gesture (wireCalendarTimeDrag) on the notes strip: a press that moves more than 3px
+// is a drag, a shorter one is a click that opens the note, and the click after a drag is swallowed
+// (suppressCalTimeClick). A move keeps the point the note was grabbed by, taken from the note's own
+// start and not from where its chip sits (in Notes a chip is in its hour's stack, not at its minute),
+// snaps to 15 minutes, and follows the day column under the pointer. A count bubble and the untimed box
+// are no chip or block and never move. isDragging holds the poll, so every guard that skips a live card
+// drag skips this one.
+let calNoteDrag = null;
+
+function onCalNoteDown(e) {
+  if (e.button !== 0 || calNoteDrag || calTimeDrag) return;
+  const el = e.target.closest && e.target.closest('.cal-note-chip, .cal-note-block');
+  if (!el) return;
+  const note = notesCalendarNoteOf(el);
+  const start = note ? noteStartMin(note) : null;
+  const p = calTimePointer(e);
+  if (start === null || !p) return;
+  calNoteDrag = {
+    note, el, pointerId: e.pointerId, originX: e.clientX, originY: e.clientY, moved: false,
+    baseCol: el.closest('.cal-tg-col'), baseStartMin: start, grabOffsetMin: start - p.rawMin,
+    targetDay: note.day, targetMin: start, targetCol: null,
+  };
+  el.setPointerCapture(e.pointerId);
+  el.classList.add('dragging');
+  isDragging = true;
+  e.preventDefault();
+}
+
+function onCalNoteMove(e) {
+  const drag = calNoteDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  if (Math.hypot(e.clientX - drag.originX, e.clientY - drag.originY) > 3) drag.moved = true;
+  const p = calTimePointer(e);
+  if (!p || !drag.moved) return;
+  drag.targetDay = p.day;
+  drag.targetCol = p.col;
+  drag.targetMin = noteMoveTarget(drag.note, calTimeSnap(p.rawMin + drag.grabOffsetMin));
+  const dx = drag.baseCol ? p.col.getBoundingClientRect().left - drag.baseCol.getBoundingClientRect().left : 0;
+  drag.el.style.transform = `translate(${dx}px, ${calScaleCur.yOf(drag.targetMin) - calScaleCur.yOf(drag.baseStartMin)}px)`;
+}
+
+function endCalNoteDrag(e, commit) {
+  const drag = calNoteDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  calNoteDrag = null;
+  isDragging = false;
+  drag.el.classList.remove('dragging');
+  drag.el.style.transform = '';
+  if (!commit || !drag.moved) return;
+  suppressCalTimeClick();
+  onCalNoteDragEnd(drag);
+}
+
+async function onCalNoteDragEnd(drag) {
+  const fields = noteMoveFields(drag.note, drag.targetDay, drag.targetMin);
+  if (!fields) return; // it ends where it started: nothing to write
+  pendingDrops++;
+  try {
+    await api('PATCH', '/api/notes', { ref: noteRef(drag.note), ...fields });
+    await loadBoard();
+  } catch (e) {
+    renderCalendarView(); // snap back to the board
+    toast('Move failed: ' + e.message);
+  } finally {
+    pendingDrops--;
+  }
+}
+
+const onCalNoteUp = (e) => endCalNoteDrag(e, true);
+const onCalNoteCancel = (e) => endCalNoteDrag(e, false);
+
 // The empty space a double click creates a card on: a day of the month grid, a cell
 // of the all-day band, and a day column of the time grid. The click-away rule reads
 // the same two lists, so the double click that opens the create modal never also
@@ -5617,6 +5689,10 @@ window.addEventListener('DOMContentLoaded', () => {
   calView.addEventListener('pointermove', onCalNotesDividerMove);
   calView.addEventListener('pointerup', onCalNotesDividerUp);
   calView.addEventListener('pointercancel', onCalNotesDividerCancel);
+  calView.addEventListener('pointerdown', onCalNoteDown);
+  calView.addEventListener('pointermove', onCalNoteMove);
+  calView.addEventListener('pointerup', onCalNoteUp);
+  calView.addEventListener('pointercancel', onCalNoteCancel);
   calView.addEventListener('keydown', onCalNotesDividerKey);
   calView.addEventListener('dblclick', onCalNotesDividerDblClick);
   $('#calendar-view').addEventListener('click', (e) => {

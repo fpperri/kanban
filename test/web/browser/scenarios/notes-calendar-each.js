@@ -119,6 +119,21 @@ module.exports = {
     check('each: dragged from 09:30 to 13:30 the block starts at 13:00, not an hour later', await waitFor(`(state.active.find((c)=>c.id==='3')||{}).start_date==='2026-10-15T13:00'`, 5000), await ev(`(state.active.find((c)=>c.id==='3')||{}).start_date`));
     check('each: and ends at 15:00', await ev(`(state.active.find((c)=>c.id==='3')||{}).end_date`) === '2026-10-15T15:00');
 
+    // --- a chip is moved from its own time, not from the place it is stacked at ----------------------------------------
+    // "extra 10:15" is the third chip of the 80px hour 10, stacked at 10:30 on the scale. A press at the pointer's
+    // 10:38 lands on it, so the grab offset is 10:15 - 10:38 = -23 minutes whatever the stack says; let go with the
+    // pointer at 11:40, the note starts at 11:40 - 23 minutes = 11:17, which the 15-minute grid takes to 11:15.
+    const grab = await at(10 * 60 + 38);
+    const chipX = await ev(`(()=>{const c=[...${COL('2026-10-15')}.querySelectorAll('.cal-note-chip')].find((e)=>e.textContent.includes('extra 10:15'));const r=c.getBoundingClientRect();return r.left+r.width/2})()`);
+    const drop = await at(11 * 60 + 40);
+    check('each: the pointer starts on the chip of the note at 10:15', await ev(`(()=>{const e=document.elementFromPoint(${chipX},${grab.y});return !!e&&!!e.closest('.cal-note-chip')&&e.closest('.cal-note-chip').textContent.includes('extra 10:15')})()`), JSON.stringify([chipX, grab]));
+    await mouse('mouseMoved', chipX, grab.y, { button: 'none', clickCount: 0 });
+    await mouse('mousePressed', chipX, grab.y);
+    for (let i = 1; i <= 8; i++) await mouse('mouseMoved', chipX, grab.y + ((drop.y - grab.y) * i) / 8, { buttons: 1 });
+    await mouse('mouseReleased', chipX, drop.y);
+    check('each: the note at 10:15, grabbed at 10:38 and let go at 11:40, is written at 11:15', await waitFor(`state.logbook.notes.some((n)=>n.note==='extra 10:15'&&n.day==='2026-10-15'&&n.at==='11:15')`, 5000), await ev(`JSON.stringify(state.logbook.notes.filter((n)=>n.note==='extra 10:15'))`));
+    check('each: the Calendar draws it again with three notes in hour 10, so the hour is 60px and every column 980px', await waitFor(`Math.abs(${COL('2026-10-15')}.getBoundingClientRect().height-980)<=1.5`, 4000) && await ev(PAL_GONE));
+
     // --- Grouped brings the 40px hours back ------------------------------------------------------------------------
     check('each: the week is drawn again', await showWeek());
     check('each: the board opens with every note its own chip, as it was left', await ev(`${NOTES_BTN}.textContent==='Notes'&&${NOTES_BTN}.getAttribute('aria-pressed')==='true'&&document.querySelectorAll('#calendar-view .cal-note-bubble').length===0`));

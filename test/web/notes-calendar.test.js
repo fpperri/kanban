@@ -346,3 +346,34 @@ test('the strip\'s width is kept in the browser per board, and a bad value is no
   c.noteStripSave({ setItem() { throw new Error('full'); }, removeItem() { throw new Error('full'); } }, 'plan', 150);
   c.noteStripSave({ setItem() { throw new Error('full'); }, removeItem() { throw new Error('full'); } }, 'plan', null);
 });
+
+// --- a drag turns into the fields of one PATCH ---------------------------------------------------------
+
+test('a move on the note\'s own day sends its new time only, a move to another day sends the day and the time', () => {
+  const point = note(DAY, '10:00', '7', 'a point');
+  assert.deepStrictEqual(c.noteMoveFields(point, DAY, 11 * 60 + 15), { at: '11:15' });
+  assert.deepStrictEqual(c.noteMoveFields(point, '2026-10-16', 11 * 60 + 15), { day: '2026-10-16', at: '11:15' });
+  assert.deepStrictEqual(c.noteMoveFields(point, '2026-10-16', 10 * 60), { day: '2026-10-16', at: '10:00' }, 'another day with the same time is still a move');
+  assert.deepStrictEqual(c.noteMoveFields(ranged(DAY, '10:30', '1h30m', 'block'), DAY, 9 * 60), { at: '09:00' }, 'a range keeps its length: only the start is sent');
+});
+
+test('a drag that ends where it started sends nothing', () => {
+  assert.strictEqual(c.noteMoveFields(note(DAY, '10:00', '7', 'a'), DAY, 600), null);
+  assert.strictEqual(c.noteMoveFields(ranged(DAY, '10:30', '1h', 'b'), DAY, 630), null);
+  assert.strictEqual(c.noteMoveFields(note(DAY, '10:07', '7', 'off the grid'), DAY, 607), null);
+});
+
+test('a move stays inside the day: a range ends by 24:00 and a point note starts by 23:45', () => {
+  assert.deepStrictEqual(c.noteMoveFields(ranged(DAY, '10:00', '1h', 'r'), DAY, 1425), { at: '23:00' }, 'a range of an hour starts by 23:00');
+  assert.deepStrictEqual(c.noteMoveFields(ranged(DAY, '10:00', '50m', 'r'), DAY, 1425), { at: '23:10' }, 'the clamp is the end at 24:00, not a grid line');
+  assert.deepStrictEqual(c.noteMoveFields(note(DAY, '10:00', '7', 'p'), DAY, 1439), { at: '23:45' });
+  assert.deepStrictEqual(c.noteMoveFields(note(DAY, '10:00', '7', 'p'), DAY, -20), { at: '00:00' });
+  assert.deepStrictEqual(c.noteMoveFields(ranged(DAY, '23:00', '1h', 'r'), '2026-10-16', 1500), { day: '2026-10-16', at: '23:00' }, 'a range may end at midnight, where a card\'s block stops at 23:59');
+  assert.strictEqual(c.noteMoveTarget(ranged(DAY, '10:00', '1h', 'r'), 1500), 1380);
+  assert.strictEqual(c.noteMoveTarget(note(DAY, '10:00', '7', 'p'), 700), 700);
+});
+
+test('only a note with a time can move', () => {
+  assert.strictEqual(c.noteMoveFields(note(DAY, '', '7', 'untimed'), DAY, 600), null);
+  assert.strictEqual(c.noteMoveFields(note(DAY, 'soon', '7', 'malformed'), DAY, 600), null);
+});
