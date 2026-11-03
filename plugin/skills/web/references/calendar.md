@@ -149,4 +149,22 @@ down it; its title is `noteTip`, which reads the range; its click is the chip's 
 half hour it starts in (`noteChipRequest`); and the guards that skip a `.cal-note` cover it. The
 untimed box's tooltip lists a length before its text (`noteUntimedTip`). A day with no range
 lays out exactly as before.
+**A note's drag** — a note's chip (a point note in Notes, a half hour's one note in Grouped Notes)
+and a range's block move by a pointer drag, delegated once on `#calendar-view` beside the card
+time-grid drag and with the same gesture (`onCalNoteDown`, app.js): more than 3px is a drag, a
+shorter press is a click that still opens the note, and the click after a drag is swallowed
+(`suppressCalTimeClick`). `.cal-note-chip` and `.cal-note-block` get `touch-action: none`, so a
+finger drags at once. A count bubble and the untimed box do not move, and nothing is dropped into
+the untimed box: a drag never makes a note untimed or gives an untimed note a time. The note is
+found again from `data-note-file` and `data-note-index` (`notesCalendarNoteOf`). A move keeps the
+point where the note was grabbed, taken from the note's own start time and not from the chip's
+place (in Notes a chip is in its hour's stack), snaps to 15 minutes, keeps the duration and follows
+the day column under the pointer in the week and 3-day views. It stays inside the day
+(`noteMoveTarget`, notes-calendar.js): a range ends by 24:00 (a card's block stops at 23:59), a
+point note starts by 23:45. The chip or block follows the pointer with no time label and no ghost,
+and there is no Esc. On release one `PATCH /api/notes` holds the ref and only what changed
+(`noteMoveFields`): `at`, or `day` and `at` for another day; a drag that ends where it started
+writes nothing. A refusal redraws the Calendar and shows the toast `Move failed: <message>` (a
+card's says `Reschedule failed`). `isDragging` holds the poll for the gesture and `pendingDrops`
+for the write, so every guard that skips a live card drag skips this one.
 **The Notes button's three states** — `#cal-notes-btn` steps off, every note, grouped, then off (`noteLayerState`, `noteLayerNext`, `noteLayerParts`, `noteLayerLabel`, `noteLayerTitle` in notes-calendar.js): label `Notes` unpressed, `Notes` pressed, `Grouped Notes` pressed, with the title naming the next press. It is kept as two board prefs, `calendar.notes` (on or off) and `calendar.notesMode` (`each`; absent means grouped, so a board never pressed starts grouped and an old stored value reads the same). Every note draws as its own chip (`noteEachChips`), 20px apart from its hour line down, and an hour is as tall as the most notes any shown day has in it (`eachHeights`, hour-scale.js), at least 40px, the same in every column. The scale is one pure object (`hourScale`: `yOf` minutes to px, `minOf` px to minutes, `span`, linear inside an hour) that app.js keeps as `calScaleCur` and every render replaces; the hour labels, column height, card block top and height, note tops, the first scroll to 08:00 (and the scroll kept as a time across a re-render), a block's drag and resize and the click and double click on an empty hour all go through it. Grouped and off use the plain scale, 40px an hour, the stripe in app.css; every-note draws the hour lines itself with an inline gradient (`hourLinesCss`).
