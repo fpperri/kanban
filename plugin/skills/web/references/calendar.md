@@ -138,7 +138,8 @@ ended at midnight when written past it by hand), never in a slot, so no chip, bu
 `noteHourCounts` row counts it and no hour grows for it. `noteStripLayout(dayNotes, each, scale)`
 lays the strip out in both lit states: each range a block (`.cal-note-block`,
 `data-range="<day>|<start>|<end>"`) from `scale.yOf(start)` to `scale.yOf(end)`, at least a
-chip's 20px, drawn a pixel inside each end as a chip is; the point notes where they were; and
+chip's 20px (a short one late in the day rises to end at midnight), drawn a pixel inside each
+end as a chip is; the point notes where they were; and
 every item a `lane` of `lanes`. Items that share any of the strip's height go side by side
 through their overlapping run, all of it sharing the width alike and a freed lane taken again,
 the taller item first in a tie (`nCalLanes`). An item alone keeps the stylesheet's width; one in
