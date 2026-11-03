@@ -91,3 +91,13 @@ test('the source file left with no entries is removed as assign removes it', () 
   b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), day: '2026-11-04' });
   assert.ok(!b.names().includes(D3));
 });
+
+test('the body api.md gives for moving a note to another day moves it', () => {
+  const api = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'references', 'api.md'), 'utf8');
+  const given = /moves the note to another day[^`]*`(\{[^`]*"day"[^`]*\})`/.exec(api);
+  assert.ok(given, 'api.md shows the body of a move to another day');
+  const body = JSON.parse(given[1]);
+  const b = board({ [D3]: ONE });
+  const r = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), ...body });
+  assert.deepStrictEqual([r.status, r.body.note.day], [200, body.day]);
+});
