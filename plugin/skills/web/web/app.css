@@ -1515,7 +1515,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* A note with a time and a duration is a block from its start to its end (app.js sets its top and height, never under
    a chip's 18px), its words wrapping down it as far as it reaches. Blocks, chips and bubbles that overlap share the
    strip in lanes, side by side: app.js sets their right and width; alone they keep the width below. */
-.cal-note-block { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); z-index: 2; display: flex; flex-direction: column; justify-content: flex-start; white-space: normal; text-overflow: clip; background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
+.cal-note-block { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); z-index: 2; display: flex; flex-direction: column; justify-content: flex-start; white-space: normal; text-overflow: clip; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
 .cal-note-block:hover, .cal-note-block:focus-visible { background: var(--hover-wash); border-color: var(--line-strong); border-left-color: var(--accent); }
 .cal-note-block-words { display: block; }
 .cal-note-range { color: var(--mut); font-variant-numeric: tabular-nums; } /* the strip's own font, narrower than the id's: a lane has room for the times on one line */
