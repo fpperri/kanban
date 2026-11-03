@@ -173,6 +173,18 @@ test('a save of a todo list, a note and a scratchpad lands through the same rout
   assert.strictEqual(fs.readFileSync(path.join(padFolder, '0003.scratchpad.md'), 'utf8').trim(), 'pad text');
 });
 
+test('a note with a duration queued in the page lands on the board with its duration', () => {
+  const config = 'name: t\nnextId: 30\nlogbook: .logbook\n';
+  const board = makeBoard({ ...SEED, 'config.yaml': config });
+  const report = applyTray({ dir: board, records: [
+    rec('POST', '/api/notes', { day: '2026-11-03', target: '3', at: '10:30', duration: '45m', note: 'logged on the phone' }),
+    rec('POST', '/api/notes', { day: '2026-11-03', target: '3', at: '', duration: '1h30', note: 'untimed on the phone' }),
+  ] });
+  assert.deepStrictEqual(report.refused, []);
+  assert.strictEqual(fs.readFileSync(path.join(board, '.logbook', '2026.11.03.0003.logbook.md'), 'utf8'),
+    '---\nentries:\n  - at: "10:30"\n    duration: "45m"\n    by: "@human"\n    note: logged on the phone\n  - duration: "1h30m"\n    by: "@human"\n    note: untimed on the phone\n---\n');
+});
+
 test('a scratchpad folder outside the board is part of the dry run and of the apply', () => {
   const cfg = 'name: t\nnextId: 30\nscratchpad: ../pads/<card>\n';
   const board = makeBoard({ ...SEED, 'config.yaml': cfg });
