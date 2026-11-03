@@ -271,24 +271,26 @@ function parseEntry(lines) {
   }
   entry.keyCol = keyCol === -1 ? indent + 2 : keyCol;
   entry.indent = indent;
+  const lengths = [];
   for (const c of entry.chunks) {
     const block = /^([|>])[-+]?\d*\s*(#.*)?$/.exec(c.inline.trim());
     const folded = c.cont.filter((l) => l.trim() !== '').map((l) => l.trim());
     const value = block ? blockText(block[1], c.cont) : [decodeInline(c.inline, c.key !== 'note'), ...folded].filter((p) => p !== '').join(' ');
     if (c.key === 'at') entry.at = normaliseTime(value);
-    else if (c.key === 'duration') readLength(entry, c, value);
+    else if (c.key === 'duration') lengths.push([c, value]);
     else if (c.key === 'by') entry.by = value;
     else if (c.key === 'note') entry.note = value;
   }
+  for (const [c, value] of lengths) readLength(entry, c, value); // once the time is known, whichever line came first
   return entry;
 }
 
-// A `duration:` that reads as a length the rules allow on some note (1 minute to 24h) is the entry's
-// duration, and its line is written afresh like the time's; any other value is a key the web does
-// not know, kept as it was.
+// A `duration:` that reads as a length the rules allow with the entry's own time (1 minute, ending by
+// 24:00 from the time, at most 24h with none) is the entry's duration, and its line is written afresh
+// like the time's; any other value is a key the web does not know, kept as it was.
 function readLength(entry, chunk, value) {
   const minutes = parseDuration(value);
-  if (minutes === null || durationProblem(minutes, null)) return;
+  if (minutes === null || durationProblem(minutes, entry.at)) return;
   entry.duration = minutes;
   chunk.known = true;
 }

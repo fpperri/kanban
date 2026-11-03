@@ -70,11 +70,6 @@ test('ranges run in time order, and each length the reader takes is read', () =>
   assert.deepStrictEqual(day.slots, []);
 });
 
-test('a range written past midnight by hand ends at midnight on the Calendar', () => {
-  const day = c.noteCalendarDay([ranged('2026-10-15', '23:30', '1h', 'late')], '2026-10-15');
-  assert.deepStrictEqual(day.ranges.map((r) => [r.startMin, r.endMin]), [[1410, 1440]]);
-});
-
 test('a duration with no time, or one that does not read, leaves the note where it was: untimed, or a point', () => {
   const day = c.noteCalendarDay([ranged('2026-10-15', null, '45m', 'a length'), ranged('2026-10-15', '10:00', null, 'a point', 1), ranged('2026-10-15', '11:00', 'a while', 'odd', 2)], '2026-10-15');
   assert.deepStrictEqual(day.untimed.map((x) => x.note), ['a length']);

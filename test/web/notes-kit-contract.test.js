@@ -81,6 +81,19 @@ test('the durations the logbook example writes are read as the notes\' durations
   for (const f of forms) assert.notStrictEqual(parseDuration(f), null, `${f} reads as a length`);
 });
 
+test('the time and duration the kit allows are read as a range, and the pair it refuses is kept as a key the board does not know', () => {
+  const rules = section(logbookSection, '**A duration**', '\n\n');
+  const pairs = [...rules.matchAll(/`"(\d\d:\d\d)"` with `"(\w+)"` is (allowed|not)/g)].map((m) => ({ at: m[1], duration: m[2], allowed: m[3] === 'allowed' }));
+  assert.deepStrictEqual(pairs.map((p) => p.allowed), [true, false], 'the kit names a pair it allows and a pair it refuses');
+  const entries = pairs.map((p, i) => `  - at: "${p.at}"\n    duration: "${p.duration}"\n    by: "@afk"\n    note: n${i}\n`).join('');
+  onBoard('logbook: .logbook\n', { '.logbook/2026.10.16.0007.logbook.md': `---\nentries:\n${entries}---\n` }, (dir) => {
+    assert.deepStrictEqual(logbook.listNotes(dir).map((n) => n.duration), pairs.map((p) => (p.allowed ? p.duration : null)));
+    logbook.addNote(dir, { day: '2026-10-16', target: '7', at: '09:00', note: 'another' });
+    const after = fs.readFileSync(path.join(dir, '.logbook', '2026.10.16.0007.logbook.md'), 'utf8');
+    for (const p of pairs) assert.ok(after.includes(`at: "${p.at}"\n    duration: "${p.duration}"\n`), `the line of ${p.at} with ${p.duration} stays as written`);
+  });
+});
+
 test('the scratchpad example is read as three refs and the body below, and the names are the store\'s', () => {
   const [example] = fenced(scratchpadSection, 'yaml');
   const refs = [...example.slice(0, example.indexOf('\n---', 4)).matchAll(/^\s+- (.+?)\s*$/gm)].map((m) => m[1].replace(/^"|"$/g, ''));

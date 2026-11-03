@@ -48,7 +48,7 @@ const nCalByTime = (a, b) => (a.at || '') < (b.at || '') ? -1 : (a.at || '') > (
 const nCalLength = (note) => (note.duration ? NCAL_DURATIONS.parseDuration(note.duration) : null);
 
 // One day's notes -> { slots: [{ fromMin, toMin, notes }] in time order, untimed: [notes],
-// ranges: [{ note, startMin, endMin }] in time order }. A range written past midnight by hand ends there.
+// ranges: [{ note, startMin, endMin }] in time order }.
 function noteCalendarDay(notes, day) {
   const slots = new Map();
   const untimed = [];
@@ -58,7 +58,7 @@ function noteCalendarDay(notes, day) {
     const min = nCalMinutes(note.at);
     if (min === null) { untimed.push(note); continue; }
     const length = nCalLength(note);
-    if (length !== null) { ranges.push({ note, startMin: min, endMin: Math.min(NCAL_DAY_MIN, min + length) }); continue; }
+    if (length !== null) { ranges.push({ note, startMin: min, endMin: min + length }); continue; }
     const from = Math.floor(min / NCAL_SLOT_MIN) * NCAL_SLOT_MIN;
     if (!slots.has(from)) slots.set(from, { fromMin: from, toMin: from + NCAL_SLOT_MIN, notes: [] });
     slots.get(from).notes.push(note);

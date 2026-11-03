@@ -108,6 +108,15 @@ test('a duration that is no length the rules allow is a key the web does not kno
   assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "09:00"\n    duration: about an hour\n    note: a\n  - at: "09:30"\n    by: "@human"\n    note: between\n  - at: "10:00"\n    duration: 0m\n    note: b\n  - duration: "25h"\n    note: c\n---\n');
 });
 
+test('a hand-written duration that would end past 24:00 from its note\'s time is a key the web does not know: no duration, its line kept', () => {
+  const text = '---\nentries:\n  - at: "23:00"\n    duration: 1h\n    note: to midnight\n  - at: "23:30"\n    duration: 1h\n    note: past midnight\n---\n';
+  const b = board({ [DAY7]: text });
+  assert.deepStrictEqual(b.notes().map((n) => [n.at, n.duration]), [['23:00', '1h'], ['23:30', null]]);
+  const late = b.notes().find((n) => n.note === 'past midnight');
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(late), at: '23:30', note: 'past midnight, changed' }).status, 200);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "23:00"\n    duration: 1h\n    note: to midnight\n  - at: "23:30"\n    duration: 1h\n    note: past midnight, changed\n---\n');
+});
+
 test('an entry written before durations reads and rewrites byte for byte, its record saying no duration', () => {
   const before = '---\nentries:\n  - at: "09:10"\n    by: "@human"\n    note: first\n  - note: untimed, by hand\n    mood: calm\n---\nbody\n';
   const b = board({ [DAY7]: before });
