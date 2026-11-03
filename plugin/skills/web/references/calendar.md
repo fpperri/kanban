@@ -133,8 +133,8 @@ a chip shows up to 60 words instead of 12, cut by its edge. A drag holds the pol
 (`isDragging`), starts no card drag or retime, and the hour click and the double click that
 makes a card both skip a target on the divider.
 **A note's duration on the strip** — `noteCalendarDay` puts a note with a time and a duration
-that reads (`parseDuration`, durations.js) in the day's `ranges` (`{ note, startMin, endMin }`,
-ended at midnight when written past it by hand), never in a slot, so no chip, bubble or
+that reads (`parseDuration`, durations.js) in the day's `ranges` (`{ note, startMin, endMin }`;
+the store reads no duration that ends past midnight), never in a slot, so no chip, bubble or
 `noteHourCounts` row counts it and no hour grows for it. `noteStripLayout(dayNotes, each, scale)`
 lays the strip out in both lit states: each range a block (`.cal-note-block`,
 `data-range="<day>|<start>|<end>"`) from `scale.yOf(start)` to `scale.yOf(end)`, at least a

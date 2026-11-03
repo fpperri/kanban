@@ -370,6 +370,34 @@ module.exports = {
     await key('Enter');
     check('notes: Enter saves the new duration, and the time and the text stay', await waitFor(noteWith('typed a length', '08:05', '1h'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
     check('notes: the list reads the new range and the row leaves no menu on the page', await waitFor(`${timeOf('typed a length')}==='08:05–09:05'`, 3000) && await ev(`document.querySelectorAll('.np-edit-duration-menu').length===0`), await ev(timeOf('typed a length')));
+    const editDuration = async () => {
+      await ev(`${rowOf('typed a length')}.focus()`);
+      await key('e');
+      await waitFor(`!!${q('.np-edit-duration')}`, 2500);
+      await ev(`${q('.np-edit-duration')}.focus()`);
+      return waitFor(`${EDIT_ITEMS}.length>0&&!document.querySelector('.np-edit-duration-menu').hidden`, 3000);
+    };
+    check('notes: the row\'s duration menu opens when its field takes the focus', await editDuration());
+    await key('ArrowDown');
+    await key('Enter');
+    check('notes: one Enter with the menu open saves the highlighted length', await waitFor(noteWith('typed a length', '08:05', '15m'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
+    await editDuration();
+    await send('Input.insertText', { text: '1h' });
+    check('notes: a length typed keeps the menu open on the lengths it matches', await waitFor(`${q('.np-edit-duration')}.value==='1h'&&!document.querySelector('.np-edit-duration-menu').hidden`, 3000), await ev(`${q('.np-edit-duration')}.value`));
+    await key('Enter');
+    check('notes: one Enter with the menu open saves the length typed', await waitFor(noteWith('typed a length', '08:05', '1h'), 4000) && await waitFor(`!${q('.np-edit-text')}`, 3000), await ev(notesOf('7')));
+    const EDIT_MENU_HIDDEN = `document.querySelector('.np-edit-duration-menu').hidden`;
+    await editDuration();
+    await ev(`${q('.np-body')}.dispatchEvent(new Event('scroll'))`);
+    check('notes: a scroll of the list closes the row\'s duration menu', await waitFor(EDIT_MENU_HIDDEN, 2000));
+    await ev(`(()=>{const d=${q('.np-edit-duration')};d.blur();d.focus()})()`);
+    check('notes: the field taking the focus again opens its menu again', await waitFor(`!${EDIT_MENU_HIDDEN}`, 2000));
+    // A tall block above the rows pushes the field out of the list's view with no scroll (anchoring off).
+    await ev(`(()=>{const b=${q('.np-body')};window.__npScrolls=0;b.addEventListener('scroll',()=>{window.__npScrolls+=1});b.style.overflowAnchor='none';const s=document.createElement('div');s.id='np-push';s.style.height='3000px';b.prepend(s);return true})()`);
+    check('notes: the field leaving the list\'s view closes the menu, with no scroll', await waitFor(EDIT_MENU_HIDDEN, 3000) && await ev(`window.__npScrolls===0`), await ev(`window.__npScrolls`));
+    await ev(`(()=>{document.getElementById('np-push').remove();${q('.np-body')}.style.overflowAnchor='';return true})()`);
+    await key('Escape');
+    await waitFor(`!${q('.np-edit-text')}`, 2000);
     await ev(`${rowOf('typed a length')}.focus()`);
     await key('e');
     check('notes: e shows the new duration', await waitFor(`!!${q('.np-edit-duration')}&&${q('.np-edit-duration')}.value==='1h'`, 2500));

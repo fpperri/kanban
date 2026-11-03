@@ -108,6 +108,15 @@ test('a duration that is no length the rules allow is a key the web does not kno
   assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "09:00"\n    duration: about an hour\n    note: a\n  - at: "09:30"\n    by: "@human"\n    note: between\n  - at: "10:00"\n    duration: 0m\n    note: b\n  - duration: "25h"\n    note: c\n---\n');
 });
 
+test('a hand-written duration that would end past 24:00 from its note\'s time is a key the web does not know: no duration, its line kept', () => {
+  const text = '---\nentries:\n  - at: "23:00"\n    duration: 1h\n    note: to midnight\n  - at: "23:30"\n    duration: 1h\n    note: past midnight\n---\n';
+  const b = board({ [DAY7]: text });
+  assert.deepStrictEqual(b.notes().map((n) => [n.at, n.duration]), [['23:00', '1h'], ['23:30', null]]);
+  const late = b.notes().find((n) => n.note === 'past midnight');
+  assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(late), at: '23:30', note: 'past midnight, changed' }).status, 200);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "23:00"\n    duration: 1h\n    note: to midnight\n  - at: "23:30"\n    duration: 1h\n    note: past midnight, changed\n---\n');
+});
+
 test('an entry written before durations reads and rewrites byte for byte, its record saying no duration', () => {
   const before = '---\nentries:\n  - at: "09:10"\n    by: "@human"\n    note: first\n  - note: untimed, by hand\n    mood: calm\n---\nbody\n';
   const b = board({ [DAY7]: before });
@@ -145,6 +154,12 @@ test('PATCH sets a duration on a note, replaces it, and null (or an empty text) 
   assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "10:30"\n    by: "@human"\n    note: a, changed\n---\n');
 });
 
+test('PATCH duration null removes a duration line whatever it holds, one the web did not read included', () => {
+  const b = board({ [DAY7]: '---\nentries:\n  - at: "09:00"\n    duration: soon\n    note: a\n  - at: "23:30"\n    duration: 1h\n    note: b\n---\n' });
+  for (const n of b.notes()) assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(b.notes().find((x) => x.note === n.note)), duration: null }).status, 200);
+  assert.strictEqual(b.file(DAY7), '---\nentries:\n  - at: "09:00"\n    note: a\n  - at: "23:30"\n    note: b\n---\n');
+});
+
 test('PATCH leaves the duration alone when the body has no duration key', () => {
   const b = board();
   b.route('POST', '/api/notes', { day: '2026-11-03', target: '7', at: '10:30', duration: '45m', note: 'a' });
@@ -171,6 +186,12 @@ test('PATCH refuses a duration that is no length, under a minute, past 24:00 fro
   assert.strictEqual(b.file(DAY7), before);
   assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(late), at: '22:30', duration: '1h30m' }).status, 200);
   assert.strictEqual(b.route('PATCH', '/api/notes', { ref: refOf(untimed), duration: '24h' }).status, 200);
+});
+
+test('a note\'s text is edited with its time sent as it was, whatever its hand-written duration says', () => {
+  const b = board({ [DAY7]: '---\nentries:\n  - at: "23:30"\n    duration: 1h\n    by: "@afk"\n    note: late\n---\n' });
+  const r = b.route('PATCH', '/api/notes', { ref: refOf(b.notes()[0]), at: '23:30', note: 'late, changed' });
+  assert.deepStrictEqual([r.status, r.body.note && r.body.note.note], [200, 'late, changed']);
 });
 
 test('PATCH takes a time and a duration together, and untimed with a duration, in one save', () => {

@@ -32,9 +32,6 @@ const NCAL_MODE_FEATURE = 'calendar.notesMode';
 const NCAL_WORDS = 12;
 const NCAL_WORDS_WIDE = 60;
 
-const nCalPad = (n) => String(n).padStart(2, '0');
-const nCalHhmm = (min) => `${nCalPad(Math.floor(min / 60))}:${nCalPad(min % 60)}`;
-
 function nCalMinutes(at) {
   const m = NCAL_TIME.exec(String(at == null ? '' : at));
   if (!m) return null;
@@ -48,7 +45,7 @@ const nCalByTime = (a, b) => (a.at || '') < (b.at || '') ? -1 : (a.at || '') > (
 const nCalLength = (note) => (note.duration ? NCAL_DURATIONS.parseDuration(note.duration) : null);
 
 // One day's notes -> { slots: [{ fromMin, toMin, notes }] in time order, untimed: [notes],
-// ranges: [{ note, startMin, endMin }] in time order }. A range written past midnight by hand ends there.
+// ranges: [{ note, startMin, endMin }] in time order }.
 function noteCalendarDay(notes, day) {
   const slots = new Map();
   const untimed = [];
@@ -58,7 +55,7 @@ function noteCalendarDay(notes, day) {
     const min = nCalMinutes(note.at);
     if (min === null) { untimed.push(note); continue; }
     const length = nCalLength(note);
-    if (length !== null) { ranges.push({ note, startMin: min, endMin: Math.min(NCAL_DAY_MIN, min + length) }); continue; }
+    if (length !== null) { ranges.push({ note, startMin: min, endMin: min + length }); continue; }
     const from = Math.floor(min / NCAL_SLOT_MIN) * NCAL_SLOT_MIN;
     if (!slots.has(from)) slots.set(from, { fromMin: from, toMin: from + NCAL_SLOT_MIN, notes: [] });
     slots.get(from).notes.push(note);
@@ -248,7 +245,7 @@ const nCalCount = (n) => `${n} note${n === 1 ? '' : 's'}`;
 // A bubble's tooltip: how many, which half hour, which cards, then each note.
 function noteSlotTip(slot) {
   const lines = slot.notes.map((note) => `${note.at} ${note.target ? `#${note.target} ` : ''}${note.note}`);
-  return [`${nCalCount(slot.notes.length)}, ${nCalHhmm(slot.fromMin)}–${nCalHhmm(slot.toMin)}: ${noteSlotTargets(slot.notes).join(', ')}`, ...lines].join('\n');
+  return [`${nCalCount(slot.notes.length)}, ${NCAL_DURATIONS.hhmm(slot.fromMin)}–${NCAL_DURATIONS.hhmm(slot.toMin)}: ${noteSlotTargets(slot.notes).join(', ')}`, ...lines].join('\n');
 }
 
 // The untimed box's tooltip: each note's card and text, a length of work with its length first.

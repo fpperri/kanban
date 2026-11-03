@@ -36,12 +36,12 @@
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
 // prefsStorage, keyGuardOff, scratchpadOn, scratchpadTargets, scratchPanel, scratchPreviewKey, todosOn, todosPanel, todosHints, todosOnBoard, todosPreviewKey, wireDatePickButton, attachCombobox, loadViewMode,
-// loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
+// loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, kanbanDurations, and notes.js's and groups.js's functions.
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
   date: null, dateBtn: null, dateWrap: null, dateTyped: false, todayBtn: null, timeWrap: null, timeMenu: null, nowBtn: null, pick: null, pickWrap: null,
-  duration: null, durationWrap: null, durationMenu: null,
+  duration: null, durationWrap: null, durationMenu: null, listMenus: new Map(),
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
@@ -344,19 +344,9 @@ function notesBuild() {
   u.pickWrap = notesEl('span', 'np-pick');
   u.pickWrap.append(u.pick);
   when.append(u.dateWrap, notesEl('span', '', 'at'), u.timeWrap, u.durationWrap, untimedLabel, u.pickWrap);
-  attachCombobox(u.pick, notesPickOptions, { onPick: notesPicked }); // app.js: the form's suggest-never-validate menu
-  attachCombobox(u.time, notesTimeOptions); // the same menu picks the time: Now, then every 15 minutes
-  attachCombobox(u.duration, notesDurationOptions); // and the duration: 15m to 4h, to what ends by midnight
-  // The menus hang off the page, fixed under their fields: the palette clips what overflows it.
-  u.pickMenu = u.pickWrap.querySelector('.combobox-menu');
-  u.pickMenu.classList.add('np-pick-menu');
-  document.body.append(u.pickMenu);
-  u.timeMenu = u.timeWrap.querySelector('.combobox-menu');
-  u.timeMenu.classList.add('np-pick-menu', 'np-time-menu');
-  document.body.append(u.timeMenu);
-  u.durationMenu = u.durationWrap.querySelector('.combobox-menu');
-  u.durationMenu.classList.add('np-pick-menu', 'np-duration-menu');
-  document.body.append(u.durationMenu);
+  u.pickMenu = notesHangMenu(u.pick, notesPickOptions, '', { minWidth: 320, onPick: notesPicked }); // app.js: the form's suggest-never-validate menu
+  u.timeMenu = notesHangMenu(u.time, notesTimeOptions, 'np-time-menu'); // the same menu picks the time: Now, then every 15 minutes
+  u.durationMenu = notesHangMenu(u.duration, notesDurationOptions, 'np-duration-menu'); // and the duration: 15m to 4h, to what ends by midnight
   u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
   subjectRow.append(u.chip, when);
@@ -443,14 +433,7 @@ function notesBuild() {
   u.date.addEventListener('input', () => { u.dateTyped = true; notesPaintMode(); notesPaintPreview(); });
   u.date.addEventListener('focus', () => u.date.select()); // typing over Today, or over a day, replaces it
   u.date.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); u.input.focus(); } });
-  u.pick.addEventListener('focus', notesPlacePickMenu);
-  u.pick.addEventListener('input', notesPlacePickMenu);
-  const placeTime = () => notesPlaceMenu(u.time, u.timeMenu, 0);
-  u.time.addEventListener('focus', placeTime);
-  u.time.addEventListener('input', placeTime);
-  const placeDuration = () => notesPlaceMenu(u.duration, u.durationMenu, 0);
-  u.duration.addEventListener('focus', placeDuration);
-  u.duration.addEventListener('input', () => { placeDuration(); notesPaintPreview(); });
+  u.duration.addEventListener('input', notesPaintPreview);
   u.duration.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === 'ArrowDown') && u.durationMenu.hidden) { e.preventDefault(); u.input.focus(); } });
   u.pick.addEventListener('blur', notesCommitPick);
   u.pick.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); notesCommitPick(); } });
@@ -598,7 +581,7 @@ function notesFocusGroupPanel() {
 function notesClose() {
   const u = notesUi;
   notesMenuClose();
-  notesDropEditMenus();
+  notesDropListMenus();
   if (!u.sub) return false;
   u.sub = null;
   u.finding = false;
@@ -690,13 +673,17 @@ function notesChoose(field, word) {
 // The time menu: Now first, then every 15 minutes.
 function notesTimeOptions() {
   const options = [{ value: NOTE_NOW }];
-  for (let min = 0; min < 24 * 60; min += 15) options.push({ value: noteHhmm(min) });
+  for (let min = 0; min < 24 * 60; min += 15) options.push({ value: kanbanDurations.hhmm(min) });
   return options;
 }
 
-// The duration menu: 15m to 4h, only what ends by midnight from the time Enter would write now.
+// The duration menu: 15m to 4h, only what ends by midnight from the time Enter would write now. Every
+// keystroke opens it again, so it reads that time from the line's start and the fields alone, never the
+// whole write plan.
 function notesDurationOptions() {
-  return noteDurationOptions(notesUi.sub ? notesPlan().at : null).map((value) => ({ value }));
+  const u = notesUi;
+  const at = u.sub ? noteWriteTime(noteLineTime(u.input.value.trim().split('\n')[0]), u.sub, notesField(), { now: notesNow() }).at : null;
+  return noteDurationOptions(at).map((value) => ({ value }));
 }
 
 // The palette has a new subject: back to its Notes tab with nothing written yet, nothing highlighted
@@ -816,16 +803,10 @@ function notesSetLayout(layout) {
   notesPaintBody();
 }
 
-// A row being edited hangs its duration menu off the page, as the create row's menus hang; the rows that
-// held them are gone whenever the list is built anew or the palette closes.
-function notesDropEditMenus() {
-  for (const m of document.body.querySelectorAll('.np-edit-duration-menu')) m.remove();
-}
-
 function notesPaintBody() {
   const u = notesUi;
   notesMenuClose();
-  notesDropEditMenus();
+  notesDropListMenus();
   if (!u.sub) return;
   for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   for (const b of u.layoutBtns) b.setAttribute('aria-pressed', String(b.dataset.layout === notesLayout()));
@@ -958,7 +939,7 @@ function notesRow(note, named = false, one = false) {
   let editMenu = null;
   const view = () => {
     if (row.classList.contains('editing')) { notesUi.editing -= 1; row.classList.remove('editing'); }
-    if (editMenu) { editMenu.remove(); editMenu = null; }
+    if (editMenu) { notesDropListMenus(editMenu); editMenu = null; }
     const time = notesEl('span', `np-note-time${note.at || note.duration ? '' : ' untimed'}`, noteTimeLabel(note));
     const by = notesEl('span', 'np-note-by', note.by || '');
     by.title = note.by || '';
@@ -980,14 +961,8 @@ function notesRow(note, named = false, one = false) {
     d.setAttribute('aria-label', 'Duration, blank for none');
     const dWrap = notesEl('span', 'np-edit-duration-wrap');
     dWrap.append(d);
-    if (editMenu) editMenu.remove();
-    attachCombobox(d, () => noteDurationOptions(noteFieldTime(t.value)).map((value) => ({ value }))); // the create row's menu, to what ends by midnight from the time in this row
-    editMenu = dWrap.querySelector('.combobox-menu');
-    editMenu.classList.add('np-pick-menu', 'np-edit-duration-menu');
-    document.body.append(editMenu); // hung off the page as the create row's menus are
-    const placeMenu = () => notesPlaceMenu(d, editMenu, 0);
-    d.addEventListener('focus', placeMenu);
-    d.addEventListener('input', placeMenu);
+    if (editMenu) notesDropListMenus(editMenu);
+    editMenu = notesHangMenu(d, () => noteDurationOptions(noteFieldTime(t.value)).map((value) => ({ value })), 'np-edit-duration-menu', { inList: true }); // the create row's menu, to what ends by midnight from the time in this row
     const x = notesEl('textarea', 'np-edit-text');
     x.value = note.note;
     x.rows = 1;
@@ -1007,7 +982,7 @@ function notesRow(note, named = false, one = false) {
     };
     form.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); view(); row.focus(); }
-      else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && e.target !== cancel && e.target !== save) { e.preventDefault(); submit(); } // an open duration menu has taken the Enter that picks from it
+      else if (e.key === 'Enter' && !e.shiftKey && e.target !== cancel && e.target !== save) { e.preventDefault(); submit(); } // an open duration menu has already put its highlighted length in the field
     });
     row.replaceChildren(form);
     x.focus();
@@ -1304,7 +1279,44 @@ function notesPlaceMenu(input, menu, minWidth) {
   menu.style.minWidth = `${Math.max(Math.round(r.width), minWidth)}px`;
 }
 
-const notesPlacePickMenu = () => notesPlaceMenu(notesUi.pick, notesUi.pickMenu, 320);
+// A field's menu (app.js attachCombobox, given `opts`), hung off the page with the class `cls` and placed
+// under its field (at least `minWidth` wide) each time it opens: the palette clips what overflows it.
+// A field in the list (`inList`, an edit row's) moves when the list scrolls and its fixed menu would
+// not, so the menu closes then and when the field leaves the list's view; it is kept only while its row
+// is (notesDropListMenus). -> the menu.
+function notesHangMenu(input, getOptions, cls, { minWidth = 0, inList = false, ...opts } = {}) {
+  attachCombobox(input, getOptions, opts);
+  const menu = input.parentElement.querySelector('.combobox-menu');
+  menu.classList.add('np-pick-menu');
+  if (cls) menu.classList.add(cls);
+  document.body.append(menu);
+  const place = () => notesPlaceMenu(input, menu, minWidth);
+  input.addEventListener('focus', place);
+  input.addEventListener('input', place);
+  if (inList) {
+    const list = notesUi.body;
+    const hide = () => { menu.hidden = true; };
+    list.addEventListener('scroll', hide, { passive: true });
+    const watch = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((seen) => { if (!seen[seen.length - 1].isIntersecting) hide(); }, { root: list });
+    if (watch) watch.observe(input);
+    notesUi.listMenus.set(menu, () => {
+      list.removeEventListener('scroll', hide);
+      if (watch) watch.disconnect();
+      menu.remove();
+    });
+  }
+  return menu;
+}
+
+// The menus of fields in the list go with their rows: `only` that one, or every one when the list is
+// built anew or the palette closes.
+function notesDropListMenus(only) {
+  for (const [menu, drop] of notesUi.listMenus) {
+    if (only && menu !== only) continue;
+    drop();
+    notesUi.listMenus.delete(menu);
+  }
+}
 
 // Free text stays legal: a card id typed in the field (`22`, `#22`) that names a card aims the palette
 // when Enter or leaving the field commits it, as a choice from the menu does; anything else puts the

@@ -334,6 +334,17 @@ test('the notes a subject lists', () => {
   assert.deepStrictEqual(texts({ kind: 'untimed', day: '2026-10-16' }), ['d']);
 });
 
+test('an hour lists the ranges across it as well as the notes that start in it, and not a range that ends as it starts', () => {
+  const ranged = (at, duration, text) => ({ day: '2026-10-16', target: '7', at, duration, by: '@human', note: text, index: 0, file: 'f' });
+  const all = [
+    ranged('08:00', '1h30m', 'into it'), ranged('09:30', '2h', 'starts in it'), ranged('07:00', '4h', 'right across it'),
+    ranged('08:00', '1h', 'ends as it starts'), ranged('10:00', '30m', 'starts as it ends'), ranged(null, '3h', 'a length, no time'),
+    ranged('09:15', null, 'a point'),
+  ];
+  const texts = n.noteSubjectNotes(all, { kind: 'slot', day: '2026-10-16', fromMin: 540, toMin: 600 }).map((x) => x.note).sort();
+  assert.deepStrictEqual(texts, ['a point', 'into it', 'right across it', 'starts in it']);
+});
+
 // --- the list ------------------------------------------------------------------------------------
 
 test('the list groups notes by day then target, newest day first, the chip\'s target first, nothing last', () => {
