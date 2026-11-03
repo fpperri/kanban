@@ -176,6 +176,8 @@ A note with a time and a duration is a range, and the strip draws it as a block 
 
 A note's chip or block moves by a drag, as a card's block does: press it and move more than 3px (a shorter press is a click and opens the note), on a phone with a finger at once. It snaps to 15 minutes, keeps its length, and in the Week and 3-day views follows the day column under the pointer, so a note can move to another day. A range ends by midnight at the latest and a point note starts by 23:45. A count bubble and the untimed box do not move. One write is made when you let go, and nothing is written if the note ends where it began; if the write is refused the Calendar is drawn again from the board and a message says `Move failed` and why.
 
+A range's block also has a top and a bottom edge, and a drag of an edge changes the note's start or its end, as a card's block does: the top edge changes the start and keeps the end, the bottom edge changes the end and keeps the start. It snaps to 15 minutes, leaves the range at least 15 minutes, may end it at 24:00, and stays on its day. A point note's chip has no edge, so a drag never gives a note a length it did not have. One write is made when you let go, nothing if the edge ends where it began, and a refusal is shown as for a move.
+
 The Calendar and the Gantt open on today, and until you move their window with the arrows or a jump
 they follow the clock across midnight.
 
