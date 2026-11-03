@@ -4,6 +4,7 @@ const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { attachSessionHistory } = require('./helpers/session-history');
 const { askElements, askDriver } = require('./helpers/ask-page');
 const { paletteDocument, TEXT_AREA } = require('./helpers/palette-page');
+const { buildMenu } = require('./helpers/menu-dom');
 const { PHONE_WIDTH_QUERY } = require('../../plugin/skills/web/web/phone-width');
 const { BACK_ENTRY_SETTLE_MS } = require('../../plugin/skills/web/web/back-steps');
 
@@ -40,14 +41,18 @@ const hidden = () => { const el = control(); el.classList.add('hidden'); return 
 // `link` opens the page on a card's address, the document's first entry, as a link to a card does.
 // `palette` gives the page the document the notes palette builds itself in (helpers/palette-page.js) and a
 // logbook, so that openNotes draws the real palette.
-async function open({ phone = true, link = null, palette = false } = {}) {
+// `menu` builds the card menu from app.html's own markup (helpers/menu-dom.js), groups and panels included.
+async function open({ phone = true, link = null, palette = false, menu: withMenu = false } = {}) {
   const board = makeBoard();
   if (palette) board.logbook = { folder: 'logbook', notes: [] };
   const holder = { document: null };
   const clock = { at: 1000, timers: [] };
   const elements = { ...askElements() };
   for (const sel of HIDDEN) elements[sel] = hidden();
-  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}`, documentExtras: palette ? paletteDocument(holder) : {} });
+  const extras = palette || withMenu ? paletteDocument(holder) : {};
+  const built = withMenu ? buildMenu(extras) : null;
+  if (built) Object.assign(elements, { '#context-menu': built.root, ...built.byId });
+  const page = loadPage({ board, elements, search: link === null ? '' : `?card=${link}`, documentExtras: extras });
   holder.document = page.ctx.document;
   if (palette) page.ctx.getComputedStyle = () => TEXT_AREA;
   const media = { phone };
@@ -411,6 +416,108 @@ test('a Back that closes the menu over the card details, with a selection behind
   assert.deepStrictEqual(s.picked(), [], 'the Back after steps it');
 });
 
+// The Archive question over the card details (its Archive button): a Back answers it no and leaves the
+// details, as Android's Back answered the native confirm() before the question moved into the page.
+function askOverDetails(s, answers) {
+  s.activate();
+  s.page.run('askInPage("Archive card 3?", { yes: "Archive" })').then((value) => answers.push(value));
+}
+
+test('a question asked over the card details is answered no by Back, and the details stand for the Back after, then the page is left', async () => {
+  const s = await open();
+  await s.openCard(3);
+  const answers = [];
+  askOverDetails(s, answers);
+  s.settle();
+  assert.ok(s.onEntry(), 'the page keeps an entry above the card\'s step for the question');
+  await s.back();
+  assert.deepStrictEqual([s.ask.open(), answers, s.detailUp()], [false, [false], true], 'the question said no and the details stand');
+  assert.match(s.session.search, /card=3/, 'at the card\'s address');
+  await s.back();
+  assert.ok(!s.detailUp(), 'the next Back closes the details');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('a question asked over the card details with a selection behind them: Back answers it, closes the details, steps the selection, then leaves', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  await s.openCard(3);
+  const answers = [];
+  askOverDetails(s, answers);
+  s.settle();
+  await s.back();
+  assert.deepStrictEqual([s.ask.open(), answers, s.detailUp(), s.picked()], [false, [false], true, ['2']]);
+  await s.back();
+  assert.deepStrictEqual([s.detailUp(), s.picked()], [false, ['2']], 'the next Back closes the details and leaves the selection');
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'the Back after steps the selection');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+// A popup that stands over the card details (the delete popup, which the Delete button of the details opens in the
+// group dialog; the notes palette, from the details' icons) is closed by a Back, which then leaves the details for
+// the Back after.
+test('the delete popup over the card details is closed by Back, and the details stand for the Back after', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.activate();
+  s.page.run('openGroupDialog("Delete card", { querySelector: () => null })');
+  s.settle();
+  assert.ok(s.shown('#group-dialog') && s.onEntry(), 'the page keeps an entry above the card\'s step for the popup');
+  await s.back();
+  assert.deepStrictEqual([s.shown('#group-dialog'), s.detailUp()], [false, true], 'the popup closed and the details stand');
+  assert.match(s.session.search, /card=3/);
+  await s.back();
+  assert.ok(!s.detailUp(), 'the next Back closes the details');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('the notes palette over the card details is closed by Back, then the details', async () => {
+  const s = await open({ palette: true });
+  await s.openCard(3);
+  s.activate();
+  s.page.run("openNotes({})");
+  s.settle();
+  assert.ok(s.page.run('notesIsOpen()') && s.onEntry(), 'the page keeps an entry above the card\'s step for the palette');
+  await s.back();
+  assert.deepStrictEqual([s.page.run('notesIsOpen()'), s.detailUp()], [false, true]);
+  await s.back();
+  assert.ok(!s.detailUp());
+  await s.back();
+  assert.strictEqual(s.session.index, 0);
+});
+
+test('a popup closed before the double-tap window has passed, or one with no card details under it, leaves no entry behind', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.activate();
+  s.page.run('openGroupDialog("Delete card", { querySelector: () => null })');
+  s.page.run('closeGroupDialog()');
+  s.settle();
+  assert.deepStrictEqual([s.onEntry(), s.pushes()], [false, 1], 'the card\'s step alone');
+  const bare = await open();
+  bare.activate();
+  bare.page.run('openGroupDialog("Delete card", { querySelector: () => null })');
+  bare.settle();
+  assert.deepStrictEqual([bare.onEntry(), bare.pushes()], [false, 0], 'a popup on the board alone keeps none: Back is the browser\'s there');
+});
+
+test('a question answered before the double-tap window has passed leaves no entry behind', async () => {
+  const s = await open();
+  await s.openCard(3);
+  const answers = [];
+  askOverDetails(s, answers);
+  await s.ask.no();
+  s.settle();
+  assert.deepStrictEqual(answers, [false]);
+  assert.ok(!s.onEntry(), 'no entry was made');
+  assert.strictEqual(s.pushes(), 1, 'the card\'s step alone');
+});
+
 test('with nothing lit or selected the card\'s steps are the browser\'s, as today: Back closes the details, then leaves', async () => {
   const s = await open();
   s.page.run('openCard("3")');
@@ -504,6 +611,100 @@ test('a selection taken down by a tap that clears it keeps an entry that the nex
   s.settle();
   await s.back();
   assert.strictEqual(s.session.index, 0);
+});
+
+// An entry nothing wants any more is taken off by the page itself, once the double-tap window has passed: it goes
+// back one entry, onto the one the person was on before. That traversal touches no entry but the page's own, which
+// a sandboxed frame (the Board artifact in its viewer) may make, where it refuses a Back that leaves the page's first
+// entry; so the person's next Back leaves in one press. history.back() is counted: the page calls it to drop
+// the entry and never to leave.
+function countBacks(s) {
+  const counts = { back: 0 };
+  const real = s.page.ctx.history.back;
+  s.page.ctx.history.back = () => { counts.back++; return real(); };
+  return counts;
+}
+
+test('an entry nothing wants any more, the selection emptied by a tap, is taken off by the page once the double-tap window has passed, and the next Back leaves in one press', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  assert.strictEqual(s.session.index, 2, 'the entry stands above the board\'s own');
+  const backs = countBacks(s);
+  s.tap(2);
+  assert.deepStrictEqual(s.picked(), []);
+  s.wait(BACK_ENTRY_SETTLE_MS - 1);
+  assert.strictEqual(s.session.index, 2, 'the window has not passed: the entry stays');
+  s.wait(1);
+  assert.deepStrictEqual([s.session.index, s.onEntry(), backs.back, s.session.left], [1, false, 1, false], 'the page went back onto the board\'s own entry, once, and did not leave');
+  assert.strictEqual(s.session.search, '', 'at the address it had');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'one Back leaves the page');
+  assert.strictEqual(backs.back, 1, 'and the page called history.back() for the drop alone');
+});
+
+test('the entry stays when something wants it again inside the window: a tap that selects after the tap that emptied the selection', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  s.tap(2);
+  s.wait(BACK_ENTRY_SETTLE_MS - 1);
+  s.tap(3);
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry(), s.picked()], [2, true, ['3']]);
+  await s.back();
+  assert.deepStrictEqual(s.picked(), [], 'and the Back steps it');
+});
+
+test('the drop is the page\'s own pop: it answers no question, opens or closes no card and leaves the next entry as it was', async () => {
+  const s = await open();
+  await s.openCard(3);
+  s.detailMenu();
+  s.settle();
+  assert.strictEqual(s.session.index, 3, 'the card\'s step and the entry the menu kept above it');
+  s.activate();
+  s.page.run('hideContextMenu()');
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry(), s.detailUp()], [2, false, true], 'the entry went and the card stands, on its own step');
+  assert.match(s.session.search, /card=3/);
+  await s.back();
+  assert.ok(!s.detailUp(), 'the Back after closes the card');
+  await s.back();
+  assert.strictEqual(s.session.index, 0, 'and the one after leaves the page');
+});
+
+test('a card menu closed with nothing lit or selected leaves an entry that is taken off, as a question answered does', async () => {
+  const s = await open();
+  s.activate();
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(0, 0)');
+  s.settle();
+  assert.strictEqual(s.session.index, 2);
+  s.page.run('hideContextMenu()');
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry()], [1, false]);
+  const asked = [];
+  s.activate();
+  s.page.run('askInPage("Archive card 3?", { yes: "Archive" })').then((value) => asked.push(value));
+  s.settle();
+  assert.strictEqual(s.session.index, 2, 'the question keeps an entry');
+  await s.ask.no();
+  s.settle();
+  assert.deepStrictEqual([asked, s.session.index, s.onEntry()], [[false], 1, false], 'and loses it with its answer');
+});
+
+test('the entry of a window widened to the desk is taken off too, and a Back that comes before the window has passed is let through as before', async () => {
+  const s = await open();
+  s.tap(2);
+  s.settle();
+  s.cross(false);
+  s.settle();
+  assert.deepStrictEqual([s.session.index, s.onEntry(), s.picked()], [1, false, ['2']], 'the desk layout keeps no entry');
+  const early = await open();
+  early.tap(2);
+  early.settle();
+  early.cross(false);
+  await early.back();
+  assert.strictEqual(early.session.index, 0, 'a Back inside the window passes through, as it did');
 });
 
 // --- Back closes what Esc closes, in Esc's order ------------------------------------------------------
@@ -806,22 +1007,94 @@ test('Back closes each of the four as Esc closes it, press for press, with a sel
   }
 });
 
-test('Back takes all thirteen layers down in the order Esc keeps, one per Back, with the four popups among them', async () => {
-  const names = ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
+// The inner layers a Back closes alone, as Esc does, each before the layer around it. Stand-ins for what the
+// page draws where the test has no DOM for it: a note's own menu (notesUi.menu), and the scratchpad's narrow
+// file list (the element .spf.open, which the page asks the document for).
+function noteMenuStandIn(s) {
+  const seen = { removed: 0 };
+  s.page.ctx.__noteMenu = { el: { contains: () => false, remove() { seen.removed++; } }, row: { isConnected: false, classList: { contains: () => false }, focus() {} }, items: [], acts: {} };
+  s.page.run('notesUi.menu = __noteMenu');
+  return seen;
+}
+function fileListStandIn(s) {
+  const seen = { open: true, bar: [] };
+  const bar = { setAttribute: (name, value) => seen.bar.push([name, value]), focus() { seen.focused = true; } };
+  const list = { classList: { remove: () => { seen.open = false; }, contains: () => seen.open }, querySelector: () => bar };
+  const realQuery = s.page.ctx.document.querySelector;
+  s.page.ctx.document.querySelector = (sel) => (sel === '.spf.open' ? (seen.open ? list : null) : realQuery(sel));
+  return seen;
+}
+const atPhoneWidth = (s) => Object.assign(s.page.ctx, { innerWidth: 390, innerHeight: 844 });
+
+test('an open panel of the card menu is closed by Back alone, the nested panel before the group\'s, then the menu, then the selection steps', async () => {
+  const s = await selectedWithEntry({ menu: true });
+  atPhoneWidth(s);
+  const el = (id) => s.page.ctx.document.querySelector('#' + id);
+  const open = (id) => el(id).parent.classList.contains('open');
+  const click = (id) => s.menu.fire('click', { target: el(id), detail: 1 });
+  s.activate();
+  s.page.run('menuSubject = cardMenuFor(selectedIds, "2"); showContextMenu(10, 10)');
+  click('ctx-explore');
+  click('ctx-path');
+  assert.deepStrictEqual([s.menuOpen(), open('ctx-explore'), open('ctx-path')], [true, true, true], 'the Explore panel and the Path panel in it stand');
+  await s.back();
+  assert.deepStrictEqual([s.menuOpen(), open('ctx-explore'), open('ctx-path')], [true, true, false], 'the first Back closes the nested panel and leaves the one around it');
+  await s.back();
+  assert.deepStrictEqual([s.menuOpen(), open('ctx-explore'), open('ctx-path')], [true, false, false], 'the next closes the group\'s own panel and leaves the menu');
+  assert.deepStrictEqual(s.picked(), ['2'], 'the selection stands');
+  assert.ok(s.onEntry(), 'and the page is on its entry again');
+  await s.back();
+  assert.strictEqual(s.menuOpen(), false, 'then the menu closes');
+  await afterPopup(s);
+});
+
+test('a note\'s own menu in the notes palette is closed by Back alone, before the palette', async () => {
   const s = await selectedWithEntry({ palette: true });
+  s.activate();
+  s.page.run('openNotes({})');
+  const menu = noteMenuStandIn(s);
+  await s.back();
+  assert.deepStrictEqual([menu.removed, s.page.run('notesUi.menu'), s.page.run('notesIsOpen()')], [1, null, true], 'the menu went and the palette stays');
+  await s.back();
+  assert.strictEqual(s.page.run('notesIsOpen()'), false, 'the next Back closes the palette');
+  await afterPopup(s);
+});
+
+test('the scratchpad\'s narrow file list is closed by Back alone, before the palette it stands in, and a row menu in it before the list', async () => {
+  const s = await selectedWithEntry({ palette: true });
+  s.activate();
+  s.page.run('openNotes({})');
+  const list = fileListStandIn(s);
+  const menu = noteMenuStandIn(s);
+  await s.back();
+  assert.deepStrictEqual([menu.removed, list.open], [1, true], 'a row menu in the list closes first');
+  await s.back();
+  assert.deepStrictEqual([list.open, list.bar, list.focused, s.page.run('notesIsOpen()')], [false, [['aria-expanded', 'false']], true, true], 'then the list, which goes back to its bar, and the palette stays');
+  await s.back();
+  assert.strictEqual(s.page.run('notesIsOpen()'), false, 'then the palette');
+  await afterPopup(s);
+});
+
+test('Back takes all sixteen layers down in the order Esc keeps, one per Back, with the four popups and the three inner layers among them', async () => {
+  const names = ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'];
+  const s = await selectedWithEntry({ palette: true, menu: true });
+  atPhoneWidth(s);
   s.activate();
   s.page.run('setPinnedLight("3")');
   s.page.run('menuSubject = cardMenuFor(selectedIds, "3"); showContextMenu(0, 0)');
+  s.menu.fire('click', { target: s.page.ctx.document.querySelector('#ctx-explore'), detail: 1 });
   s.page.run('moreMenuOpen()');
   s.page.run('setSearchPanelOpen(true)');
   s.page.run('openNotes({})');
+  const note = noteMenuStandIn(s);
+  const list = fileListStandIn(s);
   for (const sel of ['#notif-modal', '#prefs-sheet', '#modal', '#bulk-status', '#tray-sheet']) s.elements[sel].classList.remove('hidden');
   s.page.run('openGroupDialog("Group", { querySelector: () => null })');
   s.page.run('datePickerFor = { value: "", focus() {} }');
   const up = () => names.filter((name) => ({
     'date-picker': s.page.run('datePickerFor') !== null, 'group-dialog': s.shown('#group-dialog'), tray: s.shown('#tray-sheet'),
-    'more-menu': s.page.run('moreMenuIsOpen()'), menu: s.menuOpen(), notifications: s.shown('#notif-modal'), settings: s.shown('#prefs-sheet'),
-    'edit-form': s.shown('#modal'), 'bulk-popup': s.shown('#bulk-status'), 'notes-palette': s.page.run('notesUi.sub') !== null,
+    'more-menu': s.page.run('moreMenuIsOpen()'), 'menu-panel': s.page.run('menuNestOpenTopGroup() !== null'), menu: s.menuOpen(), notifications: s.shown('#notif-modal'), settings: s.shown('#prefs-sheet'),
+    'edit-form': s.shown('#modal'), 'bulk-popup': s.shown('#bulk-status'), 'note-menu': note.removed === 0, 'scratch-list': list.open, 'notes-palette': s.page.run('notesUi.sub') !== null,
     'search-panel': s.page.run('searchPanelOpen'), light: s.litId() !== null, selection: s.picked().length > 0,
   })[name]);
   const seen = [up().join()];

@@ -1,7 +1,8 @@
 'use strict';
 // Android Back on the phone layout closes the card menu a long press opened, then drops the light, then
 // steps the selection back, one step per history.back(), the page staying where it is. With a card in
-// the selection and with none: the light alone keeps the page's entry. Each wait is for the page's state.
+// the selection and with none: the light alone keeps the page's entry. An open panel of the menu (Explore)
+// closes alone, before the menu. Each wait is for the page's state.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): pinnedLitId, selectedIds.
 
@@ -63,6 +64,12 @@ module.exports = {
     const [c] = await start('with nothing selected');
     check('a long press lights a card and opens its menu', await longPressOn(c));
     check('the page keeps an entry of its own for the light', await waitFor(kept, 5000));
+    const explore = `document.getElementById('ctx-explore').closest('.ctx-sub').classList.contains('open')`;
+    await tapOn('#ctx-explore');
+    check('a tap on Explore opens its panel', await waitFor(explore, 3000));
+    await back();
+    check('a Back closes the panel alone: the menu and the light stand', await waitFor(`!(${explore})`, 3000) && await ev(`${menuOpen}&&${held(c)}`));
+    check('the page stays and keeps its entry again', await ev(stays) && await waitFor(kept, 5000));
     await back();
     check('a Back closes the menu', await waitFor(`!(${menuOpen})`, 3000) && await ev(held(c)));
     check('the page stays and keeps its entry again', await ev(stays) && await waitFor(kept, 5000));

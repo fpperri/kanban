@@ -1,11 +1,12 @@
 'use strict';
 // Android Back on the phone layout steps back the way Esc does. The page keeps one history entry of its
-// own while a menu, a light or a selection stands (the entry is marked in its history state), so that
+// own while a menu, an in-page question, a popup over the card details, a light or a selection stands (the entry is marked in its history state), so that
 // Back has something to pop; the Back that pops it runs one step of Esc, in Esc's order (the in-page
 // question, the open menu, a popup, the search panel, then the light, then the selection's steps) and the
-// page goes forward to the entry again while something is left. With nothing lit or selected there is no
-// entry, and Back is the browser's: it closes the card details, then leaves the page. The card's own steps
-// (card-history.js) are untouched; the entry stands beside them in the history, and a Back that lands on a
+// page goes forward to the entry again while something is left. With none of them standing there is no
+// entry, and Back is the browser's: it closes the card details, then leaves the page; a menu, a question or a
+// popup over the details has an entry, and the Back that pops it closes it and leaves the details. The card's
+// own steps (card-history.js) are untouched; the entry stands beside them in the history, and a Back that lands on a
 // card's step is the card's. A card opened from a link is the document's first entry, with nothing of the
 // page's below it: there a Back cannot step what stands behind the details, and the page is left after them.
 //
@@ -73,25 +74,30 @@ function isBackUnder(state) {
   return !!state && typeof state === 'object' && state[BACK_UNDER_KEY] === true;
 }
 
-// Whether the page should hold its entry: at the phone layout while a card menu stands, or a light or a
-// selection. Over the card details a light or a selection keeps none (the details cover them, and Back
-// closes the details first); a menu over the details does.
-function backEntryWanted({ phone, menu, light, selection, details }) {
+// Whether the page should hold its entry: at the phone layout while a card menu or an in-page question
+// stands, or a popup over the card details (`popup`: one of BACK_OVER_STEPS stands with the details open),
+// or a light or a selection. Over the card details a light or a selection keeps none (the details cover
+// them, and Back closes the details first); a menu, a question or a popup over the details does, so that
+// the Back that closes it finds the details as they were. A popup with no details under it keeps none.
+function backEntryWanted({ phone, menu, ask = false, popup = false, light, selection, details }) {
   if (!phone) return false;
-  return !!(menu || (!details && (light || selection)));
+  return !!(menu || ask || popup || (!details && (light || selection)));
 }
 
 // What Esc closes, top first. The keydown listener and a Back both walk it, so that a Back takes the step Esc
 // takes: the in-page question (it answers no), then the four popups that take Esc in a listener of their own,
 // which runs before the chain and keeps the key from it (the date picker, the group dialog, the tray),
-// the More menu, the card menu, the notifications, the preferences sheet, the card details, the edit form, a
-// bulk popup, any other popup (Esc closes nothing there, and a Back holds), the notes palette (its own listener
-// yields to every popup above it, and to the card details it does not: it draws above them), the search panel,
-// then the light, then the selection.
-const BACK_STEP_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
+// the More menu, an open panel of the card menu (Group, Explore, Path, Tree: the menu's own listener closes
+// it alone, the nested panel first), the card menu, the notifications, the preferences sheet, the card
+// details, the edit form, a bulk popup, any other popup (Esc closes nothing there, and a Back holds), a note's
+// own menu and the scratchpad's narrow file list (each closes alone on its own listener, in the notes
+// palette that holds them: a row menu in the list before the list), the notes palette (its own listener
+// yields to every popup above it, and to the card details it does not: it draws above them), the search
+// panel, then the light, then the selection.
+const BACK_STEP_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'];
 
 // The steps a Back closes whatever the card details are doing: a popup or a menu, which stands above them.
-const BACK_OVER_STEPS = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'notes-palette'];
+const BACK_OVER_STEPS = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'edit-form', 'bulk-popup', 'note-menu', 'scratch-list', 'notes-palette'];
 
 // The one step a Back takes, given the names of what stands: the first of them in Esc's order. null when
 // nothing is left.
@@ -130,12 +136,13 @@ function backPopAction({ phone, modalOpen, details, step, under = false }) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, BACK_STEP_ORDER, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction };
+  module.exports = { BACK_ENTRY_SETTLE_MS, BACK_RETURN_MS, BACK_ACTIVATION_EVENTS, BACK_STEP_ORDER, BACK_OVER_STEPS, activatesHistory, backEntryState, isBackEntry, backSeqOf, backCardState, isBackUnder, backEntryWanted, backStep, backTraversal, backPopAction };
 } else {
   window.BACK_ENTRY_SETTLE_MS = BACK_ENTRY_SETTLE_MS;
   window.BACK_RETURN_MS = BACK_RETURN_MS;
   window.BACK_ACTIVATION_EVENTS = BACK_ACTIVATION_EVENTS;
   window.BACK_STEP_ORDER = BACK_STEP_ORDER;
+  window.BACK_OVER_STEPS = BACK_OVER_STEPS;
   window.activatesHistory = activatesHistory;
   window.backEntryState = backEntryState;
   window.isBackEntry = isBackEntry;

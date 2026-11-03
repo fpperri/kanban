@@ -42,7 +42,8 @@ not a deep link at all and is ignored outright.
   written. The view switch brings the address in line too (`nextSearchAddress` takes whether to declare
   isolate off, `declareOff`, which is the view's Typing isolates setting and not its name). The address replaces
   the history entry the page is on and never pushes one, so typing adds no history
-  entries (Back and Forward still step only between opened cards), and it replaces only
+  entries (at the desk layout Back and Forward still step only between opened cards; the phone layout keeps one
+  entry of its own while a menu, a question, a popup over a card's details, a light or a selection stands, see the Back paragraph below), and it replaces only
   when `q` would change. A browser may refuse a replacement when there are too many in
   a short time (Safari throws past 100 in 30 seconds): the refusal is let go, the
   address lags the box, and the next change to `q` catches it up. A reload, or a link copied from the address bar, opens with the same
@@ -77,10 +78,11 @@ open) pushes nothing — no duplicate steps. A `popstate` (Back/Forward) reads t
 landed-on URL and opens the named card or closes the popup to match; a card id that no
 longer resolves — fails to fetch, not just missing from the last poll's stale snapshot —
 closes quietly, no toast — routine Back/Forward traffic over a stale ref isn't a broken
-link the way a hand-typed deep link's bad id is. `popstate` also does nothing at all
+link the way a hand-typed deep link's bad id is. At the desk layout `popstate` also does nothing at all
 while any OTHER popup (the edit/new-card form, a bulk-edit popup, notifications) is
 open, so Back/Forward can never yank the detail popup in underneath one and let a
-follow-on Edit click silently overwrite typed changes. Reloading with a card open still
+follow-on Edit click silently overwrite typed changes. The phone layout answers a Back from the page's own
+entry first (below): where the page keeps one, a Back closes such a popup, the edit form through its unsaved-changes question; an edit form opened from the details with nothing lit or selected keeps none, and there the URL moves and the form stays, as above. Reloading with a card open still
 goes through the deep link above, unchanged — the URL already carries the id, so
 there's nothing new to push. `openCard` pushes only once the card has actually loaded,
 not before the fetch — a chip for a deleted/nonexistent card doesn't leave a phantom
@@ -90,6 +92,21 @@ popstate-to-action read are both pure, in `card-history.js`
 `closeCard` wrappers apply it around `openDetailModal`/`closeDetailModal`, and the
 `popstate` listener calls those two directly (never the wrappers), so a Back/Forward-
 driven open or close never pushes a step of its own.
+
+**Back on the phone layout** (under 760 px; `back-steps.js` holds the rules, app.js carries them out, and
+docs/web.md has the whole of it) — the card steps above are not the only entries the page writes. While a card menu, an
+in-page question, a popup over the card details, a light or a selection stands, the page keeps one entry of its own, state
+`{ kanbanBack: true, kanbanSeq: n }`, at the address the person is on (a tap pushes it, once the double-tap window has
+passed; the browser skips an entry a page makes with no tap behind it). The Back that pops it runs one step of Esc, in
+Esc's order, and the page goes forward to the entry again while something is left (`history.forward()`, which adds
+none); with nothing left the entry is taken off by the page itself (`history.back()`, the page's own pop). Every
+state the page pushes carries `kanbanSeq`, a number that rises with each push, so a `popstate` to a higher
+number is a Forward and never the Back that pops the entry, and a card step pushed from over the page's entry also
+carries `kanbanBackUnder: true`: the Back that closes the card lands on that entry. So at the phone layout a
+`popstate` is first asked whether it is the page's own (`onBackTraversal`), before the card is read from the
+address, and a Back that closes a popup, a menu or the question closes it and leaves the card steps alone. A card opened
+from a link is the first entry of the page's history, with nothing of the page's below it: a Back cannot step what
+stands behind its details, and leaves the page after them.
 
 **Tab icon** — the plugin's official icon (canonical file `assets/icon.svg`, also shown in
 the README and inlined in the snapshot page), served here as `favicon.svg` at

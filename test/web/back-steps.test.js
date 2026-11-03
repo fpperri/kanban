@@ -52,6 +52,20 @@ test('an entry is kept at the phone layout while a menu, a light or a selection 
   assert.strictEqual(backEntryWanted({ ...quiet, menu: true, light: true, selection: true }), true);
 });
 
+test('an open question keeps an entry whatever stands behind it, over the card details or not, so a Back can answer it no', () => {
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true, details: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true, details: true, selection: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, ask: true, phone: false }), false, 'and none at the desk layout');
+});
+
+test('a popup over the card details keeps an entry, as a menu or a question does, so a Back can close it and leave the details', () => {
+  assert.strictEqual(backEntryWanted({ ...quiet, popup: true, details: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, popup: true, details: true, selection: true }), true);
+  assert.strictEqual(backEntryWanted({ ...quiet, popup: true, phone: false, details: true }), false, 'and none at the desk layout');
+  assert.strictEqual(backEntryWanted({ ...quiet, details: true }), false, 'the details alone keep none: Back is the browser\'s there');
+});
+
 test('no entry is kept at the desk layout, whatever stands', () => {
   for (const stands of [{ menu: true }, { light: true }, { selection: true }, { menu: true, light: true, selection: true }]) {
     assert.strictEqual(backEntryWanted({ ...quiet, ...stands, phone: false }), false, JSON.stringify(stands));
@@ -97,10 +111,12 @@ test('the entry waits out the double-tap window before it is kept, so a double t
 
 // Esc's order, top first, written out from the listeners that take the key: the in-page question (a window
 // listener), the date picker, the group dialog and the tray (document listeners that run before the chain),
-// then the chain the keydown listener walks: the More menu, the card menu, the notifications, the preferences
-// sheet, the card details, the edit form, a bulk popup, any other popup, then the notes palette (which yields
-// to every popup above it), the search panel, the light and the selection.
-const ESC_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'notes-palette', 'search-panel', 'light', 'selection'];
+// then the chain the keydown listener walks: the More menu, the open panel of the card menu (a listener of its own
+// in the menu, taken first), the card menu, the notifications, the preferences sheet, the card details, the edit
+// form, a bulk popup, any other popup, then a note's own menu and the scratchpad's narrow file list (listeners of
+// their own, ahead of the palette), the notes palette (which yields to every popup above it), the search panel,
+// the light and the selection.
+const ESC_ORDER = ['ask', 'date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'other-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'];
 
 test("Back takes the first thing standing in Esc's order, one at a time, and nothing when nothing stands", () => {
   ESC_ORDER.forEach((step, i) => {
@@ -134,6 +150,24 @@ test('the four popups that take Esc in their own listeners are layers of their o
   assert.strictEqual(backStep(['light', 'notes-palette']), 'notes-palette');
   assert.strictEqual(backStep(['selection', 'notes-palette']), 'notes-palette');
   assert.strictEqual(backStep(['ask', 'date-picker', 'tray']), 'ask', 'the question is answered first, as the window listener answers it first');
+});
+
+test('the three inner layers close alone, each before the layer around it: a panel of the card menu, a note\'s own menu, the scratchpad\'s narrow file list', () => {
+  assert.strictEqual(backStep(['menu', 'menu-panel']), 'menu-panel', 'a panel closes before its menu');
+  assert.strictEqual(backStep(['more-menu', 'menu-panel']), 'more-menu', 'the More menu is above the card menu and its panels');
+  assert.strictEqual(backStep(['notes-palette', 'note-menu']), 'note-menu', 'a note\'s menu closes before the palette');
+  assert.strictEqual(backStep(['notes-palette', 'scratch-list']), 'scratch-list', 'the file list closes before the palette, which it stands in');
+  assert.strictEqual(backStep(['scratch-list', 'note-menu']), 'note-menu', 'a row menu in the list keeps its own Esc, ahead of the list');
+  for (const popup of ['menu', 'notifications', 'settings', 'edit-form', 'bulk-popup']) {
+    assert.strictEqual(backStep(['note-menu', popup]), popup, `a popup above the palette closes before the note's menu: ${popup}`);
+    assert.strictEqual(backStep(['scratch-list', popup]), popup, `and before the file list: ${popup}`);
+  }
+  assert.strictEqual(backStep(['light', 'search-panel', 'note-menu']), 'note-menu');
+  for (const step of ['menu-panel', 'note-menu', 'scratch-list']) {
+    for (const over of [{ modalOpen: false, details: false }, { modalOpen: true, details: false }, { modalOpen: false, details: true }, { modalOpen: true, details: true }]) {
+      assert.strictEqual(backPopAction({ phone: true, step, ...over }), 'step', `${step} is closed by a Back whatever stands under it: ${JSON.stringify(over)}`);
+    }
+  }
 });
 
 test('a name the table does not know is no step', () => {

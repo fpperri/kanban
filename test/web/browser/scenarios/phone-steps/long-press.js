@@ -10,7 +10,7 @@
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): ganttDayPxLive, isDragging,
 // menuSubject, pinnedLitId, selectedIds, showContextMenu, state.
 
-const { tap, swipe, holdDown, moveHeld, liftUp, realWait, longPress, outwaitDoubleTap } = require('../../steps');
+const { tap, doubleTap, swipe, holdDown, moveHeld, liftUp, realWait, longPress, outwaitDoubleTap } = require('../../steps');
 
 module.exports = {
   async run(page) {
@@ -107,6 +107,20 @@ module.exports = {
     check('a long press on a selected card opens the menu for the selection', await waitFor(menuOpen, 4000) && (await subject()).inSelection === true && (await subject()).ids.split(',').sort((a, b) => a - b).join() === picks, await subject());
     await ev(`hideContextMenu()`);
 
+    // A double tap on a card outside the open menu: its first tap only closes the menu and changes nothing, its second opens the card.
+    // The light stays after the menu, and the wait for the hold would be answered by it at once, so a tap on empty space ends it first.
+    await outwaitDoubleTap();
+    await tap(page, empty.x, empty.y);
+    check('a tap on empty space ends the light and only the light', await waitFor(`pinnedLitId===null`, 3000) && await ev(picked) === picks, await ev(`pinnedLitId+'|'+${picked}`));
+    await outwaitDoubleTap();
+    await longPress(page, o.x, o.y, { until: held(lone) });
+    check('the menu opens for the selection again', await waitFor(menuOpen, 4000));
+    const beside = await cardOutsideMenu();
+    await outwaitDoubleTap();
+    await doubleTap(page, beside.x, beside.y);
+    check('a double tap on a card outside the open menu closes the menu and opens the card', await waitFor(`!(${menuOpen})&&new URLSearchParams(location.search).get('card')===${JSON.stringify(beside.id)}`, 3000), await ev(`location.search+'|'+(${menuOpen})`));
+    check('and leaves the selection as it was', await ev(picked) === picks, await ev(picked));
+
     // --- the menu takes the first tap --------------------------------------------------------------------
     // A finger that comes down on the menu inside the 800 ms of the echo is a tap: the next finger ends the echo.
     check('the Board for the first tap on the menu', await boardOnDoing());
@@ -169,7 +183,7 @@ module.exports = {
     await moveHeld(page, m2.x, m2.y + 30);
     await liftUp(page);
     await realWait(300);
-    check('a finger that moves after the hold keeps the light and opens no menu', await ev(lit(2)) && await menus() === 0 && await ev(`!(${menuOpen})`), await menus());
+    check('a finger that moves after the hold ends the light and opens no menu', await ev(`!(${lit(2)})`) && await menus() === 0 && await ev(`!(${menuOpen})`), await menus());
 
     const before = await ev(`[...document.querySelectorAll('#board-tabs .board-tab')].filter((t)=>t.getAttribute('aria-selected')==='true').map((t)=>t.dataset.col).join()`);
     const s = await pointOf(titleOf(2));

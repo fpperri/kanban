@@ -98,6 +98,7 @@ function bulkSandbox({ query, extraParts = [], cards = CARDS } = {}) {
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   run([
     declaration('selectionState'), declaration('selectedIds'), fn('setSelection'),
+    'function moveSelectionTo(next) { setSelection(next.selection, next.rangeStart); } // the box and the pills the page\'s step also settles are the page tests\' business',
     fn('searchCtx'), fn('matchedIds'), fn('searchMatchIds'), fn('selectionMatchIds'),
     'let bulkSingleMode = null; let bulkPopupIds = []; let bulkPopupInSelection = false; let isDragging = false, dragCardId = null, bulkDragIds = null;',
     declaration('menuSubject'),

@@ -37,6 +37,10 @@ module.exports = {
     const rectOf = (expr) => ev(`(()=>{const r=(${expr}).getBoundingClientRect();return {l:r.left,r:r.right,t:r.top,b:r.bottom,w:r.width,h:r.height,x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     const pointOf = (sel) => ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return null;e.scrollIntoView({block:'center',inline:'center'});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     const tapOn = async (sel) => { const p = await pointOf(sel); if (!p) throw new Error(`nothing matches ${sel}`); await tap(page, p.x, p.y); };
+    // The page keeps an entry of its own in the tab's history while a selection stands, marked in its history state, and takes it off once nothing wants it.
+    const kept = `!!history.state&&history.state.kanbanBack===true`;
+    // Where the tab stands in its history. A card opened once moves it by one step, whether or not an entry of the page's own came and went before: the length of the history does not say, for an entry taken off stays ahead of the tab until the next step replaces it.
+    const stepNow = () => ev('navigation.currentEntry.index');
     let windowMs = null; // the page's own number, read once a page is open
     // How long after the latest click the bar last changed in the way `kind` says: null when it never did.
     const lagOf = (kind) => ev(`(()=>{const log=window.__barLog;let i=log.length-1;while(i>=0&&log[i].kind!==${JSON.stringify(kind)})i--;if(i<0)return null;let j=i;while(j>=0&&log[j].kind!=='click')j--;return j<0?null:log[i].at-log[j].at})()`);
@@ -87,10 +91,13 @@ module.exports = {
     check('and the bar reads 1 selected again', await barReads('1 selected'));
     check('one window after the tap', waited(await lagOf('count')), String(await lagOf('count')));
     await outwaitDoubleTap();
+    check('the page keeps an entry of its own while dots are selected', await waitFor(kept, 5000));
     await tap(page, first.x, first.y);
     check('the last dot out empties the selection', await pickedIs([]), await ev(picked));
     check('and the bar goes with it', await barGone());
     check('one window after the tap', waited(await lagOf('bar')), String(await lagOf('bar')));
+    // The page takes its entry off on a timer of its own. A page opened while that timer is pending has its Back made on it: the history.back() lands after the navigation and takes the tab to the Graph again.
+    check('and the page takes its entry off, before the Board is opened', await waitFor(`!(${kept})`, 5000));
 
     // --- a double tap on the last card of the list, where the bar would rise ---------------------------------
     // Done twice. The instant double tap sends the second finger down and up within a few milliseconds of
@@ -107,8 +114,11 @@ module.exports = {
     check('a tap on a card raises the bar', await barReads('1 selected'));
     const archive = await rectOf(`document.getElementById('selection-bar-archive')`);
     const bar = await rectOf(BAR);
+    // The entry comes once the double-tap window has passed and goes once Clear has emptied the selection, each on the page's own timer. Clear is tapped with the entry made and the step goes on with it off, so a slow page and a quick one start the double tap from the same place.
+    check('the page keeps an entry of its own for the selection', await waitFor(kept, 5000));
     await tapOn('#selection-bar-clear');
     check('Clear puts the bar away', await pickedIs([]) && await barGone());
+    check('and the page takes its entry off', await waitFor(`!(${kept})`, 5000));
     await outwaitDoubleTap();
 
     const atTheFoot = async (label, double) => {
@@ -121,14 +131,14 @@ module.exports = {
       check(`the last card of the list stands where the bar rose${label}`, last !== null && last === lastOfList && y >= bar.t && y <= bar.b, JSON.stringify({ x, y, last, lastOfList, bar }));
 
       await ev(WATCH);
-      const historyBefore = await ev('history.length');
+      const stepBefore = await stepNow();
       await double(page, x, y);
       check(`a double tap on it opens the card${label}`, await waitFor(`new URLSearchParams(location.search).get('card')==='${last}'&&!document.querySelector('#detail-modal').classList.contains('hidden')`, 3000), await ev('location.search'));
       check(`the selection is as it was before the first tap${label}`, await pickedIs([]), await ev(picked));
       await page.sleep(windowMs + 200);
       check(`and the bar never rose, not for a moment${label}`, !(await barWentUp()) && !(await ev(barShown)), JSON.stringify(await ev('window.__barLog')));
       check(`no question was asked${label}`, !(await ev(ASK_UP)));
-      check(`and the card opened once${label}`, (await ev('history.length')) === historyBefore + 1, await ev('history.length'));
+      check(`and the card opened once${label}`, (await stepNow()) === stepBefore + 1, `${stepBefore} -> ${await stepNow()}`);
       check(`nothing was archived${label}`, await ev(`state.archived.every((c)=>String(c.id)!=='${last}')`));
       await shot(`double-tap-at-the-foot${label ? '-paced' : ''}`);
     };

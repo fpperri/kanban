@@ -526,6 +526,7 @@ function openNotes(req) {
   u.el.classList.remove('hidden');
   notesPaint();
   if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
+  scheduleBackSync(); // over the card details a Back closes it, so the page keeps an entry for it
 }
 
 // The tabs a subject has (notes.js noteTabs): Notes (when the board keeps a logbook), a group's
@@ -573,6 +574,7 @@ function notesClose() {
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
   if (u.el.contains(document.activeElement)) document.activeElement.blur(); // never leave the focus in the hidden palette
+  scheduleBackSync();
   return true;
 }
 

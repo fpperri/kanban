@@ -3,11 +3,13 @@
 // confirm() is replaced with a no that counts its calls and none is raised. Clearing a notification and
 // clearing all of them ask over the notifications popup: the question draws above it, Esc answers no and the
 // popup stays, a yes moves the entry to archived/notifications.md. Closing the New card form with a title typed
-// asks over the form: a second Esc while the question is up answers no and does not ask again, a click outside the
-// dialog answers no, and the red button discards the form. Dropping a card that is not done on the Archive column
-// asks the count and a no leaves the card where it was. Each step waits on the page, never on a fixed sleep.
+// asks over the form: Tab stays on the question's own buttons and Ctrl+S saves nothing behind it, a second Esc
+// while the question is up answers no and does not ask again, a click outside the dialog once the double-click
+// window has passed answers no, and the red button discards the form. Dropping a card that is not done on the
+// Archive column asks the count and a no leaves the card where it was. Each step waits on the page, never on
+// a fixed sleep.
 //
-// Page globals this scenario reads (listed in test/web/browser-globals.test.js): state.
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): DOUBLE_CLICK_MS, askState, state.
 
 const fs = require('fs');
 const path = require('path');
@@ -79,10 +81,19 @@ module.exports = {
     check('Esc asks before it drops what was typed', await askUp(page) && (await askText(page)) === 'Discard unsaved changes to this card?', await askText(page));
     const overForm = await ev(ASK_REACHABLE);
     check('the question is drawn above the form, and both its buttons can be reached', overForm.onTop && overForm.buttons && overForm.fits, overForm);
+    await ev(`(()=>{window.__submits=0;const f=document.getElementById('card-form');const o=f.requestSubmit.bind(f);f.requestSubmit=()=>{window.__submits++;return o()};return true})()`);
+    const inAsk = `!!document.activeElement&&!!document.activeElement.closest('#ask')`;
+    let kept = true;
+    for (let i = 0; i < 4; i++) { await key('Tab'); kept = kept && await ev(inAsk); }
+    await key('Tab', { shift: true });
+    check('Tab and Shift+Tab keep the focus on the question\'s own buttons', kept && await ev(inAsk), await ev('document.activeElement.id||document.activeElement.tagName'));
+    await key('s', { ctrl: true });
+    check('Ctrl+S saves nothing behind the question', await ev('window.__submits') === 0 && await ev(formUp) && await askUp(page), await ev('window.__submits'));
     await key('Escape');
     check('a second Esc answers no: no second question is stacked, and the form stays with what was typed', await askGone(page) && (await dialogsUp()) === 0 && await ev(formUp) && (await ev(`document.getElementById('f-title').value`)) === 'Typed at the desk');
     await key('Escape');
     await askUp(page);
+    await waitFor('askState.openedAt>0&&performance.now()-askState.openedAt>=DOUBLE_CLICK_MS', 3000); // a click on the backdrop in the double-click window after the ask opened is ignored
     await click(4, 4);
     check('a click outside the dialog answers no', await askGone(page) && await ev(formUp));
     await clickOn('#modal-close');

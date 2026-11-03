@@ -42,6 +42,17 @@ test('the bar stands right after the view bar, hidden to start, with Clear, Arch
   assert.doesNotMatch(bar, /\sstyle=|\son[a-z]+=/, 'the page runs under a strict CSP');
 });
 
+test('the bar is a named group, not a toolbar, since it has no arrow-key roving, and More starts collapsed and says it opens a menu', () => {
+  const bar = html.match(/<div id="selection-bar"[\s\S]*?\n<\/div>/)[0];
+  const tag = bar.match(/<div[^>]*>/)[0];
+  assert.doesNotMatch(tag, /role="toolbar"/, 'a toolbar promises arrow keys that move between its buttons');
+  assert.match(tag, /role="group"/);
+  assert.match(tag, /aria-label="Selection"/);
+  const more = bar.match(/<button[^>]*id="selection-bar-more"[^>]*>/)[0];
+  assert.match(more, /aria-haspopup="menu"/);
+  assert.match(more, /aria-expanded="false"/);
+});
+
 test('Set status… leads the Edit group, and its popup is a bulk popup that keeps the selection and starts hidden', () => {
   const edit = html.match(/<div class="ctx-sub-panel" id="ctx-edit-panel"[\s\S]*?<\/div>/)[0];
   assert.deepStrictEqual([...edit.matchAll(/<button[^>]*\sid="([^"]+)"[^>]*>([^<]*)</g)].map((m) => [m[1], m[2]]), [

@@ -23,6 +23,10 @@ module.exports = {
     const tapOn = async (sel) => { const p = await pointOf(sel); await tap(page, p.x, p.y); };
     const doubleTapOn = async (sel) => { const p = await pointOf(sel); await outwaitDoubleTap(); await doubleTap(page, p.x, p.y); };
     const pickedIs = (ids) => waitFor(`${picked}===${JSON.stringify(ids)}`, 3000);
+    // The page keeps an entry of its own in the tab's history while a selection stands, marked in its history state, and takes it off once nothing wants it, each on its own timer.
+    const kept = `!!history.state&&history.state.kanbanBack===true`;
+    // Where the tab stands in its history. A card opened once moves it by one step, whether or not an entry of the page's own came and went before: the length of the history does not say, for an entry taken off stays ahead of the tab until the next step replaces it.
+    const stepNow = () => ev('navigation.currentEntry.index');
     const closeCard = async () => {
       await tapOn('#detail-back-btn');
       return waitFor(`document.querySelector('#detail-modal').classList.contains('hidden')&&${noCard}`, 3000);
@@ -55,11 +59,12 @@ module.exports = {
     check('and the card stays closed', await ev(noCard));
 
     const before = await ev(`({ids:${picked},rangeStart:String(selectionState.rangeStart)})`);
-    const historyBefore = await ev('history.length');
+    check('the page keeps an entry of its own for the selection', await waitFor(kept, 5000));
+    const stepBefore = await stepNow();
     await doubleTapOn(titleOf(c));
     check('a double tap opens the card', await waitFor(hasCard(c), 3000), await ev('location.search'));
     check('and leaves the selection and its range start as they were before the first tap', JSON.stringify(await ev(`({ids:${picked},rangeStart:String(selectionState.rangeStart)})`)) === JSON.stringify(before), await ev(`({ids:${picked},rangeStart:String(selectionState.rangeStart)})`));
-    check('the card opened once: one step in the history', await ev('history.length') === historyBefore + 1, await ev('history.length'));
+    check('the card opened once: one step in the history', await stepNow() === stepBefore + 1, await stepNow());
     check('closing the card leaves the selection as it was', await closeCard() && await ev(`${picked}===${JSON.stringify(before.ids)}`));
 
     const tag = await ev(`(()=>{const t=[...document.querySelectorAll('#board .column .card-el .tag')][0];return t?t.textContent:null})()`);
@@ -83,14 +88,16 @@ module.exports = {
       await tapOn(target);
       check(`${name}: a tap selects the card`, await pickedIs(id), await ev(picked));
       check(`${name}: and opens nothing`, await ev(noCard));
+      check(`${name}: the page keeps an entry of its own for the selection`, await waitFor(kept, 5000));
       await outwaitDoubleTap();
       await tapOn(target);
       check(`${name}: a second tap takes it out`, await pickedIs(''), await ev(picked));
-      const steps = await ev('history.length');
+      check(`${name}: and the page takes its entry off`, await waitFor(`!(${kept})`, 5000));
+      const steps = await stepNow();
       await doubleTapOn(target);
       check(`${name}: a double tap opens the card`, await waitFor(hasCard(id), 3000), await ev('location.search'));
       check(`${name}: and leaves the selection as it was before the first tap`, await ev(`${picked}===''`), await ev(picked));
-      check(`${name}: and opens it once`, await ev('history.length') === steps + 1, await ev('history.length'));
+      check(`${name}: and opens it once`, await stepNow() === steps + 1, await stepNow());
     };
     await view('map', `document.querySelectorAll('#map-view .card-el').length>0`, '#map-view .card-el');
     await view('gantt', `document.querySelectorAll('#gantt-view .gantt-label').length>0`, '#gantt-view .gantt-label[data-id="28"] .gantt-label-id', 'centennial');

@@ -3527,11 +3527,11 @@ function closeCard() {
   closeDetailModal();
 }
 
-// --- Android Back on the phone layout (back-steps.js). While a card menu, a light or a selection stands
+// --- Android Back on the phone layout (back-steps.js). While a card menu, an in-page question, a popup over the card details, a light or a selection stands
 // the page keeps one history entry of its own, marked in its history state, so that Back has something to
 // pop. The Back that pops it takes one step the way Esc does, in Esc's order (the in-page question, the open
 // menu, a popup, the search panel, then the light, then the selection's steps) and the page goes forward
-// to the entry again while something is left; with nothing lit or selected there is no entry and Back is
+// to the entry again while something is left; with none of them standing there is no entry and Back is
 // the browser's. The entry is kept once the double-tap window has passed, so the first tap of a double
 // tap, which the second undoes, leaves none behind.
 // The page makes the entry from a tap, never from a Back: the browser's Back button skips every entry of
@@ -3539,8 +3539,9 @@ function closeCard() {
 // an entry pushed while a Back was answered would be skipped by the next press. Going forward to the entry
 // the Back popped adds none. The card's steps (pushCardHistoryStep) are untouched: the entry stands beside
 // them in the history, and a Back that lands on a card's step is the card's. An entry nothing wants any
-// more (Esc took the last step, a tap cleared the selection) stays where it is, and the Back that pops it
-// lets itself through (history.back()) so that it costs no press.
+// more (a tap cleared the selection, the menu closed) is taken off by the page once the double-tap window
+// has passed (dropBackEntry); one still there when a Back pops it (Esc took the last step) lets itself
+// through (history.back()) so that it costs no press, where the frame allows it.
 // `backOnEntry` is whether the page is on its own entry now; a reload on one keeps its state.
 let backOnEntry = isBackEntry(history.state);
 // Every state the page pushes is numbered, each above the last (back-steps.js): `backAt` is the number of the
@@ -3550,6 +3551,7 @@ let backSeq = backAt;
 let backSyncTimer = null;
 let backActivated = false; // a tap or a key since the last back or forward: the browser would honour an entry now
 let backReturnAt = null; // when the page went forward to its entry, until the landing
+let backDropAt = null; // when the page went back off an entry nothing wanted, until the landing
 for (const type of BACK_ACTIVATION_EVENTS) {
   // key-guard: exempt (only notes that a tap or a key came; acts on nothing)
   window.addEventListener(type, (e) => {
@@ -3572,20 +3574,25 @@ function selectionStands() {
   return partsOf(selectionState.selection).length > 0;
 }
 
-function backEntryWantedNow() {
+// Whether the page wants an entry now. `afterDetails` asks it as it will be once the card details close: an entry
+// that stands under the details for a light or a selection is wanted by the Back that will close them.
+function backEntryWantedNow(afterDetails = false) {
   if (!onPhoneLayout()) return false;
   return backEntryWanted({
     phone: true,
     menu: contextMenuOpen(),
+    ask: askState.resolve !== null,
+    popup: !$('#detail-modal').classList.contains('hidden') && standingLayers(false).some((layer) => BACK_OVER_STEPS.includes(layer)),
     light: pinnedLitId !== null,
     selection: selectionStands(),
-    details: !$('#detail-modal').classList.contains('hidden'),
+    details: !afterDetails && !$('#detail-modal').classList.contains('hidden'),
   });
 }
 
 function syncBackEntry() {
   backSyncTimer = null;
-  if (backOnEntry || !backActivated || !backEntryWantedNow()) return;
+  if (backOnEntry) { if (!backEntryWantedNow(true)) dropBackEntry(); return; }
+  if (!backActivated || !backEntryWantedNow()) return;
   try {
     const seq = nextBackSeq();
     history.pushState(backEntryState(seq), '', location.pathname + location.search);
@@ -3596,17 +3603,36 @@ function syncBackEntry() {
   }
 }
 
-// Whatever may make the page want an entry (a selection, a menu, a light, the details closing, the width
-// line crossed) calls this; the entry itself waits out the double-tap window, and is not kept if nothing
-// wants it by then, or if no tap has come since the last back or forward.
+// An entry nothing wants any more (a tap emptied the selection, the menu closed, the window was widened to the
+// desk; one that stands under the card details for a light or a selection is wanted, by the Back that closes
+// them) is taken off by the page once the double-tap window has passed with nothing wanting it: the page goes back
+// one entry, onto the one the person was on before it. That traversal touches no entry but the page's own, which a
+// sandboxed frame (the Board artifact in its viewer) may make, where it may not make the Back that leaves the
+// page's first entry (answerBackPop's 'pass'), so the person's next Back leaves in one press. The popstate
+// it makes is the page's own (onBackTraversal).
+function dropBackEntry() {
+  if (!isBackEntry(history.state)) { backOnEntry = false; return; }
+  backDropAt = performance.now();
+  try {
+    history.back();
+  } catch (e) {
+    backDropAt = null; /* a host that refuses it leaves the entry for a Back to let through */
+  }
+}
+
+// Whatever may make the page want an entry, or stop wanting one (a selection, a menu, a light, a question, the
+// details closing, the width line crossed) calls this; the entry is made, or taken off, once the double-tap
+// window has passed and the page still wants it so, and the push waits for a tap since the last back or forward.
 function scheduleBackSync() {
-  if (backOnEntry || backSyncTimer !== null || !backEntryWantedNow()) return;
+  if (backSyncTimer !== null || backOnEntry === backEntryWantedNow(backOnEntry)) return;
   backSyncTimer = setTimeout(syncBackEntry, BACK_ENTRY_SETTLE_MS);
 }
 
 // The layers above the page that Esc and a Back both close, by the names back-steps.js puts in Esc's order
 // (BACK_STEP_ORDER): the in-page question, the popups that take Esc in a listener of their own (the date
-// picker, the group dialog, the tray), the menus, the popups, the notes palette, the search panel. The Esc
+// picker, the group dialog, the tray), the menus (an open panel of the card menu before the menu), the popups, a
+// note's own menu and the scratchpad's narrow file list (each takes Esc in a listener of its own, before the
+// palette that holds them), the notes palette, the search panel. The Esc
 // listener walks the same list, with the card details (a Back leaves them to the browser's history) and a
 // popup it has no closer for, so there is one order and one set of closers. The four popups with a listener
 // of their own take the key before this list does and keep it from it, so Esc never reaches them here; they
@@ -3619,6 +3645,7 @@ function standingLayers(forEsc) {
   if (groupDialogOpenNow()) layers.push('group-dialog');
   if (trayIsOpen()) layers.push('tray');
   if (moreMenuIsOpen()) layers.push('more-menu');
+  if (contextMenuOpen() && menuNestOpenTopGroup() !== null) layers.push('menu-panel');
   if (contextMenuOpen()) layers.push('menu');
   if (up('#notif-modal')) layers.push('notifications');
   if (up('#prefs-sheet')) layers.push('settings');
@@ -3626,6 +3653,8 @@ function standingLayers(forEsc) {
   if (up('#modal')) layers.push('edit-form');
   if (bulkPopupOpen()) layers.push('bulk-popup');
   if (forEsc && anyModalOpen()) layers.push('other-popup'); // defensive catch-all: any future .modal-backdrop popup not listed above
+  if (notesUi.menu) layers.push('note-menu');
+  if (spfOpenList()) layers.push('scratch-list');
   if (notesIsOpen()) layers.push('notes-palette');
   if (searchPanelOpen) layers.push('search-panel');
   return layers;
@@ -3647,7 +3676,10 @@ function takeLayer(step, e) {
   else if (step === 'tray') trayEscape();
   else if (step === 'notes-palette') notesEscape();
   else if (step === 'more-menu') { moreMenuClose(); if (e) e.preventDefault(); $('#more-btn').focus(); }
+  else if (step === 'menu-panel') menuNestStepBack();
   else if (step === 'menu') hideContextMenu();
+  else if (step === 'note-menu') notesMenuClose();
+  else if (step === 'scratch-list') spfCloseList(true);
   else if (step === 'notifications') closeNotifModal();
   else if (step === 'settings') settingsStepBack();
   else if (step === 'details') closeCard();
@@ -3714,12 +3746,15 @@ function answerBackPop(landedOn) {
 function onBackTraversal(e) {
   backActivated = false;
   const returning = backReturnAt !== null && performance.now() - backReturnAt < BACK_RETURN_MS;
+  const dropping = backDropAt !== null && performance.now() - backDropAt < BACK_RETURN_MS;
   backReturnAt = null;
+  backDropAt = null;
   const kind = backTraversal({ onEntry: backOnEntry, state: e && e.state, returning, at: backAt });
   backAt = backSeqOf(e && e.state);
   backSeq = Math.max(backSeq, backAt);
   backOnEntry = kind === 'landed' || kind === 'returned';
   if (kind === 'returned') return true;
+  if (dropping && kind === 'popped') { scheduleBackSync(); return true; } // the page's own pop of an entry nothing wanted: nothing to answer, and the card is as it was
   if (kind !== 'popped') { scheduleBackSync(); return false; }
   answerBackPop(e && e.state);
   return true;
@@ -6554,6 +6589,7 @@ function openSelectionMenu(e) {
   if (!selectionBarSubject()) return;
   const more = e.currentTarget.getBoundingClientRect();
   showContextMenu(more.left, $('#selection-bar').getBoundingClientRect().top, { above: true });
+  $('#selection-bar-more').setAttribute('aria-expanded', 'true');
 }
 
 let bulkDragIds = null; // captured at dragstart; null = single-card drag
@@ -6683,6 +6719,8 @@ function hideContextMenu() {
   menuNestClose();
   menuNestRelease();
   $('#context-menu').classList.add('hidden');
+  $('#selection-bar-more').setAttribute('aria-expanded', 'false');
+  scheduleBackSync(); // the entry the menu kept goes with it, when nothing else wants it
 }
 
 // The menu's subject is decided by cardMenuFor (selection.js) and nothing is
@@ -6717,14 +6755,15 @@ function onDetailContextMenu(e) {
 // (onBoardTouchMove). The Calendar's, the Gantt's and the Map's pointer drags and the Graph's pan hear
 // the same finger and are left alone, so a finger that moves after the hold does what it did before. On
 // the Board a finger that moves after the hold selects the tiles it passes over (holdDragMove) and
-// shuts the card menu, and the Board's swipe is told that touch was no swipe.
+// shuts the card menu, and the Board's swipe is told that touch was no swipe. The move that turns the
+// hold into a drag ends the light, on every view: Back and Esc would otherwise spend their first step on it.
 const cardPress = createCardPress({
   now: () => performance.now(),
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t),
   onHold: (id) => { forgetTap(); setPinnedLight(id); beginHoldDrag(); }, // a press between two taps: the first of a pair is gone
   onLift: (id, x, y) => openCardMenuByPress(id, x, y),
-  onDrag: (id, x, y) => holdDragMove(id, x, y),
+  onDrag: (id, x, y) => { clearPinnedLight(); holdDragMove(id, x, y); }, // a hold that turns into a drag, on any view, is no longer a look at the card's relations
 });
 
 let releaseCardPress = null;
@@ -6861,16 +6900,19 @@ function selectAllShown() {
 // The first listener to hear a click, ahead of the card grammar. The click the lifted finger makes
 // does nothing at all (the next finger down ends that echo, so a quick tap on the menu is a tap). On
 // the phone layout a tap outside the open card menu only closes it, the light staying; any other tap
-// ends the light and goes on to do its job (a tap on empty space does nothing else). A tap on the menu
+// ends the light and goes on to do its job (a tap on empty space does nothing else). The tap that only
+// closes the menu is cancelled (preventDefault), so a link or a checkbox under it does nothing. A tap on the menu
 // is part of the press that opened it and leaves the light alone. A click the gate stops never reaches
 // the card grammar, which would have remembered or forgotten the tap: it is a tap that came between,
-// so the first tap of a double tap before it is gone (forgetTap).
+// so the first tap of a double tap before it is gone (forgetTap), but for the tap that closes the menu
+// on a card, which changed nothing and is remembered as it is (rememberClosingTap).
 function onPhoneTapGate(e) {
   if (cardPress.echoing()) { forgetTap(); e.preventDefault(); e.stopImmediatePropagation(); return; }
   const inMenu = e.target.closest('#context-menu');
   if (onPhoneLayout() && !inMenu && !$('#context-menu').classList.contains('hidden')) {
-    forgetTap();
+    rememberClosingTap(e.target);
     hideContextMenu();
+    e.preventDefault(); // a link or a checkbox under the tap does nothing: the tap closed the menu
     e.stopImmediatePropagation();
     return;
   }
@@ -6924,15 +6966,27 @@ function forgetTap() {
   tapBefore = null;
 }
 
+// The tap that only closes the card menu, on a card, is the first tap of a double tap whose second tap
+// opens the card, and it changed nothing: the selection it remembers is the one standing, so the second
+// tap opens the card and writes no selection. A tap on a cue or a control inside a card, or off the cards,
+// is no first tap.
+function rememberClosingTap(target) {
+  const el = target.closest('.card-el');
+  if (!el || target.closest('button, select, input, a, .card-assignee, .tag, .blocked-pill, .review-pill, .rollup')) { forgetTap(); return; }
+  const { selection, rangeStart } = selectionState;
+  tapBefore = { id: el.dataset.id, selection, rangeStart, after: selection };
+}
+
 // The second tap of a double tap on the phone layout: the selection and range start go back to what
 // they were before the first tap, through the step Esc and a double click on empty space use so the
 // box follows, then the card opens. False when there is no first tap on this card to undo; the
-// caller then treats the tap as a first tap.
+// caller then treats the tap as a first tap. A first tap that changed nothing (the one that closed the
+// card menu) leaves nothing to put back.
 function reopenAfterDoubleTap(id) {
   const back = selectionBeforeTap(tapBefore, id, selectionState.selection);
   tapBefore = null;
   if (!back) return false;
-  moveSelectionTo(back);
+  if (back.selection !== selectionState.selection || back.rangeStart !== selectionState.rangeStart) moveSelectionTo(back);
   settleSelectionBar(); // the selection the first tap changed is back: the bar is decided once, here
   openCard(id);
   return true;
@@ -7055,6 +7109,7 @@ function openCanvasContextMenu(e) {
 // foot of the screen rises from it, and a group opened inside it grows up, not off the screen.
 function showContextMenu(x, y, { above = false } = {}) {
   const menu = $('#context-menu');
+  $('#selection-bar-more').setAttribute('aria-expanded', 'false'); // a menu is More's only when openSelectionMenu says so after this
   // The empty canvas of the Graph or the Map opens a menu of Isolate alone, which the
   // stylesheet makes of one entry; a card's menu has them all again.
   menu.classList.toggle('canvas-menu', !!menuSubject.canvas);
@@ -7171,7 +7226,7 @@ async function applyBulkArchive() {
     try { await api('POST', `/api/cards/${id}/archive`, pkg ? { package: pkg } : undefined); }
     catch (e) { failed.push(`#${id} (${e.message})`); }
   }
-  if (bulkPopupInSelection) setSelection(NO_SELECTION); // a menu opened outside the selection leaves the hand-built selection as it was
+  if (bulkPopupInSelection) moveSelectionTo({ selection: NO_SELECTION, rangeStart: null }); // the step Esc takes, so the box that said the selection follows it; a menu opened outside the selection leaves the hand-built selection as it was
   await loadBoard();
   const where = pkg ? ` into ${pkg}` : '';
   const skipNote = skipped ? `; skipped ${skipped} already archived` : '';

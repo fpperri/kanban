@@ -54,7 +54,10 @@ const { BOARDS, materialize } = require('./boards');
 const scenarios = require('./scenarios');
 
 const IS_WIN = process.platform === 'win32';
-const WATCHDOG_MS = 300000;
+// The longest a whole run may take at CI's rate (scaled by the local throttle, as every limit is). A run of every scenario takes
+// about 290 s there, the phone scenarios' real-time waits (a long press, a double tap, the page's own timers) among it, so this is
+// well above it: the watchdog is for a Chrome that hangs, not a budget a slow runner uses up.
+const WATCHDOG_MS = 480000;
 const RATE = cpuThrottleRate();
 
 function findChrome() {

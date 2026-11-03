@@ -101,6 +101,18 @@ function menuNestClose() {
   for (const group of menuNestAllGroups()) menuNestCloseGroup(group);
 }
 
+// One step back out of the open panels, the one Esc takes with the focus in the menu (onMenuNestKey) for a Back,
+// which has no key: the nested panel (Path or Tree) when one is open, else the open group's own, with the focus
+// back on its row. False when no panel is open.
+function menuNestStepBack() {
+  const top = menuNestOpenTopGroup();
+  if (!top) return false;
+  const target = menuNestOpenGroupIn(top) || top;
+  menuNestCloseGroup(target);
+  menuNestRowOf(target).focus();
+  return true;
+}
+
 // The groups inside one group's panel, but for `except`.
 function menuNestCloseGroupsIn(holder, except) {
   for (const group of menuNestGroupsIn(menuNestPanelOf(holder))) if (group !== except) menuNestCloseGroup(group);
