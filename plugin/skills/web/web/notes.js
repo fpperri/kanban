@@ -251,7 +251,8 @@ function noteSubjectOnDay(sub, today) {
 }
 
 // The notes a subject lists. `members(id)` gives the ids of a group's cards (a group's
-// list holds its members' notes too); none for a card.
+// list holds its members' notes too); none for a card. A slot lists the notes that start in it and
+// the ranges that run across any of it.
 function noteSubjectNotes(notes, subject, o = {}) {
   if (subject.kind === 'card') return notes.filter((n) => n.target === subject.id);
   if (subject.kind === 'each') return notes.filter((n) => subject.ids.includes(n.target));
@@ -265,7 +266,8 @@ function noteSubjectNotes(notes, subject, o = {}) {
       const m = n.at && /^(\d{2}):(\d{2})$/.exec(n.at);
       if (!m) return false;
       const min = Number(m[1]) * 60 + Number(m[2]);
-      return min >= subject.fromMin && min < subject.toMin;
+      const length = n.duration ? NOTE_DURATIONS.parseDuration(n.duration) : null;
+      return min < subject.toMin && (length === null ? min >= subject.fromMin : min + length > subject.fromMin);
     });
   }
   if (subject.kind === 'untimed') return today.filter((n) => !n.at);
