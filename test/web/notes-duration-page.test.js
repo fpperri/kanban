@@ -174,3 +174,63 @@ test('the stylesheet gives the duration a field of its own, and every row of a l
   assert.ok(grids.length >= 4, `the note rows' grids: ${grids.length}`);
   for (const g of grids) assert.match(g, /^var\(--np-time-col, 4\.2em\) /, g);
 });
+
+test('a leading length, time and length, or range in the note box is cut from the text and written as the note\'s time and duration', async () => {
+  const p = await open();
+  p.set('time', '12:00');
+  for (const line of ['45m schema review', '10:30 45m schema review', '10:30-11:15 schema review', '10:30–11:15 schema review', '- 45m schema review', 'untimed 45m schema review']) {
+    p.box(line);
+    await p.enter();
+  }
+  assert.deepStrictEqual(p.calls.map((b) => [b.at, b.duration, b.note]), [
+    ['12:00', '45m', 'schema review'],
+    ['10:30', '45m', 'schema review'],
+    ['10:30', '45m', 'schema review'],
+    ['10:30', '45m', 'schema review'],
+    ['', '45m', 'schema review'],
+    ['', '45m', 'schema review'],
+  ]);
+});
+
+test('the line\'s length beats the duration field\'s, and the field stays for the next note', async () => {
+  const p = await open();
+  p.set('time', '10:30');
+  p.set('duration', '2h');
+  p.box('1h30 a typed length');
+  await p.enter();
+  p.box('no length typed');
+  await p.enter();
+  assert.deepStrictEqual(p.sent(), [['10:30', '1h30m'], ['10:30', '2h']]);
+  assert.strictEqual(p.ui().duration.value, '2h');
+});
+
+test('the preview says what each leading form will write, and a range that ends too soon is refused and written nowhere', async () => {
+  const p = await open();
+  p.set('time', '10:30');
+  p.box('45m x');
+  assert.strictEqual(p.preview(), 'Note 10:30–11:15 on #7 Port the zephyr schema');
+  p.box('9:00 45m x');
+  assert.strictEqual(p.preview(), 'Note 09:00–09:45 on #7 Port the zephyr schema');
+  p.box('10:30-12:00 x');
+  assert.strictEqual(p.preview(), 'Note 10:30–12:00 on #7 Port the zephyr schema');
+  p.box('- 45m x');
+  assert.strictEqual(p.preview(), 'Note 45m untimed on #7 Port the zephyr schema');
+  p.box('untimed 45m x');
+  assert.strictEqual(p.preview(), 'Note 45m untimed on #7 Port the zephyr schema');
+  for (const line of ['12:00-11:00 x', '23:30-00:30 x']) {
+    p.box(line);
+    assert.strictEqual(p.preview(), `${line.split(' ')[0]}: the end is not after the start.`);
+    assert.strictEqual(p.find('.np-prev').classes.includes('bad'), true);
+    await p.enter();
+  }
+  assert.deepStrictEqual(p.calls, []);
+});
+
+test('the duration menu trims from the time the line gives, a leading range\'s start included', async () => {
+  const p = await open();
+  p.box('23:00-24:00 x');
+  assert.deepStrictEqual(menuRows(p, 'duration', 'durationMenu'), ['15m', '30m', '45m', '1h']);
+  p.ui().duration.fire('blur', {});
+  p.box('23:30 x');
+  assert.deepStrictEqual(menuRows(p, 'duration', 'durationMenu'), ['15m', '30m']);
+});
