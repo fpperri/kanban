@@ -334,6 +334,19 @@ function noteTimeLabel(note) {
   return note.at ? NOTE_DURATIONS.durationRange(note.at, length) : note.duration;
 }
 
+// The edit row's duration field read against the time the row will save (HH:MM, null for none) and
+// the duration the note has (written form, null for none): { duration, change, bad }. `change` says
+// the save sends it: an empty field sends none for a note without one, and null (removed) for a note with one.
+function noteEditDuration(text, at, was) {
+  const typed = String(text == null ? '' : text).trim();
+  if (typed === '') return { duration: null, change: !!was, bad: '' };
+  const minutes = NOTE_DURATIONS.parseDuration(typed);
+  const problem = minutes === null ? noteBadDuration(typed) : NOTE_DURATIONS.durationProblem(minutes, at);
+  if (problem) return { duration: null, change: false, bad: problem };
+  const written = NOTE_DURATIONS.formatDuration(minutes);
+  return { duration: written, change: written !== (was || null), bad: '' };
+}
+
 // Several cards as the preview names them: how many, then the first six.
 function noteEachLabel(ids) {
   const shown = ids.slice(0, 6).map((id) => `#${id}`).join(', ');
@@ -545,7 +558,7 @@ function noteCounts(notes) {
 // What the server needs to find a note again: where it was and what it read, so a note
 // that moved because the file changed is still the one meant.
 function noteRef(note) {
-  return { day: note.day, target: note.target, index: note.index, file: note.file, expect: { at: note.at, by: note.by, note: note.note } };
+  return { day: note.day, target: note.target, index: note.index, file: note.file, expect: { at: note.at, duration: note.duration || null, by: note.by, note: note.note } };
 }
 
 function noteClock(date) {
@@ -582,7 +595,7 @@ const NOTES_EXPORTS = {
   NOTE_TODAY, NOTE_NOW, noteHhmm, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
-  noteWritePlan, notePreview, noteDurationOptions, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

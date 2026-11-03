@@ -404,7 +404,23 @@ test('a card\'s notes are counted by target', () => {
 
 test('a note\'s ref carries what the server needs to find it again', () => {
   const note = { day: '2026-10-16', target: '7', index: 2, at: '09:10', by: '@human', note: 'a', file: '2026.10.16.0007.logbook.md' };
-  assert.deepStrictEqual(n.noteRef(note), { day: '2026-10-16', target: '7', index: 2, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', by: '@human', note: 'a' } });
+  assert.deepStrictEqual(n.noteRef(note), { day: '2026-10-16', target: '7', index: 2, file: '2026.10.16.0007.logbook.md', expect: { at: '09:10', duration: null, by: '@human', note: 'a' } });
+  assert.deepStrictEqual(n.noteRef({ ...note, duration: '45m' }).expect, { at: '09:10', duration: '45m', by: '@human', note: 'a' });
+});
+
+test('the edit row duration field is read against the time the row saves, and sent only when it changes the note', () => {
+  const read = (text, at, was) => n.noteEditDuration(text, at, was);
+  assert.deepStrictEqual(read('', '10:30', null), { duration: null, change: false, bad: '' });
+  assert.deepStrictEqual(read('  ', '10:30', '45m'), { duration: null, change: true, bad: '' });
+  assert.deepStrictEqual(read('45m', '10:30', '45m'), { duration: '45m', change: false, bad: '' });
+  assert.deepStrictEqual(read('0h45', '10:30', '45m'), { duration: '45m', change: false, bad: '' });
+  assert.deepStrictEqual(read('1h40', '10:30', '45m'), { duration: '1h40m', change: true, bad: '' });
+  assert.deepStrictEqual(read('100m', null, null), { duration: '1h40m', change: true, bad: '' });
+  assert.strictEqual(read('soon', '10:30', null).bad, 'soon is not a duration; a duration reads like 45m, 1h or 1h30m.');
+  assert.strictEqual(read('0m', '10:30', null).bad, 'A duration is at least 1 minute.');
+  assert.strictEqual(read('1h', '23:30', '1h').bad, 'A note with a time ends by 24:00; 23:30 plus 1h does not.');
+  assert.strictEqual(read('25h', null, null).bad, 'A duration with no time is at most 24h.');
+  assert.strictEqual(read('1h', null, null).bad, '');
 });
 
 // --- the author switch ---------------------------------------------------------------------------

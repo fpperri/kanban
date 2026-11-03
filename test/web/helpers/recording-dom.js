@@ -29,8 +29,8 @@ function recordingElement(tag) {
     hasAttribute(k) { return Object.prototype.hasOwnProperty.call(own.attrs, k); },
     get classes() { return own.className.split(/\s+/).filter(Boolean); },
     classList: new Proxy({
-      add: (c) => { if (!own.classes.includes(c)) own.className = own.classes.concat(c).join(' '); },
-      remove: (c) => { own.className = own.classes.filter((x) => x !== c).join(' '); },
+      add: (...names) => { for (const c of names) if (!own.classes.includes(c)) own.className = own.classes.concat(c).join(' '); },
+      remove: (...names) => { own.className = own.classes.filter((x) => !names.includes(x)).join(' '); },
       contains: (c) => own.classes.includes(c),
       toggle: (c, force) => {
         const on = force === undefined ? !own.classes.includes(c) : !!force;
