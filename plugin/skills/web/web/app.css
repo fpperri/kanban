@@ -1494,7 +1494,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    card blocks (app.js) shrink to the rest of the width. A note is a chip at its half hour (a
    half hour is 20px of the 40px hour); two or more in a half hour are one count bubble. In Each note mode
    every note is a chip, stacked 20px apart from its hour line down, and the hour grows to hold them (hour-scale.js; the
-   column's own background then draws the hour lines). The
+   column's own background then draws the hour lines). A note with a time and a duration is a block from its start
+   to its end in either mode, in no bubble and growing no hour. The
    day's untimed notes are one box in its all-day cell. The Notes switch is the toolbar button
    that hides the lot. */
 .cal-notes-switch.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
@@ -1510,7 +1511,15 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .cal-note-chip { background: var(--surface); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
 .cal-note-chip:hover, .cal-note-chip:focus-visible { background: var(--hover-wash); border-color: var(--line-strong); }
 .cal-note-id { margin-right: 3px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
-.cal-note-chip svg { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; color: var(--mut); }
+.cal-note-chip svg, .cal-note-block svg { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; color: var(--mut); }
+/* A note with a time and a duration is a block from its start to its end (app.js sets its top and height, never under
+   a chip's 18px), its words wrapping down it as far as it reaches. Blocks, chips and bubbles that overlap share the
+   strip in lanes, side by side: app.js sets their right and width; alone they keep the width below. */
+.cal-note-block { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); z-index: 2; display: flex; flex-direction: column; justify-content: flex-start; white-space: normal; text-overflow: clip; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
+.cal-note-block:hover, .cal-note-block:focus-visible { background: var(--hover-wash); border-color: var(--line-strong); border-left-color: var(--accent); }
+.cal-note-block-words { display: block; }
+.cal-note-range { color: var(--mut); font-variant-numeric: tabular-nums; } /* the strip's own font, narrower than the id's: a lane has room for the times on one line */
+.cal-note-block .cal-note-id { margin-right: 0; } /* a space follows it in a block, where the line may break */
 .cal-note-bubble { padding: 0 5px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--accent); }
 .cal-note-bubble:hover, .cal-note-bubble:focus-visible { background: var(--accent); color: var(--on-fill); }
 .cal-note-count { font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-weight: 700; }

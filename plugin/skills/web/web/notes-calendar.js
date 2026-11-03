@@ -6,7 +6,8 @@
 //
 // A slot is a half hour holding at least one timed note. One note shows as a chip, two or more
 // as one count bubble. A note whose time does not read as HH:MM is shown with the untimed ones,
-// so no note is ever hidden by a malformed time.
+// so no note is ever hidden by a malformed time. A note with a time and a duration is a range: a
+// block from its start to its end, in no slot.
 //
 // The strip at the right of a day's column that holds them has a width a divider on its left edge sets
 // for every day at once: at least 44px, at most the column less a 24px sliver for the card blocks, kept
@@ -16,6 +17,8 @@
 
 const NCAL_COLUMN_STATE = (typeof module !== 'undefined' && module.exports) ? require('./column-state') : window;
 const NCAL_NOTES = (typeof module !== 'undefined' && module.exports) ? require('./notes') : window;
+const NCAL_DURATIONS = (typeof module !== 'undefined' && module.exports) ? require('./durations') : window.kanbanDurations;
+const NCAL_SCALE = (typeof module !== 'undefined' && module.exports) ? require('./hour-scale') : window;
 
 const NCAL_SLOT_MIN = 30;
 const NCAL_DAY_MIN = 24 * 60;
@@ -41,21 +44,29 @@ function nCalMinutes(at) {
 
 const nCalByTime = (a, b) => (a.at || '') < (b.at || '') ? -1 : (a.at || '') > (b.at || '') ? 1 : a.index - b.index;
 
-// One day's notes -> { slots: [{ fromMin, toMin, notes }] in time order, untimed: [notes] }.
+// A note's duration in whole minutes, null for none or one that does not read.
+const nCalLength = (note) => (note.duration ? NCAL_DURATIONS.parseDuration(note.duration) : null);
+
+// One day's notes -> { slots: [{ fromMin, toMin, notes }] in time order, untimed: [notes],
+// ranges: [{ note, startMin, endMin }] in time order }. A range written past midnight by hand ends there.
 function noteCalendarDay(notes, day) {
   const slots = new Map();
   const untimed = [];
+  const ranges = [];
   for (const note of notes) {
     if (note.day !== day) continue;
     const min = nCalMinutes(note.at);
     if (min === null) { untimed.push(note); continue; }
+    const length = nCalLength(note);
+    if (length !== null) { ranges.push({ note, startMin: min, endMin: Math.min(NCAL_DAY_MIN, min + length) }); continue; }
     const from = Math.floor(min / NCAL_SLOT_MIN) * NCAL_SLOT_MIN;
     if (!slots.has(from)) slots.set(from, { fromMin: from, toMin: from + NCAL_SLOT_MIN, notes: [] });
     slots.get(from).notes.push(note);
   }
   const list = [...slots.values()].sort((a, b) => a.fromMin - b.fromMin);
   for (const slot of list) slot.notes.sort(nCalByTime);
-  return { slots: list, untimed };
+  ranges.sort((a, b) => a.startMin - b.startMin || nCalByTime(a.note, b.note));
+  return { slots: list, untimed, ranges };
 }
 
 // Each note mode: the day's timed notes as one chip each, in time order, with the `hour` it sits in,
@@ -74,6 +85,48 @@ function noteEachChips(dayNotes) {
     chips.push({ note, slot, hour, row });
   }
   return chips;
+}
+
+// Items that share any of the strip's height go side by side: `lane` of `lanes`, every item of one
+// overlapping run sharing the width alike, and a lane an item has left taken again. In a tie the
+// taller item goes first, so a block sits left of a chip that starts with it.
+function nCalLanes(items) {
+  const sorted = [...items].sort((a, b) => a.top - b.top || b.height - a.height);
+  let run = [];
+  let laneEnds = [];
+  let runEnd = -Infinity;
+  const flush = () => { for (const item of run) item.lanes = laneEnds.length; run = []; laneEnds = []; };
+  for (const item of sorted) {
+    if (run.length && item.top >= runEnd) flush();
+    let lane = laneEnds.findIndex((end) => end <= item.top);
+    if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+    laneEnds[lane] = item.top + item.height;
+    item.lane = lane;
+    run.push(item);
+    runEnd = Math.max(runEnd, item.top + item.height);
+  }
+  flush();
+  return sorted;
+}
+
+// A day's notes strip laid out on `scale` (hour-scale.js), top to bottom. Each range is a block from
+// its start to its end, at least a chip tall (one that would then pass midnight rises to end there):
+// { kind: 'block', note, startMin, endMin, slot }, `slot` the half hour it starts in (a block about
+// nothing opens it, as its chip would). The point notes are as they are drawn with no range: Grouped
+// Notes one { kind: 'slot', slot } a half hour (a chip or a bubble), Notes (`each`) one
+// { kind: 'slot', slot, note } a note, stacked from its hour line. Every item has its `top` and
+// `height` in px and its `lane` of `lanes`.
+function noteStripLayout(dayNotes, each, scale) {
+  const chip = NCAL_SCALE.HSCALE_CHIP_PX;
+  const items = each
+    ? noteEachChips(dayNotes).map((c) => ({ kind: 'slot', slot: c.slot, note: c.note, top: scale.top(c.hour) + c.row * chip, height: chip }))
+    : dayNotes.slots.map((slot) => ({ kind: 'slot', slot, note: null, top: scale.yOf(slot.fromMin), height: chip }));
+  for (const r of dayNotes.ranges) {
+    const from = Math.floor(r.startMin / NCAL_SLOT_MIN) * NCAL_SLOT_MIN;
+    const top = Math.min(scale.yOf(r.startMin), scale.total - chip);
+    items.push({ kind: 'block', note: r.note, startMin: r.startMin, endMin: r.endMin, slot: { fromMin: from, toMin: from + NCAL_SLOT_MIN }, top, height: Math.max(chip, scale.yOf(r.endMin) - top) });
+  }
+  return nCalLanes(items);
 }
 
 // How many timed notes a day has in each of the 24 hours (all zeros for a day with none).
@@ -184,10 +237,10 @@ function noteSlotTargets(notes) {
   return ids;
 }
 
-// A chip's tooltip: the time and the card or group it is about, then the full text.
+// A chip's tooltip: the time (a block's range) and the card or group it is about, then the full text.
 // `label(id)` reads a target the way the palette's chip does ('no card' for none).
 function noteTip(note, label) {
-  return `${note.at} · ${label(note.target)}\n${note.note}`;
+  return `${NCAL_NOTES.noteTimeLabel(note)} · ${label(note.target)}\n${note.note}`;
 }
 
 const nCalCount = (n) => `${n} note${n === 1 ? '' : 's'}`;
@@ -198,8 +251,12 @@ function noteSlotTip(slot) {
   return [`${nCalCount(slot.notes.length)}, ${nCalHhmm(slot.fromMin)}–${nCalHhmm(slot.toMin)}: ${noteSlotTargets(slot.notes).join(', ')}`, ...lines].join('\n');
 }
 
+// The untimed box's tooltip: each note's card and text, a length of work with its length first.
 function noteUntimedTip(notes) {
-  return notes.map((note) => `${note.target ? `#${note.target}` : NCAL_NOTES.NOTE_NO_CARD}: ${note.note}`).join('\n');
+  return notes.map((note) => {
+    const length = nCalLength(note);
+    return `${note.target ? `#${note.target}` : NCAL_NOTES.NOTE_NO_CARD}: ${length === null ? '' : `${NCAL_DURATIONS.formatDuration(length)} `}${note.note}`;
+  }).join('\n');
 }
 
 // The palette requests (notes.js, noteSubjectFrom).
@@ -226,7 +283,7 @@ function noteHourRequest(day, rawMin) {
 const NOTES_CALENDAR_EXPORTS = {
   noteCalendarDay, noteFirstWords, noteSlotTargets, noteTip, noteSlotTip, noteUntimedTip, noteSlotRequest, noteChipRequest, noteUntimedRequest, noteHourRequest,
   noteLayerState, noteLayerNext, noteLayerParts, noteLayerLabel, noteLayerPressed, noteLayerTitle,
-  noteEachChips, noteHourCounts, noteModeLoad, noteModeSave,
+  noteEachChips, noteHourCounts, noteStripLayout, noteModeLoad, noteModeSave,
   noteStripClamp, noteStripFromPointer, noteStripStep, noteStripCss, noteStripPercent, noteChipWords, noteStripLoad, noteStripSave,
 };
 

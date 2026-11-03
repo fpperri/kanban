@@ -5,7 +5,8 @@ const { control } = require('./helpers/page-vm');
 
 // The Calendar's notes strip in the real page (helpers/palette-page.js): the week drawn with its
 // divider, the width the divider sets for every day column at once, and the guards that keep a press
-// on it from being a card drag, a click on an empty hour or a double click that makes a card. The sums
+// on it from being a card drag, a click on an empty hour or a double click that makes a card; and a
+// note's duration drawn as a block, in lanes beside what it overlaps, in both of the strip's states. The sums
 // are notes-calendar.js, tested apart; the browser runner drives the same in Chrome
 // (scenarios/notes-calendar.js).
 
@@ -17,9 +18,9 @@ const NOTES = [
 const KEY = 'kanban.kanban.calendar.notesWidth';
 const CSS = (px) => `max(44px, min(${px}px, calc(100% - 24px)))`;
 
-async function weekPage({ stored = {}, container = control() } = {}) {
+async function weekPage({ stored = {}, container = control(), notes = NOTES } = {}) {
   const grid = control();
-  const p = await openPalette({ notes: NOTES, stored, elements: { '#calendar-view .cal-timegrid': grid, '#calendar-view': container } });
+  const p = await openPalette({ notes, stored, elements: { '#calendar-view .cal-timegrid': grid, '#calendar-view': container } });
   p.grid = grid;
   p.vars = {};
   grid.style = { setProperty: (k, v) => { p.vars[k] = v; }, removeProperty: (k) => { delete p.vars[k]; } };
@@ -260,4 +261,131 @@ test('a double click on the divider makes no card, though a double click on the 
   const g = geometry();
   assert.strictEqual(await run(column(g)), 1);
   assert.strictEqual(await run(dividerTarget(g)), 0);
+});
+
+// --- a note's duration: a block on the strip ---------------------------------------------------------------
+
+const ranged = (day, target, at, duration, text, index = 9) => ({ ...note(day, target, at, '@human', text, index), duration });
+const MODE_KEY = 'kanban.kanban.calendar.notesMode';
+
+// The week of 15 October drawn with `notes`, in Grouped Notes or in Notes ('each'); `col(day)` is a day's column.
+async function weekWith(notes, mode = 'grouped') {
+  const p = await weekPage({ notes, stored: mode === 'each' ? { [MODE_KEY]: 'each' } : {} });
+  p.page.run("calendarAnchor = '2026-10-15'");
+  const host = p.doc.createElement('div');
+  p.page.ctx.__host = host;
+  p.page.run("renderCalendarTimeGrid(__host, 'week', 0)");
+  p.host = host;
+  p.col = (day) => host.querySelectorAll('.cal-tg-col').find((c) => c.dataset.day === day);
+  p.blocks = (day = '2026-10-15') => p.col(day).querySelectorAll('.cal-note-block');
+  return p;
+}
+const words = (el) => el.textContent + el.children.map(words).join('');
+
+test('a note at 10:30 with 1h30m is one block from the 10:30 line to the 12:00 line, in Grouped Notes and in Notes', async () => {
+  for (const mode of ['grouped', 'each']) {
+    const p = await weekWith([...NOTES, ranged('2026-10-15', '7', '10:30', '1h30m', 'migration rehearsal')], mode);
+    const blocks = p.blocks();
+    assert.strictEqual(blocks.length, 1, mode);
+    assert.deepStrictEqual([blocks[0].style.top, blocks[0].style.height], ['421px', '58px'], 'the 10:30 line is 420px down and the 12:00 line 480px, less a pixel each side as a chip has');
+    assert.strictEqual(words(blocks[0]), '10:30–12:00 #7 migration rehearsal', 'its times, its card and its text, spaced so the line may break between them');
+    assert.strictEqual(blocks[0].title, '10:30–12:00 · #7 Port the zephyr schema\nmigration rehearsal');
+    assert.strictEqual(p.col('2026-10-15').querySelectorAll('.cal-note-chip').length, 2, 'the range is no chip: the day keeps its two point notes\' chips');
+    assert.ok(blocks[0].classes.includes('cal-note'), 'it is one of the notes layer\'s elements');
+  }
+});
+
+test('a day with only a range keeps a strip and its divider', async () => {
+  const p = await weekWith([ranged('2026-10-16', '7', '09:00', '45m', 'alone')]);
+  assert.ok(p.col('2026-10-16').classes.includes('has-notes'));
+  assert.strictEqual(p.col('2026-10-16').querySelectorAll('.cal-note-divider').length, 1);
+  assert.strictEqual(p.blocks('2026-10-16').length, 1);
+});
+
+test('in Grouped Notes a range is counted in no chip and no bubble, and in Notes no hour grows for a range', async () => {
+  const grouped = await weekWith([note('2026-10-15', '7', '10:10', '@human', 'a point'), ranged('2026-10-15', '22', '10:00', '30m', 'a range', 1), ranged('2026-10-15', '3', '10:20', '15m', 'another', 2)]);
+  assert.strictEqual(grouped.col('2026-10-15').querySelectorAll('.cal-note-bubble').length, 0, 'three notes in the half hour, one of them a point: a chip, not a bubble');
+  assert.strictEqual(grouped.col('2026-10-15').querySelectorAll('.cal-note-chip').length, 1);
+  assert.strictEqual(grouped.blocks().length, 2);
+  const three = [0, 1, 2].map((i) => ranged('2026-10-15', '7', `10:${i}5`, '30m', `range ${i}`, i));
+  const each = await weekWith(three, 'each');
+  assert.strictEqual(each.col('2026-10-15').style.height, '960px', 'three ranges in hour 10 and every hour is still 40px');
+  const points = await weekWith(three.map((n) => ({ ...n, duration: null })), 'each');
+  assert.strictEqual(points.col('2026-10-15').style.height, '980px', 'where three point notes grow it by a row');
+});
+
+test('two overlapping ranges, and a range with a point note inside it, are drawn side by side', async () => {
+  const notes = [ranged('2026-10-15', '7', '10:00', '1h', 'first'), ranged('2026-10-15', '22', '10:30', '1h', 'second', 1), note('2026-10-15', '3', '10:40', '@human', 'inside', 2), note('2026-10-15', '3', '14:10', '@human', 'clear', 3)];
+  const lane = (el) => [el.style.right, el.style.width];
+  const share = (i, of) => [`calc(${i} * var(--cal-note-strip) / ${of} + 2px)`, `calc(var(--cal-note-strip) / ${of} - 4px)`];
+  const grouped = await weekWith(notes);
+  const [first, second] = grouped.blocks();
+  const chips = grouped.col('2026-10-15').querySelectorAll('.cal-note-chip');
+  assert.deepStrictEqual(lane(first), share(2, 3), 'the first block is the leftmost of three lanes');
+  assert.deepStrictEqual(lane(second), share(1, 3), 'the second beside it');
+  assert.deepStrictEqual(lane(chips[0]), share(0, 3), 'the half hour of 10:30, inside both, on the right');
+  assert.deepStrictEqual(lane(chips[1]), [undefined, undefined], 'a chip clear of every range keeps the stylesheet\'s whole width');
+  const each = await weekWith(notes, 'each');
+  const [eFirst, eSecond] = each.blocks();
+  const eChips = each.col('2026-10-15').querySelectorAll('.cal-note-chip');
+  assert.deepStrictEqual(lane(eFirst), share(1, 2), 'in Notes the first block is the left of two lanes');
+  assert.deepStrictEqual(lane(eChips[0]), share(0, 2), 'the chip on its hour line beside it');
+  assert.deepStrictEqual(lane(eSecond), share(0, 2), 'and the second block under that chip, in its lane');
+  assert.deepStrictEqual(lane(eChips[1]), [undefined, undefined]);
+});
+
+test('a note with a duration and no time is listed in the day\'s untimed box with its length before its text', async () => {
+  const p = await weekWith([ranged('2026-10-14', '7', null, '45m', 'reviews'), note('2026-10-14', '3', null, '@human', 'kickoff', 1)]);
+  const boxes = p.host.querySelectorAll('.cal-tg-allday .cal-note-untimed');
+  assert.strictEqual(boxes.length, 1);
+  assert.strictEqual(boxes[0].dataset.untimed, '2026-10-14');
+  assert.strictEqual(words(boxes[0]), '2 untimed');
+  assert.strictEqual(boxes[0].title, '#7: 45m reviews\n#3: kickoff');
+  assert.strictEqual(p.blocks('2026-10-14').length, 0, 'and it is no block');
+});
+
+test('a 5-minute range is at least as tall as a chip', async () => {
+  const p = await weekWith([ranged('2026-10-15', '7', '16:05', '5m', 'quick')]);
+  assert.strictEqual(p.blocks()[0].style.height, '18px', 'a chip is 18px in its 20px row');
+});
+
+test('with no range the strip is drawn as before: no block and no lane', async () => {
+  for (const mode of ['grouped', 'each']) {
+    const p = await weekWith(NOTES, mode);
+    assert.strictEqual(p.blocks().length, 0);
+    for (const el of p.col('2026-10-15').querySelectorAll('.cal-note')) assert.deepStrictEqual([el.style.right, el.style.width], [undefined, undefined]);
+  }
+});
+
+test('a click on a block opens what a click on that note\'s chip opens: its card at its time, or for no card its half hour', async () => {
+  const clicked = async (notes, sel) => {
+    const p = await weekWith(notes);
+    const opened = [];
+    p.page.ctx.openNotes = (req) => { opened.push(req); };
+    p.col('2026-10-15').querySelector(sel).click();
+    return JSON.parse(JSON.stringify(opened)); // each page is its own VM, with its own Object
+  };
+  for (const target of ['7', '']) {
+    const asBlock = await clicked([ranged('2026-10-15', target, '10:40', '45m', 'work')], '.cal-note-block');
+    const asChip = await clicked([note('2026-10-15', target, '10:40', '@human', 'work')], '.cal-note-chip');
+    assert.strictEqual(asBlock.length, 1);
+    assert.deepStrictEqual(asBlock, asChip, target ? 'a card' : 'no card');
+  }
+});
+
+test('a press on a block starts no card drag, a click on it is no click on an empty hour, and a double click on it makes no card', async () => {
+  const p = await weekWith([ranged('2026-10-15', '7', '10:30', '1h30m', 'work')]);
+  const block = p.blocks()[0];
+  const e = ev({ target: block, clientY: 440 });
+  p.container.fire('pointerdown', e);
+  assert.strictEqual(p.page.run('calTimeDrag'), null);
+  assert.strictEqual(p.page.run('isDragging'), false);
+  const timers = [];
+  p.page.ctx.setTimeout = (fn, ms) => { timers.push(ms); return 1; };
+  p.container.fire('click', e);
+  assert.deepStrictEqual(timers, [], 'no palette opens on the hour under it');
+  const made = [];
+  p.page.ctx.openModal = (...args) => { made.push(args); };
+  p.container.fire('dblclick', e);
+  assert.strictEqual(made.length, 0);
 });

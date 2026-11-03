@@ -5,7 +5,9 @@
 // its tooltip. Two or more notes in a half hour show as one count bubble, and a day's untimed notes
 // as one "N untimed" box in its all-day row. Each opens the notes palette, on that half hour or on
 // that day's untimed notes. A click on an empty hour opens it set to that hour, a bare #22 then
-// Enter keeps the hour's time, and a double click there still makes a card and opens no palette. The
+// Enter keeps the hour's time, and a double click there still makes a card and opens no palette. A
+// note given a duration in the palette, picked or typed, is a block from its start to its end, and two
+// blocks and the chip they overlap sit side by side in the strip. The
 // Notes switch in the toolbar hides and shows the layer, and its choice is kept across a reload. A
 // divider on each strip's left edge sets the strip's width for every day at once, by a drag (held
 // between 44px and the column less 24px), by Left and Right on the focused divider and back to the
@@ -118,7 +120,45 @@ module.exports = {
     check('calnotes: the note is written on card 22 on Friday at 10:00', await waitFor(`state.logbook.notes.some((n)=>n.day==='2026-10-16'&&n.at==='10:00'&&n.target==='22'&&n.note==='checked the window')`, 4000));
     check('calnotes: a palette opened on a slot keeps the slot\'s time after the write', await ev(`${q('.np-time')}.value`) === '10:00');
     check('calnotes: and the Calendar draws it as a chip at that half hour', await waitFor(`!!document.querySelector(${JSON.stringify(slotEl('2026-10-16', 600) + '.cal-note-chip')})`, 4000));
+
+    // --- a duration made in the palette is a block on the week ------------------------------------------------------
+    // The duration menu: focus the field and choose a row, as the combobox's own rows are chosen (on mousedown).
+    const pickDuration = async (length) => {
+      await ev(`(()=>{const t=${q('.np-duration')};t.blur();t.focus()})()`);
+      const rows = `[...document.querySelectorAll('.np-duration-menu .combobox-item')]`;
+      if (!(await waitFor(`${rows}.some((r)=>r.textContent===${JSON.stringify(length)})`, 3000))) return false;
+      await ev(`${rows}.find((r)=>r.textContent===${JSON.stringify(length)}).dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))`);
+      return waitFor(`${q('.np-duration')}.value===${JSON.stringify(length)}`, 3000);
+    };
+    const setField = (sel, value) => ev(`(()=>{const f=${q(sel)};f.value=${JSON.stringify(value)};f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    const writeNote = async (text) => {
+      await setField('.np-input', text);
+      await ev(`${q('.np-input')}.focus()`);
+      await key('Enter');
+      return waitFor(`state.logbook.notes.some((n)=>n.note===${JSON.stringify(text)})`, 4000);
+    };
+    const FRI = `document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-16"]')`;
+    const blockEl = (from, to) => `${FRI}.querySelector('.cal-note-block[data-range="2026-10-16|${from}|${to}"]')`;
+    // A block's place in its column: its top and bottom from the column's top, in px.
+    const placeOf = (js) => ev(`(()=>{const b=${js};if(!b)return null;const c=${FRI}.getBoundingClientRect();const r=b.getBoundingClientRect();return {top:Math.round(r.top-c.top),bottom:Math.round(r.bottom-c.top)}})()`);
+    await setField('.np-time', '10:30');
+    check('calnotes: with the time set to 10:30 the duration menu offers 1h30m, which a pick puts in the field', await pickDuration('1h30m'));
+    check('calnotes: a note at 10:30 with 1h30m is written on card 22 on Friday', await writeNote('rehearsed the migration') && await ev(`state.logbook.notes.some((n)=>n.note==='rehearsed the migration'&&n.day==='2026-10-16'&&n.at==='10:30'&&n.duration==='1h30m'&&n.target==='22')`));
+    check('calnotes: the week draws it as one block in the notes strip', await waitFor(`!!${blockEl(630, 720)}&&${FRI}.querySelectorAll('.cal-note-block').length===1`, 4000));
+    const rehearsal = await placeOf(blockEl(630, 720));
+    check('calnotes: from the 10:30 line to the 12:00 line, a pixel inside each as a chip is', !!rehearsal && rehearsal.top === 421 && rehearsal.bottom === 479, JSON.stringify(rehearsal));
+    check('calnotes: showing its times, its card and its text', await ev(`${blockEl(630, 720)}.textContent`) === '10:30–12:00 #22 rehearsed the migration', await ev(`${blockEl(630, 720)}.textContent`));
+    check('calnotes: and it is no chip: Friday\'s 10:00 note is still the only chip there', await ev(`${FRI}.querySelectorAll('.cal-note-chip').length===1`));
+    await setField('.np-time', '10:00');
+    await setField('.np-duration', '1h');
+    check('calnotes: a typed 1h at 10:00, over the point note and the first block, is written', await writeNote('paired on the cutover') && await ev(`state.logbook.notes.some((n)=>n.note==='paired on the cutover'&&n.at==='10:00'&&n.duration==='1h')`));
+    check('calnotes: and drawn as a second block', await waitFor(`!!${blockEl(600, 660)}`, 4000));
+    const sideBySide = await ev(`(()=>{const els=[${blockEl(630, 720)},${blockEl(600, 660)},${FRI}.querySelector('.cal-note-chip')];if(els.some((e)=>!e))return 'missing';const rs=els.map((e)=>e.getBoundingClientRect());for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){const a=rs[i],b=rs[j];if(a.left<b.right-0.5&&b.left<a.right-0.5&&a.top<b.bottom-0.5&&b.top<a.bottom-0.5)return 'overlap '+i+' '+j}const strip=${FRI}.querySelector('.cal-note-divider').getBoundingClientRect();return rs.every((r)=>r.left>=strip.left&&r.width>8)?'ok':'outside'})()`);
+    check('calnotes: the two blocks and the chip inside them are side by side in the strip, none covering another', sideBySide === 'ok', sideBySide);
+    await setField('.np-duration', '');
     check('calnotes: Esc closes the palette again', await closePalette());
+    await ev(`document.querySelector('#calendar-view .cal-tg-scroll').scrollTop=${9 * 40}`);
+    await shot('week-with-ranges');
 
     // --- a double click on an empty hour still makes a card, and opens no palette -----------------------------------
     const dbl = await hourPoint('2026-10-17', 15);

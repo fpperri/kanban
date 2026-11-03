@@ -5,7 +5,9 @@
 // height in every column. Two notes are added to Thursday 15's two between 10:00 and 10:59, so that hour is
 // 80px, and card 3 a block from 09:00 to 11:00 across it. The stretched hours line up across the
 // columns, the block's bottom sits at 11:00 on the stretched scale, and a drag of the block lands on
-// the time under the pointer (a straight 40px-an-hour line would land an hour late). The choice is
+// the time under the pointer (a straight 40px-an-hour line would land an hour late). Two notes given
+// a duration in the palette on Friday, from 10:00 for 2h and from 10:30 for 1h, are blocks side by side in
+// both states, on the stretched scale in Each note, and grow no hour. The choice is
 // kept per board in this browser and Grouped brings the 40px hours back.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
@@ -20,7 +22,7 @@ module.exports = {
   board: 'calnotes',
   timeoutMs: 100000,
   async run(page) {
-    const { ev, open, waitFor, click, mouse, check, shot } = page;
+    const { ev, open, waitFor, click, mouse, key, check, shot } = page;
     const showWeek = async () => {
       await open('/?view=calendar');
       await waitFor(`document.querySelectorAll('#calendar-view .cal-subview-btn').length===4`, 10000);
@@ -37,6 +39,10 @@ module.exports = {
     };
     const colHeight = (day) => ev(`${COL(day)}.getBoundingClientRect().height`);
     const near = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
+    const block = (from, to) => `${COL('2026-10-16')}.querySelector('.cal-note-block[data-range="2026-10-16|${from}|${to}"]')`;
+    const placeOf = (js) => ev(`(()=>{const b=${js};return b?[parseFloat(b.style.top),parseFloat(b.style.height)]:null})()`);
+    // Every note element of Friday's strip against every other: 'ok' when no two share any of the page.
+    const SIDE_BY_SIDE = `(()=>{const rs=[...${COL('2026-10-16')}.querySelectorAll('.cal-note')].map((e)=>e.getBoundingClientRect());if(rs.length<2)return 'missing';for(let i=0;i<rs.length;i++)for(let j=i+1;j<rs.length;j++){const a=rs[i],b=rs[j];if(a.left<b.right-0.5&&b.left<a.right-0.5&&a.top<b.bottom-0.5&&b.top<a.bottom-0.5)return 'overlap '+i+' '+j}return 'ok'})()`;
 
     await open('/?view=calendar');
     for (const at of ['10:15', '10:30']) {
@@ -51,6 +57,33 @@ module.exports = {
     check('each: the Notes button starts grouped: pressed, saying Grouped Notes', await ev(`${NOTES_BTN}.getAttribute('aria-pressed')==='true'&&${NOTES_BTN}.textContent==='Grouped Notes'`));
     check('each: Grouped shows a count bubble and every column is 960px', await ev(`document.querySelectorAll('#calendar-view .cal-note-bubble').length>0`) && near(await colHeight('2026-10-15'), 960) && near(await colHeight('2026-10-16'), 960));
     check('each: the block spans two 40px hours', await ev(`(()=>{const b=${COL('2026-10-15')}.querySelector('.cal-timeblock[data-id="3"]');return Math.round(parseFloat(b.style.top))===360&&Math.round(parseFloat(b.style.height))===78})()`));
+
+    // --- two ranges made in the palette on Friday, the second inside the first ------------------------------------
+    const PAL = `document.getElementById('notes-palette')`;
+    const PAL_GONE = `!${PAL}||${PAL}.classList.contains('hidden')`;
+    const field = (sel) => `document.querySelector('#notes-palette ${sel}')`;
+    const setField = (sel, value) => ev(`(()=>{const f=${field(sel)};f.value=${JSON.stringify(value)};f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    const writeRange = async (at, length, text) => {
+      await setField('.np-time', at);
+      await setField('.np-duration', length);
+      await setField('.np-input', text);
+      await ev(`${field('.np-input')}.focus()`);
+      await key('Enter');
+      return waitFor(`state.logbook.notes.some((n)=>n.day==='2026-10-16'&&n.note===${JSON.stringify(text)}&&n.at===${JSON.stringify(at)}&&n.duration===${JSON.stringify(length)})`, 4000);
+    };
+    const spot = await ev(`(()=>{${SCROLL}.scrollTop=${10 * 40 - 120};const r=${COL('2026-10-16')}.getBoundingClientRect();return {x:r.left+r.width*0.25,y:r.top+${10 * 40 + 10}}})()`);
+    await click(spot.x, spot.y);
+    check('each: a click on Friday\'s empty 10:00 opens the notes palette', await waitFor(`!(${PAL_GONE})`, 3000));
+    check('each: a note from 10:00 with a typed 2h is written on Friday', await writeRange('10:00', '2h', 'a morning on the cutover'));
+    check('each: and one from 10:30 with 1h, inside it', await writeRange('10:30', '1h', 'paired inside it'));
+    await setField('.np-duration', '');
+    for (let i = 0; i < 3 && !(await ev(PAL_GONE)); i++) { await key('Escape'); await waitFor(PAL_GONE, 1500); }
+    check('each: Esc closes the palette', await ev(PAL_GONE));
+    check('each: Grouped draws the 2h range as a block from the 10:00 line to the 12:00 line', await waitFor(`!!${block(600, 720)}&&!!${block(630, 690)}`, 4000) && JSON.stringify(await placeOf(block(600, 720))) === '[401,78]', JSON.stringify(await placeOf(block(600, 720))));
+    check('each: and the one inside it from the 10:30 line to the 11:30 line', JSON.stringify(await placeOf(block(630, 690))) === '[421,38]', JSON.stringify(await placeOf(block(630, 690))));
+    check('each: the two blocks are side by side, neither covering the other', await ev(SIDE_BY_SIDE) === 'ok', await ev(SIDE_BY_SIDE));
+    await ev(`${SCROLL}.scrollTop=${8 * 40}`);
+    await shot('grouped-ranges');
 
     // --- Each note --------------------------------------------------------------------------------------------------
     await ev(`(()=>{const sh=new CSSStyleSheet();sh.replaceSync('#calendar-view .cal-tg-scroll{max-height:340px!important}');document.adoptedStyleSheets=[...document.adoptedStyleSheets,sh]})()`);
@@ -67,6 +100,10 @@ module.exports = {
     check('each: the same hour is the same height and place in every column (the note at 11:00 on Tuesday sits under 10 AM\'s 80px)', await ev(`(()=>{const c=${COL('2026-10-13')}.querySelector('.cal-note-chip');return !!c&&parseFloat(c.style.top)===481})()`));
     check('each: the hour labels follow the scale', await ev(`(()=>{const l=[...document.querySelectorAll('#calendar-view .cal-tg-hour')];return l.length===24&&l[10].style.top==='400px'&&l[11].style.top==='480px'&&l[12].style.top==='520px'})()`));
     check('each: the card block spans the two hours on the stretched scale', await ev(`(()=>{const b=${COL('2026-10-15')}.querySelector('.cal-timeblock[data-id="3"]');return Math.round(parseFloat(b.style.top))===360&&Math.round(parseFloat(b.style.height))===118})()`));
+    check('each: Friday\'s 2h block runs from the 10:00 line to the 12:00 line on the stretched scale', JSON.stringify(await placeOf(block(600, 720))) === '[401,118]', JSON.stringify(await placeOf(block(600, 720))));
+    check('each: and the one inside it from 10:30 to 11:30, halfway down the 80px hour', JSON.stringify(await placeOf(block(630, 690))) === '[441,58]', JSON.stringify(await placeOf(block(630, 690))));
+    check('each: the ranges across hours 10 and 11 grow neither: 11:00 is still 40px tall', await ev(`(()=>{const l=[...document.querySelectorAll('#calendar-view .cal-tg-hour')];return l[11].style.top==='480px'&&l[12].style.top==='520px'})()`));
+    check('each: and Friday\'s blocks are still side by side', await ev(SIDE_BY_SIDE) === 'ok', await ev(SIDE_BY_SIDE));
     await ev(`${SCROLL}.scrollTop=300`);
     await shot('each-note');
 
