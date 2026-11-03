@@ -174,3 +174,190 @@ test('the stylesheet gives the duration a field of its own, and every row of a l
   assert.ok(grids.length >= 4, `the note rows' grids: ${grids.length}`);
   for (const g of grids) assert.match(g, /^var\(--np-time-col, 4\.2em\) /, g);
 });
+
+test('a leading length, time and length, or range in the note box is cut from the text and written as the note\'s time and duration', async () => {
+  const p = await open();
+  p.set('time', '12:00');
+  for (const line of ['45m schema review', '10:30 45m schema review', '10:30-11:15 schema review', '10:30–11:15 schema review', '- 45m schema review', 'untimed 45m schema review']) {
+    p.box(line);
+    await p.enter();
+  }
+  assert.deepStrictEqual(p.calls.map((b) => [b.at, b.duration, b.note]), [
+    ['12:00', '45m', 'schema review'],
+    ['10:30', '45m', 'schema review'],
+    ['10:30', '45m', 'schema review'],
+    ['10:30', '45m', 'schema review'],
+    ['', '45m', 'schema review'],
+    ['', '45m', 'schema review'],
+  ]);
+});
+
+test('the line\'s length beats the duration field\'s, and the field stays for the next note', async () => {
+  const p = await open();
+  p.set('time', '10:30');
+  p.set('duration', '2h');
+  p.box('1h30 a typed length');
+  await p.enter();
+  p.box('no length typed');
+  await p.enter();
+  assert.deepStrictEqual(p.sent(), [['10:30', '1h30m'], ['10:30', '2h']]);
+  assert.strictEqual(p.ui().duration.value, '2h');
+});
+
+test('the preview says what each leading form will write, and a range that ends too soon is refused and written nowhere', async () => {
+  const p = await open();
+  p.set('time', '10:30');
+  p.box('45m x');
+  assert.strictEqual(p.preview(), 'Note 10:30–11:15 on #7 Port the zephyr schema');
+  p.box('9:00 45m x');
+  assert.strictEqual(p.preview(), 'Note 09:00–09:45 on #7 Port the zephyr schema');
+  p.box('10:30-12:00 x');
+  assert.strictEqual(p.preview(), 'Note 10:30–12:00 on #7 Port the zephyr schema');
+  p.box('- 45m x');
+  assert.strictEqual(p.preview(), 'Note 45m untimed on #7 Port the zephyr schema');
+  p.box('untimed 45m x');
+  assert.strictEqual(p.preview(), 'Note 45m untimed on #7 Port the zephyr schema');
+  for (const line of ['12:00-11:00 x', '23:30-00:30 x']) {
+    p.box(line);
+    assert.strictEqual(p.preview(), `${line.split(' ')[0]}: the end is not after the start.`);
+    assert.strictEqual(p.find('.np-prev').classes.includes('bad'), true);
+    await p.enter();
+  }
+  assert.deepStrictEqual(p.calls, []);
+});
+
+test('the duration menu trims from the time the line gives, a leading range\'s start included', async () => {
+  const p = await open();
+  p.box('23:00-24:00 x');
+  assert.deepStrictEqual(menuRows(p, 'duration', 'durationMenu'), ['15m', '30m', '45m', '1h']);
+  p.ui().duration.fire('blur', {});
+  p.box('23:30 x');
+  assert.deepStrictEqual(menuRows(p, 'duration', 'durationMenu'), ['15m', '30m']);
+});
+
+// ---------- the edit row ----------
+
+// The page of `open()`, whose saves of an edit (PATCH) are recorded and answered, and whose toasts are kept.
+async function openEdit() {
+  const p = await open();
+  const wrapped = p.page.ctx.fetch;
+  p.patches = [];
+  p.page.ctx.fetch = async (url, opts = {}) => {
+    if (opts.method !== 'PATCH') return wrapped(url, opts);
+    p.patches.push(JSON.parse(opts.body));
+    return { ok: true, status: 200, headers: { get: () => 'application/json' }, text: async () => JSON.stringify({ note: {} }) };
+  };
+  p.toasts = [];
+  p.page.ctx.toasted = p.toasts;
+  p.page.run('toast = (m) => { toasted.push(m); }');
+  // The rows in list order: the plain note (09:10), the range (10:30, 45m), the length with no time (1h30m).
+  p.edit = (i) => {
+    p.press(p.ui().body, 'e', { target: p.all('.np-note')[i] });
+    return { time: p.find('.np-edit-time'), duration: p.find('.np-edit-duration'), text: p.find('.np-edit-text') };
+  };
+  p.type = (el, value) => { el.value = value; el.fire('input', {}); };
+  p.save = async () => { p.find('.np-edit-save').click(); await p.page.settle(); };
+  return p;
+}
+
+test('e on a note shows its duration beside its time, and an empty field for a note with none', async () => {
+  const p = await openEdit();
+  const row = p.edit(1);
+  assert.deepStrictEqual([row.time.value, row.duration.value, row.text.value], ['10:30', '45m', 'schema review']);
+  assert.strictEqual(row.duration.attrs['aria-label'], 'Duration, blank for none');
+  p.find('.np-edit-cancel').click();
+  const length = p.edit(2);
+  assert.deepStrictEqual([length.time.value, length.duration.value], ['', '1h30m']);
+  p.find('.np-edit-cancel').click();
+  const plain = p.edit(0);
+  assert.deepStrictEqual([plain.time.value, plain.duration.value], ['09:10', '']);
+});
+
+test('saving a changed duration sends it, in the written form, with a ref that names the duration the page read', async () => {
+  const p = await openEdit();
+  const row = p.edit(1);
+  p.type(row.duration, '1h40');
+  await p.save();
+  assert.strictEqual(p.patches.length, 1);
+  const [sent] = p.patches;
+  assert.deepStrictEqual([sent.at, sent.duration, sent.note], ['10:30', '1h40m', 'schema review']);
+  assert.deepStrictEqual(sent.ref.expect, { at: '10:30', duration: '45m', by: '@human', note: 'schema review' });
+});
+
+test('clearing the duration and saving sends null; leaving it as it was sends no duration', async () => {
+  const p = await openEdit();
+  const cleared = p.edit(1);
+  p.type(cleared.duration, '');
+  await p.save();
+  assert.strictEqual(p.patches[0].duration, null);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(p.patches[0], 'duration'), true);
+  const same = p.edit(1);
+  p.type(same.text, 'schema review, again');
+  await p.save();
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(p.patches[1], 'duration'), false);
+  p.edit(0);
+  await p.save();
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(p.patches[2], 'duration'), false);
+});
+
+test('a note with no duration is given one in the row, and clearing the time of a timed note sends the untimed time and leaves its duration alone', async () => {
+  const p = await openEdit();
+  const plain = p.edit(0);
+  p.type(plain.duration, '30m');
+  await p.save();
+  assert.deepStrictEqual([p.patches[0].at, p.patches[0].duration], ['09:10', '30m']);
+  const range = p.edit(1);
+  p.type(range.time, '');
+  await p.save();
+  assert.deepStrictEqual([p.patches[1].at, 'duration' in p.patches[1]], ['', false]);
+});
+
+test('a duration that is no length, or that would end past 24:00 from the row\'s time, is said and nothing is sent', async () => {
+  const p = await openEdit();
+  const row = p.edit(1);
+  p.type(row.duration, 'soon');
+  await p.save();
+  p.type(row.duration, '1h');
+  p.type(row.time, '23:30');
+  await p.save();
+  p.type(row.duration, '0m');
+  await p.save();
+  assert.deepStrictEqual(p.toasts, [
+    'soon is not a duration; a duration reads like 45m, 1h or 1h30m.',
+    'A note with a time ends by 24:00; 23:30 plus 1h does not.',
+    'A duration is at least 1 minute.',
+  ]);
+  assert.deepStrictEqual(p.patches, []);
+});
+
+test('the row\'s duration menu lists 15m to 4h, trimmed to what ends by midnight from the time in the row', async () => {
+  const p = await openEdit();
+  const row = p.edit(1);
+  const menu = () => p.doc.body.querySelectorAll('.np-edit-duration-menu')[0];
+  row.duration.fire('focus', {});
+  const rows = menu().children.map((c) => c.textContent);
+  assert.deepStrictEqual([rows[0], rows[3], rows[rows.length - 1], rows.length], ['15m', '1h', '4h', 16]);
+  row.duration.fire('blur', {});
+  p.type(row.time, '23:00');
+  row.duration.fire('focus', {});
+  assert.deepStrictEqual(menu().children.map((c) => c.textContent), ['15m', '30m', '45m', '1h']);
+});
+
+test('Enter in the row saves it, but not the Enter that picks from an open duration menu', async () => {
+  const p = await openEdit();
+  const row = p.edit(1);
+  const form = p.find('.np-edit');
+  p.type(row.duration, '2h');
+  form.fire('keydown', { key: 'Enter', shiftKey: false, defaultPrevented: true, target: row.duration, preventDefault() {} });
+  await p.page.settle();
+  assert.deepStrictEqual(p.patches, []);
+  form.fire('keydown', { key: 'Enter', shiftKey: false, defaultPrevented: false, target: row.duration, preventDefault() {} });
+  await p.page.settle();
+  assert.strictEqual(p.patches.length, 1);
+  assert.strictEqual(p.patches[0].duration, '2h');
+});
+
+test('the stylesheet gives the edit row\'s duration a field of its own', () => {
+  assert.match(css, /^\.np-edit-duration-wrap \{[^}]*position: relative/m);
+  assert.match(css, /^\.np-edit-duration \{[^}]*width: [\d.]+em/m);
+});

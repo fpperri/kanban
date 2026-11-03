@@ -452,7 +452,10 @@ function withFile(file, hooks, apply) {
   throw new StatusError(`${path.basename(file)} kept changing while it was written; nothing was lost, try again.`, 409);
 }
 
-const same = (a, b) => (a.at || null) === (b.at || null) && (a.by || '') === (b.by || '') && a.note === b.note;
+// A duration as whole minutes, whether an entry holds it (minutes) or a ref says it (the written form); none is null.
+const lengthOf = (duration) => (typeof duration === 'number' ? duration : typeof duration === 'string' ? parseDuration(duration) : null);
+
+const same = (a, b) => (a.at || null) === (b.at || null) && lengthOf(a.duration) === lengthOf(b.duration) && (a.by || '') === (b.by || '') && a.note === b.note;
 
 // The entry a ref means: the one at its index when it still reads as the note the caller
 // saw, else the same note wherever it moved to; none left is a conflict.
@@ -507,11 +510,13 @@ function addNote(dir, input, hooks) {
 function editNote(dir, ref, patch, hooks) {
   const where = fileOfRef(dir, ref);
   const at = patch.at === undefined ? undefined : checkTime(patch.at);
+  const duration = patch.duration === undefined ? undefined : checkDuration(patch.duration);
   const note = patch.note === undefined ? undefined : checkText(patch.note);
   return withFile(where.file, hooks, (model) => {
     const entry = locate(model, ref);
-    if (at !== undefined) checkLength(entry.duration, at);
+    if (at !== undefined || duration !== undefined) checkLength(duration === undefined ? entry.duration : duration, at === undefined ? entry.at : at);
     if (at !== undefined) entry.at = at;
+    if (duration !== undefined) entry.duration = duration;
     if (note !== undefined) entry.note = note;
     entry.dirty = true;
     return record(entry, where.day, where.target, where.ref, indexOf(model, entry));
@@ -537,7 +542,7 @@ function assignNote(dir, ref, to, hooks) {
   if (target === where.target) throw new StatusError('The note is already there.', 400);
   const { value, digits } = mustLogbook(dir);
   const found = locate(parseDayFile(fs.readFileSync(where.file, 'utf8')), ref);
-  const seen = { at: found.at, by: found.by, note: found.note };
+  const seen = { at: found.at, duration: found.duration, by: found.by, note: found.note };
   iter.checkWritable(value);
   const here = { label: where.label, abs: path.dirname(where.file), parts: where.parts, segs: [] };
   const aimed = iter.folderOfIterationTarget(dir, value, target);

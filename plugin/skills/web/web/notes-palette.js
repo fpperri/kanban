@@ -598,6 +598,7 @@ function notesFocusGroupPanel() {
 function notesClose() {
   const u = notesUi;
   notesMenuClose();
+  notesDropEditMenus();
   if (!u.sub) return false;
   u.sub = null;
   u.finding = false;
@@ -815,9 +816,16 @@ function notesSetLayout(layout) {
   notesPaintBody();
 }
 
+// A row being edited hangs its duration menu off the page, as the create row's menus hang; the rows that
+// held them are gone whenever the list is built anew or the palette closes.
+function notesDropEditMenus() {
+  for (const m of document.body.querySelectorAll('.np-edit-duration-menu')) m.remove();
+}
+
 function notesPaintBody() {
   const u = notesUi;
   notesMenuClose();
+  notesDropEditMenus();
   if (!u.sub) return;
   for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   for (const b of u.layoutBtns) b.setAttribute('aria-pressed', String(b.dataset.layout === notesLayout()));
@@ -947,8 +955,10 @@ function notesRow(note, named = false, one = false) {
     clearTimeout(sureTimer);
     notesDo('DELETE', '/api/notes', { ref: noteRef(note) }, row);
   };
+  let editMenu = null;
   const view = () => {
     if (row.classList.contains('editing')) { notesUi.editing -= 1; row.classList.remove('editing'); }
+    if (editMenu) { editMenu.remove(); editMenu = null; }
     const time = notesEl('span', `np-note-time${note.at || note.duration ? '' : ' untimed'}`, noteTimeLabel(note));
     const by = notesEl('span', 'np-note-by', note.by || '');
     by.title = note.by || '';
@@ -965,6 +975,19 @@ function notesRow(note, named = false, one = false) {
     const t = notesEl('input', 'np-edit-time');
     Object.assign(t, { type: 'text', value: note.at || '', placeholder: 'untimed', maxLength: 5 });
     t.setAttribute('aria-label', 'Time, blank for untimed');
+    const d = notesEl('input', 'np-edit-duration');
+    Object.assign(d, { type: 'text', value: note.duration || '', placeholder: 'duration', maxLength: 6, autocomplete: 'off' });
+    d.setAttribute('aria-label', 'Duration, blank for none');
+    const dWrap = notesEl('span', 'np-edit-duration-wrap');
+    dWrap.append(d);
+    if (editMenu) editMenu.remove();
+    attachCombobox(d, () => noteDurationOptions(noteFieldTime(t.value)).map((value) => ({ value }))); // the create row's menu, to what ends by midnight from the time in this row
+    editMenu = dWrap.querySelector('.combobox-menu');
+    editMenu.classList.add('np-pick-menu', 'np-edit-duration-menu');
+    document.body.append(editMenu); // hung off the page as the create row's menus are
+    const placeMenu = () => notesPlaceMenu(d, editMenu, 0);
+    d.addEventListener('focus', placeMenu);
+    d.addEventListener('input', placeMenu);
     const x = notesEl('textarea', 'np-edit-text');
     x.value = note.note;
     x.rows = 1;
@@ -974,15 +997,17 @@ function notesRow(note, named = false, one = false) {
     const save = notesButton('np-edit-save', 'Save', '', () => submit());
     const cancel = notesButton('np-edit-cancel', 'Cancel', '', () => { view(); row.focus(); });
     const form = notesEl('div', 'np-edit');
-    form.append(t, x, save, cancel);
+    form.append(t, dWrap, x, save, cancel);
     const submit = () => {
       const at = t.value.trim() === '' ? '' : noteFieldTime(t.value);
       if (at === null) { toast(`${t.value.trim()} is not a time; a time reads HH:MM.`); return; }
-      notesDo('PATCH', '/api/notes', { ref: noteRef(note), at, note: x.value }, row);
+      const length = noteEditDuration(d.value, at || null, note.duration);
+      if (length.bad) { toast(length.bad); return; }
+      notesDo('PATCH', '/api/notes', { ref: noteRef(note), at, ...(length.change ? { duration: length.duration } : {}), note: x.value }, row);
     };
     form.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); view(); row.focus(); }
-      else if (e.key === 'Enter' && !e.shiftKey && e.target !== cancel && e.target !== save) { e.preventDefault(); submit(); }
+      else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && e.target !== cancel && e.target !== save) { e.preventDefault(); submit(); } // an open duration menu has taken the Enter that picks from it
     });
     row.replaceChildren(form);
     x.focus();
