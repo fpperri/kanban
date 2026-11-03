@@ -254,9 +254,10 @@ function notesCalendarSlot(day, slot, top, only) {
 function notesCalendarBlock(day, item) {
   const note = item.note;
   const el = notesCalendarButton('cal-note-block', noteTip(note, notesLabel), noteChipRequest(note, item.slot));
-  const words = notesEl('span', 'cal-note-block-words'); // one box, so the words start at the block's top and wrap down it
-  words.append(notesEl('span', 'cal-note-range', noteTimeLabel(note)));
-  if (note.target) words.append(notesEl('span', 'cal-note-id', `#${note.target}`));
+  // One box, so the words start at the block's top and wrap down it, a space between each part to break at.
+  const words = notesEl('span', 'cal-note-block-words');
+  words.append(notesEl('span', 'cal-note-range', noteTimeLabel(note)), document.createTextNode(' '));
+  if (note.target) words.append(notesEl('span', 'cal-note-id', `#${note.target}`), document.createTextNode(' '));
   else words.append(notesGlyph());
   words.append(document.createTextNode(note.note));
   el.append(words);

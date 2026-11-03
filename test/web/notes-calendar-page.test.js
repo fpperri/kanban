@@ -288,7 +288,7 @@ test('a note at 10:30 with 1h30m is one block from the 10:30 line to the 12:00 l
     const blocks = p.blocks();
     assert.strictEqual(blocks.length, 1, mode);
     assert.deepStrictEqual([blocks[0].style.top, blocks[0].style.height], ['421px', '58px'], 'the 10:30 line is 420px down and the 12:00 line 480px, less a pixel each side as a chip has');
-    assert.strictEqual(words(blocks[0]), '10:30–12:00#7migration rehearsal', 'its times, its card and its text');
+    assert.strictEqual(words(blocks[0]), '10:30–12:00 #7 migration rehearsal', 'its times, its card and its text, spaced so the line may break between them');
     assert.strictEqual(blocks[0].title, '10:30–12:00 · #7 Port the zephyr schema\nmigration rehearsal');
     assert.strictEqual(p.col('2026-10-15').querySelectorAll('.cal-note-chip').length, 2, 'the range is no chip: the day keeps its two point notes\' chips');
     assert.ok(blocks[0].classes.includes('cal-note'), 'it is one of the notes layer\'s elements');
