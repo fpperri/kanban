@@ -93,3 +93,17 @@ test('a note with a duration says its range, or its length when it has no time',
   assert.strictEqual(add({ duration: '2h' }), 'added a 2h note for 2026-10-16');
   assert.strictEqual(add({ target: '7', at: '10:30' }), 'added a note to #7');
 });
+
+test('a note save that changes the time, the day or the length says what the note is now', () => {
+  const ref = { ...NOTE_REF, expect: { ...NOTE_REF.expect, duration: '45m' } };
+  const edit = (body, r = ref) => describeChange(record({}, ['/api/notes', { ref: r, ...body }], 'PATCH'));
+  assert.strictEqual(edit({ day: '2026-11-04', at: '10:30', duration: '45m' }, { ...ref, day: '2026-11-03', expect: { ...ref.expect, at: '10:00', duration: '45m' } }), 'edited a note on #7, now 2026-11-04 10:30–11:15');
+  assert.strictEqual(edit({ at: '10:30' }), 'edited a note on #7, now 2026-10-16 10:30–11:15');
+  assert.strictEqual(edit({ duration: '1h' }), 'edited a note on #7, now 2026-10-16 09:10–10:10');
+  assert.strictEqual(edit({ day: '2026-10-17' }), 'edited a note on #7, now 2026-10-17 09:10–09:55');
+  assert.strictEqual(edit({ at: '' }), 'edited a note on #7, now 2026-10-16 untimed, 45m');
+  assert.strictEqual(edit({ duration: null }), 'edited a note on #7, now 2026-10-16 09:10');
+  assert.strictEqual(edit({ at: '09:10', note: 'x' }), 'edited a note on #7');
+  assert.strictEqual(edit({ day: '2026-10-16', note: 'x' }), 'edited a note on #7');
+  assert.strictEqual(edit({ at: '08:00' }, NOTE_REF), 'edited a note on #7, now 2026-10-16 08:00');
+});
