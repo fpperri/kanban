@@ -9,7 +9,9 @@
 // own menu, which is for the open card); Archive and Delete name the count of
 // a selection. Add child... opens the New card form under the card, the heading
 // and the Parent field saying so, and saving it writes a card whose file says `parent: <id>`
-// and leaves the parent's file as it was; with the Parent cleared it is a root card. The fixture's own sets: card 4's
+// and leaves the parent's file as it was; with the Parent cleared it is a root card. Set status... leads the
+// Edit group at the desk: on three selected cards it moves each by the route a drop takes, the doing gate
+// refusing the card that waits by name, and the selection stays. The fixture's own sets: card 4's
 // hierarchy path is 1, 4 and its hierarchy tree is 1 to 8 (19 is archived); its dependency path is 3, 4 and its
 // dependency tree 2, 3, 4, 6. Cards 1, 3 and 4 are dated
 // today so the Calendar and the Gantt draw them (the runner puts the board's
@@ -20,6 +22,7 @@
 // selectedIds, selectionState, state.
 
 const fs = require('fs');
+const { askUp, askText, askNo, refuseNativeConfirm, nativeConfirmsSeen } = require('../ask');
 
 module.exports = {
   name: 'card-menu',
@@ -203,14 +206,15 @@ module.exports = {
 
     // Archive and Delete name the resolved count of the selection. The archive confirmation answers no and Delete opens its popup, closed unanswered, so nothing is archived or deleted.
     await selectPair();
-    await ev(`(()=>{window.__asked=[];window.confirm=(m)=>{window.__asked.push(m);return false}})()`);
+    await refuseNativeConfirm(page);
     await rightClickOnBoard(3);
     await press('ctx-archive');
+    const asked = (await askUp(page)) ? await askText(page) : null;
+    check('archiving a selection names the resolved count', asked === 'Archive 2 card(s)? (moves their files to archived/)', asked);
+    await askNo(page);
     await rightClickOnBoard(3);
     await press('ctx-delete');
-    const asked = await ev('window.__asked');
-    check('archiving a selection names the resolved count', asked[0] === 'Archive 2 card(s)? (moves their files to archived/)', asked);
-    check('deleting a selection names the resolved count in the delete popup', asked.length === 1 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
+    check('deleting a selection names the resolved count in the delete popup', (await nativeConfirmsSeen(page)) === 0 && await waitFor(`!document.getElementById('group-dialog').classList.contains('hidden')&&document.getElementById('group-dialog-title').textContent==='Delete 2 cards?'`, 3000), asked);
     await key('Escape');
     await waitFor(`!!document.getElementById('group-dialog').classList.contains('hidden')`, 2500);
 
@@ -239,5 +243,24 @@ module.exports = {
     await rightClickOnBoard(5);
     check('the menu of a live card still offers it', await entryShown('ctx-child'));
     await closeMenu();
+
+    // Set status... leads the Edit group at the desk too. On a selection of cards 1 (doing), 3 (todo) and 6 (todo, waiting on 2
+    // and 3) it moves each card the way a drop does: Doing takes card 3, leaves card 1 where it is and refuses card 6 by name with
+    // the drop's own wording; the selection stays.
+    await selectPair();
+    await clickCard(cardIn('#board', 6), { modifiers: 2 });
+    check('three cards are selected', await waitFor(`selectedIds.size===3`));
+    await rightClickOnBoard(3);
+    await press('ctx-edit');
+    check('Set status... is the first entry of the Edit group, drawn once it opens', await waitFor(`getComputedStyle(document.getElementById('ctx-status')).display!=='none'&&document.querySelector('#ctx-edit-panel button').id==='ctx-status'`, 3000));
+    await press('ctx-status');
+    check('it opens its popup for the three cards and shuts the menu', await waitFor(`!document.getElementById('bulk-status').classList.contains('hidden')&&document.getElementById('bulk-status-title').textContent==='Set status on 3 card(s)'&&${menu}.classList.contains('hidden')`, 3000));
+    check('which lists the four statuses', (await ev(`[...document.querySelectorAll('#bulk-status-list button')].map((b)=>b.dataset.status).join()`)) === 'backlog,todo,doing,done');
+    await ev(`document.querySelector('#bulk-status-list button[data-status="doing"]').click()`);
+    check('Doing moves card 3', await waitFor(`state.active.find((c)=>String(c.id)==='3').status==='doing'`, 6000));
+    check('and refuses card 6 by name', await waitFor(`document.getElementById('toast').textContent==='Moved 1 to doing; skipped #6 (waiting).'`, 3000), await ev(`document.getElementById('toast').textContent`));
+    check('card 6 stays in Todo and card 1 in Doing', await ev(`state.active.find((c)=>String(c.id)==='6').status==='todo'&&state.active.find((c)=>String(c.id)==='1').status==='doing'`));
+    check('the popup closed and the selection stays the three cards', await ev(`document.getElementById('bulk-status').classList.contains('hidden')`) && same(await picked(), [1, 3, 6]), await picked());
+    check('the bar of the phone layout is not drawn at the desk', await ev(`getComputedStyle(document.getElementById('selection-bar')).display==='none'`));
   },
 };

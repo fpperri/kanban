@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadPage, control, harmless } = require('./helpers/page-vm');
 const { assertKeepsSelection } = require('./helpers/markers');
+const { askElements, askDriver } = require('./helpers/ask-page');
 
 // The card menu in the real page (helpers/page-vm.js runs every script the page
 // loads in one vm). A right-click on a card outside the selection opens the menu
@@ -42,16 +43,14 @@ const MENU_ELEMENTS = ['#context-menu', '#ctx-peek', '#ctx-add', '#ctx-child', '
   '#bulk-single', '#bulk-single-input', '#bulk-single-apply', '#bulk-single-title', '#bulk-archive', '#bulk-archive-title'];
 
 async function open({ view = 'board' } = {}) {
-  const elements = Object.fromEntries(MENU_ELEMENTS.map((sel) => [sel, control()]));
+  const elements = { ...Object.fromEntries(MENU_ELEMENTS.map((sel) => [sel, control()])), ...askElements() };
   const graphHost = control();
   elements['#graph-view'] = graphHost;
   const page = await loadPage({ board: makeBoard(), stored: { 'kanban.kanban.view.mode': view }, elements }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
-  const asked = { confirms: [], opened: [], requests: [], deletes: [] };
-  page.run('confirm = (m) => { __asked.confirms.push(m); return __asked.answer; }');
+  const asked = { opened: [], requests: [], deletes: [] };
   page.run('openDelete = (kind, targets, opts) => { __asked.deletes.push({ kind, targets, opts }); }');
   Object.assign(page.ctx, { __asked: asked });
-  asked.answer = false;
   page.ctx.openCard = (id) => { asked.opened.push(Number(id)); };
   const realFetch = page.ctx.fetch;
   page.ctx.fetch = (url, opts = {}) => { asked.requests.push([opts.method || 'GET', String(url)]); return realFetch(url, opts); };
@@ -65,7 +64,7 @@ async function open({ view = 'board' } = {}) {
   const rightClick = (id) => page.fireDocument('contextmenu', { target: cardTarget(id), clientX: 30, clientY: 40 });
   const click = (sel, event = {}) => menuControl(sel).fire('click', event);
   const cardRequests = () => asked.requests.filter(([method, url]) => method !== 'GET' && /\/api\/cards\/\d+$/.test(url)).map(([method, url]) => `${method} ${url}`);
-  return { page, elements, asked, ids, selection, rangeStart, select, menuOpen, shown, rightClick, click, cardRequests, graphHost };
+  return { page, elements, asked, ask: askDriver(page, elements), ids, selection, rangeStart, select, menuOpen, shown, rightClick, click, cardRequests, graphHost };
 }
 
 function cardTarget(id) {
@@ -213,17 +212,23 @@ test('the bulk entries include cards added by a path: a selection holding a path
 
 test('Delete opens one popup for the cards it acts on: the right-clicked card alone outside the selection, the resolved selection inside it; Archive names the count in its confirmation', async () => {
   const s = await open();
+  const asks = [];
   s.select(null, 'cardPart(1)', 'pathPart(2)', 'cardPart(5)');
   assert.deepStrictEqual(s.ids(), [1, 2, 3, 5]);
   s.rightClick(4);
   s.click('#ctx-archive');
+  asks.push(s.ask.text());
+  await s.ask.no();
   s.click('#ctx-delete');
   assert.deepStrictEqual(s.asked.deletes.map((d) => [d.kind, [...d.targets].map(String)]), [['card', ['4']]]);
   s.rightClick(5);
   s.click('#ctx-archive');
+  asks.push(s.ask.text());
+  await s.ask.no();
   s.click('#ctx-delete');
   assert.deepStrictEqual(s.asked.deletes.map((d) => [d.kind, [...d.targets].map(String)]), [['card', ['4']], ['card', ['1', '2', '3', '5']]]);
-  assert.deepStrictEqual(s.asked.confirms, ['Archive 1 card(s)? (moves their files to archived/)', 'Archive 4 card(s)? (moves their files to archived/)'], 'Delete asks in its popup, not through confirm()');
+  assert.deepStrictEqual(asks, ['Archive 1 card(s)? (moves their files to archived/)', 'Archive 4 card(s)? (moves their files to archived/)'], 'Delete asks in its own popup, not in the ask');
+  assert.strictEqual(s.ask.open(), false);
 });
 
 test('deleting the card a menu outside the selection was opened on leaves the hand-built selection as it was; deleting a selection clears it', async () => {

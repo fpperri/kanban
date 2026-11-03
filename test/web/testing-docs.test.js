@@ -78,7 +78,7 @@ test('the waits a scenario calls, which the testing doc says the throttle length
 });
 
 test('a phone step is a file that exports run, in the folders the testing doc names, and steps.js gives the touch helpers it names', () => {
-  for (const dir of ['phone-steps', 'phone-flip-steps']) {
+  for (const dir of ['phone-steps', 'phone-back-steps', 'phone-flip-steps']) {
     assert.ok(doc.includes(`${dir}/`), `the doc names ${dir}/`);
     const files = fs.readdirSync(path.join(ROOT, 'test', 'web', 'browser', 'scenarios', dir)).filter((f) => f.endsWith('.js'));
     assert.ok(files.length > 0);

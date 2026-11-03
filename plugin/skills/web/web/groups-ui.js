@@ -109,6 +109,7 @@ function openGroupDialog(title, body) {
   backdrop.classList.remove('hidden');
   const first = body.querySelector('[autofocus], input:not([type="checkbox"]), select, .pick-btn, button');
   if (first) first.focus();
+  scheduleBackSync(); // over the card details a Back closes it, so the page keeps an entry for it
 }
 
 function closeGroupDialog() {
@@ -119,6 +120,7 @@ function closeGroupDialog() {
   const back = groupsUi.opener;
   groupsUi.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+  scheduleBackSync();
   return true;
 }
 

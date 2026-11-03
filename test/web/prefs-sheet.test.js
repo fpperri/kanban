@@ -91,7 +91,7 @@ test('each of the Board, Map, Gantt and Calendar has an opens and a selects choi
       assert.strictEqual(attr(tag, 'disabled'), null, `${view} ${value} can be chosen`);
     }
   }
-  const graph = tagsOf(sheetHtml, /<button[^>]*class="prefs-opt"[^>]*>/g).filter((t) => attr(t, 'data-view') === 'graph');
+  const graph = tagsOf(sheetHtml, /<button[^>]*class="prefs-opt"[^>]*>/g).filter((t) => attr(t, 'data-pref') === 'click' && attr(t, 'data-view') === 'graph');
   assert.strictEqual(graph.length, 1, 'one fixed choice');
   assert.strictEqual(attr(graph[0], 'data-value'), 'selects');
   assert.notStrictEqual(attr(graph[0], 'disabled'), null, 'it cannot be changed');
@@ -130,7 +130,7 @@ test('the sheet sits after the page\'s other popups and before the scripts', () 
 });
 
 test('the sheet\'s settings are not written to the board: nothing in the sheet code calls the server', () => {
-  for (const name of ['openPrefsSheet', 'closePrefsSheet', 'syncPrefsSheet', 'onPrefsSheetClick', 'setClickPref', 'setArchivedDone', 'setPillsFolded', 'setSlicesFolded', 'setPanelOnFocus', 'setRollupBarMode']) {
+  for (const name of ['openPrefsSheet', 'closePrefsSheet', 'syncPrefsSheet', 'onPrefsSheetClick', 'setClickPref', 'setTapPref', 'setArchivedDone', 'setPillsFolded', 'setSlicesFolded', 'setPanelOnFocus', 'setRollupBarMode']) {
     assert.doesNotMatch(fn(name), /\bapi\(|fetch\(|XMLHttpRequest/, name);
   }
 });
@@ -157,7 +157,7 @@ function fakeEl(id, classes = []) {
 
 // A page with the sheet's elements, a store for the choices and the pieces of
 // app.js the sheet's code calls, so each function runs as the page defines it.
-function sheetPage({ stored = {}, detailOpen = false } = {}) {
+function sheetPage({ stored = {}, detailOpen = false, taps = false } = {}) {
   const colState = require('../../plugin/skills/web/web/column-state');
   const writes = {};
   const log = { colour: [], renders: 0, details: [], folds: [], statusFolds: [], sliceFolds: [], typingFolds: [], hoverFolds: [], switches: [], focused: null, shown: [], went: [] };
@@ -184,6 +184,10 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   for (const view of ['board', 'map', 'gantt', 'calendar']) for (const value of ['opens', 'selects']) opt('click', value, { view });
   const graph = opt('click', 'selects', { view: 'graph' });
   graph.disabled = true;
+  if (taps) {
+    for (const view of ['board', 'map', 'gantt', 'calendar']) for (const value of ['opens', 'selects']) opt('tap', value, { view });
+    opt('tap', 'selects', { view: 'graph' }).disabled = true;
+  }
   for (const value of ['open', 'collapsed']) opt('bar', value);
   sheet.querySelectorAll = (sel) => { assert.strictEqual(sel, '.prefs-opt'); return opts; };
   const more = fakeEl('more-btn');
@@ -218,7 +222,7 @@ function sheetPage({ stored = {}, detailOpen = false } = {}) {
   vm.runInContext([
     memo(/^let rollupBarMode = null;$/m, 'bar memo'), memo(/^let prefsMemo = null;$/m, 'prefs memo'),
     fn('loadRollupBarMode'), fn('saveRollupBarMode'), fn('prefsStorage'), fn('loadPrefsState'), fn('savePrefsState'), fn('countArchivedLeaves'),
-    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setTypingFolded'), fn('setHoverFolded'), fn('setPanelOnFocus'), fn('setMdColour'),
+    fn('repaintRollups'), fn('setRollupBarMode'), fn('toggleRollupBar'), fn('setClickPref'), fn('setTapPref'), fn('setArchivedDone'), fn('setFoldPref'), fn('setPillsFolded'), fn('setStatusesFolded'), fn('setSlicesFolded'), fn('setTypingFolded'), fn('setHoverFolded'), fn('setPanelOnFocus'), fn('setMdColour'),
     fn('prefOptionOn'), fn('syncPrefsSheet'), fn('openPrefsSheet'), fn('closePrefsSheet'), fn('onPrefsSheetClick'),
   ].join('\n'), sandbox);
   return sandbox;
@@ -558,7 +562,7 @@ function escHandler() {
   return m[0];
 }
 
-function escPage({ open = [] } = {}) {
+function escPage({ open = [], lit = false } = {}) {
   const calls = [];
   const prevented = [];
   const listeners = [];
@@ -569,13 +573,18 @@ function escPage({ open = [] } = {}) {
   const sandbox = {
     document: { addEventListener: (type, f) => listeners.push([type, f]) },
     $: (sel) => els[sel],
+    backStep: require('../../plugin/skills/web/web/back-steps').backStep,
+    askState: { resolve: null }, datePickerFor: null, groupDialogOpenNow: () => false, trayIsOpen: () => false, notesIsOpen: () => false,
+    moreMenuIsOpen: () => false, contextMenuOpen: () => !els['#context-menu'].classList.contains('hidden'), bulkPopupOpen: () => false,
+    menuNestOpenTopGroup: () => null, notesUi: { menu: null }, spfOpenList: () => null,
+    searchPanelOpen: open.includes('#search-panel'),
     hideContextMenu: () => calls.push('menu'), closeNotifModal: () => calls.push('notifications'), closeCard: () => calls.push('card'),
     requestCloseModal: () => calls.push('edit'), closeAnyBulkPopup: () => false, anyModalOpen: () => open.some((id) => id !== '#search-panel'),
     closeSearchPanel: () => (open.includes('#search-panel') ? (calls.push('panel'), true) : false),
-    escapeStep: () => calls.push('step'), settingsStepBack: () => calls.push('prefs'), moreMenuClose: () => false,
+    escapeStep: () => calls.push('step'), clearPinnedLight: () => (lit ? (calls.push('light'), true) : false), settingsStepBack: () => calls.push('prefs'), moreMenuClose: () => false,
   };
   vm.createContext(sandbox);
-  vm.runInContext(escHandler(), sandbox);
+  vm.runInContext(`${fn('standingLayers')}\n${fn('takeLayer')}\n${escHandler()}`, sandbox);
   assert.strictEqual(listeners.length, 1);
   return { esc: (extra = {}) => listeners[0][1]({ key: 'Escape', preventDefault: () => prevented.push(true), ...extra }), calls, prevented };
 }
@@ -608,6 +617,18 @@ test('with the sheet closed, Esc does what it did: the menu, then the dialogs, t
   assert.deepStrictEqual(card.calls, ['card']);
 });
 
+test('a pinned light takes Esc after the popups and before the selection step: it drops, and nothing else runs', () => {
+  const p = escPage({ lit: true });
+  p.esc();
+  assert.deepStrictEqual(p.calls, ['light']);
+  const withMenu = escPage({ open: ['#context-menu'], lit: true });
+  withMenu.esc();
+  assert.deepStrictEqual(withMenu.calls, ['menu'], 'an open menu closes first and leaves the light on');
+  const held = escPage({ lit: true });
+  held.esc({ repeat: true });
+  assert.deepStrictEqual(held.calls, [], 'a held Esc is one press');
+});
+
 test('a held Esc runs the end of the chain once: a repeated keydown with nothing open does nothing', () => {
   const p = escPage();
   p.esc();
@@ -618,12 +639,15 @@ test('a held Esc runs the end of the chain once: a repeated keydown with nothing
   assert.deepStrictEqual(p.calls, ['step', 'step'], 'a fresh press steps again');
 });
 
-test('the sheet\'s line is added to the Esc handler without moving the lines around it', () => {
-  const body = escHandler();
-  const at = (s) => body.indexOf(s);
-  assert.ok(at("settingsStepBack(); return;") > at("closeNotifModal(); return;"));
-  assert.ok(at("settingsStepBack(); return;") < at("closeCard(); return;"));
-  assert.ok(at("if (anyModalOpen()) return;") > at("settingsStepBack(); return;"), 'the catch-all stays last but for the end of the chain');
+test('the sheet takes Esc after the notifications and before the card details, in the order a Back walks too, and the catch-all stays last but for the end of the chain', () => {
+  const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
+  const at = (name) => BACK_STEP_ORDER.indexOf(name);
+  assert.ok(at('settings') > at('notifications'));
+  assert.ok(at('settings') < at('details'));
+  assert.ok(at('other-popup') > at('settings'));
+  assert.ok(at('other-popup') < at('search-panel'));
+  assert.match(fn('takeLayer'), /step === 'settings'\) settingsStepBack\(\);/);
+  assert.match(escHandler(), /backStep\(standingLayers\(true\)\)/, 'Esc walks the order a Back walks');
 });
 
 test('an open sheet stops the 5s poll, because it sits on the modal backdrop the poll already reads', () => {
@@ -705,4 +729,73 @@ test('the Typing isolates and On hover show choices are checkboxes after the Sta
     assert.match(sheetHtml, new RegExp(`<input[^>]*id="${id}"[^>]*> *${text}`));
   }
   assert.ok(at('prefs-statuses-folded') < at('prefs-typing-folded') && at('prefs-typing-folded') < at('prefs-hover-folded') && at('prefs-hover-folded') < at('prefs-panel-on-focus'), 'in the panel\'s order, before the switch');
+});
+
+// --- the phone layout's own tap choices -----------------------------------------------------------
+
+const tapOpts = (markup) => tagsOf(markup, /<button[^>]*class="prefs-opt"[^>]*>/g).filter((t) => attr(t, 'data-pref') === 'tap');
+const pressedOf = (p, pref) => p.opts.filter((o) => o.dataset.pref === pref && o.attrs['aria-pressed'] === 'true').map((o) => `${o.dataset.view}:${o.dataset.value}`).sort();
+
+test('the sheet has an A tap on a card group beside the desk\'s click group, with opens and selects for the Board, Map, Gantt and Calendar and the Graph fixed at selects', () => {
+  assert.match(sheetHtml, /<h3 id="prefs-tap-title">A tap on a card<\/h3>/);
+  assert.match(sheetHtml, /<h3 id="prefs-click-title">A plain click on a card<\/h3>/, 'the desk group is still there');
+  const tags = tapOpts(sheetHtml);
+  for (const view of ['board', 'map', 'gantt', 'calendar']) {
+    for (const value of ['opens', 'selects']) {
+      const tag = tags.find((t) => attr(t, 'data-view') === view && attr(t, 'data-value') === value);
+      assert.ok(tag, `${view} ${value}`);
+      assert.strictEqual(attr(tag, 'type'), 'button');
+      assert.strictEqual(attr(tag, 'disabled'), null, `${view} ${value} can be chosen`);
+    }
+  }
+  const graph = tags.filter((t) => attr(t, 'data-view') === 'graph');
+  assert.strictEqual(graph.length, 1, 'one fixed choice');
+  assert.strictEqual(attr(graph[0], 'data-value'), 'selects');
+  assert.notStrictEqual(attr(graph[0], 'disabled'), null, 'it cannot be changed');
+  assert.strictEqual(tags.length, 9);
+});
+
+test('the group for the layout on screen shows and the other is hidden, by the width line in the stylesheet, so a window that crosses it switches both ways', () => {
+  const desk = tagsOf(sheetHtml, /<section[^>]*aria-labelledby="prefs-click-title"[^>]*>/)[0];
+  const phone = tagsOf(sheetHtml, /<section[^>]*aria-labelledby="prefs-tap-title"[^>]*>/)[0];
+  assert.match(attr(desk, 'class'), /(^|\s)prefs-desk-group(\s|$)/);
+  assert.match(attr(phone, 'class'), /(^|\s)prefs-phone-group(\s|$)/);
+  assert.match(css, /\.prefs-group\.prefs-phone-group \{ display: none; \}/, 'hidden to start');
+  assert.match(css, /@media \(max-width: 759\.98px\) \{ \.prefs-group\.prefs-desk-group \{ display: none; \} \.prefs-group\.prefs-phone-group \{ display: flex; \} \}/, 'swapped under the phone width line');
+});
+
+test('with nothing stored the sheet shows a tap selecting in every view, and the clicks as before', () => {
+  const p = sheetPage({ taps: true });
+  p.openPrefsSheet();
+  assert.deepStrictEqual(pressedOf(p, 'tap'), ['board:selects', 'calendar:selects', 'gantt:selects', 'graph:selects', 'map:selects']);
+  assert.deepStrictEqual(pressedOf(p, 'click'), ['board:opens', 'calendar:opens', 'gantt:opens', 'graph:selects', 'map:opens']);
+});
+
+test('a browser that saved opens for every click shows selects for the taps, and its click rows as saved', () => {
+  const p = sheetPage({ taps: true, stored: { 'kanban.shop.prefs': JSON.stringify({ click: { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' } }) } });
+  p.openPrefsSheet();
+  assert.deepStrictEqual(pressedOf(p, 'tap'), ['board:selects', 'calendar:selects', 'gantt:selects', 'graph:selects', 'map:selects']);
+  assert.deepStrictEqual(pressedOf(p, 'click'), ['board:opens', 'calendar:opens', 'gantt:opens', 'graph:selects', 'map:opens']);
+});
+
+test('choosing opens for a view\'s tap saves it in the prefs entry beside the clicks, shows it, and changes no click and no other view', () => {
+  const p = sheetPage({ taps: true });
+  p.openPrefsSheet();
+  p.onPrefsSheetClick({ target: { id: 'x', closest: () => optOf(p, 'tap', 'opens', 'gantt') } });
+  assert.deepStrictEqual(Object.keys(p.writes), ['kanban.shop.prefs']);
+  const saved = JSON.parse(p.writes['kanban.shop.prefs']);
+  assert.deepStrictEqual(saved.tap, { board: 'selects', map: 'selects', gantt: 'opens', calendar: 'selects', graph: 'selects' });
+  assert.deepStrictEqual(saved.click, { board: 'opens', map: 'opens', gantt: 'opens', calendar: 'opens', graph: 'selects' });
+  assert.deepStrictEqual(pressedOf(p, 'tap'), ['board:selects', 'calendar:selects', 'gantt:opens', 'graph:selects', 'map:selects']);
+  assert.strictEqual(p.log.renders, 0, 'nothing on the board changes with this one');
+});
+
+test('choosing a click for a view leaves the taps, and the Graph\'s fixed tap cannot be chosen away', () => {
+  const p = sheetPage({ taps: true });
+  p.openPrefsSheet();
+  p.onPrefsSheetClick({ target: { id: 'x', closest: () => optOf(p, 'click', 'selects', 'map') } });
+  assert.deepStrictEqual(JSON.parse(p.writes['kanban.shop.prefs']).tap, { board: 'selects', map: 'selects', gantt: 'selects', calendar: 'selects', graph: 'selects' });
+  const before = p.writes['kanban.shop.prefs'];
+  p.onPrefsSheetClick({ target: { id: 'x', closest: () => optOf(p, 'tap', 'selects', 'graph') } });
+  assert.strictEqual(p.writes['kanban.shop.prefs'], before, 'a disabled option writes nothing');
 });

@@ -195,7 +195,7 @@ test('a lone selected card keeps its relations lit and a selection lights its ca
   assert.match(fn('wireGraphView'), /else graphRestFocus\(\)/);
   const render = fn('renderGraphView');
   assert.ok(render.trim().endsWith('graphSettleFocus();\n}'));
-  assert.match(fn('graphSettleFocus'), /hoveredId/);
+  assert.match(fn('graphSettleFocus'), /litFocusId()/, 'the card the light follows: the pinned one of a long press, else the hovered one');
 });
 
 test('a card is not dragged: the view holds no drag, force simulation or kept arrangement, and no card shows a grab cursor', () => {
@@ -320,4 +320,15 @@ test('the dot rule paints a path as well as a circle: filled in the status colou
   assert.match(rule[0], /fill: currentColor/);
   assert.match(rule[0], /stroke-linejoin: round/);
   assert.doesNotMatch(rule[0], /#[0-9a-fA-F]{3,8}\b/);
+});
+
+test('the dblclick listener asks graphDblClickOpens with the layout and the modifiers, so the width rule stays in selection.js and a card never opens twice on the phone layout', () => {
+  const body = fn('wireGraphView');
+  const m = body.match(/host\.addEventListener\('dblclick', \(e\) => \{[\s\S]*?\n  \}\);/);
+  assert.ok(m, 'the dblclick listener');
+  assert.match(m[0], /if \(!graphDblClickOpens\(\{ shiftKey: e\.shiftKey, ctrlKey: e\.ctrlKey, metaKey: e\.metaKey, phone: onPhoneLayout\(\) \}\)\) return;/);
+  assert.ok(m[0].indexOf('graphDblClickOpens(') < m[0].indexOf('openCard('), 'it returns before it opens');
+  const click = fn('graphClickNode');
+  assert.match(click, /peeks: false, phone: onPhoneLayout\(\), detail: mods\.detail/, 'the click path passes the raw count and the layout, and tests no width itself');
+  assert.doesNotMatch(click, /phone \?/);
 });

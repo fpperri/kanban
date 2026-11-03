@@ -24,6 +24,7 @@ function gesturePage({ view = 'board', click = {}, dragging = {}, matched = null
     ...require('../../plugin/skills/web/web/selection'),
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
+    onPhoneLayout: () => false,
     ...require('../../plugin/skills/web/web/search-enter'),
     searchEnterMatchIds: () => matched,
     openCard: (id) => { calls.open.push(id); },

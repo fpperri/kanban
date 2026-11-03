@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { runSteps, tap, swipe, pinch } = require('./browser/steps');
+const { runSteps, tap, doubleTap, pacedDoubleTap, outwaitDoubleTap, DOUBLE_TAP_WINDOW_MS, holdDown, moveHeld, liftUp, longPress, holdDrag, LONG_PRESS_HOLD_MS, backOut, swipe, pinch } = require('./browser/steps');
 const scenarios = require('./browser/scenarios');
 const phone = require('./browser/scenarios/phone');
+const phoneBack = require('./browser/scenarios/phone-back');
 const phoneFlip = require('./browser/scenarios/phone-flip');
 
 // The step runner of the phone and phone-flip scenarios, and the touch helpers a step uses, driven
@@ -108,6 +109,124 @@ test('tap is a touchStart and a touchEnd at the same point', async () => {
   ]);
 });
 
+test('doubleTap is two taps at the same point one straight after the other, with no pause between them for a throttled page to stretch', async () => {
+  const page = standIn();
+  await doubleTap(page, 100, 200);
+  const one = [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ];
+  assert.deepStrictEqual(touches(page), [...one, ...one]);
+  assert.deepStrictEqual(page.calls.map((c) => c[0]), Array(4).fill('Input.dispatchTouchEvent'), 'nothing else is sent between the taps');
+});
+
+test('pacedDoubleTap is two presses at one point with a real pause between them: the second finger comes down inside the double-tap window and lifts after it', async () => {
+  const page = standIn();
+  const at = [];
+  const send = page.send;
+  page.send = async (method, params) => { at.push(Date.now()); return send.call(page, method, params); };
+  await pacedDoubleTap(page, 100, 200);
+  const down = { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] };
+  const up = { type: 'touchEnd', touchPoints: [] };
+  assert.deepStrictEqual(touches(page), [down, up, down, up]);
+  const gap = at[2] - at[1];
+  assert.ok(gap >= 180 && gap < 300, `the second finger comes down inside 300 ms of the first lift: ${gap}`);
+  assert.ok(at[3] - at[1] > 300, `and lifts after 300 ms from it: ${at[3] - at[1]}`);
+  const t0 = Date.now();
+  await pacedDoubleTap(standIn(), 1, 2, { press: 10, gap: 20, press2: 30 });
+  assert.ok(Date.now() - t0 >= 55 && Date.now() - t0 < 200, 'the pauses are the ones given');
+});
+
+test('the double-tap wait is real time, longer than the 300 ms double-tap window and shorter than the 700 ms where two taps are plainly two', async () => {
+  assert.ok(DOUBLE_TAP_WINDOW_MS > 300 && DOUBLE_TAP_WINDOW_MS < 700, String(DOUBLE_TAP_WINDOW_MS));
+  const t0 = Date.now();
+  await outwaitDoubleTap();
+  assert.ok(Date.now() - t0 >= DOUBLE_TAP_WINDOW_MS - 20, 'it waited');
+});
+
+test('longPress is a touchStart, a real-time hold longer than the 500 ms of the page, and a touchEnd at the same point', async () => {
+  assert.ok(LONG_PRESS_HOLD_MS > 500, 'longer than the hold of the page');
+  const page = standIn();
+  const t0 = Date.now();
+  await longPress(page, 100, 200);
+  assert.ok(Date.now() - t0 >= LONG_PRESS_HOLD_MS - 20, 'it held');
+  assert.deepStrictEqual(touches(page), [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ]);
+  assert.deepStrictEqual(page.calls.map((c) => c[0]), ['Input.dispatchTouchEvent', 'Input.dispatchTouchEvent'], 'nothing else is sent');
+});
+
+test('longPress given an expression holds until the page answers true to it, and lifts after', async () => {
+  const page = standIn();
+  const waited = [];
+  page.waitFor = async (expr, ms) => { waited.push([expr, ms, page.calls.length]); return true; };
+  const t0 = Date.now();
+  await longPress(page, 100, 200, { until: 'card.lit' });
+  assert.ok(Date.now() - t0 < LONG_PRESS_HOLD_MS - 100, 'it did not wait the fixed time');
+  assert.deepStrictEqual(waited, [['card.lit', 4000, 1]], 'asked once, with the finger down and not yet lifted');
+  assert.deepStrictEqual(touches(page).map((t) => t.type), ['touchStart', 'touchEnd']);
+});
+
+test('backOut asks the page for a history.back() made after it has answered, so the answer is not lost with the document', async () => {
+  const asked = [];
+  const page = { ev: async (expr) => { asked.push(expr); return true; } };
+  assert.strictEqual(await backOut(page), true);
+  assert.strictEqual(asked.length, 1);
+  assert.match(asked[0], /setTimeout\(\(\)=>history\.back\(\),\d+\);true$/);
+});
+
+test('holdDown, moveHeld and liftUp are the three touches of a hold that moves', async () => {
+  const page = standIn();
+  await holdDown(page, 100, 200);
+  await moveHeld(page, 140, 200);
+  await liftUp(page);
+  assert.deepStrictEqual(touches(page), [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchMove', touchPoints: [{ x: 140, y: 200, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ]);
+});
+
+test('holdDrag is a touchStart, a real-time hold longer than the 500 ms of the page, a touchMove to each point of the path, and a touchEnd at the last', async () => {
+  const page = standIn();
+  const t0 = Date.now();
+  await holdDrag(page, { x: 100, y: 200 }, [{ x: 100, y: 300 }, { x: 110, y: 420 }]);
+  assert.ok(Date.now() - t0 >= LONG_PRESS_HOLD_MS - 20, 'it held before it moved');
+  assert.deepStrictEqual(touches(page), [
+    { type: 'touchStart', touchPoints: [{ x: 100, y: 200, id: 0 }] },
+    { type: 'touchMove', touchPoints: [{ x: 100, y: 300, id: 0 }] },
+    { type: 'touchMove', touchPoints: [{ x: 110, y: 420, id: 0 }] },
+    { type: 'touchEnd', touchPoints: [] },
+  ]);
+  assert.deepStrictEqual(page.calls.map((c) => c[0]), Array(4).fill('Input.dispatchTouchEvent'), 'nothing else is sent');
+});
+
+test('holdDrag given an expression holds until the page answers true to it, with the finger down, and moves after', async () => {
+  const page = standIn();
+  const waited = [];
+  page.waitFor = async (expr, ms) => { waited.push([expr, ms, page.calls.length]); return true; };
+  const t0 = Date.now();
+  await holdDrag(page, { x: 100, y: 200 }, [{ x: 100, y: 300 }], { until: 'card.held' });
+  assert.ok(Date.now() - t0 < LONG_PRESS_HOLD_MS - 100, 'it did not wait the fixed time');
+  assert.deepStrictEqual(waited, [['card.held', 4000, 1]], 'asked once, after the touchStart and before any move');
+  assert.deepStrictEqual(touches(page).map((t) => t.type), ['touchStart', 'touchMove', 'touchEnd']);
+});
+
+test('holdDrag runs whileHeld after the last move and before the lift, so a step can look at the page with the finger still down', async () => {
+  const page = standIn();
+  const seen = [];
+  await holdDrag(page, { x: 100, y: 200 }, [{ x: 100, y: 300 }], { whileHeld: async () => { seen.push(touches(page).map((t) => t.type)); } });
+  assert.deepStrictEqual(seen, [['touchStart', 'touchMove']]);
+  assert.deepStrictEqual(touches(page).map((t) => t.type), ['touchStart', 'touchMove', 'touchEnd']);
+});
+
+test('holdDrag takes one point as a path', async () => {
+  const page = standIn();
+  await holdDrag(page, { x: 100, y: 200 }, { x: 100, y: 300 });
+  assert.deepStrictEqual(touches(page).map((t) => [t.type, t.touchPoints[0] && t.touchPoints[0].y]), [['touchStart', 200], ['touchMove', 300], ['touchEnd', undefined]]);
+});
+
 test('swipe is a touchStart, evenly spaced touchMoves to the end point, and a touchEnd', async () => {
   const page = standIn();
   await swipe(page, { x: 300, y: 400 }, { x: 100, y: 400 }, { steps: 4 });
@@ -147,6 +266,13 @@ test('phone is 390 by 844 with touch on, on the plan board with the feature boar
   assert.deepStrictEqual(phone.start, { width: 390, height: 844, touch: true });
 });
 
+test('phone-back is the phone start with steps of its own for Back, on the plan board, 120 s', () => {
+  assert.strictEqual(phoneBack.name, 'phone-back');
+  assert.strictEqual(phoneBack.board, 'plan');
+  assert.strictEqual(phoneBack.timeoutMs, 120000);
+  assert.deepStrictEqual(phoneBack.start, phone.start);
+});
+
 test('phone-flip is 390 by 844 with touch off, on the plan board, 120 s', () => {
   assert.strictEqual(phoneFlip.name, 'phone-flip');
   assert.strictEqual(phoneFlip.board, 'plan');
@@ -155,7 +281,7 @@ test('phone-flip is 390 by 844 with touch off, on the plan board, 120 s', () => 
 });
 
 test('both are registered once', () => {
-  for (const sc of [phone, phoneFlip]) assert.strictEqual(scenarios.filter((s) => s === sc).length, 1, sc.name);
+  for (const sc of [phone, phoneBack, phoneFlip]) assert.strictEqual(scenarios.filter((s) => s === sc).length, 1, sc.name);
 });
 
 test('touch is off after phone ends, also when a step threw', async () => {
@@ -173,9 +299,17 @@ test('touch is off after phone ends when every step passes', async () => {
   assert.deepStrictEqual(touch[touch.length - 1][1], { enabled: false });
 });
 
+test('touch is off after phone-back ends, also when a step threw', async () => {
+  const dir = stepsFolder({ '00-a.js': "module.exports = { async run() { throw new Error('boom'); } };" });
+  const page = standIn();
+  await assert.rejects(phoneBack.run(page, { stepsDir: dir }), /boom/);
+  const touch = page.calls.filter((c) => c[0] === 'Emulation.setTouchEmulationEnabled');
+  assert.deepStrictEqual(touch[touch.length - 1][1], { enabled: false });
+});
+
 test('each scenario folder holds a boot step', () => {
   const dir = path.join(__dirname, 'browser', 'scenarios');
-  for (const f of ['phone-steps', 'phone-flip-steps']) {
+  for (const f of ['phone-steps', 'phone-back-steps', 'phone-flip-steps']) {
     assert.strictEqual(typeof require(path.join(dir, f, '00-boot.js')).run, 'function', f);
   }
 });

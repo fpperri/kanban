@@ -526,6 +526,7 @@ function openNotes(req) {
   u.el.classList.remove('hidden');
   notesPaint();
   if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
+  scheduleBackSync(); // over the card details a Back closes it, so the page keeps an entry for it
 }
 
 // The tabs a subject has (notes.js noteTabs): Notes (when the board keeps a logbook), a group's
@@ -573,6 +574,7 @@ function notesClose() {
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
   if (u.el.contains(document.activeElement)) document.activeElement.blur(); // never leave the focus in the hidden palette
+  scheduleBackSync();
   return true;
 }
 
@@ -1403,6 +1405,10 @@ function notesChipClearable() {
   return !!notesUi.sub && notesUi.tab === 'notes' && noteIsAboutCards(notesUi.sub);
 }
 
+function notesIsOpen() {
+  return !!notesUi.sub;
+}
+
 function notesEscape(fromFilter = false) {
   if (notesChipClearable() && !fromFilter) notesClearChip();
   else notesClose();
@@ -1480,7 +1486,7 @@ function notesCalendarOpening() {
 // above them, so it closes first and a second Esc closes the details. In the palette Esc is read by
 // the palette itself.
 function onNotesEscape(e) {
-  if (e.key !== 'Escape' || !notesUi.sub || notesUi.el.contains(e.target)) return;
+  if (e.key !== 'Escape' || !notesIsOpen() || notesUi.el.contains(e.target)) return;
   if (keyGuardSurface(document, NOTES_DETAIL) !== null) return;
   e.preventDefault();
   e.stopPropagation();

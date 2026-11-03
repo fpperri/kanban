@@ -58,7 +58,7 @@ module.exports = {
     const edit = await ev(rect('#ctx-edit'));
     const panel = await ev(rect('#ctx-edit + .ctx-sub-panel'));
     check('the panel is beside the row, on the right, level with it', panel.l >= edit.r - 2 && Math.abs(panel.t - edit.t) <= 8, JSON.stringify({ edit, panel }));
-    check('and holds Assign..., Set priority..., Edit tags... and Schedule...', await ev(`[...${PANEL('ctx-edit')}.querySelectorAll('button')].map((b)=>b.textContent.trim()).join('|')`) === 'Assign…|Set priority…|Edit tags…|Schedule…');
+    check('and holds Set status..., Assign..., Set priority..., Edit tags... and Schedule...', await ev(`[...${PANEL('ctx-edit')}.querySelectorAll('button')].map((b)=>b.textContent.trim()).join('|')`) === 'Set status…|Assign…|Set priority…|Edit tags…|Schedule…');
     await shot('edit-panel');
 
     // --- a diagonal move toward the open panel, across the Explore row, keeps it ---------------------------------
@@ -124,13 +124,13 @@ module.exports = {
     for (let i = 0; i < 3; i++) await key('ArrowDown');
     check('three more Downs reach the Edit row, past Add note... and Add child...', await waitFor(`${ACTIVE}==='ctx-edit'`, 2000), await ev(ACTIVE));
     await key('ArrowRight');
-    check('Right opens the Edit panel and highlights its first entry', await waitFor(`${OPEN('ctx-edit')}&&${ACTIVE}==='ctx-assign'`, 2500), await ev(ACTIVE));
+    check('Right opens the Edit panel and highlights its first entry', await waitFor(`${OPEN('ctx-edit')}&&${ACTIVE}==='ctx-status'`, 2500), await ev(ACTIVE));
     await key('ArrowDown');
-    check('Down inside the panel moves to the next entry', await waitFor(`${ACTIVE}==='ctx-priority'`, 2000), await ev(ACTIVE));
+    check('Down inside the panel moves to the next entry', await waitFor(`${ACTIVE}==='ctx-assign'`, 2000), await ev(ACTIVE));
     await key('ArrowLeft');
     check('Left shuts the panel and puts the highlight back on its row', await waitFor(`${SHUT('ctx-edit')}&&${ACTIVE}==='ctx-edit'`, 2500), await ev(ACTIVE));
     await key('Enter');
-    check('Enter on the row opens the panel too', await waitFor(`${OPEN('ctx-edit')}&&${ACTIVE}==='ctx-assign'`, 2500), await ev(ACTIVE));
+    check('Enter on the row opens the panel too', await waitFor(`${OPEN('ctx-edit')}&&${ACTIVE}==='ctx-status'`, 2500), await ev(ACTIVE));
     await key('Escape');
     check('the first Esc shuts the panel and leaves the menu up', await waitFor(`${SHUT('ctx-edit')}&&${ACTIVE}==='ctx-edit'`, 2500) && await ev(MENU_UP));
     await key('Escape');

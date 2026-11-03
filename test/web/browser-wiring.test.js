@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const browserDir = path.join(__dirname, 'browser');
 const files = [];
-for (const dir of [browserDir, path.join(browserDir, 'scenarios'), path.join(browserDir, 'scenarios', 'phone-steps'), path.join(browserDir, 'scenarios', 'phone-flip-steps')]) {
+for (const dir of [browserDir, path.join(browserDir, 'scenarios'), path.join(browserDir, 'scenarios', 'phone-steps'), path.join(browserDir, 'scenarios', 'phone-back-steps'), path.join(browserDir, 'scenarios', 'phone-flip-steps')]) {
   for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js'))) files.push(path.join(dir, f));
 }
 
@@ -43,7 +43,7 @@ test('every runner file is valid JavaScript', () => {
 test('the runner entry loads only the runner\'s own modules and Node\'s, never a package', () => {
   for (const file of files) {
     for (const m of fs.readFileSync(file, 'utf8').matchAll(/require\('([^']+)'\)/g)) {
-      assert.ok(m[1].startsWith('.') || /^(node:)?(fs|os|net|path|child_process)$/.test(m[1]), `${path.relative(browserDir, file)} requires ${m[1]}`);
+      assert.ok(m[1].startsWith('.') || /^(node:)?(fs|os|net|path|child_process|http)$/.test(m[1]), `${path.relative(browserDir, file)} requires ${m[1]}`);
     }
   }
 });

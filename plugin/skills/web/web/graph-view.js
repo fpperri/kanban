@@ -195,7 +195,7 @@ function graphAddressFor(search, kind, deps, laned) {
 function graphWriteAddress() {
   const search = graphAddressFor(location.search, graphLoadLayout(), graphLoadDeps(), graphLoadLanes());
   if (search == null) return;
-  try { history.replaceState(null, '', location.pathname + search); } catch (e) { /* the address lags until the next press */ }
+  try { history.replaceState(history.state, '', location.pathname + search); } catch (e) { /* the address lags until the next press */ }
 }
 
 // A press on the Hierarchy | Flow choice. Unnested off is the Hierarchy's
@@ -751,8 +751,11 @@ function graphRestFocus() {
   graphLightCards(graphRestLit(graphCur.model, { selectedIds, loneCardId: graphLoneCardId(), linkKind: graphLinkKind() }, graphCur.lines));
 }
 
+// The card the light follows is the one a long press pinned, else the one the pointer or the focus is on
+// (litFocusId, app.js).
 function graphSettleFocus() {
-  if (graphCur && hoveredId != null && graphCur.model.byId.has(hoveredId)) graphSetFocus(hoveredId);
+  const id = litFocusId();
+  if (graphCur && id != null && graphCur.model.byId.has(id)) graphSetFocus(id);
   else graphRestFocus();
 }
 
@@ -852,18 +855,27 @@ function graphPaintSelection() {
 // with the Graph's own answers (a plain click selects; Shift adds one card, as
 // Ctrl does), written to the selection and painted in place, no rebuild. The search panel is
 // repainted too (its chip, and its pills while it is open), since a click that drops a pill
-// takes it off the chip as well as out of the box.
+// takes it off the chip as well as out of the box. On the phone layout a tap toggles the dot,
+// and the second tap of a double tap opens the card and puts the selection back as it was
+// before the first tap (reopenAfterDoubleTap), so the wire has no dblclick to listen for there.
 function graphClickNode(id, mods) {
-  const action = cardClickAction({
+  // At the desk the dblclick event opens, so a second click is no peek there (peeks: false).
+  let action = cardClickAction({
     cue: false, shiftKey: mods.shiftKey, ctrlKey: mods.ctrlKey, metaKey: mods.metaKey,
-    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'),
+    plainClick: plainClickBehaviour('graph'), ranges: shiftAddsRange('graph'), peeks: false, phone: onPhoneLayout(), detail: mods.detail,
   });
-  const before = selectionState.selection;
+  if (action === 'restore-open') {
+    if (reopenAfterDoubleTap(id)) return;
+    action = 'toggle'; // no first tap to undo: this tap is a first tap
+  }
+  const prior = selectionState;
+  const before = prior.selection;
   selectByClick(action, id);
   // With isolate off the box shows the selection the click made (mirrorSelectionInBox), its cut
   // kept: the Graph keeps drawing what the cut hides, so the painting in place stays true. While
   // isolated the box holds the isolate text, which a click never writes: it moves the anchor only.
   if (boxMirrorsSelection()) mirrorSelectionInBox(before, false);
+  rememberTap(action, id, prior);
   graphPaintSelection();
   renderSearchPanel();
 }
@@ -1022,7 +1034,7 @@ function renderGraphView() {
     layout = graphLayout(model, kind, layoutOpts);
     sig = graphSignature(model, kind, layoutOpts);
     plan = graphPlan(model, layout, {
-      selectedIds, loneCardId: graphLoneCardId(), hoveredId, kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
+      selectedIds, loneCardId: graphLoneCardId(), hoveredId: litFocusId(), kind, statusClass: statusColorClass, titleOf: (c) => cardTitleDisplay(c).text, fan: fanOptions,
       types: state.types,
     });
   } catch (err) {
@@ -1244,7 +1256,7 @@ function wireGraphView(host) {
     graphClickNode(node.dataset.id, e);
   }, true);
   host.addEventListener('dblclick', (e) => {
-    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (!graphDblClickOpens({ shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, phone: onPhoneLayout() })) return;
     const node = e.target.closest('.graph-node');
     if (node) openCard(node.dataset.id);
   });
@@ -1257,14 +1269,21 @@ function wireGraphView(host) {
   });
 
   const hitOf = (el) => (el && el.closest ? el.closest('.graph-link-hit') : null);
+  // A card a long press pinned keeps the light over the pointer and the focus: a touch's own mouseover on
+  // another dot, ahead of the click that only closes the menu, must not move it.
+  const pinned = () => {
+    if (pinnedLitId === null) return false;
+    graphSettleFocus();
+    return true;
+  };
   const enter = (e) => {
     const hit = e.type === 'mouseover' ? hitOf(e.target) : null;
-    if (hit && graphCur) { graphSetLineFocus(Number(hit.dataset.link)); return; }
+    if (hit && graphCur) { if (!pinned()) graphSetLineFocus(Number(hit.dataset.link)); return; }
     const el = e.target.closest('.graph-node');
     if (!el) return;
     if (e.type === 'focusin' && searchEnterFocusedId === el.dataset.id) return; // the focus Enter in the search box gave: the search's lights stay
     searchEnterFocusedId = null;
-    graphSetFocus(el.dataset.id);
+    if (!pinned()) graphSetFocus(el.dataset.id);
   };
   const leave = (e) => {
     if (e.type === 'focusout' && e.relatedTarget) searchEnterFocusedId = null; // focus moved on to something else
@@ -1277,6 +1296,7 @@ function wireGraphView(host) {
     if (!from) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.graph-node');
     if (to === from) return;
+    if (pinned()) return;
     if (to) graphSetFocus(to.dataset.id);
     else graphRestFocus();
   };

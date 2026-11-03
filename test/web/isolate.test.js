@@ -38,7 +38,7 @@ const makeBoard = () => ({
   ],
 });
 
-const HIDDEN = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#search-panel'];
+const HIDDEN = ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status', '#search-panel'];
 const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
 // A control that remembers the attributes the page sets on it and its text.
 const spied = (el = control()) => {

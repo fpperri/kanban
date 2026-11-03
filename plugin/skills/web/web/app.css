@@ -385,6 +385,9 @@ button.queued-pill:focus-visible { outline: 2px solid var(--accent); outline-off
 .search-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 300px; z-index: 20; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); }
 .search-board-note { margin: 0; color: var(--mut); font-size: 0.85em; }
+.search-select-all { align-self: flex-start; padding: 2px 10px; font-size: 0.8em; }
+.search-select-all:disabled { color: var(--mut); cursor: default; }
+.search-select-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .search-slices:empty { display: none; }
 .search-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .search-fold { background: transparent; border-color: transparent; color: var(--mut); padding: 2px 6px; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -446,6 +449,7 @@ button.queued-pill:focus-visible { outline: 2px solid var(--accent); outline-off
   :root:has(.search-input:focus) #view-bar { display: none; }
   .search-panel { max-height: 70vh; overflow-y: auto; }
   .status-pill { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
+  .search-select-all { min-height: 44px; padding: 2px 14px; font-size: 0.9em; }
 }
 /* End search box and search panel */
 /* Signals a collapsed column that still has hits — the count itself
@@ -538,8 +542,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   .board-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: .2rem; color: var(--mut); font-weight: 600; font-size: 0.85em; cursor: pointer; }
   .board-tab-count { font-weight: 400; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
   .board-tab[aria-selected="true"] { background: var(--paper); border-bottom-color: currentColor; }
-  main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h)); }
-  .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); overflow: auto; }
+  main#board { overflow-x: hidden; height: calc(100dvh - var(--board-header-h, 64px) - 48px - 48px - var(--view-bar-h) - var(--selection-bar-h)); }
+  .calendar-view, .gantt-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h) - var(--selection-bar-h)); overflow: auto; }
   #view-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 14; display: flex; height: var(--view-bar-h); padding-bottom: env(safe-area-inset-bottom); background: var(--paper); border-top: 1px solid var(--line-strong); }
   #view-bar .view-bar-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 0; background: transparent; border: 0; border-radius: 0; color: var(--mut); font-size: 0.7em; }
   #view-bar .view-bar-btn .btn-icon svg { width: 22px; height: 22px; display: block; }
@@ -547,6 +551,21 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
   #view-bar .view-bar-btn .btn-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
   .column { min-width: 0; }
   .column-header { display: none; }
+}
+/* The selection bar: while anything is selected, the resolved count and Clear, Archive, Status and More sit
+   above the view bar of a phone (bottom: the view bar's height), and every view gives up the bar's height
+   (--selection-bar-h, 0 while the bar is hidden) beside the view bar's, so the bar covers neither the view
+   bar nor the last card. Hidden from 760 px. Like the view bar it steps aside while the search field has
+   the keyboard up; the focus rule follows the one that gives the bar its height, which it ties with. */
+.selection-bar { display: none; }
+@media (max-width: 759.98px) {
+  :root { --selection-bar-h: 0px; }
+  :root:has(.selection-bar:not(.hidden)) { --selection-bar-h: 52px; }
+  :root:has(.search-input:focus) { --selection-bar-h: 0px; }
+  :root:has(.search-input:focus) .selection-bar { display: none; }
+  .selection-bar { position: fixed; left: 0; right: 0; bottom: var(--view-bar-h); z-index: 14; display: flex; align-items: center; gap: 6px; height: var(--selection-bar-h); padding: 0 8px; background: var(--paper); border-top: 1px solid var(--line-strong); }
+  .selection-bar-count { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink-strong); }
+  .selection-bar-btn { flex: 0 0 auto; min-width: 48px; min-height: 44px; padding: 0 10px; }
 }
 /* The header's action buttons do not wrap, so their words alone are wider than a phone and a mobile layout viewport widens to them,
    which pushes every full-width phone box past the screen. Under 760 px they wrap onto a second row until the phone header takes them. */
@@ -606,6 +625,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .modal.fullscreen.bulk-modal { max-width: none; }
 .bulk-hint { color: var(--mut); font-size: 12px; margin: 2px 0 8px; }
 .bulk-actions { display: flex; gap: 8px; margin: 10px 0 4px; }
+.bulk-status-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.bulk-status-btn { min-height: 44px; text-align: left; font-weight: 600; border-left: 4px solid currentColor; }
 /* tag rows: checkbox + name + count side by side, wrapping into as many
    columns as the width allows */
 #bulk-tag-list { display: flex; flex-wrap: wrap; gap: 2px 16px; margin-top: 8px; }
@@ -636,6 +657,8 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
 .card.archived-card { cursor: pointer; }
 @media (max-width: 759.98px) {
   .card { touch-action: pan-y pinch-zoom; }
+  /* A long press on a card is the page's own gesture (card-press.js): the browser's text selection and, on iOS, its callout would start at the same hold. */
+  .card-el { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 }
 /* The head wraps: a tile carrying its id, priority, assignee and both stickers
    moves the overflow to a second line instead of running under the date stack
@@ -1506,7 +1529,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-main { position: relative; flex: 1; min-width: 0; padding: 0 14px 14px; display: flex; flex-direction: column; }
 
 @media (max-width: 759.98px) {
-  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h)); }
+  .map-view, .graph-view { height: calc(100dvh - var(--board-header-h, 64px) - 48px - var(--view-bar-h) - var(--selection-bar-h)); }
 }
 /* Graph view */
 /* The (i) and the option button float in the drawing's top-right corner and take no row. */
@@ -1851,6 +1874,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .prefs-eyebrow { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: -14px; }
 .prefs-page-title { color: var(--ink-strong); font-size: 1.05em; font-weight: 700; letter-spacing: -0.01em; }
 .prefs-group { display: flex; flex-direction: column; gap: 10px; }
+.prefs-group.prefs-phone-group { display: none; }
+@media (max-width: 759.98px) { .prefs-group.prefs-desk-group { display: none; } .prefs-group.prefs-phone-group { display: flex; } }
 .prefs-group h3 { color: var(--mut); font-size: 0.72em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .prefs-hint { color: var(--mut); font-size: 0.8em; line-height: 1.5; }
 .prefs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1956,6 +1981,22 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .tray-discard { margin-left: auto; }
 .tray-discard:hover { background: var(--crit-soft); border-color: var(--crit); color: var(--crit); }
 /* End tray */
+
+/* The speedbump's question (ask-ui.js): a small dialog in the middle of the page. It is the last backdrop
+   in the page and sits above the notes palette over the details (31), the highest layer an ask can come
+   from, and under the card menu (60). On a phone the two buttons share the row and are tall enough to tap. */
+.ask-backdrop { z-index: 50; }
+.ask-modal { width: min(420px, 92vw); }
+.ask-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ask-text { margin: 0; color: var(--ink); line-height: 1.45; overflow-wrap: anywhere; }
+.ask-text code { background: var(--raised); color: var(--code-ink); border-radius: .15rem; padding: 0.08em 0.32em; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.86em; }
+.ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.ask-yes { background: var(--crit); border-color: var(--crit); color: var(--on-fill); }
+.ask-yes:hover { background: var(--crit); border-color: var(--ink-strong); color: var(--on-fill); }
+@media (max-width: 759.98px) {
+  .ask-actions button { flex: 1 1 0; min-height: 44px; }
+}
+/* End ask */
 
 /* Hover/focus highlight (kanban.proj#261): pointer hover OR keyboard focus
    on any piece of a card lights every piece sharing its id (app.js's

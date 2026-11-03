@@ -1,10 +1,10 @@
 'use strict';
 // The Gantt's label column on a phone (390 by 844, touch on): ids with their status dots, a gutter
-// 64 to 96 px wide, a status heading that is not clipped, the bar's title kept, and a tap on an id
+// 64 to 96 px wide, a status heading that is not clipped, the bar's title kept, and a double tap on an id
 // opens the card. Above the width line (800) the gutter is 200 px with full labels. The plan board's
 // two dated cards (28 and 29) are the Gantt's All sub-view.
 
-const { tap } = require('../../steps');
+const { doubleTap } = require('../../steps');
 
 module.exports = {
   async run(page) {
@@ -27,8 +27,8 @@ module.exports = {
     const p = await ev(`(()=>{const l=document.querySelector('#gantt-view .gantt-label[data-id="28"] .gantt-label-id');if(!l)return null;l.scrollIntoView({block:'center'});const r=l.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     check('card 28 has an id in the label column', !!p, p);
     if (p) {
-      await tap(page, p.x, p.y);
-      check('a tap on an id opens its card', await waitFor(`/[?&]card=28\b/.test(location.search)||!!document.querySelector('.modal-backdrop, .detail')`, 5000), await ev('location.search'));
+      await doubleTap(page, p.x, p.y);
+      check('a double tap on an id opens its card', await waitFor(`/[?&]card=28(&|$)/.test(location.search)`, 5000), await ev('location.search'));
     }
 
     await open('/?view=gantt');

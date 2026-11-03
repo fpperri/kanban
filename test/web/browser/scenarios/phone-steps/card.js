@@ -1,11 +1,11 @@
 'use strict';
-// A card opens full screen on a phone with a back row. A tap on a card in the Board opens the detail
+// A card opens full screen on a phone with a back row. A double tap on a card in the Board opens the detail
 // filling the viewport; its first row holds '‹ Board' at the left and the edit, archive and delete
 // buttons at the right, and full screen, close and copy path are hidden. Back closes the card the
 // way the desktop's close does: the address loses card=, and the browser's back and forward reopen
 // and close it.
 
-const { tap } = require('../../steps');
+const { tap, doubleTap } = require('../../steps');
 
 module.exports = {
   async run(page) {
@@ -17,8 +17,8 @@ module.exports = {
     await open('/');
     check('the Board draws', await waitFor(`document.querySelectorAll('#board .column .card-el').length>0`, 10000));
     const point = await ev(`(()=>{const el=document.querySelector('#board .column .card-el');el.scrollIntoView({block:'center',inline:'center'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
-    await tap(page, point.x, point.y);
-    check('a tap on a card opens it', await waitFor(`!document.querySelector('#detail-modal').classList.contains('hidden')&&${hasCard}`, 3000), await ev('location.search'));
+    await doubleTap(page, point.x, point.y);
+    check('a double tap on a card opens it', await waitFor(`!document.querySelector('#detail-modal').classList.contains('hidden')&&${hasCard}`, 3000), await ev('location.search'));
 
     const box = await ev(`(()=>{const r=document.querySelector('#detail-modal .detail-modal').getBoundingClientRect();return {l:r.left,t:r.top,w:r.width,h:r.height,iw:innerWidth,ih:innerHeight}})()`);
     check('the detail fills the viewport', box.l === 0 && box.t === 0 && box.w === box.iw && box.h === box.ih, box);

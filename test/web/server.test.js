@@ -558,10 +558,10 @@ test('popup header control icons still ride order:-1 (the mechanism the shared p
     assert.match(css, /\.modal-header-actions\s*\{[^}]*order:\s*-1/);
     assert.match(css, /\.detail-actions\s*\{[^}]*order:\s*-1/);
     // every popup's header controls ride one of the two moved classes —
-    // edit form + the three bulk popups + the archive popup + the group dialog
+    // edit form + the three bulk popups + the archive popup + the Set status popup + the group dialog
     // vs. detail popup + notifications
     const html = await (await fetch(`${base}/`)).text();
-    assert.strictEqual((html.match(/class="modal-header-actions"/g) || []).length, 6);
+    assert.strictEqual((html.match(/class="modal-header-actions"/g) || []).length, 7);
     assert.strictEqual((html.match(/class="detail-actions"/g) || []).length, 2);
   });
 });
@@ -590,13 +590,13 @@ test('every popup header is its OWN two rows — icons alone on row 1, title/con
     // only while every match above stayed green.
     assert.ok(!/\.modal\.fullscreen[^{]*(popup-header|modal-header|detail-header|-actions)/.test(css),
       'a .modal.fullscreen-scoped header/popup-header/actions rule would silently undo the two-row layout in fullscreen only');
-    // one shared class, not per-popup one-offs: all eight header containers —
+    // one shared class, not per-popup one-offs: all nine header containers —
     // the edit/create form, the three bulk popups (single/tags/schedule), the
-    // archive popup, the group dialog, the detail popup, and notifications — carry
+    // archive popup, the Set status popup, the group dialog, the detail popup, and notifications — carry
     // .popup-header. The right-click context menu has no header controls and
     // carries neither this class nor an action group ("stays as-is").
     const html = await (await fetch(`${base}/`)).text();
-    assert.strictEqual((html.match(/class="[^"]*\bpopup-header\b[^"]*"/g) || []).length, 8);
+    assert.strictEqual((html.match(/class="[^"]*\bpopup-header\b[^"]*"/g) || []).length, 9);
     assert.doesNotMatch(html, /<div id="context-menu"[^>]*class="[^"]*popup-header/);
     // position only: DOM stays title/content-before-actions everywhere (the
     // order:-1 CSS flip is what visually leads with the icons) — the same
@@ -2493,16 +2493,18 @@ test('Esc closes the open popup directly on the first press — no exit-fullscre
   assert.doesNotMatch(body, /openFullscreenModalType/, 'Esc no longer looks up which modal is fullscreen');
   assert.doesNotMatch(body, /setModalFullscreenVisual/,
     'Esc never flips fullscreen — the persisted #20 preference and the toggle button stay untouched');
-  assert.match(body, /if \(!\$\('#detail-modal'\)\.classList\.contains\('hidden'\)\) \{ closeCard\(\); return; \}/,
+  assert.match(body, /backStep\(standingLayers\(true\)\)[\s\S]*takeLayer\(layer, e\)/, 'Esc closes the layer that stands, in the order back-steps.js sets');
+  const closer = js.match(/function takeLayer\([\s\S]*?\n\}/)[0];
+  assert.match(closer, /step === 'details'\) closeCard\(\);/,
     'an open detail popup closes on the very first Esc, fullscreen or not (closeCard: a real close is also a history step)');
-  assert.match(body, /if \(!\$\('#modal'\)\.classList\.contains\('hidden'\)\) \{ requestCloseModal\(\); return; \}/,
+  assert.match(closer, /step === 'edit-form'\) requestCloseModal\(\);/,
     'the edit/new-card modal now closes on Esc through the #26 unsaved-changes guard, same call the X button makes');
   // Before this, a fullscreen-capable bulk popup (bulkSingle/
   // Tags/Schedule) left Esc a true no-op — the old fullscreen-exit step was
   // removed and nothing replaced it for these three. Esc must close them
   // directly too, same as their own backdrop-click (no confirm — bulk edits
   // are speedbump-exempt, Apply is the speedbump).
-  assert.match(body, /if \(closeAnyBulkPopup\(\)\) return;/,
+  assert.match(closer, /step === 'bulk-popup'\) closeAnyBulkPopup\(\);/,
     'Esc closes an open bulk-edit popup directly, same as its backdrop-click');
 });
 
@@ -2510,9 +2512,12 @@ test('closeAnyBulkPopup closes whichever bulk popup is open, no confirm — the 
   const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/function closeAnyBulkPopup\([\s\S]*?\n\}/);
   assert.ok(fn, 'closeAnyBulkPopup found in app.js');
-  assert.match(fn[0], /#bulk-single/);
-  assert.match(fn[0], /#bulk-tags/);
-  assert.match(fn[0], /#bulk-schedule/);
+  const list = js.match(/const BULK_POPUPS = \[[^\]]*\];/);
+  assert.ok(list, 'the list of bulk popups found in app.js');
+  assert.match(list[0], /#bulk-single/);
+  assert.match(list[0], /#bulk-tags/);
+  assert.match(list[0], /#bulk-schedule/);
+  assert.match(fn[0], /BULK_POPUPS/);
   assert.doesNotMatch(fn[0], /confirm\(/, 'bulk-edit popups are speedbump-exempt — Esc closes them with no confirm, same as backdrop-click');
 });
 
@@ -2606,22 +2611,22 @@ test("combobox Up/Down highlight reuses the existing hover treatment, not a new 
 // dropping/inverting the gate on either of those two surfaces would pass the
 // whole suite silently.
 
-test('doArchive gates its confirm on archiveNeedsConfirm — the tile/detail Archive button surface (regression)', () => {
+test('doArchive gates its question on archiveNeedsConfirm — the tile/detail Archive button surface (regression)', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function doArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'doArchive found in app.js');
   assert.match(fn[0], /archiveNeedsConfirm\(\[card\]\)/,
     'a missing lookup falls back to confirming (the safe default) — archiveNeedsConfirm only runs when the card is found');
-  assert.match(fn[0], /if \(\(!card \|\| archiveNeedsConfirm\(\[card\]\)\) && !confirm\(/,
-    'confirm is skipped entirely when the found card is done — same rule dragPlan/bulkArchive use');
+  assert.match(fn[0], /if \(\(!card \|\| archiveNeedsConfirm\(\[card\]\)\) && !\(await askInPage\(/,
+    'the question is skipped entirely when the found card is done — same rule dragPlan/bulkArchive use');
 });
 
-test('bulkArchive gates its confirm on archiveNeedsConfirm — the bulk menu\'s Archive selected surface (regression)', () => {
+test('bulkArchive gates its question on archiveNeedsConfirm — the bulk menu\'s Archive selected surface (regression)', () => {
   const js = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
   const fn = js.match(/async function bulkArchive\([\s\S]*?\n\}/);
   assert.ok(fn, 'bulkArchive found in app.js');
-  assert.match(fn[0], /if \(archiveNeedsConfirm\(toArchive\) && !confirm\(/,
-    'the batch confirm is skipped when every card actually being archived (toArchive, not the whole selection) is already done');
+  assert.match(fn[0], /if \(archiveNeedsConfirm\(toArchive\) && !\(await askInPage\(/,
+    'the batch question is skipped when every card actually being archived (toArchive, not the whole selection) is already done');
 });
 
 // =====================================================================

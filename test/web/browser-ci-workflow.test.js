@@ -65,10 +65,11 @@ test('the browser job runs on Ubuntu with Node only: checkout and Node 22, no Py
   assert.ok(!/setup-python/.test(J.browser));
 });
 
-test('the browser job has a time limit of about ten minutes', () => {
+// The job runs every scenario twice (about 290 s a pass on the runner), the older-plugin smoke run and the fault check.
+test('the browser job has a time limit that holds two full passes with room to spare, and not more than a quarter of an hour', () => {
   const m = /timeout-minutes: (\d+)/.exec(J.browser);
   assert.ok(m, 'no timeout-minutes');
-  assert.ok(Number(m[1]) >= 5 && Number(m[1]) <= 15, `timeout-minutes is ${m[1]}`);
+  assert.ok(Number(m[1]) >= 12 && Number(m[1]) <= 15, `timeout-minutes is ${m[1]}`);
 });
 
 test('the browser job sets the sandbox switch the runner reads', () => {

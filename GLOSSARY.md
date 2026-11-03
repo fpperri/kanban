@@ -274,8 +274,16 @@ A search query offered as one click: blocked, review and waiting are built in, a
 _Avoid_: light pill, filter button, chip.
 
 **Phone layout**:
-The Web's layout below 760 px wide, one width line shared by every width-gated rule: a one-row header, the view bar at the bottom, status tabs on the Board, full-screen cards and forms. From 760 px it is the desktop layout; crossing the line either way switches with no reload.
+The Web's layout below 760 px wide, one width line shared by every width-gated rule: a one-row header, the view bar at the bottom, status tabs on the Board, full-screen cards and forms, and a touch grammar of its own ([ADR 0026](docs/adr/0026-the-phone-layout-has-a-touch-grammar-of-its-own.md)): a tap selects a card, a double tap opens it, a long press lights it and opens its menu, a hold and a drag selects a run of tiles on the Board, the selection bar acts on what is picked and Android Back steps back as Esc does. From 760 px it is the desktop layout; crossing the line either way switches with no reload.
 _Avoid_: mobile site, responsive mode.
+
+**Selection bar**:
+The bar at the bottom of the phone layout, above the view bar, that reads "N selected" (the resolved count) with Clear, Archive, Status and More while the selection holds a card; each acts on the whole selection. It is not drawn at the desk width.
+_Avoid_: action bar, bulk bar.
+
+**Light**:
+What a long press on a card lights on the phone layout: the card and the sets On hover show ticks, kept on after the menu closes until the next tap, the move of a finger after the hold, Back or Esc. It is a look at relations, not the selection: a lit card is not picked until Select lit (N) in the menu adds the lit cards the view shows.
+_Avoid_: pinned hover, glow.
 
 **Status tabs**:
 The strip across the top of the phone Board, one tab per status (Archive last) with its colour and count; the Board shows the one status chosen, and a tap or a sideways swipe changes it. They replace the column headers on a phone.

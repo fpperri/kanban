@@ -13,24 +13,30 @@ const PAGE_GLOBALS = [
   'api',
   'applyBoardData',
   'askBeforeLeaving',
+  'askState',
   'autoRefreshTick',
   'boardControlFocused',
   'calendarAnchor',
   'cardPart',
   'closeCard',
   'currentDetailId',
+  'DOUBLE_CLICK_MS',
   'graphCur',
   'graphFanLines',
   'graphFanNames',
   'graphLoadOptions',
+  'ganttDayPxLive',
   'graphSetOption',
+  'hideContextMenu',
   'hoveredId',
   'isDragging',
   'isolateNow',
   'loadBoard',
+  'menuSubject',
   'localTodayStr',
   'openCard',
   'openNotes',
+  'pinnedLitId',
   'noteClock',
   'notesUi',
   'renderBoard',
@@ -44,6 +50,7 @@ const PAGE_GLOBALS = [
   'settingsBoardPages',
   'settingsRenderBoard',
   'settingsUi',
+  'showContextMenu',
   'shownCardIds',
   'state',
   'storageKey',
@@ -58,7 +65,7 @@ const browserDir = path.join(__dirname, 'browser');
 // Every runner file: the entry, the harness modules, the scenarios, the step files of the phone scenarios, the checks.
 function runnerFiles() {
   const out = [];
-  for (const dir of [browserDir, path.join(browserDir, 'scenarios'), path.join(browserDir, 'scenarios', 'phone-steps'), path.join(browserDir, 'scenarios', 'phone-flip-steps')]) {
+  for (const dir of [browserDir, path.join(browserDir, 'scenarios'), path.join(browserDir, 'scenarios', 'phone-steps'), path.join(browserDir, 'scenarios', 'phone-back-steps'), path.join(browserDir, 'scenarios', 'phone-flip-steps')]) {
     for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js'))) out.push(path.join(dir, f));
   }
   return out.sort();

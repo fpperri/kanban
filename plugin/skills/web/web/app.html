@@ -57,6 +57,7 @@
         <button type="button" id="search-pills-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-pills" aria-label="Pills" title="Fold or unfold the pills">Pills</button>
         <div id="search-pills" class="search-pills" role="group" aria-labelledby="search-pills-fold"></div>
       </section>
+      <button type="button" id="search-select-all" class="search-select-all hidden" data-keeps-selection title="Select every card the search shows">Select all shown</button>
       <hr class="search-divider">
       <section id="search-typing-section" class="search-section" aria-labelledby="search-typing-fold">
         <button type="button" id="search-typing-fold" class="search-fold" data-keeps-selection aria-expanded="true" aria-controls="search-typing" aria-label="Typing isolates" title="Fold or unfold the typing isolates">Typing isolates</button>
@@ -133,6 +134,16 @@
   <button type="button" class="view-bar-btn" data-view="map" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
   <button type="button" class="view-bar-btn" data-view="graph" data-keeps-selection aria-pressed="false"><span class="btn-icon" aria-hidden="true"></span><span class="btn-label"></span></button>
 </nav>
+<!-- The selection bar (phone layout only): the resolved count and four actions on it, above the view bar,
+     while anything is selected. Clear empties the selection; Archive, Status (Set status…) and More (the card
+     menu) act on the cards it stands for. Every control keeps the selection. -->
+<div id="selection-bar" class="selection-bar hidden" role="group" aria-label="Selection" data-keeps-selection>
+  <span id="selection-bar-count" class="selection-bar-count" aria-live="polite"></span>
+  <button type="button" id="selection-bar-clear" class="selection-bar-btn" data-keeps-selection>Clear</button>
+  <button type="button" id="selection-bar-archive" class="selection-bar-btn" data-keeps-selection>Archive</button>
+  <button type="button" id="selection-bar-status" class="selection-bar-btn" data-keeps-selection>Status</button>
+  <button type="button" id="selection-bar-more" class="selection-bar-btn" data-keeps-selection aria-haspopup="menu" aria-expanded="false">More</button>
+</div>
 
 <div id="modal" class="modal-backdrop hidden">
   <!-- autocomplete=off: the browser's form-history dropdown fights the
@@ -314,6 +325,7 @@
   <div class="ctx-sub">
     <button type="button" id="ctx-edit" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-edit-panel">Edit</button>
     <div class="ctx-sub-panel" id="ctx-edit-panel" role="menu" aria-label="Edit">
+      <button type="button" id="ctx-status" role="menuitem">Set status…</button>
       <button type="button" id="ctx-assign" role="menuitem">Assign…</button>
       <button type="button" id="ctx-priority" role="menuitem">Set priority…</button>
       <button type="button" id="ctx-tags" role="menuitem">Edit tags…</button>
@@ -336,7 +348,7 @@
        that was right-clicked (the open card, in the card details' menu), never on the selection: a
        plain pick writes its term to the search box as if typed, in place of what the box held but for
        its slice: run, and a Shift pick adds it as one more alternative (each item's title says so).
-       They show on every card's menu. -->
+       They show on every menu that names a card, and not on the one the selection bar's More opens. -->
   <div class="ctx-sub">
     <button type="button" id="ctx-explore" class="ctx-parent" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="ctx-explore-panel">Explore</button>
     <div class="ctx-sub-panel" id="ctx-explore-panel" role="menu" aria-label="Explore">
@@ -364,6 +376,8 @@
        and the menu is for a single card. -->
   <button type="button" id="ctx-todos" role="menuitem" class="hidden">Todos…</button>
   <button type="button" id="ctx-add" role="menuitem">Add to selection</button>
+  <!-- Select lit (N) adds the cards the light holds to the selection. It shows in the menu a long press opens, when the light holds more than the card. -->
+  <button type="button" id="ctx-lit" role="menuitem" class="hidden">Select lit</button>
   <hr class="ctx-sep" role="separator">
   <button type="button" id="ctx-archive" role="menuitem">Archive selected</button>
   <button type="button" id="ctx-restore" role="menuitem">Restore selected</button>
@@ -409,6 +423,20 @@
     <div class="bulk-actions">
       <button type="button" id="bulk-tags-remove" class="danger">Bulk remove tags</button>
     </div>
+  </div>
+</div>
+
+<!-- Set status… popup — one button per status of the board (script fills the list). A tap on one moves every
+     card the popup opened for, by the route a drop on that status's column takes. -->
+<div id="bulk-status" class="modal-backdrop hidden" data-keeps-selection>
+  <div class="modal bulk-modal">
+    <div class="modal-header popup-header">
+      <h2 id="bulk-status-title"></h2>
+      <div class="modal-header-actions">
+        <button type="button" id="bulk-status-close" class="icon-btn" title="Close" aria-label="Close">&#10005;</button>
+      </div>
+    </div>
+    <div id="bulk-status-list" class="bulk-status-list"></div>
   </div>
 </div>
 
@@ -529,7 +557,7 @@
         <button type="button" class="prefs-back" id="prefs-back" data-keeps-selection data-holds-poll>&#8249; Preferences</button>
         <section class="prefs-page" data-page="browser:prefs">
           <p class="prefs-eyebrow">This browser</p>
-          <section class="prefs-group" aria-labelledby="prefs-click-title">
+          <section class="prefs-group prefs-desk-group" aria-labelledby="prefs-click-title">
             <h3 id="prefs-click-title">A plain click on a card</h3>
             <p class="prefs-hint">Opens the card, or selects it. Where a click selects, a double click or Enter on a focused card opens it. Ctrl or Cmd click toggles a card and Shift click adds a range in every view.</p>
             <div class="prefs-row">
@@ -564,6 +592,44 @@
               <span class="prefs-label" id="prefs-label-graph">Graph</span>
               <span class="prefs-seg" role="group" aria-labelledby="prefs-label-graph">
                 <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="click" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
+              </span>
+            </div>
+          </section>
+          <section class="prefs-group prefs-phone-group" aria-labelledby="prefs-tap-title">
+            <h3 id="prefs-tap-title">A tap on a card</h3>
+            <p class="prefs-hint">Selects the card, adding it to the selection or taking it out, or opens it. Where a tap selects, a double tap or Enter on a focused card opens it and leaves the selection as it was.</p>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-board">Board</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-board">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="board" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="board" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-map">Map</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-map">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="map" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="map" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-gantt">Gantt</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-gantt">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="gantt" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="gantt" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-calendar">Calendar</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-calendar">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="calendar" data-value="opens" aria-pressed="false">opens</button>
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="calendar" data-value="selects" aria-pressed="false">selects</button>
+              </span>
+            </div>
+            <div class="prefs-row">
+              <span class="prefs-label" id="prefs-tap-label-graph">Graph</span>
+              <span class="prefs-seg" role="group" aria-labelledby="prefs-tap-label-graph">
+                <button type="button" class="prefs-opt" data-keeps-selection data-holds-poll data-pref="tap" data-view="graph" data-value="selects" aria-pressed="true" disabled title="The Graph always selects">selects</button>
               </span>
             </div>
           </section>
@@ -637,6 +703,24 @@
   </aside>
 </div>
 
+<!-- The speedbump's question (ask-ui.js): every destructive act asks here instead of through the browser's
+     confirm(), which a host that sandboxes the page answers with no. Last in the page, so it stacks above
+     every other popup; the message is set as text. Esc, Cancel, the close button and a click outside answer
+     no, and Cancel takes the focus. -->
+<div id="ask" class="modal-backdrop ask-backdrop hidden" data-keeps-selection>
+  <div class="modal ask-modal" role="alertdialog" aria-modal="true" aria-labelledby="ask-title" aria-describedby="ask-text">
+    <div class="ask-head">
+      <h2 id="ask-title">Are you sure?</h2>
+      <button type="button" id="ask-close" class="icon-btn" data-keeps-selection title="Close" aria-label="Close">&#10005;</button>
+    </div>
+    <p id="ask-text" class="ask-text"></p>
+    <div class="ask-actions">
+      <button type="button" id="ask-no" data-keeps-selection>Cancel</button>
+      <button type="button" id="ask-yes" class="ask-yes" data-keeps-selection>OK</button>
+    </div>
+  </div>
+</div>
+
 <script src="/board-source.js"></script>
 <script src="/save-guard.js"></script>
 <script src="/tray-describe.js"></script>
@@ -684,6 +768,7 @@
 <script src="/view-panel.js"></script>
 <script src="/phone-width.js"></script>
 <script src="/selection.js"></script>
+<script src="/card-press.js"></script>
 <script src="/status-colors.js"></script>
 <script src="/assignee-colors.js"></script>
 <script src="/save-hotkey.js"></script>
@@ -692,6 +777,7 @@
 <script src="/key-guard.js"></script>
 <script src="/deep-link.js"></script>
 <script src="/card-history.js"></script>
+<script src="/back-steps.js"></script>
 <script src="/search-panel.js"></script>
 <script src="/status-filters.js"></script>
 <script src="/search-statuses.js"></script>
@@ -714,6 +800,7 @@
 <script src="/settings-ui.js"></script>
 <script src="/more-menu.js"></script>
 <script src="/tray-ui.js"></script>
+<script src="/ask-ui.js"></script>
 <script src="/menu-nest.js"></script>
 <script src="/menu-nest-ui.js"></script>
 <script src="/text-edit.js"></script>

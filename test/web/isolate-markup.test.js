@@ -109,7 +109,7 @@ test('the Graph\'s one decision about a query is told whether isolate is on', ()
 
 test('Esc stops the browser\'s own Esc with isolate on, in the step that ends the chain after the held-key check, and the step reads the flag', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['closeSearchPanel()', 'e.repeat', 'escapeStep(e)'].map((s) => handler.indexOf(s));
+  const order = ['takeLayer(layer, e)', 'e.repeat', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order);
   assert.match(appSrc.match(/function stepSelectionBack\([\s\S]*?\n\}/)[0], /isolate: isolateNow\(\)/);

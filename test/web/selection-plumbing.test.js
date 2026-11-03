@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { selectionGlobals } = require('./helpers/selection-globals');
 const { installDelete } = require('./helpers/delete-popup');
+const { installAsk } = require('./helpers/ask-page');
 
 // The selection's plumbing in the page: one entry point every write goes
 // through, one reader every bulk action takes its target cards from, a
@@ -112,10 +113,10 @@ test('the pieces that wrote the selection before now call the entry point', () =
     renderBoard: /setSelection\(selectionFollowingBox\(selectionState\.selection\)\)/,
     addCardToSelection: /setSelection\(addPart\(before, cardPart\(menuSubject\.ids\[0\]\)\)\)/,
     exploreIntoBox: /writeSearch\(searchWithTerms\(input\.value, term, !!\(e && e\.shiftKey\)\), 'typing'\)/,
-    selectByClick: /setSelection\(next\.selection, next\.rangeStart\)/,
+    selectByClick: /setSelection\(next\.selection, next\.rangeStart, \{ tap: onPhoneLayout\(\) \}\)/,
     onClickAway: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     moveSelectionTo: /setSelection\(next\.selection, next\.rangeStart\)/,
-    applyBulkArchive: /setSelection\(NO_SELECTION\)/,
+    applyBulkArchive: /moveSelectionTo\(\{ selection: NO_SELECTION, rangeStart: null \}\)/,
     bulkDelete: /setSelection\(NO_SELECTION\)/,
     onBulkDrop: /setSelection\(NO_SELECTION\)/,
   };
@@ -148,6 +149,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     state: { active: CARDS, archived: [] },
     loadViewMode: () => view,
     loadPrefsState: () => ({ click }),
+    onPhoneLayout: () => false,
     visibleCardIds: () => order.map(String),
     openCard: (id) => { calls.open.push(Number(id)); },
     renderBoard: () => { calls.render++; },
@@ -157,7 +159,7 @@ function clickSandbox({ view = 'board', selected = [], rangeStart = null, order 
     calls,
   };
   vm.createContext(sandbox);
-  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
+  vm.runInContext([declaration('selectionState'), declaration('selectedIds'), declaration('tapBefore'), fn('setSelection'), fn('selectByClick'), fn('moveSelectionTo'), fn('boxMirrorsSelection'), fn('mirrorSelectionInBox'), fn('rememberTap'), fn('forgetTap'), fn('reopenAfterDoubleTap'), fn('applyCardClick'), fn('searchByCue'), clickHandler()].join('\n'), sandbox);
   vm.runInContext(`setSelection(cardsSelection(${JSON.stringify(selected)}), ${JSON.stringify(rangeStart === null ? null : String(rangeStart))})`, sandbox);
   assert.strictEqual(listeners.length, 1);
   const state = () => ({ ids: ids(vm.runInContext('selectedIds', sandbox)), rangeStart: asNumber(vm.runInContext('selectionState.rangeStart', sandbox)) });
@@ -308,7 +310,8 @@ test('the assignee cue of a card with no assignee adds nothing', () => {
 test('the handler reads the view\'s plain-click behaviour from the lookup and the decision from the pure function, deciding nothing itself', () => {
   const body = clickHandler();
   assert.match(body, /const view = loadViewMode\(\);/);
-  assert.match(body, /plainClick: plainClickBehaviour\(view, loadPrefsState\(\)\.click\), ranges: shiftAddsRange\(view\), detail: e\.detail/);
+  assert.match(body, /const phone = onPhoneLayout\(\);/);
+  assert.match(body, /plainClick: plainBehaviour\(view, loadPrefsState\(\), phone\), ranges: shiftAddsRange\(view\), phone, detail: e\.detail/);
   assert.match(body, /cardClickAction\(/);
   assert.match(body, /applyCardClick\(/);
   assert.doesNotMatch(body, /selectedIds|rangeSelection|toggleSelection|setSelection|openCard\(/, 'the handler carries the decision out through applyCardClick and touches no selection state');
@@ -444,12 +447,39 @@ test('Esc with no popup open runs the one step function', () => {
 // while its menu is open, before this document listener ever sees the key.
 test('the Esc chain keeps its order and ends in the one step, behind a single document listener', () => {
   const handler = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{\n    if \(e\.key !== 'Escape'\) return;[\s\S]*?\n  \}\);/)[0];
-  const order = ['hideContextMenu()', 'closeNotifModal()', 'settingsStepBack()', 'closeCard()', 'requestCloseModal()', 'closeAnyBulkPopup()', 'anyModalOpen()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
+  assert.match(handler, /backStep\(standingLayers\(true\)\)/, 'the popups take Esc in the order a Back walks (back-steps.js)');
+  const { BACK_STEP_ORDER } = require('../../plugin/skills/web/web/back-steps');
+  const closers = { 'date-picker': 'closeDatePicker()', 'group-dialog': 'closeGroupDialog()', tray: 'trayEscape()', 'more-menu': 'moreMenuClose()', 'menu-panel': 'menuNestStepBack()', menu: 'hideContextMenu()', notifications: 'closeNotifModal()', settings: 'settingsStepBack()', details: 'closeCard()', 'edit-form': 'requestCloseModal()', 'bulk-popup': 'closeAnyBulkPopup()', 'note-menu': 'notesMenuClose()', 'scratch-list': 'spfCloseList(true)', 'notes-palette': 'notesEscape()', 'search-panel': 'closeSearchPanel()' };
+  const take = fn('takeLayer');
+  for (const [step, call] of Object.entries(closers)) assert.ok(BACK_STEP_ORDER.includes(step) && take.includes(call), `${step} closes with ${call}`);
+  assert.deepStrictEqual(BACK_STEP_ORDER.filter((s) => s !== 'ask' && s !== 'other-popup'), ['date-picker', 'group-dialog', 'tray', 'more-menu', 'menu-panel', 'menu', 'notifications', 'settings', 'details', 'edit-form', 'bulk-popup', 'note-menu', 'scratch-list', 'notes-palette', 'search-panel', 'light', 'selection'], 'the order is Esc\'s');
+  const order = ['takeLayer(layer, e)', 'e.repeat', 'clearPinnedLight()', 'escapeStep(e)'].map((s) => handler.indexOf(s));
   assert.ok(order.every((at) => at !== -1), 'every link of the chain is there');
   assert.deepStrictEqual([...order].sort((a, b) => a - b), order, 'popups take Esc before the step');
   assert.strictEqual(appSrc.split("if (e.key !== 'Escape') return;").length - 1, 1, 'one document listener reads Esc: the step adds no second keydown listener');
   assert.strictEqual(appSrc.split('escapeStep(e)').length - 1, 2, 'the step is called from the handler alone (and defined once)');
-  assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 2, 'the selection step is called from the Esc step alone (and defined once)');
+  assert.strictEqual(appSrc.split('stepSelectionBack()').length - 1, 3, 'the selection step is called from the Esc step and from the Back step alone (and defined once)');
+});
+
+// Four popups take Esc in a capture listener of their own that runs before the chain and keeps the key from
+// it. A Back closes them with the call their own listener makes, so that there is one closer for each.
+test('the date picker, the group dialog, the tray and the notes palette are closed by a Back with the call their own Esc listener makes', () => {
+  const listener = (src, name) => {
+    const m = src.match(new RegExp(`function ${name}\\(e\\) \\{[\\s\\S]*?\\n\\}`));
+    assert.ok(m, `${name} found`);
+    return m[0];
+  };
+  const take = fn('takeLayer');
+  assert.match(listener(read('groups-ui.js'), 'onGroupsEscape'), /closeGroupDialog\(\)/);
+  assert.match(take, /step === 'group-dialog'\) closeGroupDialog\(\);/);
+  assert.match(listener(read('tray-ui.js'), 'onTrayEscape'), /trayEscape\(\)/);
+  assert.match(take, /step === 'tray'\) trayEscape\(\);/);
+  assert.match(listener(read('notes-palette.js'), 'onNotesEscape'), /notesEscape\(\)/);
+  assert.match(take, /step === 'notes-palette'\) notesEscape\(\);/);
+  const picker = appSrc.match(/document\.addEventListener\('keydown', \(e\) => \{ \/\/ key-guard: exempt \(acts only while the date picker is open[\s\S]*?\n\}, true\);/);
+  assert.ok(picker, 'the date picker\'s Esc listener is found');
+  assert.match(picker[0], /closeDatePicker\(\)/);
+  assert.match(take, /step === 'date-picker'\) closeDatePicker\(\);/);
 });
 
 // The step reads the shared key guard (key-guard.js) through its Esc question, and
@@ -594,14 +624,13 @@ function fakeBox() {
 }
 
 function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
-  const calls = { api: [], confirms: [], toasts: [], loads: 0 };
+  const calls = { api: [], toasts: [], loads: 0 };
   const boxes = new Map();
   const $ = (sel) => { if (!boxes.has(sel)) boxes.set(sel, fakeBox()); return boxes.get(sel); };
   const sandbox = {
     $, boxes, calls,
     state: { active: BULK_CARDS.filter((c) => !c.archived).map((c) => ({ ...c })), archived: BULK_CARDS.filter((c) => c.archived).map((c) => ({ ...c })) },
     api: async (method, url, body) => { calls.api.push(JSON.parse(JSON.stringify([method, url, body === undefined ? null : body]))); return {}; },
-    confirm: (message) => { calls.confirms.push(message); return true; },
     toast: (message) => { calls.toasts.push(message); },
     loadBoard: async () => { calls.loads++; },
     hideContextMenu() {}, applyModalFullscreen() {}, renderBoard() {},
@@ -610,10 +639,12 @@ function bulkSandbox({ selected = [1, 2], rangeStart = null } = {}) {
   };
   vm.createContext(sandbox);
   installDelete(sandbox, calls);
+  installAsk(sandbox, calls);
   const scheduleRows = appSrc.match(/const SCHEDULE_ROWS = \[[\s\S]*?\n\];/);
   assert.ok(scheduleRows, 'SCHEDULE_ROWS found in app.js');
   vm.runInContext([
     declaration('selectionState'), declaration('selectedIds'), fn('setSelection'),
+    'function moveSelectionTo(next) { setSelection(next.selection, next.rangeStart); } // the box and the pills the page\'s step also settles are the page tests\' business',
     'let bulkSingleMode = null; let bulkPopupIds = [];',
     declaration('menuSubject'),
     scheduleRows[0],
@@ -690,7 +721,7 @@ test('schedule: the popup applies to the cards it captured when it opened', asyn
 test('archive: the confirmation names the count, and the popup archives the cards it captured when the action started', async () => {
   const s = bulkSandbox({ selected: [1, 2, 4] });
   await s.run('bulkArchive()');
-  assert.deepStrictEqual(s.calls.confirms, ['Archive 2 card(s)? (moves their files to archived/)']);
+  assert.deepStrictEqual(s.calls.asks, ['Archive 2 card(s)? (moves their files to archived/)']);
   assert.match(s.boxes.get('#bulk-archive-title').textContent, /Archive 2 card/);
   s.select(3);
   await s.run('applyBulkArchive()');
@@ -710,7 +741,7 @@ test('delete: one popup asks for the whole selection, and the cards it names are
   await s.run('bulkDelete()');
   await s.calls.pending;
   assert.deepStrictEqual(s.calls.deletes, [{ kind: 'card', targets: ['3', '1'] }]);
-  assert.deepStrictEqual(s.calls.confirms, []);
+  assert.deepStrictEqual(s.calls.asks, []);
   assert.deepStrictEqual(s.calls.api.map(([m, url]) => [m, url]), [['DELETE', '/api/cards/3'], ['DELETE', '/api/cards/1']]);
   assert.strictEqual(s.run('selectedIds.size'), 0);
 });
@@ -736,7 +767,7 @@ test('drag: dragging a selected card carries the whole selection, and an unselec
 });
 
 const BULK_ACTIONS = ['openBulkSingle', 'applyBulkSingle', 'renderBulkTags', 'openBulkTags', 'bulkAddTag', 'bulkRemoveTags', 'openBulkSchedule', 'applyBulkSchedule',
-  'bulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete', 'wireDrag'];
+  'bulkArchive', 'applyBulkArchive', 'bulkRestore', 'bulkDelete', 'openBulkStatus', 'applyBulkStatus', 'wireDrag'];
 
 test('assign, priority, tags, schedule, archive, restore, delete and drag take their targets from the one reader, and none touches the selection directly', () => {
   for (const name of BULK_ACTIONS) {
@@ -748,10 +779,10 @@ test('assign, priority, tags, schedule, archive, restore, delete and drag take t
 });
 
 test('a popup applies to the targets it captured: the apply steps read the captured ids, never the live selection', () => {
-  for (const name of ['applyBulkSingle', 'renderBulkTags', 'bulkAddTag', 'bulkRemoveTags', 'applyBulkSchedule', 'applyBulkArchive']) {
+  for (const name of ['applyBulkSingle', 'renderBulkTags', 'bulkAddTag', 'bulkRemoveTags', 'applyBulkSchedule', 'applyBulkArchive', 'applyBulkStatus']) {
     assert.match(fn(name), /bulkTargets\(bulkPopupIds\)/, name);
   }
-  for (const name of ['openBulkSingle', 'openBulkTags', 'openBulkSchedule', 'bulkArchive']) {
+  for (const name of ['openBulkSingle', 'openBulkTags', 'openBulkSchedule', 'openBulkStatus', 'bulkArchive']) {
     assert.match(fn(name), /captureBulkTargets\(\)/, `${name} captures when it starts`);
   }
 });

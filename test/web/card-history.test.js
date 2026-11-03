@@ -206,8 +206,8 @@ test('every user-gesture call site opens through the openCard wrapper, not openD
     `expected exactly 6 raw openDetailModal( call sites (definition, openCard's own call, consumeDeepLink, popstate handler, refreshOpenDetail, the phone Save returning to its card, whose address still holds card=) — found ${rawCalls}; ` +
     'a new one should probably go through openCard() instead so Alt+Left/Alt+Right can see it');
   const wrapperCalls = [...APP.matchAll(/[^.\w]openCard\(/g)].length;
-  assert.strictEqual(wrapperCalls, 8,
-    `expected the openCard definition plus 7 call sites (mention, tray, map ghost, tile, the peek of a double click, the Enter handler, the card menu's Peek) — found ${wrapperCalls}`);
+  assert.strictEqual(wrapperCalls, 9,
+    `expected the openCard definition plus 8 call sites (mention, tray, map ghost, tile, the peek of a double click, the phone's double tap, the Enter handler, the card menu's Peek) — found ${wrapperCalls}`);
 });
 
 test('popstate bails out while any popup other than the detail popup itself is open', () => {
@@ -257,10 +257,12 @@ test('every user-gesture close goes through the closeCard wrapper, not closeDeta
   // openDetailModal's own quiet-failure branch (a popstate landing on a card
   // id that no longer resolves closes the popup instead of toasting), and the
   // edit form's return, whose failed card read closes the popup and replaces
-  // its address step (a dead card's step is not stacked on).
+  // its address step (a dead card's step is not stacked on), and the phone layout's Back that pops the
+  // entry the menu over the details had, with a selection behind them and no entry of the page below:
+  // it closes the details and turns their step into the page's entry (uncoverDetails).
   const rawCalls = [...APP.matchAll(/[^.\w]closeDetailModal\(/g)].length;
-  assert.strictEqual(rawCalls, 7,
-    `expected exactly 7 raw closeDetailModal( call sites — found ${rawCalls}`);
+  assert.strictEqual(rawCalls, 8,
+    `expected exactly 8 raw closeDetailModal( call sites — found ${rawCalls}`);
 });
 
 // --- nextSearchAddress with isolate: the second parameter beside q ------------

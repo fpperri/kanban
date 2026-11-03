@@ -370,6 +370,7 @@ test('a prefix change asks first, and says cards already made keep their ids', (
   assert.match(s.settingsPrefixConfirm('add', 'B', 'bug'), /^Add the prefix B/);
   assert.match(s.settingsPrefixConfirm('remove', 'G', 'goal'), /^Remove the prefix G/);
   for (const k of ['change', 'add', 'remove']) assert.match(s.settingsPrefixConfirm(k, 'G', 'goal'), /keep their ids/);
+  assert.deepStrictEqual(['change', 'add', 'remove'].map((k) => s.settingsPrefixVerb(k)), ['Change', 'Add', 'Remove'], 'the confirm button is named for the same verb');
   assert.match(s.settingsPrefixNote, /changes only the ids given from then on/);
   assert.match(s.settingsPrefixNote, /Why: .*keep their ids; ask an AI to migrate the board/);
 });

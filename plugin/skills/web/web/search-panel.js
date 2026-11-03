@@ -49,7 +49,7 @@
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the
 // way graph-view.js does: $, state, selectionState, setSelection, writeSearch,
-// searchMatchIds, cardsBeforeSearch, loadPrefsState, setPanelOnFocus. It also calls the
+// searchMatchIds, cardsBeforeSearch, shownMatchCardIds, selectAllShown, loadPrefsState, setPanelOnFocus. It also calls the
 // page globals of selection.js (selectionAfterPill, pillQueriesDropped, pillQueriesAdded), pills.js, isolate.js
 // (isolateNow, syncIsolateSwitch, syncTypingIsolates), hover-show-ui.js (syncHoverShowPanel), search-slices.js (renderSearchSlices,
 // searchSlicesChipNames), the search module (searchOtherBoardMentions, searchTermText and the alternatives and slice
@@ -226,6 +226,23 @@ function syncSearchBoardNote() {
   note.classList.toggle('hidden', mentions.length === 0);
 }
 
+// Select all shown (N), the button between the pills and the divider: there while the box holds a
+// query, which a pill that is on is one, and not with an empty box. N counts the cards the search
+// matches among the ones the view shows (shownMatchCardIds, app.js), so it reads the same with isolate
+// on or off, and it has nothing to press at 0. A closed panel shows no button, so it is worked out
+// when the panel opens.
+function syncSelectAllShown() {
+  const button = $('#search-select-all');
+  if (!button || !searchPanelOpen) return;
+  const searching = currentSearchMatch().matched !== null;
+  button.classList.toggle('hidden', !searching);
+  if (!searching) return;
+  const count = shownMatchCardIds().length;
+  const text = `Select all shown (${count})`;
+  if (button.textContent !== text) button.textContent = text;
+  button.disabled = count === 0;
+}
+
 // Every repaint of the board comes here (renderBoard): the chip always, the pills
 // only while the panel is open, since a closed panel shows no count.
 function renderSearchPanel() {
@@ -238,6 +255,7 @@ function renderSearchPanel() {
   syncIsolateSwitch();
   syncTypingIsolates();
   syncHoverShowPanel();
+  syncSelectAllShown();
   const selection = selectionState.selection;
   const host = $('#search-pills');
   if (searchPanelOpen && host) syncPillButtons(host, searchPanelRows(), selection);
@@ -464,6 +482,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const pills = $('#search-pills');
   pills.addEventListener('click', onPillClick);
   pills.addEventListener('contextmenu', onPillContextMenu);
+  $('#search-select-all').addEventListener('click', selectAllShown);
   $('#search-panel-toggle').addEventListener('click', flipSearchPanelSwitch);
   $('#search-panel-toggle').addEventListener('keydown', onSearchSwitchKeyDown);
   $('#search-chip').addEventListener('click', onSearchChipClick);

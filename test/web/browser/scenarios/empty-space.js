@@ -20,6 +20,8 @@
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, selectionState.
 
+const { askUp, askYes } = require('../ask');
+
 const VIEWS = ['board', 'map', 'gantt', 'calendar', 'graph'];
 const CONTAINERS = { board: '#board', map: '#map-view', gantt: '#gantt-view', calendar: '#calendar-view', graph: '#graph-view' };
 const DATED = [3, 6];
@@ -132,8 +134,8 @@ module.exports = {
         check('calendar: a day cell has a spot with no chip over it', !!cell, cell);
         await doubleClick(cell.x, cell.y);
         check('calendar: a double click on a day cell opens the new-card form and leaves the selection', await waitFor(NEW_CARD_FORM_OPEN, 3000) && same(await picked(), sorted(a, b)), await picked());
-        await ev(`window.confirm=()=>true`);
         await key('Escape');
+        await askUp(page, 1500) && await askYes(page);
         check('calendar: Esc closes the form and the selection is still there', await waitFor(NEW_CARD_FORM_SHUT, 3000) && same(await picked(), sorted(a, b)), await picked());
       }
     }

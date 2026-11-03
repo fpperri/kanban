@@ -359,9 +359,9 @@ function settingsSetIcon(type, icon) {
   settingsChangeTypes(key, (types) => settingsTypesPatch(types, type.name, { icon }), `icon:${key}:${icon || 'none'}`);
 }
 
-function settingsRemoveType(type) {
+async function settingsRemoveType(type) {
   const ask = settingsRemoveConfirm(type.name, settingsTypeUseCount(settingsTypeUse(), type.name));
-  if (ask && !confirm(ask)) return;
+  if (ask && !(await askInPage(ask, { yes: 'Remove', code: true }))) return;
   settingsChangeTypes(settingsTypeKey(type.name), (types) => settingsTypesRemove(types, type.name), 'field:newType');
 }
 
@@ -619,9 +619,9 @@ function settingsTypesNodes() {
 
 // `from` = the prefix of the row being changed or removed (null for an add): the row is found by it in
 // the settings as they stand when the save's turn comes, never by where it was drawn.
-function settingsPrefixSend(kind, from, next, typed) {
+async function settingsPrefixSend(kind, from, next, typed) {
   const key = from === null ? 'prefix:new' : `prefix:${from}`;
-  if (!confirm(settingsPrefixConfirm(kind, next.prefix, next.target))) {
+  if (!(await askInPage(settingsPrefixConfirm(kind, next.prefix, next.target), { yes: settingsPrefixVerb(kind) }))) {
     delete settingsUi.drafts[key];
     settingsRenderBoard();
     return;
