@@ -132,4 +132,20 @@ the time grid, which each column's strip reads; once a width is set the 170px ca
 a chip shows up to 60 words instead of 12, cut by its edge. A drag holds the poll
 (`isDragging`), starts no card drag or retime, and the hour click and the double click that
 makes a card both skip a target on the divider.
+**A note's duration on the strip** — `noteCalendarDay` puts a note with a time and a duration
+that reads (`parseDuration`, durations.js) in the day's `ranges` (`{ note, startMin, endMin }`,
+ended at midnight when written past it by hand), never in a slot, so no chip, bubble or
+`noteHourCounts` row counts it and no hour grows for it. `noteStripLayout(dayNotes, each, scale)`
+lays the strip out in both lit states: each range a block (`.cal-note-block`,
+`data-range="<day>|<start>|<end>"`) from `scale.yOf(start)` to `scale.yOf(end)`, at least a
+chip's 20px, drawn a pixel inside each end as a chip is; the point notes where they were; and
+every item a `lane` of `lanes`. Items that share any of the strip's height go side by side
+through their overlapping run, all of it sharing the width alike and a freed lane taken again,
+the taller item first in a tie (`nCalLanes`). An item alone keeps the stylesheet's width; one in
+a run gets an inline `right` and `width` in shares of `--cal-note-strip` (`notesCalendarItem`,
+notes-palette.js). A block shows `noteTimeLabel`, the card's id and the note's text, wrapping
+down it; its title is `noteTip`, which reads the range; its click is the chip's request at the
+half hour it starts in (`noteChipRequest`); and the guards that skip a `.cal-note` cover it. The
+untimed box's tooltip lists a length before its text (`noteUntimedTip`). A day with no range
+lays out exactly as before.
 **The Notes button's three states** — `#cal-notes-btn` steps off, every note, grouped, then off (`noteLayerState`, `noteLayerNext`, `noteLayerParts`, `noteLayerLabel`, `noteLayerTitle` in notes-calendar.js): label `Notes` unpressed, `Notes` pressed, `Grouped Notes` pressed, with the title naming the next press. It is kept as two board prefs, `calendar.notes` (on or off) and `calendar.notesMode` (`each`; absent means grouped, so a board never pressed starts grouped and an old stored value reads the same). Every note draws as its own chip (`noteEachChips`), 20px apart from its hour line down, and an hour is as tall as the most notes any shown day has in it (`eachHeights`, hour-scale.js), at least 40px, the same in every column. The scale is one pure object (`hourScale`: `yOf` minutes to px, `minOf` px to minutes, `span`, linear inside an hour) that app.js keeps as `calScaleCur` and every render replaces; the hour labels, column height, card block top and height, note tops, the first scroll to 08:00 (and the scroll kept as a time across a re-render), a block's drag and resize and the click and double click on an empty hour all go through it. Grouped and off use the plain scale, 40px an hour, the stripe in app.css; every-note draws the hour lines itself with an inline gradient (`hourLinesCss`).
