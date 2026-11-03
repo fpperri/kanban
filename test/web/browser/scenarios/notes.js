@@ -545,6 +545,20 @@ module.exports = {
     await swipe(0, true);
     await sleep(900);
     check('notes: a tap opens no menu either', await ev(`!${MENU}`));
+    // A poll that lands under the finger: called here on purpose, before the menu opens and again after, so the check
+    // never depends on when the 5-second poll falls in the run.
+    p = await centre(TXT);
+    await ev(`window.npPressed=document.querySelector(${JSON.stringify(TXT)})`);
+    await touch('touchStart', [{ x: p.x, y: p.y, id: 0 }]);
+    await ev(`notesOnBoard()`);
+    check('notes: a board poll under the finger leaves the row it is pressing', await ev(`window.npPressed.isConnected`));
+    check('notes: and the long press still opens the menu', await waitFor(`!!${MENU}`, 3000));
+    await ev(`notesOnBoard()`);
+    check('notes: a board poll with the finger still down leaves the menu', await ev(`!!${MENU}`));
+    await touch('touchEnd', []);
+    await sleep(900);
+    await ev(`document.querySelector(${JSON.stringify(TXT)}).dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))`);
+    check('notes: and the lift still ends the echo, so a press elsewhere closes it', await waitFor(`!${MENU}`, 2000));
     await send('Emulation.setTouchEmulationEnabled', { enabled: false });
     await ev(`${q('.np-input')}.focus()`);
     await ev(`document.getElementById('notes-palette').style.width='360px'`);

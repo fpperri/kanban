@@ -1132,6 +1132,7 @@ const NOTES_PRESS_ECHO_MS = 800;
 const NOTES_PRESS_HELD_MS = 5000;
 const notesPress = { timer: 0, x: 0, y: 0, fired: false, echoUntil: 0 };
 const notesPressEcho = () => performance.now() < notesPress.echoUntil;
+const notesPressHeld = () => notesPress.timer !== 0 || notesPress.fired; // a finger is down on a row, from the press to the lift
 
 function notesPressCancel() {
   clearTimeout(notesPress.timer);
@@ -1593,7 +1594,8 @@ function onNotesPointer(e) {
 // ---------- the board payload ----------
 
 // Called after every board payload has been applied: the palette's list, chip and preview
-// follow the file, unless a note is being edited, and a palette on a card that is gone closes.
+// follow the file, unless a note is being edited or a finger is pressing a row (a touch's events go to the
+// element it began on, so a rebuilt row would never hear the lift), and a palette on a card that is gone closes.
 function notesOnBoard() {
   const u = notesUi;
   if (!u.sub) return;
@@ -1609,7 +1611,7 @@ function notesOnBoard() {
     if (!typing) notesPaint(); // a field being typed in keeps its text until the poll finds it free
     return;
   }
-  if (u.editing > 0) return;
+  if (u.editing > 0 || notesPressHeld()) return;
   const row = document.activeElement && document.activeElement.closest && document.activeElement.closest('.np-note');
   const at = row ? notesRows().indexOf(row) : -1;
   notesPaint();
