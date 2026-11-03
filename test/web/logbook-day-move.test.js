@@ -26,7 +26,7 @@ function board(files = {}) {
 const refOf = (n) => ({ day: n.day, target: n.target, index: n.index, file: n.file, expect: { at: n.at, duration: n.duration, by: n.by, note: n.note } });
 const D3 = '2026.11.03.0007.logbook.md';
 const D4 = '2026.11.04.0007.logbook.md';
-const ONE = '---\nentries:\n  - at: "10:30"\n    duration: "45m"\n    by: "@afk"\n    colour: teal\n    note: review\n---\n';
+const ONE = '---\nentries:\n  - at: "10:30"\n    duration: "45m"\n    colour: teal\n    by: "@afk"\n    note: review\n---\n';
 
 test('a day moves the note to the day file of that day, with its author, text, duration and unknown keys', () => {
   const b = board({ [D3]: ONE });
