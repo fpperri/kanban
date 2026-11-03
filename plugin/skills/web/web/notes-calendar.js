@@ -32,9 +32,6 @@ const NCAL_MODE_FEATURE = 'calendar.notesMode';
 const NCAL_WORDS = 12;
 const NCAL_WORDS_WIDE = 60;
 
-const nCalPad = (n) => String(n).padStart(2, '0');
-const nCalHhmm = (min) => `${nCalPad(Math.floor(min / 60))}:${nCalPad(min % 60)}`;
-
 function nCalMinutes(at) {
   const m = NCAL_TIME.exec(String(at == null ? '' : at));
   if (!m) return null;
@@ -248,7 +245,7 @@ const nCalCount = (n) => `${n} note${n === 1 ? '' : 's'}`;
 // A bubble's tooltip: how many, which half hour, which cards, then each note.
 function noteSlotTip(slot) {
   const lines = slot.notes.map((note) => `${note.at} ${note.target ? `#${note.target} ` : ''}${note.note}`);
-  return [`${nCalCount(slot.notes.length)}, ${nCalHhmm(slot.fromMin)}–${nCalHhmm(slot.toMin)}: ${noteSlotTargets(slot.notes).join(', ')}`, ...lines].join('\n');
+  return [`${nCalCount(slot.notes.length)}, ${NCAL_DURATIONS.hhmm(slot.fromMin)}–${NCAL_DURATIONS.hhmm(slot.toMin)}: ${noteSlotTargets(slot.notes).join(', ')}`, ...lines].join('\n');
 }
 
 // The untimed box's tooltip: each note's card and text, a length of work with its length first.

@@ -36,6 +36,7 @@ const durationsModule = (() => {
 
   const DAY_MIN = 24 * 60;
   const pad = (n) => String(n).padStart(2, '0');
+  // A time's minutes from midnight (HH:MM, padded), and minutes as HH:MM (24:00 for the end of the day).
   const minutesOf = (at) => Number(at.slice(0, 2)) * 60 + Number(at.slice(3, 5));
   const hhmm = (min) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
 
@@ -53,7 +54,7 @@ const durationsModule = (() => {
     return `${at}–${hhmm(minutesOf(at) + minutes)}`;
   }
 
-  return { parseDuration, leadingDuration, formatDuration, durationProblem, durationRange };
+  return { parseDuration, leadingDuration, formatDuration, durationProblem, durationRange, minutesOf, hhmm };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

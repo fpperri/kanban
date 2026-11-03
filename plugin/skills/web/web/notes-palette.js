@@ -36,7 +36,7 @@
 // This script reads app.js's and the other page scripts' globals at the moment it runs, never
 // when it loads: $, state, api, toast, loadBoard, openCard, localTodayStr, hoveredId, selectedIds, currentDetailId,
 // prefsStorage, keyGuardOff, scratchpadOn, scratchpadTargets, scratchPanel, scratchPreviewKey, todosOn, todosPanel, todosHints, todosOnBoard, todosPreviewKey, wireDatePickButton, attachCombobox, loadViewMode,
-// loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, and notes.js's and groups.js's functions.
+// loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, kanbanDurations, and notes.js's and groups.js's functions.
 
 const notesUi = {
   el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
@@ -673,7 +673,7 @@ function notesChoose(field, word) {
 // The time menu: Now first, then every 15 minutes.
 function notesTimeOptions() {
   const options = [{ value: NOTE_NOW }];
-  for (let min = 0; min < 24 * 60; min += 15) options.push({ value: noteHhmm(min) });
+  for (let min = 0; min < 24 * 60; min += 15) options.push({ value: kanbanDurations.hhmm(min) });
   return options;
 }
 

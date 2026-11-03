@@ -53,10 +53,6 @@ const noteIsAboutCards = (sub) => noteIsTarget(sub) || sub.kind === 'each';
 
 const notePad = (n) => String(n).padStart(2, '0');
 
-function noteHhmm(min) {
-  return `${notePad(Math.floor(min / 60))}:${notePad(min % 60)}`;
-}
-
 // The time field's text as HH:MM (`9:30`, `09.30`, `0930`, `930`), null when it is none.
 function noteFieldTime(text) {
   const m = NOTE_FIELD_TIME.exec(String(text == null ? '' : text).trim());
@@ -165,7 +161,7 @@ function noteSubjectFrom(req, o) {
   }
   if (req.kind === 'card-notes') return { kind: 'card', id: NOTE_IDS.idKey(req.id), day, ...clock };
   if (req.kind === 'group') return { kind: 'group', id: NOTE_IDS.idKey(req.gid), day, ...clock };
-  if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: noteHhmm(Math.max(0, req.fromMin)), ...clock };
+  if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: NOTE_DURATIONS.hhmm(Math.max(0, req.fromMin)), ...clock };
   if (req.kind === 'untimed') return { kind: 'untimed', day, ...clock };
   const id = req.target === undefined || req.target === null || req.target === '' ? null : NOTE_IDS.idKey(req.target);
   if (id !== null) {
@@ -261,9 +257,8 @@ function noteSubjectNotes(notes, subject, o = {}) {
   const today = notes.filter((n) => n.day === subject.day);
   if (subject.kind === 'slot') {
     return today.filter((n) => {
-      const m = n.at && /^(\d{2}):(\d{2})$/.exec(n.at);
-      if (!m) return false;
-      const min = Number(m[1]) * 60 + Number(m[2]);
+      if (!n.at || !/^\d{2}:\d{2}$/.test(n.at)) return false;
+      const min = NOTE_DURATIONS.minutesOf(n.at);
       const length = n.duration ? NOTE_DURATIONS.parseDuration(n.duration) : null;
       return min < subject.toMin && (length === null ? min >= subject.fromMin : min + length > subject.fromMin);
     });
@@ -593,7 +588,7 @@ function noteLayoutSave(storage, projectName, layout) {
 
 const NOTES_EXPORTS = {
   NOTE_NO_CARD, noteIsTarget, noteIsAboutCards,
-  NOTE_TODAY, NOTE_NOW, noteHhmm, noteIsToday, noteIsNow, noteDayField, noteTimeField,
+  NOTE_TODAY, NOTE_NOW, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
   noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
