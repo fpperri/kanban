@@ -248,6 +248,35 @@ function notesCalendarSlot(day, slot, top, only) {
   return el;
 }
 
+// A range's block (notes-calendar.js noteStripLayout), from its start to its end less a pixel each
+// side, as a chip sits in its row: its times, the card's id and as much of its text as fits. A click
+// opens what the note's chip would.
+function notesCalendarBlock(day, item) {
+  const note = item.note;
+  const el = notesCalendarButton('cal-note-block', noteTip(note, notesLabel), noteChipRequest(note, item.slot));
+  const words = notesEl('span', 'cal-note-block-words'); // one box, so the words start at the block's top and wrap down it
+  words.append(notesEl('span', 'cal-note-range', noteTimeLabel(note)));
+  if (note.target) words.append(notesEl('span', 'cal-note-id', `#${note.target}`));
+  else words.append(notesGlyph());
+  words.append(document.createTextNode(note.note));
+  el.append(words);
+  el.dataset.range = `${day}|${item.startMin}|${item.endMin}`;
+  el.style.top = `${item.top + 1}px`;
+  el.style.height = `${item.height - 2}px`;
+  return el;
+}
+
+// One item of a day's notes strip, a block or a half hour's chip or bubble. One in an overlapping run
+// takes its lane's share of the strip; alone it keeps the stylesheet's whole width.
+function notesCalendarItem(day, item) {
+  const el = item.kind === 'block' ? notesCalendarBlock(day, item) : notesCalendarSlot(day, item.slot, item.top + 1, item.note);
+  if (item.lanes > 1) {
+    el.style.right = `calc(${item.lanes - 1 - item.lane} * var(--cal-note-strip) / ${item.lanes} + 2px)`;
+    el.style.width = `calc(var(--cal-note-strip) / ${item.lanes} - 4px)`;
+  }
+  return el;
+}
+
 // The handle on the left edge of a day's notes strip (app.js sets the width it drags): a focusable
 // separator, so the arrow keys step it as well as a pointer.
 function notesCalendarDivider(day) {

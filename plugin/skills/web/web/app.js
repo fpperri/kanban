@@ -5210,7 +5210,7 @@ function renderCalendarTimeGrid(container, subview, keepMin) {
     col.style.height = `${scale.total}px`;
     if (each) col.style.backgroundImage = hourLinesCss(scale, 'var(--line-soft)');
     const dayNotes = notesByDay.get(day);
-    const strip = dayNotes && dayNotes.slots.length; // a day with timed notes keeps a strip right of the card blocks for them
+    const strip = dayNotes && (dayNotes.slots.length || dayNotes.ranges.length); // a day with timed notes keeps a strip right of the card blocks for them
     if (strip) col.classList.add('has-notes');
     for (const block of layout.timed[day]) {
       const el = calendarChipEl(block.card, 'single', block.time, block.due);
@@ -5242,8 +5242,7 @@ function renderCalendarTimeGrid(container, subview, keepMin) {
     }
     if (strip) {
       col.appendChild(notesCalendarDivider(day));
-      if (each) for (const chip of noteEachChips(dayNotes)) col.appendChild(notesCalendarSlot(day, chip.slot, scale.top(chip.hour) + chip.row * HSCALE_CHIP_PX + 1, chip.note));
-      else for (const slot of dayNotes.slots) col.appendChild(notesCalendarSlot(day, slot, scale.yOf(slot.fromMin) + 1));
+      for (const item of noteStripLayout(dayNotes, each, scale)) col.appendChild(notesCalendarItem(day, item));
     }
     body.appendChild(col);
   }
