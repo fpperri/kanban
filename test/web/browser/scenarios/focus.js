@@ -81,7 +81,7 @@ const FOCUS_DOT = `(()=>{const NS='http://www.w3.org/2000/svg';const host=docume
 module.exports = {
   name: 'focus',
   board: 'plan',
-  timeoutMs: 300000,
+  timeoutMs: 120000,
   async run(page) {
     const { ev, open, waitFor, key, centre, click: clickAt, check } = page;
     const click = async (sel) => { const p = await centre(sel); await clickAt(p.x, p.y); };
