@@ -398,7 +398,8 @@ test('Enter on a highlighted menu row aims once, and the typed text does not aim
 
 test('the card picker\'s choice reaches the palette through the combobox\'s own hook, not an input event', async () => {
   const src = fs.readFileSync(path.join(WEB, 'notes-palette.js'), 'utf8');
-  assert.match(src, /attachCombobox\(u\.pick, notesPickOptions, \{ onPick: notesPicked \}\)/);
+  assert.match(src, /notesHangMenu\(u\.pick, notesPickOptions, '', \{ minWidth: 320, onPick: notesPicked \}\)/);
+  assert.match(src, /\{ minWidth = 0, inList = false, \.\.\.opts \} = \{\}\) \{\n  attachCombobox\(input, getOptions, opts\);/);
   assert.ok(!/isTrusted/.test(src));
   assert.match(fs.readFileSync(path.join(WEB, 'app.js'), 'utf8'), /if \(opts\.onPick\) opts\.onPick\(choice\);/);
 });

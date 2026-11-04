@@ -143,10 +143,10 @@ test('the untimed tick drops the time and Now with it, and unticking brings it b
   assert.deepStrictEqual(p.written(), [['2026-10-16', '', '7'], ['2026-10-16', '10:00', '7']]);
 });
 
-test('the time menu offers Now first, then every half hour', async () => {
+test('the time menu offers Now first, then every 15 minutes', async () => {
   const p = await open();
   const options = p.page.run('notesTimeOptions().map((o) => o.value)');
-  assert.deepStrictEqual([options[0], options[1], options[2], options[options.length - 1], options.length], ['Now', '00:00', '00:30', '23:30', 49]);
+  assert.deepStrictEqual([options[0], options[1], options[2], options[options.length - 1], options.length], ['Now', '00:00', '00:15', '23:45', 97]);
 });
 
 test('the clock tick draws the preview again and leaves the fields as they say', async () => {

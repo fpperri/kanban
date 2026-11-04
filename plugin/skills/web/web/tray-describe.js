@@ -8,6 +8,7 @@
 // by node --test.
 
 const trayDescribeModule = (() => {
+  const durations = typeof module !== 'undefined' && module.exports ? require('./durations') : window.kanbanDurations;
   const TEMP_RE = /^n[0-9]{1,15}$/;
   const SHORT = 60;
 
@@ -25,6 +26,17 @@ const trayDescribeModule = (() => {
   const refTarget = (body) => (isObject(body.ref) && body.ref.target !== undefined && body.ref.target !== null ? card(body.ref.target) : null);
   const padOf = (id) => `the scratchpad of ${card(id)}`;
   const DELETE_EXTRAS = [['logbook', 'notes'], ['scratchpad', 'scratchpad'], ['todos', 'todos']];
+
+  // A new note as the tray says it: with a duration, its range after its card, or its length before
+  // the word note when it has no time.
+  function addedNote(body) {
+    const minutes = durations.parseDuration(body.duration);
+    const timed = typeof body.at === 'string' && /^\d\d:\d\d$/.test(body.at);
+    const range = minutes !== null && timed ? ` at ${durations.durationRange(body.at, minutes)}` : '';
+    const what = minutes !== null && !timed ? `a ${durations.formatDuration(minutes)} note` : 'a note';
+    const where = body.target !== undefined && body.target !== null ? `to ${card(body.target)}` : `for ${body.day || 'the board'}`;
+    return `added ${what} ${where}${range}`;
+  }
 
   const entry = (method, template, marker, pattern, words) => ({ key: `${method} ${template}`, method, marker, pattern, words });
   const at = (template) => new RegExp(`^${template.replace(/:id/g, '([^/]+)').replace(/\//g, '\\/')}$`);
@@ -53,8 +65,7 @@ const trayDescribeModule = (() => {
       return `deleted ${card(m[1])}${extras.length ? ` with its ${andList(extras)}` : ''}`;
     }),
 
-    entry('POST', '/api/notes', "method === 'POST' && p === '/api/notes')", at('/api/notes'),
-      (m, body) => (body.target !== undefined && body.target !== null ? `added a note to ${card(body.target)}` : `added a note for ${body.day || 'the board'}`)),
+    entry('POST', '/api/notes', "method === 'POST' && p === '/api/notes')", at('/api/notes'), (m, body) => addedNote(body)),
     entry('PATCH', '/api/notes', "method === 'PATCH' && p === '/api/notes'", at('/api/notes'),
       (m, body) => `edited a note ${refTarget(body) ? `on ${refTarget(body)}` : `of ${(body.ref && body.ref.day) || 'the board'}`}`),
     entry('DELETE', '/api/notes', "method === 'DELETE' && p === '/api/notes'", at('/api/notes'),

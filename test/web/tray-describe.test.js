@@ -85,3 +85,11 @@ test('a route nobody described says so plainly, never blank', () => {
 test('a card without its temporary id still reads as a created card', () => {
   assert.strictEqual(describeChange(record({}, ['/api/cards', { title: 'T' }], 'POST')), 'created a card "T"');
 });
+
+test('a note with a duration says its range, or its length when it has no time', () => {
+  const add = (body) => describeChange(record({}, ['/api/notes', { day: '2026-10-16', note: 'x', ...body }], 'POST'));
+  assert.strictEqual(add({ target: '7', at: '10:30', duration: '45m' }), 'added a note to #7 at 10:30–11:15');
+  assert.strictEqual(add({ target: '7', at: '', duration: '1h30' }), 'added a 1h30m note to #7');
+  assert.strictEqual(add({ duration: '2h' }), 'added a 2h note for 2026-10-16');
+  assert.strictEqual(add({ target: '7', at: '10:30' }), 'added a note to #7');
+});

@@ -1,7 +1,8 @@
 'use strict';
 // The notes palette on a 390 px phone does what the card details do: it fills the viewport, has no
 // full screen button, and a key that toggles full screen on a desktop changes nothing here and saves
-// no choice. The note box keeps its ordinary cap, and Esc closes the palette. Run on the feature
+// no choice. The subject row wraps, so its date, time, duration, untimed tick and card picker all
+// stay on screen. The note box keeps its ordinary cap, and Esc closes the palette. Run on the feature
 // board, which keeps a logbook.
 
 module.exports = {
@@ -18,6 +19,7 @@ module.exports = {
     const box = await ev(`(()=>{const r=${PAL}.getBoundingClientRect();return {l:r.left,t:r.top,w:r.width,h:r.height,iw:innerWidth,ih:innerHeight}})()`);
     check('the palette fills the viewport', box.l === 0 && box.t === 0 && box.w === box.iw && box.h === box.ih, box);
     check('its full screen button is not shown', await ev(`(()=>{const b=document.getElementById('notes-fullscreen-btn');return !b||b.hidden||getComputedStyle(b).display==='none'})()`));
+    check('the fields of the subject row all sit inside the viewport, on more than one line', await ev(`(()=>{const r=[...document.querySelectorAll('#notes-palette .np-when > *')].map((c)=>c.getBoundingClientRect());return r.length>=5&&r.every((b)=>b.left>=0&&b.right<=innerWidth)&&new Set(r.map((b)=>Math.round(b.top/10))).size>1})()`), await ev(`[...document.querySelectorAll('#notes-palette .np-when > *')].map((c)=>{const b=c.getBoundingClientRect();return c.className+':'+Math.round(b.left)+'-'+Math.round(b.right)}).join(' ')`));
     check('the note box and the list sit inside the viewport', await ev(`(()=>{const q=(s)=>document.querySelector('#notes-palette '+s).getBoundingClientRect();return q('.np-input').bottom<=innerHeight&&q('.np-body').bottom<=innerHeight})()`));
 
     await key('Enter', { alt: true });

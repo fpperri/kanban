@@ -6,13 +6,17 @@
 // narrowed, grouped and ordered, how high a note box grows, and which tab Alt+1 to Alt+4 pick. notes-palette.js draws it and talks to the server.
 //
 // The line. Its first line may begin with a time (`10:30 renamed it`) or with `-` or the
-// word `untimed`, then with a mention of a card or group the board has (`#22 mid check`,
-// `plan#G3 ...`); each is cut from the text and sets that one note's time or target. A
+// word `untimed`, then with a length (`45m`, `1h30m`, `1h30`; alone it counts too), or in place of
+// both with a range (`10:30-12:00`, a hyphen or an en dash, no spaces: the time and the length
+// between the two), then with a mention of a card or group the board has (`#22 mid check`,
+// `plan#G3 ...`); each is cut from the text and sets that one note's time, duration or target. A
 // mention anywhere else is text: `blocked by #22` is a note about this card. A line that
 // is only a mention is bare: Enter aims the palette at it and writes nothing.
 //
 // What Enter writes (noteWritePlan). The time is the line's, else none when the untimed
 // tick or a `-` says so, else the time field's, else now (or none in a day's untimed box).
+// The duration is the line's, else the duration field's, none when it is empty (durations.js reads
+// it); with a time it makes the note a range from that time, the moment of Enter for Now.
 // The target is the line's mention, else the chip's card or group, else the card last
 // noted, else nothing. The day is the date field's, else the subject's.
 //
@@ -28,6 +32,7 @@
 const NOTE_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 const NOTE_COLUMN_STATE = (typeof module !== 'undefined' && module.exports) ? require('./column-state') : window;
 const NOTE_CALENDAR_MODEL = (typeof module !== 'undefined' && module.exports) ? require('./calendar-model') : window;
+const NOTE_DURATIONS = (typeof module !== 'undefined' && module.exports) ? require('./durations') : window.kanbanDurations;
 
 // How the palette and the Calendar name a note about nothing.
 const NOTE_NO_CARD = 'no card';
@@ -36,6 +41,7 @@ const NOTE_LAST_FEATURE = 'lastnoted';
 const NOTE_LAYOUT_FEATURE = 'notes.layout';
 const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
+const NOTE_LINE_RANGE = /^(\d{1,2})[:.](\d{2})[-–](\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
 const NOTE_FIELD_TIME = /^(\d{1,2})[:.]?(\d{2})$/;
 const NOTE_TODAY = 'Today';
 const NOTE_NOW = 'Now';
@@ -46,10 +52,6 @@ const noteIsTarget = (sub) => sub.kind === 'card' || sub.kind === 'group';
 const noteIsAboutCards = (sub) => noteIsTarget(sub) || sub.kind === 'each';
 
 const notePad = (n) => String(n).padStart(2, '0');
-
-function noteHhmm(min) {
-  return `${notePad(Math.floor(min / 60))}:${notePad(min % 60)}`;
-}
 
 // The time field's text as HH:MM (`9:30`, `09.30`, `0930`, `930`), null when it is none.
 function noteFieldTime(text) {
@@ -66,6 +68,8 @@ const noteIsNow = (text) => String(text == null ? '' : text).trim().toLowerCase(
 
 const noteBadTime = (text) => `${text} is not a time; a time reads HH:MM.`;
 const noteBadDay = (text) => `${text} is not a date; a date reads YYYY-MM-DD.`;
+const noteBadDuration = (text) => `${text} is not a duration; a duration reads like 45m, 1h or 1h30m.`;
+const noteBadRange = (text) => `${text}: the end is not after the start.`;
 
 // The date field's text as YYYY-MM-DD, null when it is none or names a day the calendar lacks.
 function noteFieldDay(text) {
@@ -75,18 +79,35 @@ function noteFieldDay(text) {
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day ? null : day;
 }
 
-// The note box's text -> { text, at, untimed, mention, bare, bad }. `known` is
-// { board, isTarget(id) }: the board's name and whether an id is a card or group of it.
-function noteParseLine(raw, known) {
-  const whole = String(raw == null ? '' : raw).trim();
-  const nl = whole.indexOf('\n');
-  let line = nl === -1 ? whole : whole.slice(0, nl);
-  const more = nl === -1 ? '' : whole.slice(nl);
+// A range's end as minutes: a time, or 24:00 for the end of the day. NaN is no time.
+function noteRangeEnd(h, min) {
+  if (h === 24 && min === 0) return 24 * 60;
+  return h > 23 || min > 59 ? NaN : h * 60 + min;
+}
+
+// The time the note box's line starts with -> { at, duration, untimed, bad, rest, range }: a range's
+// start and the length between its ends, a time, or untimed for a leading `-` or `untimed`; `rest` is
+// the line after it, and `range` says it was a range.
+function noteLineTime(text) {
+  let line = text;
   let at = null;
+  let duration = null;
   let untimed = false;
   let bad = '';
-  const time = NOTE_LINE_TIME.exec(line);
-  if (time) {
+  const range = NOTE_LINE_RANGE.exec(line);
+  const time = range ? null : NOTE_LINE_TIME.exec(line);
+  if (range) {
+    const start = Number(range[1]) * 60 + Number(range[2]);
+    const end = noteRangeEnd(Number(range[3]), Number(range[4]));
+    if (Number(range[1]) > 23 || Number(range[2]) > 59) bad = noteBadTime(`${range[1]}:${range[2]}`);
+    else if (Number.isNaN(end)) bad = noteBadTime(`${range[3]}:${range[4]}`);
+    else if (end <= start) bad = noteBadRange(range[0].trim());
+    else {
+      at = `${notePad(Number(range[1]))}:${range[2]}`;
+      duration = NOTE_DURATIONS.formatDuration(end - start);
+    }
+    line = line.slice(range[0].length);
+  } else if (time) {
     const h = Number(time[1]);
     const min = Number(time[2]);
     if (h > 23 || min > 59) bad = noteBadTime(`${time[1]}:${time[2]}`);
@@ -99,6 +120,25 @@ function noteParseLine(raw, known) {
     untimed = true;
     line = line.replace(/^untimed\s*/i, '');
   }
+  return { at, duration, untimed, bad, rest: line, range: !!range };
+}
+
+// The note box's text -> { text, at, duration, untimed, mention, bare, bad }. `duration` is a leading
+// length or range's, in the written form, or null. `known` is
+// { board, isTarget(id) }: the board's name and whether an id is a card or group of it.
+function noteParseLine(raw, known) {
+  const whole = String(raw == null ? '' : raw).trim();
+  const nl = whole.indexOf('\n');
+  const more = nl === -1 ? '' : whole.slice(nl);
+  const lead = noteLineTime(nl === -1 ? whole : whole.slice(0, nl));
+  const { at, untimed } = lead;
+  let { duration, bad, rest: line } = lead;
+  const length = lead.range ? null : NOTE_DURATIONS.leadingDuration(line);
+  if (length) {
+    if (length.minutes === null) bad = bad || noteBadDuration(length.text);
+    else duration = NOTE_DURATIONS.formatDuration(length.minutes);
+    line = length.rest;
+  }
   let mention = null;
   const first = NOTE_IDS.findMentions(line).find((m) => m.start === 0);
   if (first && (first.board === null || first.board === known.board)) {
@@ -109,7 +149,7 @@ function noteParseLine(raw, known) {
     }
   }
   const text = (line + more).trim();
-  return { text, at, untimed, mention, bare: mention !== null && text === '' && at === null && !untimed && bad === '', bad };
+  return { text, at, duration, untimed, mention, bare: mention !== null && text === '' && at === null && duration === null && !untimed && bad === '', bad };
 }
 
 // What the palette is about. `req` is what opened it:
@@ -131,7 +171,7 @@ function noteSubjectFrom(req, o) {
   }
   if (req.kind === 'card-notes') return { kind: 'card', id: NOTE_IDS.idKey(req.id), day, ...clock };
   if (req.kind === 'group') return { kind: 'group', id: NOTE_IDS.idKey(req.gid), day, ...clock };
-  if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: noteHhmm(Math.max(0, req.fromMin)), ...clock };
+  if (req.kind === 'slot') return { kind: 'slot', day, fromMin: req.fromMin, toMin: req.toMin, at: NOTE_DURATIONS.hhmm(Math.max(0, req.fromMin)), ...clock };
   if (req.kind === 'untimed') return { kind: 'untimed', day, ...clock };
   const id = req.target === undefined || req.target === null || req.target === '' ? null : NOTE_IDS.idKey(req.target);
   if (id !== null) {
@@ -215,7 +255,8 @@ function noteSubjectOnDay(sub, today) {
 }
 
 // The notes a subject lists. `members(id)` gives the ids of a group's cards (a group's
-// list holds its members' notes too); none for a card.
+// list holds its members' notes too); none for a card. A slot lists the notes that start in it and
+// the ranges that run across any of it.
 function noteSubjectNotes(notes, subject, o = {}) {
   if (subject.kind === 'card') return notes.filter((n) => n.target === subject.id);
   if (subject.kind === 'each') return notes.filter((n) => subject.ids.includes(n.target));
@@ -226,34 +267,29 @@ function noteSubjectNotes(notes, subject, o = {}) {
   const today = notes.filter((n) => n.day === subject.day);
   if (subject.kind === 'slot') {
     return today.filter((n) => {
-      const m = n.at && /^(\d{2}):(\d{2})$/.exec(n.at);
-      if (!m) return false;
-      const min = Number(m[1]) * 60 + Number(m[2]);
-      return min >= subject.fromMin && min < subject.toMin;
+      if (!n.at || !/^\d{2}:\d{2}$/.test(n.at)) return false;
+      const min = NOTE_DURATIONS.minutesOf(n.at);
+      const length = n.duration ? NOTE_DURATIONS.parseDuration(n.duration) : null;
+      return min < subject.toMin && (length === null ? min >= subject.fromMin : min + length > subject.fromMin);
     });
   }
   if (subject.kind === 'untimed') return today.filter((n) => !n.at);
   return today;
 }
 
-// What Enter will write: { text, at, day, target, targets, from, bad, scopeTo }. `parsed` is
-// noteParseLine's, `field` the date and time fields { value, untimed, day }, `o` { today, now,
-// lastNoted }. The day is the date field's, else the subject's. `from` says where the target came
+// What Enter will write: { text, at, duration, day, target, targets, from, bad, scopeTo }. `parsed` is
+// noteParseLine's, `field` the date, time and duration fields { value, untimed, day, duration }, `o`
+// { today, now, lastNoted }. The duration is in the written form (`1h30m`), or null. The day is the
+// date field's, else the subject's. `from` says where the target came
 // from: 'line', 'chip', 'each', 'nocard' (chosen in the picker) or 'last'. On several cards
 // (the subject 'each') `targets` lists them, one note is written on each and `target` is
 // empty, unless the line names one card, which takes that one note alone.
 function noteWritePlan(parsed, subject, field, o) {
-  let at = null;
-  let bad = parsed.bad;
-  const value = String(field.value == null ? '' : field.value).trim();
-  if (parsed.at) at = parsed.at;
-  else if (parsed.untimed || field.untimed) at = null;
-  else if (noteIsNow(value)) at = o.now;
-  else if (value === '') at = subject.kind === 'untimed' || subject.untimed ? null : subject.at || o.now;
-  else {
-    at = noteFieldTime(value);
-    if (at === null) bad = bad || noteBadTime(value);
-  }
+  const time = noteWriteTime(parsed, subject, field, o);
+  const at = time.at;
+  let bad = parsed.bad || time.bad;
+  const { duration, bad: lengthBad } = noteCheckLength(parsed.duration || field.duration, at);
+  bad = bad || lengthBad;
   let day = subject.clockDay ? o.today : subject.day || o.today;
   const dayText = String(field.day == null ? '' : field.day).trim();
   if (noteIsToday(dayText)) day = o.today;
@@ -270,7 +306,56 @@ function noteWritePlan(parsed, subject, field, o) {
   else if (subject.kind === 'each') { target = ''; targets = subject.ids; from = 'each'; }
   else if (subject.noCard) { target = ''; from = 'nocard'; }
   else { target = o.lastNoted || ''; from = 'last'; }
-  return { text: parsed.text, at, day, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
+  return { text: parsed.text, at, duration, day, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
+}
+
+// The time Enter will write (HH:MM, null for none) -> { at, bad }: the line's (`lead`, noteLineTime's
+// or noteParseLine's { at, untimed }), else none when the untimed tick or a `-` says so, else the time
+// field's (`field` { value, untimed }), else now (`o.now`), or none in a day's untimed box.
+function noteWriteTime(lead, subject, field, o) {
+  const value = String(field.value == null ? '' : field.value).trim();
+  if (lead.at) return { at: lead.at, bad: '' };
+  if (lead.untimed || field.untimed) return { at: null, bad: '' };
+  if (noteIsNow(value)) return { at: o.now, bad: '' };
+  if (value === '') return { at: subject.kind === 'untimed' || subject.untimed ? null : subject.at || o.now, bad: '' };
+  const at = noteFieldTime(value);
+  return { at, bad: at === null ? noteBadTime(value) : '' };
+}
+
+// The duration field's menu: 15m to 4h in 15-minute steps, and from a time (HH:MM; null for none)
+// only the lengths that end by midnight, so it never offers a range the board would refuse.
+function noteDurationOptions(at) {
+  const out = [];
+  for (let min = 15; min <= 4 * 60; min += 15) if (!NOTE_DURATIONS.durationProblem(min, at)) out.push(NOTE_DURATIONS.formatDuration(min));
+  return out;
+}
+
+// A note's time where a list shows it: its range (`10:30–11:15`), its length when it has a duration
+// and no time (`45m`), its time, or untimed.
+function noteTimeLabel(note) {
+  const length = note.duration ? NOTE_DURATIONS.parseDuration(note.duration) : null;
+  if (length === null) return note.at || 'untimed';
+  return note.at ? NOTE_DURATIONS.durationRange(note.at, length) : note.duration;
+}
+
+// A length typed in a field or the line, held to the rules with the time it goes with (HH:MM, null for
+// none): { duration, bad }, `duration` in the written form or null for nothing typed, `bad` what it
+// breaks ('' for nothing).
+function noteCheckLength(text, at) {
+  const typed = String(text == null ? '' : text).trim();
+  if (typed === '') return { duration: null, bad: '' };
+  const minutes = NOTE_DURATIONS.parseDuration(typed);
+  const bad = minutes === null ? noteBadDuration(typed) : NOTE_DURATIONS.durationProblem(minutes, at);
+  return bad ? { duration: null, bad } : { duration: NOTE_DURATIONS.formatDuration(minutes), bad: '' };
+}
+
+// The edit row's duration field read against the time the row will save (HH:MM, null for none) and
+// the duration the note has (written form, null for none): { duration, change, bad }. `change` says
+// the save sends it: an empty field sends none for a note without one, and null (removed) for a note with one.
+function noteEditDuration(text, at, was) {
+  const { duration, bad } = noteCheckLength(text, at);
+  if (bad) return { duration: null, change: false, bad };
+  return { duration, change: duration !== (was || null), bad: '' };
 }
 
 // Several cards as the preview names them: how many, then the first six.
@@ -284,7 +369,9 @@ function noteEachLabel(ids) {
 function notePreview(plan, o) {
   if (plan.bad) return plan.bad;
   if (plan.scopeTo !== null) return `Open ${o.label(plan.scopeTo)}, then type the note`;
-  const when = plan.at ? `Note at ${plan.at}` : 'Untimed note';
+  const length = plan.duration ? NOTE_DURATIONS.parseDuration(plan.duration) : null;
+  const timed = plan.at && length !== null ? `Note ${NOTE_DURATIONS.durationRange(plan.at, length)}` : plan.at ? `Note at ${plan.at}` : null;
+  const when = timed || (length !== null ? `Note ${plan.duration} untimed` : 'Untimed note');
   const dayBit = plan.day !== o.today ? `, ${o.dayName(plan.day)},` : '';
   const last = plan.from === 'last' && plan.target ? ' (last noted)' : '';
   const on = plan.targets ? noteEachLabel(plan.targets) : `${o.label(plan.target)}${last}`;
@@ -482,7 +569,7 @@ function noteCounts(notes) {
 // What the server needs to find a note again: where it was and what it read, so a note
 // that moved because the file changed is still the one meant.
 function noteRef(note) {
-  return { day: note.day, target: note.target, index: note.index, file: note.file, expect: { at: note.at, by: note.by, note: note.note } };
+  return { day: note.day, target: note.target, index: note.index, file: note.file, expect: { at: note.at, duration: note.duration || null, by: note.by, note: note.note } };
 }
 
 function noteClock(date) {
@@ -516,10 +603,10 @@ function noteLayoutSave(storage, projectName, layout) {
 
 const NOTES_EXPORTS = {
   NOTE_NO_CARD, noteIsTarget, noteIsAboutCards,
-  NOTE_TODAY, NOTE_NOW, noteHhmm, noteIsToday, noteIsNow, noteDayField, noteTimeField,
+  NOTE_TODAY, NOTE_NOW, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
-  noteWritePlan, notePreview, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteLineTime, noteWriteTime, noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

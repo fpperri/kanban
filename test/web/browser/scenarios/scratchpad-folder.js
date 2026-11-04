@@ -215,6 +215,7 @@ module.exports = {
     check('scratchpad-folder: a new a.md then opens empty, with no draft of the old a.md', await newFile('a') && await ev(`${BOX}.value===''`));
     check('scratchpad-folder: Esc in the rename field leaves the name', await menuOn('a.md') && await press(act('rename')) && await waitFor(`!!document.querySelector('.spf-rename')`, 3000) && await (async () => { await typeInto('#notes-palette .spf-rename', 'zzz.md'); await key('Escape'); return waitFor(`!document.querySelector('.spf-rename')&&${NAMES}.includes('a.md')`, 2000); })() && !fs.existsSync(path.join(folder, 'zzz.md')));
     const renameBy = async (rel, to) => {
+      await waitFor(READY, 6000); // a file just renamed is loading again, and until it is in its menu's entries are off
       if (!(await menuOn(rel)) || !(await press(act('rename')))) return false;
       await waitFor(`!!document.querySelector('.spf-rename')`, 3000);
       await typeInto('#notes-palette .spf-rename', to);

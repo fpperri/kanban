@@ -43,7 +43,7 @@ test('a note posted for a card lands in that card\'s day file and comes back in 
     assert.deepStrictEqual((await req(base, 'GET', '/api/board')).json.logbook, { folder: 'logbook', notes: [] });
     const r = await req(base, 'POST', '/api/notes', { day: '2026-10-16', target: '7', at: '09:10', note: 'two enum renames left' });
     assert.strictEqual(r.status, 201);
-    assert.deepStrictEqual(r.json.note, { day: '2026-10-16', target: '7', index: 0, at: '09:10', by: '@human', note: 'two enum renames left', file: '2026.10.16.0007.logbook.md' });
+    assert.deepStrictEqual(r.json.note, { day: '2026-10-16', target: '7', index: 0, at: '09:10', duration: null, by: '@human', note: 'two enum renames left', file: '2026.10.16.0007.logbook.md' });
     const board = (await req(base, 'GET', '/api/board')).json;
     assert.deepStrictEqual(board.logbook.notes, [r.json.note]);
   });
