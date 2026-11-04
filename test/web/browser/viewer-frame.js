@@ -6,10 +6,21 @@
 // the script the scenario adds to its page. Not a scenario: it lives beside the harness so the scenarios folder
 // keeps its rule that every timer there is the harness's.
 
+const { sha256 } = require('../../../plugin/skills/web/scripts/artifact-build');
+
 const VIEWER_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads';
 
 // Goes at the end of the frame's page: it evaluates what the viewer posts it and posts the answer back.
 const FRAME_ANSWERS = `<script>addEventListener('message',async(e)=>{if(!e.data||e.data.q===undefined)return;let v;try{v=await (0,eval)(e.data.q)}catch(x){v='ERR '+x.message}try{e.source.postMessage({id:e.data.id,v:JSON.stringify(v===undefined?null:v)},'*')}catch(x){}});</script>`;
+
+// The built page with the answering script added at the end of its body. The built page's own policy names its
+// scripts by hash and allows no eval, so the policy is widened for this script only (its hash, and eval, which
+// it runs the viewer's expressions with): the scenarios that use it are about the frame's history, not the policy.
+function withFrameAnswers(html) {
+  const hash = sha256(FRAME_ANSWERS.slice('<script>'.length, -'</script>'.length));
+  const widened = html.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?script-src )/, `$1${hash} 'unsafe-eval' `);
+  return widened.replace('</body>', `${FRAME_ANSWERS}</body>`);
+}
 
 // The viewer's page: the frame fills it, and window.q(expression) asks the frame (answering 'NO ANSWER' after 4 s).
 const viewerHtml = (frameUrl) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>html,body{margin:0;height:100%}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style></head><body>
@@ -17,4 +28,4 @@ const viewerHtml = (frameUrl) => `<!doctype html><html><head><meta charset="utf-
 <script>window.__n=0;window.q=(expr)=>new Promise((res)=>{const id=++window.__n;const on=(e)=>{if(e.data&&e.data.id===id){removeEventListener('message',on);res(JSON.parse(e.data.v))}};addEventListener('message',on);document.getElementById('f').contentWindow.postMessage({q:expr,id},'*');setTimeout(()=>res('NO ANSWER'),4000)});</script>
 </body></html>`;
 
-module.exports = { VIEWER_SANDBOX, FRAME_ANSWERS, viewerHtml };
+module.exports = { VIEWER_SANDBOX, FRAME_ANSWERS, withFrameAnswers, viewerHtml };

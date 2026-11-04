@@ -100,10 +100,10 @@ module.exports = {
       await ev(`Object.defineProperty(navigator,'clipboard',{value:{writeText:async(t)=>{window.__copied=t}},configurable:true})`);
       await clickOn('#copy-changes-btn');
       check('Copy changes puts the payload on the clipboard', await waitFor(`typeof window.__copied==='string'`, 4000));
-      await ev(`(()=>{window.__saved=null;HTMLAnchorElement.prototype.click=function(){window.__saved={download:this.download,href:this.href};};return true})()`);
+      await ev(`(()=>{window.__saved=null;const made=URL.createObjectURL;URL.createObjectURL=function(b){window.__blob=b;return made.call(URL,b)};HTMLAnchorElement.prototype.click=function(){window.__saved={download:this.download,href:this.href};};return true})()`);
       await clickOn('#save-changes-btn');
       check('Save as file offers a text file named for the board', await waitFor(`!!window.__saved`, 4000) && (await ev('window.__saved.download')) === 'kanban-changes-fixture.txt', JSON.stringify(await ev('window.__saved')));
-      const saved = await ev(`fetch(window.__saved.href).then((r)=>r.text())`);
+      const saved = await ev(`window.__blob.text()`);
       check('and holding the same payload Copy changes took', saved === `${await ev('window.__copied')}\n`, saved.slice(0, 120));
       check('after them leaving the page asks nothing', await ev(`(()=>{const e={defaultPrevented:false,returnValue:'',preventDefault(){this.defaultPrevented=true}};askBeforeLeaving(e);return e.defaultPrevented})()`) === false);
 

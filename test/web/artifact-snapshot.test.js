@@ -12,7 +12,7 @@ const { boot } = require('../../plugin/skills/web/scripts/page-source');
 // that lists it still lists its id. Bodies travel whole and once, and a page over 16 MB is refused.
 
 const SCRIPT = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'artifact-build.js');
-const dataOf = (html) => JSON.parse(html.match(/<script type="application\/json" id="kanban-board">([\s\S]*?)<\/script>/)[1]);
+const { pageData: dataOf } = require('./helpers/page-data');
 const memoryStorage = () => {
   const map = new Map();
   return { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, String(v)); } };

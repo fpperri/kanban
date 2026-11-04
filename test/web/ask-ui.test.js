@@ -50,12 +50,10 @@ test('no confirm( is left in the web\'s page code', () => {
 test('no confirm( is left in the scripts the artifact build puts in the page, the runtime and the route modules included', () => {
   const { html: built } = buildPage({ boardDir: path.join(__dirname, 'browser', 'fixture') });
   const scripts = [...built.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-  const data = JSON.parse(built.match(/<script type="application\/json" id="kanban-board">([\s\S]*?)<\/script>/)[1]);
-  assert.ok(scripts.length > 20 && Object.keys(data.sources).length > 5, 'the page carries the web scripts, the runtime and the route modules');
+  assert.ok(scripts.length > 20 && scripts.some((src) => src.startsWith('window.kanbanModuleFns = ') && src.includes('"scripts/route.js"')), 'the page carries the web scripts, the runtime and the route modules');
   const found = [];
   const scan = (name, src) => blankNonCode(src).split('\n').forEach((line, i) => { if (/(^|[^\w$])confirm\s*\(/.test(line)) found.push(`${name}:${i + 1}`); });
   scripts.forEach((src, i) => scan(`script ${i + 1}`, src));
-  for (const [file, src] of Object.entries(data.sources)) scan(file, src);
   assert.deepStrictEqual(found, [], 'a native confirm() is answered with no in an artifact viewer; ask in the page with askInPage');
 });
 

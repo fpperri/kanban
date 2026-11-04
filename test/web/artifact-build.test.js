@@ -14,7 +14,7 @@ const { boot } = require('../../plugin/skills/web/scripts/page-source');
 const FIXTURE = path.join(__dirname, 'browser', 'fixture');
 const SCRIPT = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'artifact-build.js');
 
-const dataOf = (html) => JSON.parse(html.match(/<script type="application\/json" id="kanban-board">([\s\S]*?)<\/script>/)[1]);
+const { pageData: dataOf } = require('./helpers/page-data');
 const memoryStorage = () => {
   const map = new Map();
   return { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, String(v)); } };
@@ -193,4 +193,76 @@ test('two files built from one board at two moments keep their own queues in one
     assert.strictEqual(boot(old, { storage, device: 'd' }).records().length, 1);
     assert.strictEqual(boot(fresh, { storage, device: 'd' }).records().length, 0);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+// The page's content security policy: a meta tag in the built file's head. Inline scripts and the style pass
+// by hash (the build can compute them; a nonce would need a server to vary it), so the policy needs neither
+// 'unsafe-inline' nor 'unsafe-eval'.
+const crypto = require('node:crypto');
+const vm = require('node:vm');
+
+const policyOf = (html) => {
+  const m = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)">/);
+  return m ? Object.fromEntries(m[1].split(';').map((d) => d.trim()).filter(Boolean).map((d) => { const [name, ...values] = d.split(/\s+/); return [name, values]; })) : null;
+};
+const sha256 = (text) => `'sha256-${crypto.createHash('sha256').update(text, 'utf8').digest('base64')}'`;
+const live = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
+const inlineScripts = (html) => [...live(html).matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+
+test('the built file carries a policy in its head with no unsafe-eval, no unsafe-inline and no remote source', () => {
+  const { html } = buildPage({ boardDir: FIXTURE });
+  const policy = policyOf(html);
+  assert.ok(policy, 'a Content-Security-Policy meta tag is in the file');
+  assert.ok(html.indexOf('http-equiv="Content-Security-Policy"') < html.indexOf('</head>'), 'it sits in the head');
+  assert.ok(html.indexOf('http-equiv="Content-Security-Policy"') < html.indexOf('<style>'), 'it comes before the first thing it governs');
+  assert.deepStrictEqual(policy['default-src'], ["'none'"]);
+  assert.ok(!/unsafe-eval|unsafe-inline|unsafe-hashes|wasm-unsafe-eval/.test(Object.values(policy).flat().join(' ')));
+  assert.ok(!/\bhttps?:|\*|'self'|blob:|\bdata:.*script/.test((policy['script-src'] || []).join(' ')), 'script-src names no remote source');
+  for (const name of ['connect-src', 'frame-src', 'worker-src', 'object-src']) assert.ok(!policy[name] || policy[name].join() === "'none'", name);
+  assert.deepStrictEqual(policy['base-uri'], ["'none'"]);
+  assert.deepStrictEqual(policy['form-action'], ["'none'"]);
+});
+
+test('script-src holds the hash of every inline script the page runs, and no other', () => {
+  const { html } = buildPage({ boardDir: FIXTURE });
+  const policy = policyOf(html);
+  const scripts = inlineScripts(html);
+  assert.ok(scripts.length > 20);
+  assert.deepStrictEqual([...policy['script-src']].sort(), [...new Set(scripts.map(sha256))].sort());
+  assert.deepStrictEqual(policy['style-src'], [sha256(html.match(/<style>([\s\S]*?)<\/style>/)[1])]);
+});
+
+test('a page built over a card whose body holds script and style text still hashes what the browser reads', () => {
+  const dir = tmpTree({ '.kanban/config.yaml': 'name: cspboard\nnextId: 2\n', '.kanban/0001.one.card.md': card(1, 'One').replace('body of 1', 'x </script><script>alert(1)</script> <!-- </style> -->') });
+  const { html } = buildPage({ boardDir: path.join(dir, '.kanban') });
+  const policy = policyOf(html);
+  assert.deepStrictEqual([...policy['script-src']].sort(), [...new Set(inlineScripts(html).map(sha256))].sort());
+});
+
+test('the page runs with code generation from text switched off: the runtime, the modules and the board boot', async () => {
+  const { html } = buildPage({ boardDir: FIXTURE });
+  const scripts = inlineScripts(html);
+  const json = html.match(/<script type="application\/json" id="kanban-board">([\s\S]*?)<\/script>/)[1];
+  const context = vm.createContext({}, { codeGeneration: { strings: false, wasm: false } });
+  Object.assign(context, {
+    window: context,
+    TextDecoder,
+    TextEncoder,
+    URL,
+    URLSearchParams,
+    document: { getElementById: () => ({ textContent: json }) },
+    localStorage: { getItem: () => null, setItem: () => {} },
+  });
+  assert.throws(() => vm.runInContext('new Function("return 1")', context), /Code generation from strings disallowed/);
+  const start = scripts.findIndex((s) => s.startsWith('window.kanbanSourceInUse ='));
+  const first = scripts.findIndex((s) => s.includes('window.kanbanPosixPath = '));
+  assert.ok(first > -1 && first < start, 'the runtime scripts come before the start script');
+  vm.runInContext(scripts.find((s) => s.includes('window.kanbanIds = ')), context);
+  for (const s of scripts.slice(first, start)) vm.runInContext(s, context);
+  vm.runInContext(scripts[start], context);
+  const answer = await context.kanbanSourceInUse.request('GET', '/api/board');
+  assert.strictEqual(answer.status, 200);
+  assert.strictEqual(answer.json.projectName, 'fixture');
+  const saved = await context.kanbanSourceInUse.request('PATCH', '/api/cards/10', { title: 'Renamed under the policy' });
+  assert.strictEqual(saved.status, 200);
 });
