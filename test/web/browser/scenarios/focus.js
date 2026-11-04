@@ -6,8 +6,9 @@
 // draws the board again, and the toggle it draws is the one that holds focus, with its ring. The cascade is read
 // from the page's own stylesheet in both themes, on probes drawn the way the views draw them: a ghost stub keeps
 // the amber of a waiting card and the red of a high-priority one over its dashes, an edge to a ghost is dashed and
-// not dimmed, the gantt's today line and an archived Graph dot are not dimmed, and the fallback title on a ghost
-// stub is not dimmed. Each step waits on the page, never on a fixed sleep. Keys go through the runner's key helper,
+// not dimmed, a parent line to a ghost has a dash of its own, the gantt's today line and an archived Graph dot are
+// not dimmed, an archived done dot still shows the selected, hovered and focused strokes, and the fallback title on a
+// ghost stub is not dimmed. Each step waits on the page, never on a fixed sleep. Keys go through the runner's key helper,
 // a real key press.
 
 const MAX_STOPS = 150;
@@ -36,6 +37,11 @@ const PROBES = `(()=>{const colour=${COLOUR};const NS='http://www.w3.org/2000/sv
   const plain=node('ghost'),waiting=node('ghost waiting'),high=node('ghost high'),both=node('ghost high waiting'),live=node('waiting');
   const edge=document.createElementNS(NS,'path');edge.setAttribute('class','map-edge ghost-edge');svg.appendChild(edge);
   const liveEdge=document.createElementNS(NS,'path');liveEdge.setAttribute('class','map-edge');svg.appendChild(liveEdge);
+  const parentGhost=document.createElementNS(NS,'path');parentGhost.setAttribute('class','map-edge map-parent-line ghost-edge');svg.appendChild(parentGhost);
+  const parentLive=document.createElementNS(NS,'path');parentLive.setAttribute('class','map-edge map-parent-line');svg.appendChild(parentLive);
+  const dash=(e)=>getComputedStyle(e).strokeDasharray;
+  const doneDot=(state)=>{const g=document.createElementNS(NS,'g');g.setAttribute('class','graph-node status-todo is-done archived '+state);const c=document.createElementNS(NS,'circle');c.setAttribute('class','graph-dot');g.appendChild(c);svg.appendChild(g);return c};
+  const sel=doneDot('selected'),hov=doneDot('hover-highlight');
   const today=document.createElement('div');today.className='gantt-today-line';host.appendChild(today);
   const gnode=document.createElementNS(NS,'g');gnode.setAttribute('class','graph-node status-todo archived');const dot=document.createElementNS(NS,'circle');dot.setAttribute('class','graph-dot');gnode.appendChild(dot);svg.appendChild(gnode);
   const done=document.createElementNS(NS,'g');done.setAttribute('class','graph-node status-todo is-done archived');const ddot=document.createElementNS(NS,'circle');ddot.setAttribute('class','graph-dot');done.appendChild(ddot);svg.appendChild(done);
@@ -50,8 +56,21 @@ const PROBES = `(()=>{const colour=${COLOUR};const NS='http://www.w3.org/2000/sv
     liveEdgeOpacity:getComputedStyle(liveEdge).strokeOpacity,liveEdgeDash:getComputedStyle(liveEdge).strokeDasharray,
     today:getComputedStyle(today).opacity,
     archivedOpacity:getComputedStyle(gnode).opacity,archivedDash:getComputedStyle(dot).strokeDasharray,archivedFill:getComputedStyle(dot).fill,todoTok:colour('--st-todo'),
-    doneStroke:getComputedStyle(ddot).stroke,doneDash:getComputedStyle(ddot).strokeDasharray
+    doneStroke:getComputedStyle(ddot).stroke,doneDash:getComputedStyle(ddot).strokeDasharray,
+    parentGhostDash:dash(parentGhost),parentLiveDash:dash(parentLive),parentGhostOpacity:getComputedStyle(parentGhost).strokeOpacity,
+    doneSelected:getComputedStyle(sel).stroke,doneHover:getComputedStyle(hov).stroke,accent:colour('--accent'),ink:colour('--ink')
   };
+  host.remove();return JSON.stringify(out)})()`;
+
+// An archived done dot that holds real keyboard focus: drawn the way the Graph draws a node (focusable, no outline of
+// its own), focused after a key press so the page is in keyboard modality, and read in the cascade.
+const FOCUS_DOT = `(()=>{const NS='http://www.w3.org/2000/svg';const host=document.createElement('div');host.id='contrast-focus-probe';document.body.appendChild(host);
+  const svg=document.createElementNS(NS,'svg');host.appendChild(svg);
+  const g=document.createElementNS(NS,'g');g.setAttribute('class','graph-node status-todo is-done archived');g.setAttribute('tabindex','0');
+  const c=document.createElementNS(NS,'circle');c.setAttribute('class','graph-dot');g.appendChild(c);svg.appendChild(g);
+  g.focus();const cs=getComputedStyle(c);
+  const probe=document.createElement('i');probe.style.color='var(--accent)';document.body.appendChild(probe);const accent=getComputedStyle(probe).color;probe.remove();
+  const out={focused:document.activeElement===g,visible:g.matches(':focus-visible'),stroke:cs.stroke,accent};
   host.remove();return JSON.stringify(out)})()`;
 
 module.exports = {
@@ -123,6 +142,12 @@ module.exports = {
       check(at('the gantt today line is not dimmed'), p.today === '1', p.today);
       check(at('an archived Graph dot is not dimmed, keeps its status fill, and wears a dashed ring'), p.archivedOpacity === '1' && p.archivedDash !== 'none' && p.archivedFill === p.todoTok, p);
       check(at('an archived done dot keeps its hollow solid-colour ring, dashed'), p.doneDash !== 'none' && p.doneStroke === p.todoTok, p);
+      check(at('an archived done dot that is selected wears the accent, and one that is hovered the ink'), p.doneSelected === p.accent && p.doneHover === p.ink, p);
+      check(at('a parent line to a ghost is dashed in a dash of its own, and not dimmed'), p.parentGhostDash !== 'none' && p.parentGhostDash !== p.parentLiveDash && p.parentGhostDash !== p.edgeDash && p.parentGhostOpacity === '1', p);
+      check(at('a live parent line keeps its own dash'), p.parentLiveDash !== 'none' && p.parentLiveDash !== p.liveEdgeDash, p);
+      await key('Tab');
+      const f = JSON.parse(await ev(FOCUS_DOT));
+      check(at('an archived done dot that holds keyboard focus wears the accent: its ring is its only focus cue'), f.focused && f.visible && f.stroke === f.accent, f);
     }
     await ev(`document.documentElement.removeAttribute('data-theme')`);
   },

@@ -262,7 +262,7 @@ replaces the page's address without adding a step to Back. A load writes the add
 what the board remembered, keeping every other parameter, so a link copied after a plain reload opens the same picture. In the phone's bottom sheet the switches are its first rows; the Hierarchy | Flow choice stays in the toolbar.
 
 A dot takes its status colour, grows with its relations, goes hollow when done
-and dim when archived. A type that has an `icon:` in the board's `types:` list draws its dot
+and wears a dashed ring when archived. A type that has an `icon:` in the board's `types:` list draws its dot
 in that outline (circle, square, diamond, triangle, hexagon or star), still in the status
 colour, and starts its chip with it wherever a chip is drawn; an icon is a shape, never a
 colour, and a type with no icon, or an unknown name, keeps the round dot. A ring around it

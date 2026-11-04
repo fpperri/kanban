@@ -1310,6 +1310,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .map-align-center .map-isolated-row { justify-content: center; }
 /* A parent line is a dependency edge's grey, dashed, with a dot on the parent's end. */
 .map-parent-line { stroke-dasharray: 6 4; }
+/* A parent line to a ghost is dotted: 6 4 is a live parent line, 4 3 an edge to a ghost, and the dash is what tells them apart. */
+.map-parent-line.ghost-edge { stroke-dasharray: 2 4; }
 .map-parent-dot circle { fill: var(--mut); }
 /* Rich nodes carry HTML rows (type chip, altitude badge, roll-up bar) in foreignObjects. */
 .map-node foreignObject { font-size: 14px; color: var(--ink); overflow: hidden; }
@@ -1663,9 +1665,10 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-dot { fill: currentColor; stroke: none; stroke-linejoin: round; }
 .graph-node.is-done .graph-dot { fill: var(--surface); stroke: currentColor; stroke-width: 1.8px; }
 /* Archived is a location, told apart by a dashed ring, never by dimming the dot: a filled dot keeps its status colour
-   and gains a muted dashed edge, a done (hollow) one keeps its own colour's ring and dashes it. */
+   and gains a muted dashed edge, a done (hollow) one keeps its own colour's ring and dashes it. The done rule's :where() keeps it no heavier than the
+   selected, hovered and focused strokes below, which must win over it. */
 .graph-node.archived .graph-dot { stroke: var(--mut); stroke-width: 1.8px; stroke-dasharray: 2.5 2; }
-.graph-node.archived.is-done .graph-dot { stroke: currentColor; }
+.graph-node.archived:where(.is-done) .graph-dot { stroke: currentColor; }
 .graph-kids-ring, .graph-flag-ring { fill: none; stroke-width: 1.4px; pointer-events: none; }
 .graph-node.has-kids .graph-kids-ring { stroke: var(--mut); }
 .graph-flag-ring { stroke: transparent; }

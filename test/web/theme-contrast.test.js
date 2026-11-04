@@ -478,6 +478,45 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
   });
 }
 
+// The weight of a selector as the cascade counts it: classes, attributes and pseudo-classes, with :where() free.
+function specificity(selector) {
+  const bare = selector.replace(/:where\((?:[^()]|\([^()]*\))*\)/g, '');
+  return (bare.match(/\.[\w-]+|\[[^\]]*\]|:(?!:)[\w-]+/g) || []).length;
+}
+
+test('the specificity count weighs a class, a pseudo-class and an attribute, and :where() nothing', () => {
+  assert.strictEqual(specificity('.graph-node.archived.is-done .graph-dot'), 4);
+  assert.strictEqual(specificity('.graph-node.archived:where(.is-done) .graph-dot'), 3);
+  assert.strictEqual(specificity('.graph-node:focus-visible .graph-dot'), 3);
+  assert.strictEqual(specificity('[tabindex="-1"]:focus-visible'), 2);
+});
+
+// An archived done dot keeps its own colour's ring, but its rule must not outweigh the states a dot shows (selected,
+// hovered, focused): those are drawn with the same stroke property, and the focus ring is the only cue a Graph node has.
+test("the archived done dot's ring never outweighs the selected, hovered and focused strokes, and comes before them", () => {
+  const ring = RULES.find((r) => r.selectors.some((s) => /archived[^,]*is-done[^,]*\.graph-dot$/.test(s)));
+  assert.ok(ring, 'a rule rings an archived done dot');
+  const ringSel = ring.selectors.find((s) => /archived[^,]*is-done[^,]*\.graph-dot$/.test(s));
+  for (const state of ['.graph-node.selected .graph-dot', '.graph-node.hover-highlight .graph-dot', '.graph-node:focus-visible .graph-dot']) {
+    const rule = RULES.find((r) => r.selectors.includes(state));
+    assert.ok(rule, `no rule for ${state}`);
+    assert.ok(specificity(ringSel) <= specificity(state), `${ringSel} outweighs ${state}`);
+    assert.ok(RULES.indexOf(ring) < RULES.indexOf(rule), `${ringSel} comes after ${state}`);
+  }
+});
+
+test('a parent line to a ghost has a dash of its own, told apart from a live parent line and from an edge to a ghost', () => {
+  const dash = (sel) => declsFor(sel)['stroke-dasharray'];
+  const parent = dash('.map-parent-line');
+  const ghostEdge = dash('.map-edge.ghost-edge');
+  const ghostParent = dash('.map-parent-line.ghost-edge');
+  assert.ok(ghostParent, 'a parent line to a ghost is dashed');
+  assert.notStrictEqual(ghostParent, parent);
+  assert.notStrictEqual(ghostParent, ghostEdge);
+  const at = (sel) => css.indexOf(sel + ' {');
+  assert.ok(at('.map-parent-line.ghost-edge') > at('.map-edge.ghost-edge'), 'it comes after the edge rule it overrides');
+});
+
 // Every way a stylesheet can dim: opacity, and its paint twins fill-opacity and stroke-opacity, to anything under 1.
 const DIM = /(^|[;\s])(fill-|stroke-)?opacity\s*:(?!\s*1\s*(;|$))/;
 
