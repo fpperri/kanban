@@ -23,7 +23,10 @@ const trayDescribeModule = (() => {
   const group = (id) => `group ${id}`;
   const list = (items) => items.join(', ');
   const andList = (items) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items.join(''));
-  const refTarget = (body) => (isObject(body.ref) && body.ref.target !== undefined && body.ref.target !== null ? card(body.ref.target) : null);
+  // A note's card, or null for a note with no card (its target is absent or '').
+  const noteCard = (id) => (id === undefined || id === null || id === '' ? null : card(id));
+  const refTarget = (body) => (isObject(body.ref) ? noteCard(body.ref.target) : null);
+  const boardDay = (body) => `the board's ${(body.ref && body.ref.day) || 'day'}`;
   const padOf = (id) => `the scratchpad of ${card(id)}`;
   const DELETE_EXTRAS = [['logbook', 'notes'], ['scratchpad', 'scratchpad'], ['todos', 'todos']];
 
@@ -34,7 +37,7 @@ const trayDescribeModule = (() => {
     const timed = typeof body.at === 'string' && /^\d\d:\d\d$/.test(body.at);
     const range = minutes !== null && timed ? ` at ${durations.durationRange(body.at, minutes)}` : '';
     const what = minutes !== null && !timed ? `a ${durations.formatDuration(minutes)} note` : 'a note';
-    const where = body.target !== undefined && body.target !== null ? `to ${card(body.target)}` : `for ${body.day || 'the board'}`;
+    const where = noteCard(body.target) ? `to ${noteCard(body.target)}` : `for ${body.day || 'the board'}`;
     return `added ${what} ${where}${range}`;
   }
 
@@ -85,7 +88,7 @@ const trayDescribeModule = (() => {
     entry('DELETE', '/api/notes', "method === 'DELETE' && p === '/api/notes'", at('/api/notes'),
       (m, body) => `deleted a note ${refTarget(body) ? `on ${refTarget(body)}` : `of ${(body.ref && body.ref.day) || 'the board'}`}`),
     entry('POST', '/api/notes/assign', "method === 'POST' && p === '/api/notes/assign'", at('/api/notes/assign'),
-      (m, body) => `moved a note from ${refTarget(body) || `the board's ${(body.ref && body.ref.day) || 'day'}`} to ${card(body.to)}`),
+      (m, body) => `moved a note from ${refTarget(body) || boardDay(body)} to ${noteCard(body.to) || boardDay(body)}`),
 
     entry('PUT', '/api/scratchpad/:id', "(method === 'GET' || method === 'PUT')", at('/api/scratchpad/:id'), (m) => `saved the scratchpad page of ${card(m[1])}`),
     entry('POST', '/api/scratchpad/:id/file', "what === 'file' && method === 'POST'", at('/api/scratchpad/:id/file'), (m, body) => `created ${body.path} in ${padOf(m[1])}`),
