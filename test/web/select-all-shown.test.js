@@ -21,6 +21,17 @@ test('shownMatchIds is empty with no query: null matched is "no query", never "e
   assert.deepStrictEqual(shownMatchIds(new Set(), new Set(['1', '2'])), []);
 });
 
+test('shownMatchIds with no query and a status off is every card the view shows, in the shown order', () => {
+  const shown = new Set(['4', '1', '9']);
+  assert.deepStrictEqual(shownMatchIds(null, shown, true), ['4', '1', '9']);
+  assert.deepStrictEqual(shownMatchIds(null, shown, false), []);
+  assert.deepStrictEqual(shownMatchIds(null, shown), []);
+});
+
+test('shownMatchIds with a query ignores the status flag: the matches among the shown, as before', () => {
+  assert.deepStrictEqual(shownMatchIds(new Set(['1', '2']), new Set(['2', '3']), true), ['2']);
+});
+
 test('shownMatchIds reads the sets without changing them and returns a new list', () => {
   const matched = new Set(['1', '2']);
   const shown = new Set(['1', '2']);
@@ -185,6 +196,50 @@ test('a status the view has switched off takes its matches out of the count and 
   assert.strictEqual(s.button.disabled, true, 'nothing to press');
   s.press();
   assert.deepStrictEqual(s.picked(), []);
+});
+
+test('with an empty box a status switched off on the Map brings the button, counting the cards the Map shows', async () => {
+  const s = await open({ view: 'map' });
+  assert.strictEqual(s.shownButton(), false, 'every status on and an empty box: nothing to select');
+  s.page.run(`toggleMapStatusFilter('todo')`);
+  s.page.run(`toggleMapStatusFilter('backlog')`);
+  assert.strictEqual(s.shownButton(), true);
+  assert.strictEqual(s.label(), 'Select all shown (5)', 'cards 1 and 5 in Doing, 6 and 7 in Done, and 8 in the Archive the Map shows to start');
+});
+
+test('the Map with a status off and an empty box: a press selects the cards it shows', async () => {
+  const s = await open({ view: 'map' });
+  s.page.run(`toggleMapStatusFilter('todo')`);
+  s.page.run(`toggleMapStatusFilter('backlog')`);
+  s.press();
+  assert.deepStrictEqual(s.picked(), [1, 5, 6, 7, 8]);
+});
+
+test('switching the status back on takes the button away again', async () => {
+  const s = await open({ view: 'map' });
+  s.page.run(`toggleMapStatusFilter('todo')`);
+  assert.strictEqual(s.shownButton(), true);
+  s.page.run(`toggleMapStatusFilter('todo')`);
+  assert.strictEqual(s.shownButton(), false);
+});
+
+test('a query with a status off counts as before: the matches among the shown', async () => {
+  const s = await open({ view: 'map' });
+  s.page.run(`toggleMapStatusFilter('todo')`);
+  s.type('tags:ui');
+  assert.strictEqual(s.label(), 'Select all shown (1)', 'card 5; card 2 is in the hidden Todo');
+});
+
+test('the Archive off alone on the Map, an empty box: the button shows and leaves the archive out', async () => {
+  const s = await open({ view: 'map' });
+  s.page.run(`toggleMapStatusFilter('archive')`);
+  assert.strictEqual(s.shownButton(), true);
+  assert.strictEqual(s.label(), 'Select all shown (7)');
+});
+
+test('the Board has no Statuses section, so an empty box stays without the button', async () => {
+  const s = await open();
+  assert.strictEqual(s.shownButton(), false);
 });
 
 test('a query that matches nothing offers nothing to press', async () => {
