@@ -7,6 +7,7 @@ const { askElements, askDriver } = require('./helpers/ask-page');
 const { blankNonCode } = require('./helpers/global-scope');
 const { askSegments } = require('../../plugin/skills/web/web/ask-ui');
 const { buildPage } = require('../../plugin/skills/web/scripts/artifact-build');
+const { routeSources } = require('./helpers/route-sources');
 
 // The speedbump asks in the page (ask-ui.js), not through the browser's confirm(): an artifact viewer
 // answers a native dialog with "no", so Archive, the drop that asks, Discard unsaved changes and the rest
@@ -54,6 +55,7 @@ test('no confirm( is left in the scripts the artifact build puts in the page, th
   const found = [];
   const scan = (name, src) => blankNonCode(src).split('\n').forEach((line, i) => { if (/(^|[^\w$])confirm\s*\(/.test(line)) found.push(`${name}:${i + 1}`); });
   scripts.forEach((src, i) => scan(`script ${i + 1}`, src));
+  for (const [file, src] of Object.entries(routeSources())) scan(file, src);
   assert.deepStrictEqual(found, [], 'a native confirm() is answered with no in an artifact viewer; ask in the page with askInPage');
 });
 
