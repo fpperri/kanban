@@ -107,3 +107,25 @@ test('a note save that changes the time, the day or the length says what the not
   assert.strictEqual(edit({ day: '2026-10-16', note: 'x' }), 'edited a note on #7');
   assert.strictEqual(edit({ at: '08:00' }, NOTE_REF), 'edited a note on #7, now 2026-10-16 08:00');
 });
+
+test('a note with no card reads with its day, never with an empty #', () => {
+  const noCard = { ...NOTE_REF, target: '' };
+  const send = (method, p, body) => describeChange(record({}, [p, body], method));
+  assert.strictEqual(send('POST', '/api/notes', { day: '2026-11-03', target: '', note: 'x' }), 'added a note for 2026-11-03');
+  assert.strictEqual(send('POST', '/api/notes', { day: '2026-11-03', target: '', note: 'x', at: '10:30', duration: '45m' }), 'added a note for 2026-11-03 at 10:30–11:15');
+  assert.strictEqual(send('POST', '/api/notes', { day: '2026-11-03', target: '7', note: 'x' }), 'added a note to #7');
+  assert.strictEqual(send('PATCH', '/api/notes', { ref: noCard, note: 'x' }), 'edited a note of 2026-10-16');
+  assert.strictEqual(send('PATCH', '/api/notes', { ref: noCard, day: '2026-10-17' }), 'edited a note of 2026-10-16, now 2026-10-17 09:10');
+  assert.strictEqual(send('DELETE', '/api/notes', { ref: noCard }), 'deleted a note of 2026-10-16');
+  assert.strictEqual(send('DELETE', '/api/notes', { ref: NOTE_REF }), 'deleted a note on #7');
+});
+
+test('an assign names the board\'s day for either end that is no card', () => {
+  const assign = (ref, to) => describeChange(record({}, ['/api/notes/assign', { ref, to }], 'POST'));
+  const noCard = { ...NOTE_REF, target: '' };
+  assert.strictEqual(assign(NOTE_REF, '3'), 'moved a note from #7 to #3');
+  assert.strictEqual(assign(noCard, '3'), "moved a note from the board's 2026-10-16 to #3");
+  assert.strictEqual(assign(NOTE_REF, ''), "moved a note from #7 to the board's 2026-10-16");
+  assert.strictEqual(assign(NOTE_REF, undefined), "moved a note from #7 to the board's 2026-10-16");
+  assert.strictEqual(assign(noCard, ''), "moved a note from the board's 2026-10-16 to the board's 2026-10-16");
+});
