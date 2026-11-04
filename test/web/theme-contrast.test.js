@@ -401,10 +401,61 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     }
   });
 
-  test(`${name}: the dashed edges that mark a receded item use the stronger line`, () => {
+  test(`${name}: the dashed edges that are decoration use the stronger line, and the ghost stub's edge, the only cue it has, is a mark that clears ${UI}:1`, () => {
     assert.strictEqual(tokenIn(declsFor('.cal-day.outside')['border-color'], 'outside day edge'), '--line-strong');
     assert.strictEqual(tokenIn(declsFor('.notif-row.level-debug')['border-color'], 'debug row edge'), '--line-strong');
-    assert.strictEqual(tokenIn(declsFor('.map-node.ghost rect').stroke, 'ghost stub edge'), '--line-strong');
+    const edge = tokenIn(declsFor('.map-node.ghost rect').stroke, 'ghost stub edge');
+    assert.strictEqual(edge, '--mut');
+    clears(set, edge, '--surface', UI, 'ghost stub edge');
+  });
+
+  test(`${name}: a ghost stub keeps the amber of a waiting card and the red of a high-priority one, each a mark that clears ${UI}:1`, () => {
+    const ghost = declsFor('.map-node.ghost rect');
+    assert.ok(ghost['stroke-dasharray'], 'the ghost stub keeps its dashes');
+    for (const [state, tok] of [['waiting', '--id-waiting'], ['high', '--id-high']]) {
+      const sel = `.map-node.ghost.${state} rect`;
+      assert.strictEqual(tokenIn(declsFor(sel).stroke, sel), tok);
+      clears(set, tok, '--surface', UI, sel);
+    }
+    const at = (sel) => css.indexOf(sel + ' {');
+    assert.ok(at('.map-node.ghost.waiting rect') > at('.map-node.ghost rect'), 'the state strokes come after the ghost rule');
+    assert.ok(at('.map-node.ghost.waiting rect') > at('.map-node.ghost.high rect'), 'waiting wins over high, as everywhere');
+  });
+
+  test(`${name}: a map edge and an edge to a ghost are full-strength marks that clear ${UI}:1 on the canvas, the ghost one told apart by dashes`, () => {
+    for (const sel of ['.map-edge', '.map-edge.ghost-edge']) {
+      const d = declsFor(sel);
+      assert.ok(!('opacity' in d) && !('stroke-opacity' in d), `${sel} dims with opacity`);
+    }
+    clears(set, tokenIn(declsFor('.map-edge').stroke, 'map edge'), '--surface', UI, 'map edge');
+    assert.ok(declsFor('.map-edge.ghost-edge')['stroke-dasharray'], 'an edge to a ghost is dashed');
+    clears(set, tokenIn(declsFor('#map-arrow path').fill, 'arrowhead'), '--surface', UI, 'arrowhead');
+  });
+
+  test(`${name}: the prompt-fallback title on a ghost stub is not dimmed, so it holds ${TEXT}:1`, () => {
+    const d = declsFor('.map-node.ghost .map-node-title--prompt-fallback');
+    assert.strictEqual(d['fill-opacity'], '1');
+    clears(set, tokenIn(declsFor('.map-node.ghost .map-node-title').fill, 'ghost title'), '--surface', TEXT, 'ghost fallback title');
+  });
+
+  test(`${name}: the gantt today line is a full-strength accent mark on the surface`, () => {
+    const d = declsFor('.gantt-today-line');
+    assert.ok(!('opacity' in d), 'the today line dims with opacity');
+    assert.match(d['border-left'], /var\(--accent\)/);
+    clears(set, '--accent', '--surface', UI, 'gantt today line');
+  });
+
+  test(`${name}: an archived Graph dot keeps its status colour, which clears ${UI}:1, and is told apart by a dashed ring, not opacity`, () => {
+    assert.deepStrictEqual(RULES.filter((r) => r.selectors.includes('.graph-node.archived')), [], 'an archived Graph node has a rule of its own that dims it');
+    assert.ok(declsFor('.graph-node.archived .graph-dot')['stroke-dasharray'], 'an archived dot is ringed with dashes');
+    for (const tok of Object.keys(set).filter((k) => /^--(st|hash)-/.test(k))) clears(set, tok, '--surface', UI, `archived Graph dot ${tok}`);
+  });
+
+  test(`${name}: an on or off filter pill's label is regular weight, only a soloed label is heavier`, () => {
+    for (const sel of ['.status-pill', '.status-pill.off', '.query-pill', '.query-pill.on', '.query-pill-label']) {
+      const w = (RULES.filter((r) => r.selectors.includes(sel)).map((r) => /font-weight\s*:\s*([^;]+)/.exec(r.body)).filter(Boolean).pop() || [])[1];
+      assert.ok(w === undefined || w.trim() === '400' || w.trim() === 'normal', `${sel} sets font-weight ${w}`);
+    }
   });
 
   test(`${name}: the Children toggle's label and count hold the floor on the button hover ground`, () => {
@@ -427,15 +478,83 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
   });
 }
 
-test('no rule dims live text with opacity', () => {
-  // --prompt-fallback: these rules are unchanged from main and out of this change's scope.
-  const NOT_TEXT = /:disabled|\.dragging|^\.graph-|\.gantt-today-line|--prompt-fallback/;
+// Every way a stylesheet can dim: opacity, and its paint twins fill-opacity and stroke-opacity, to anything under 1.
+const DIM = /(^|[;\s])(fill-|stroke-)?opacity\s*:(?!\s*1\s*(;|$))/;
+
+// The Graph's rules that keep an opacity, each with why it is not a dimmed live mark or text. The Graph's links
+// and dimming wait on a ruling, so they are listed, not fixed. A rule that is not here fails the scan, and a name
+// here that no rule has fails the second test.
+const GRAPH_KEEPS = {
+  '.graph-tint': 'a wash behind the tiers, read by its shape',
+  '.graph-guide': 'a guide ring, decoration',
+  '.graph-guide-sub': 'a guide ring, decoration',
+  '.graph-divider': 'a divider, decoration',
+  '.graph-link-parent': 'a link: waits on the ruling about the Graph\'s links',
+  '.graph-link-wait': 'a link: waits on the ruling about the Graph\'s links',
+  '.graph-link-counted': 'a link: waits on the ruling about the Graph\'s links',
+  '.graph-flow-col': 'a flow column wash, decoration',
+  '.graph-flow-col-alt': 'a flow column wash, decoration',
+  '.graph-flow-strip': 'a flow strip ground, decoration',
+  '.graph-flow-lane': 'a flow lane ground, decoration',
+  '.graph-flow-faded': 'the Graph\'s dimming: waits on the ruling',
+  '.graph-canvas.graph-flow-frontier .graph-node.is-done': 'the Graph\'s dimming: waits on the ruling',
+  '.graph-canvas.graph-flow-frontier .graph-node.archived': 'the Graph\'s dimming: waits on the ruling',
+  '.graph-node-leader': 'a leader line, decoration',
+  '.graph-dim .graph-node:not(.graph-near)': 'the Graph\'s dimming: waits on the ruling',
+  '.graph-dim .graph-link:not(.graph-near)': 'the Graph\'s dimming: waits on the ruling',
+  '.graph-dim .graph-link.graph-near': 'the Graph\'s dimming: waits on the ruling',
+  '.graph-dim .graph-link:not(.graph-near) + .graph-link-count': 'the Graph\'s dimming: waits on the ruling',
+};
+
+function dimmers(rules) {
+  const out = [];
+  for (const r of rules) if (DIM.test(r.body)) for (const s of r.selectors) out.push(s);
+  return out;
+}
+
+test('no rule dims live text or a resting mark with opacity, fill-opacity or stroke-opacity, the Graph\'s included', () => {
+  // Disabled and dragging states are transient; the prompt-fallback titles are italic text on their own ground
+  // (the one on a ghost stub is pinned above).
+  const NOT_TEXT = /:disabled|\.dragging|--prompt-fallback/;
+  const offenders = dimmers(RULES).filter((s) => !NOT_TEXT.test(s) && !(s in GRAPH_KEEPS));
+  assert.deepStrictEqual(offenders, []);
+});
+
+test('the Graph\'s kept opacities are exactly the ones listed, none of them stale', () => {
+  const graph = dimmers(RULES).filter((s) => /^\.graph-/.test(s));
+  assert.deepStrictEqual([...new Set(graph)].sort(), Object.keys(GRAPH_KEEPS).sort());
+});
+
+test('the opacity scan catches the paint twins and a Graph selector', () => {
+  const rules = [
+    { selectors: ['.x'], body: 'fill-opacity: .5;' },
+    { selectors: ['.y'], body: 'stroke-opacity: .5;' },
+    { selectors: ['.graph-z'], body: 'opacity: .5;' },
+    { selectors: ['.ok'], body: 'fill: red; stroke-width: 1px;' },
+    { selectors: ['.full'], body: 'opacity: 1; fill-opacity: 1;' },
+    { selectors: ['.full'], body: 'opacity: 1; fill-opacity: 1;' },
+  ];
+  assert.deepStrictEqual(dimmers(rules), ['.x', '.y', '.graph-z']);
+});
+
+// A page script may set an element's style, but never dims one.
+const WEB_DIR = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
+const SCRIPT_DIM = /style\.(fillO|strokeO|o)pacity|cssText[^\n]*opacity|setProperty\(\s*["'](fill-|stroke-)?opacity|setAttribute\(\s*["'](fill-|stroke-)?opacity/g;
+
+test('no page script sets opacity, fill-opacity or stroke-opacity on an element', () => {
   const offenders = [];
-  for (const r of RULES) {
-    if (!/(^|[;\s])opacity\s*:/.test(r.body)) continue;
-    for (const s of r.selectors) if (!NOT_TEXT.test(s)) offenders.push(s);
+  for (const f of fs.readdirSync(WEB_DIR).filter((n) => n.endsWith('.js'))) {
+    const text = fs.readFileSync(path.join(WEB_DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+    for (const m of text.matchAll(SCRIPT_DIM)) offenders.push(`${f}: ${m[0]}`);
   }
   assert.deepStrictEqual(offenders, []);
+});
+
+test('the script opacity scan catches each way a script can dim', () => {
+  for (const line of ['el.style.opacity = ".5"', 'g.style.fillOpacity = ".5"', 'g.style.strokeOpacity=".5"', 'el.style.cssText="color:red;opacity:.5"', 'el.style.cssText+=";fill-opacity:.5"', 'el.style.setProperty("opacity", ".5")', 'el.style.setProperty("stroke-opacity", ".5")', 'el.setAttribute("opacity", ".5")', 'el.setAttribute("fill-opacity", ".5")']) {
+    assert.ok(line.match(SCRIPT_DIM), line);
+  }
+  assert.strictEqual('el.style.color = "red"'.match(SCRIPT_DIM), null);
 });
 
 test('a code block sits on the raised ground, as the stylesheet says, and its ink holds the floor there', () => {
