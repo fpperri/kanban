@@ -96,6 +96,8 @@ function jsonForScript(value) {
     .replace(PARAGRAPH_SEPARATOR, '\\u2029');
 }
 
+const htmlText = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 function scriptText(name, text) {
   if (/<\/script/i.test(text)) throw new Error(`${name} contains "</script"; it cannot be inlined`);
   return text.replace(/<!--/g, '<\\x21--');
@@ -200,7 +202,12 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
   let scripts = 0;
   let styled = false;
   let iconed = false;
+  let titled = false;
   const page = masked
+    .replace(/<title>Kanban App<\/title>/, () => {
+      titled = true;
+      return `<title>${htmlText(`kanban ${name}`.trim())}</title>`;
+    })
     .replace(/<link rel="stylesheet" href="\/app\.css">/, () => {
       const css = read(path.join(web, 'app.css'));
       if (/<\/style/i.test(css)) throw new Error('the stylesheet contains "</style"; it cannot be inlined');
@@ -217,7 +224,7 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
       return file === 'app.js' ? `${boot}\n${tag}` : tag;
     })
     .replace(/\u0000(\d+)\u0000/g, (all, i) => comments[Number(i)]);
-  if (!styled || !iconed || !scripts || !page.includes('id="kanban-board"')) throw new Error('app.html is not the page this build knows: a stylesheet, an icon or the app script is missing');
+  if (!titled || !styled || !iconed || !scripts || !page.includes('id="kanban-board"')) throw new Error('app.html is not the page this build knows: the title, a stylesheet, an icon or the app script is missing');
   if (/<(?:link|script)\b[^>]*\s(?:src|href)="\//.test(page.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('a root-relative reference is left in the page');
   const bytes = Buffer.byteLength(page);
   if (bytes > maxBytes) {

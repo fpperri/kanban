@@ -2200,7 +2200,8 @@ function applyProjectName(name) {
     resetGraphViewState(); // graph memos too
   }
   state.projectName = next;
-  document.title = name || 'Kanban App';
+  // A page built with its board keeps the title the build gave it (artifact-build.js).
+  if (!window.kanbanSourceInUse) document.title = name || 'Kanban App';
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 

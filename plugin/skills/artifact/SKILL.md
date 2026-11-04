@@ -15,7 +15,7 @@ Where the tray lives depends on where the page runs. In a Board artifact whose d
 node <skill dir>/../web/scripts/artifact-build.js <board dir> --out <file.html>
 ```
 
-Find the script with glob `**/web/scripts/artifact-build.js`. `<board dir>` is the board folder (`.kanban/`). The file carries the cards the Snapshot query picks (below), each with its whole body once, and the logbook, scratchpad, todo and group files the config names; pictures and other binary files stay out, and a card body's picture shows its alt text. It prints the file's size, the query and how many cards it carries.
+Find the script with glob `**/web/scripts/artifact-build.js`. `<board dir>` is the board folder (`.kanban/`). The file carries the cards the Snapshot query picks (below), each with its whole body once, and the logbook, scratchpad, todo and group files the config names; pictures and other binary files stay out, and a card body's picture shows its alt text. The page's title is `kanban <board name>`, so one board's page reads apart from another's in a list of artifacts. It prints the file's size, the query and how many cards it carries.
 
 ### Which cards: the Snapshot query
 
