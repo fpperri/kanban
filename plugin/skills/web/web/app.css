@@ -2437,7 +2437,8 @@ button.np-note-card:hover { color: var(--accent); }
 .pick-btn:disabled { opacity: .5; cursor: default; }
 .pick-meta { color: var(--mut); font-size: 0.85em; white-space: nowrap; }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
-.context-menu button:hover, .context-menu button:focus-visible { background: var(--btn-hover); outline: none; }
+.context-menu button:hover, .context-menu button:focus-visible { background: var(--btn-hover); }
+.context-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .context-menu button.danger:hover, .context-menu button.danger:focus-visible { background: var(--crit-soft); color: var(--crit); }
 .context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
 /* The card menu's groups (menu-nest-ui.js): a row that opens a panel of entries beside it, or under it on a phone. */
