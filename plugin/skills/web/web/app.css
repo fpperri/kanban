@@ -1615,7 +1615,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-caption-name { fill: var(--ink); }
 .graph-loose-caption { font-style: italic; }
-.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { outline: none; stroke: var(--accent-soft); }
+.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { stroke: var(--accent-soft); }
 .graph-caption:focus-visible .graph-caption-name, .graph-block-caption:focus-visible .graph-caption-name, .graph-block-title:focus-visible .graph-caption-name { fill: var(--accent); }
 .graph-tip { position: absolute; z-index: 3; max-width: min(24em, 100%); padding: 6px 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 0.78em; line-height: 1.4; pointer-events: none; }
 .graph-tip[hidden] { display: none; }

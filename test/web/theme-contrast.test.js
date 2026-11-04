@@ -576,24 +576,35 @@ test('the opacity scan catches the paint twins and a Graph selector', () => {
   assert.deepStrictEqual(dimmers(rules), ['.x', '.y', '.graph-z']);
 });
 
-// A page script may set an element's style, but never dims one.
+// A page script may set an element's style, but never dims one. The app builds its elements by several routes: the
+// style property, an attribute map handed to graphEl, setAttribute, and markup strings. So the scan looks for the word
+// in every page script and page, comments stripped: none of them has a reason to name opacity.
 const WEB_DIR = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
-const SCRIPT_DIM = /style\.(fillO|strokeO|o)pacity|cssText[^\n]*opacity|setProperty\(\s*["'](fill-|stroke-)?opacity|setAttribute\(\s*["'](fill-|stroke-)?opacity/g;
+const SCRIPT_DIM = /(fill-|stroke-|fill|stroke)?opacity/gi;
+const withoutComments = (text, html) => (html ? text.replace(/<!--[\s\S]*?-->/g, '') : text)
+  .replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 
-test('no page script sets opacity, fill-opacity or stroke-opacity on an element', () => {
+test('no page script or page names opacity, fill-opacity or stroke-opacity', () => {
   const offenders = [];
-  for (const f of fs.readdirSync(WEB_DIR).filter((n) => n.endsWith('.js'))) {
-    const text = fs.readFileSync(path.join(WEB_DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  for (const f of fs.readdirSync(WEB_DIR).filter((n) => /\.(js|html)$/.test(n))) {
+    const text = withoutComments(fs.readFileSync(path.join(WEB_DIR, f), 'utf8'), f.endsWith('.html'));
     for (const m of text.matchAll(SCRIPT_DIM)) offenders.push(`${f}: ${m[0]}`);
   }
   assert.deepStrictEqual(offenders, []);
 });
 
 test('the script opacity scan catches each way a script can dim', () => {
-  for (const line of ['el.style.opacity = ".5"', 'g.style.fillOpacity = ".5"', 'g.style.strokeOpacity=".5"', 'el.style.cssText="color:red;opacity:.5"', 'el.style.cssText+=";fill-opacity:.5"', 'el.style.setProperty("opacity", ".5")', 'el.style.setProperty("stroke-opacity", ".5")', 'el.setAttribute("opacity", ".5")', 'el.setAttribute("fill-opacity", ".5")']) {
+  for (const line of [
+    'el.style.opacity = ".5"', 'g.style.fillOpacity = ".5"', 'g.style.strokeOpacity=".5"', 'el.style.cssText="color:red;opacity:.5"',
+    'el.style.cssText+=";fill-opacity:.5"', 'el.style.setProperty("opacity", ".5")', 'el.style.setProperty("stroke-opacity", ".5")',
+    'el.setAttribute("opacity", ".5")', 'el.setAttribute("fill-opacity", ".5")', 'el.style["opacity"]=".5"',
+    'Object.assign(el.style,{opacity:".5"})', "graphEl('path', { 'stroke-opacity': 0.5 }, 'graph-link')",
+    "graphEl('path', { opacity: 0.5 }, 'x')", 'html = `<path stroke-opacity="0.5">`', '<circle fill-opacity="0.4"></circle>',
+  ]) {
     assert.ok(line.match(SCRIPT_DIM), line);
   }
   assert.strictEqual('el.style.color = "red"'.match(SCRIPT_DIM), null);
+  assert.strictEqual(withoutComments('// opacity here\n/* and opacity here */\nel.hidden = true', false).match(SCRIPT_DIM), null);
 });
 
 test('a code block sits on the raised ground, as the stylesheet says, and its ink holds the floor there', () => {
