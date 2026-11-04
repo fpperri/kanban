@@ -26,7 +26,7 @@
 // (window.kanbanModuleFns), which the loader runs as it is. The policy is a meta tag, which a browser honours
 // only in the head of the page it sits in: where a host wraps the file in a page of its own (the Board
 // artifact's publisher does) the tag lands in the wrapper's body, and what that does is pinned by
-// test/web/browser/scenarios/artifact-csp.js. `csp: false` (--no-csp) leaves the tag out.
+// test/web/browser/scenarios/artifact-csp.js.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -211,7 +211,7 @@ function snapshotLabel(query, archive) {
 
 const megabytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query = '', archive = false, maxBytes = MAX_BYTES, csp = true }) {
+function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query = '', archive = false, maxBytes = MAX_BYTES }) {
   if (!boardDir || !fs.existsSync(boardDir) || !fs.statSync(boardDir).isDirectory()) throw new Error(`Board dir not found: ${boardDir}`);
   const dir = fs.realpathSync(path.resolve(boardDir));
   const name = makeRoute(dir)('GET', '/api/board').body.projectName;
@@ -264,7 +264,7 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
     .replace(/\u0000(\d+)\u0000/g, (all, i) => comments[Number(i)]);
   if (!styled || !iconed || !scripts || !page.includes('id="kanban-board"')) throw new Error('app.html is not the page this build knows: a stylesheet, an icon or the app script is missing');
   if (/<(?:link|script)\b[^>]*\s(?:src|href)="\//.test(page.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('a root-relative reference is left in the page');
-  const out = csp ? withPolicy(page) : page;
+  const out = withPolicy(page);
   const bytes = Buffer.byteLength(out);
   if (bytes > maxBytes) {
     throw new Error(`The page would be ${megabytes(bytes)}, over the ${megabytes(maxBytes).replace('.0 ', ' ')} limit. Give a narrower query (one group, one iteration, one tag), or leave the archive out.`);
@@ -277,18 +277,16 @@ function main(argv) {
   let out = null;
   let query = '';
   let archive = false;
-  let csp = true;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--out') out = argv[++i];
     else if (argv[i] === '--query') { query = argv[++i]; if (query === undefined) return usage('--query takes the search words'); }
     else if (argv[i] === '--archive') archive = true;
-    else if (argv[i] === '--no-csp') csp = false;
     else if (!boardDir) boardDir = argv[i];
     else return usage(`unexpected argument ${argv[i]}`);
   }
   if (!boardDir || !out) return usage();
   try {
-    const { html, board, bytes, carried } = buildPage({ boardDir, query, archive, csp });
+    const { html, board, bytes, carried } = buildPage({ boardDir, query, archive });
     fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
     fs.writeFileSync(out, html);
     console.log(`${out}: ${(bytes / 1024).toFixed(0)} KB, board "${board.name}", ${board.snapshot.label}, ${carried} card${carried === 1 ? '' : 's'}, base ${board.base}`);
@@ -301,7 +299,7 @@ function main(argv) {
 
 function usage(message) {
   if (message) console.error(message);
-  console.error('usage: node artifact-build.js <boardDir> --out <file.html> [--query <search words>] [--archive] [--no-csp]');
+  console.error('usage: node artifact-build.js <boardDir> --out <file.html> [--query <search words>] [--archive]');
   return 2;
 }
 
