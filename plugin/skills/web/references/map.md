@@ -99,7 +99,8 @@ regardless of their parked status. The choice persists per board in `localStorag
 search by **intersection** — a card stays visible only when both agree. The active
 search query filters the map exactly as it filters the board: matching cards are full
 nodes; a card hidden by either filter that's still referenced by a visible one's
-`waiting_for` or `parent` (in either direction) renders as a dimmed, dashed ghost stub — never
+`waiting_for` or `parent` (in either direction) renders as a muted, dashed ghost stub (its edge keeps the amber of a waiting card or the red of a
+high-priority one, and an edge to it is dashed too) — never
 silently dropped — and is itself clickable through to its detail popup. A
 `waiting_for` or `parent` id with no matching card at all renders as a "not found" ghost. Cards
 with no relation at all always render in the No relations row below the

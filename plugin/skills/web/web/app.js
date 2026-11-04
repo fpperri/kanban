@@ -119,7 +119,13 @@ function toggleColumn(col) {
   const collapsed = loadCollapsedColumns();
   collapsed[col] = !collapsed[col];
   saveCollapsedColumns();
+  const held = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.column-toggle') : null;
   renderBoard();
+  // The board is drawn again, so the toggle that held focus is gone: focus the one drawn in its place.
+  if (held) {
+    const next = [...document.querySelectorAll('#board .column-toggle')].find((b) => b.dataset.col === col);
+    if (next) next.focus();
+  }
 }
 
 // column-sort.js provides SORT_FIELDS / SORT_FIELD_LABELS / DEFAULT_SORT /
