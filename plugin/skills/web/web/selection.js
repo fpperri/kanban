@@ -29,8 +29,8 @@ function rangeSelection(set, orderedIds, startId, targetId) {
 // of ids the view shows before the box and any cut: its status pills, its Archive pill and the
 // iteration. The view shows more than a phone Board's open tab draws, so the ids come from the
 // match, not from the cards drawn. Returns a new list.
-function shownMatchIds(matched, shown) {
-  if (!matched) return [];
+function shownMatchIds(matched, shown, everyShownWithoutQuery = false) {
+  if (!matched) return everyShownWithoutQuery ? [...shown] : [];
   return [...matched].filter((id) => shown.has(id));
 }
 
