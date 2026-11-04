@@ -190,6 +190,28 @@ module.exports = {
     await key('Escape');
     await waitFor(`document.getElementById('detail-modal').classList.contains('hidden')`, 5000);
 
+    // --- the card menu's items show the page ring ---
+    // A menu item cued focus with a wash alone, far under 3:1. The menu opens on a right click and keeps the keyboard.
+    await open('/?view=board');
+    await waitFor(ready, 10000);
+    await key('Tab');
+    await ev(`document.activeElement&&document.activeElement.blur()`);
+    await page.rightClick('#board .card-el');
+    check('a right click on a card opens the card menu', await waitFor(`!document.getElementById('context-menu').classList.contains('hidden')`, 5000));
+    const menuStops = [];
+    for (let i = 0; i < 8; i++) {
+      await key('Tab');
+      await frames();
+      const r = await ev(`(()=>{const e=document.activeElement;if(!e||!e.closest('#context-menu')||e.id==='context-menu')return null;const c=getComputedStyle(e);return {id:e.id,visible:e.matches(':focus-visible'),outlineStyle:c.outlineStyle,width:parseFloat(c.outlineWidth),colour:c.outlineColor,offset:parseFloat(c.outlineOffset),ring:${RING}}})()`);
+      if (r) menuStops.push(r);
+    }
+    check('Tab reaches the items of the card menu', menuStops.length >= 3, menuStops);
+    const bareItems = menuStops.filter((s) => !(s.visible && s.ring && s.ring.outline && s.outlineStyle === 'solid'));
+    check('every card menu item Tab reaches shows a ring: a solid outline of 2px or more', bareItems.length === 0, bareItems.slice(0, 4));
+    check('the ring of a menu item sits inside its box, so the menu does not clip it', menuStops.every((s) => s.offset < 0), menuStops.map((s) => s.offset));
+    await key('Escape');
+    await waitFor(`document.getElementById('context-menu').classList.contains('hidden')`, 5000);
+
     // --- the marks, in each theme ---
     for (const theme of ['light', 'dark']) {
       await ev(`document.documentElement.setAttribute('data-theme','${theme}')`);
