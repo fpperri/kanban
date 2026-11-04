@@ -11,7 +11,7 @@
 // kept per board in this browser and Grouped brings the 40px hours back.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
-// state, calendarAnchor, renderCalendarView.
+// state, calendarAnchor, isDragging, renderCalendarView.
 
 const COL = (day) => `document.querySelector('#calendar-view .cal-tg-col[data-day="${day}"]')`;
 const NOTES_BTN = `document.getElementById('cal-notes-btn')`;
@@ -118,6 +118,43 @@ module.exports = {
     await mouse('mouseReleased', to.x, to.y);
     check('each: dragged from 09:30 to 13:30 the block starts at 13:00, not an hour later', await waitFor(`(state.active.find((c)=>c.id==='3')||{}).start_date==='2026-10-15T13:00'`, 5000), await ev(`(state.active.find((c)=>c.id==='3')||{}).start_date`));
     check('each: and ends at 15:00', await ev(`(state.active.find((c)=>c.id==='3')||{}).end_date`) === '2026-10-15T15:00');
+
+    // --- a chip is moved from its own time, not from the place it is stacked at ----------------------------------------
+    // "extra 10:15" is the third chip of the 80px hour 10, stacked at 10:30 on the scale. A press at the pointer's
+    // 10:38 lands on it, so the grab offset is 10:15 - 10:38 = -23 minutes whatever the stack says; let go with the
+    // pointer at 11:40, the note starts at 11:40 - 23 minutes = 11:17, which the 15-minute grid takes to 11:15.
+    const grab = await at(10 * 60 + 38);
+    const chipX = await ev(`(()=>{const c=[...${COL('2026-10-15')}.querySelectorAll('.cal-note-chip')].find((e)=>e.textContent.includes('extra 10:15'));const r=c.getBoundingClientRect();return r.left+r.width/2})()`);
+    const drop = await at(11 * 60 + 40);
+    check('each: the pointer starts on the chip of the note at 10:15', await ev(`(()=>{const e=document.elementFromPoint(${chipX},${grab.y});return !!e&&!!e.closest('.cal-note-chip')&&e.closest('.cal-note-chip').textContent.includes('extra 10:15')})()`), JSON.stringify([chipX, grab]));
+    await mouse('mouseMoved', chipX, grab.y, { button: 'none', clickCount: 0 });
+    await mouse('mousePressed', chipX, grab.y);
+    for (let i = 1; i <= 8; i++) await mouse('mouseMoved', chipX, grab.y + ((drop.y - grab.y) * i) / 8, { buttons: 1 });
+    await mouse('mouseReleased', chipX, drop.y);
+    check('each: the note at 10:15, grabbed at 10:38 and let go at 11:40, is written at 11:15', await waitFor(`state.logbook.notes.some((n)=>n.note==='extra 10:15'&&n.day==='2026-10-15'&&n.at==='11:15')`, 5000), await ev(`JSON.stringify(state.logbook.notes.filter((n)=>n.note==='extra 10:15'))`));
+    check('each: the Calendar draws it again with three notes in hour 10, so the hour is 60px and every column 980px', await waitFor(`Math.abs(${COL('2026-10-15')}.getBoundingClientRect().height-980)<=1.5`, 4000) && await ev(PAL_GONE));
+
+    // --- a block's edge is dragged on the stretched scale -----------------------------------------------------------
+    // Friday's 10:30 block (1h) in the 80px hour 10 of the first Notes state. Its bottom edge let go with the pointer at
+    // 12:00 ends the note there: 1h30m. Its top edge let go at 10:00 starts it there and keeps the end: 2h.
+    const FRI_NOTE = `state.logbook.notes.find((n)=>n.day==='2026-10-16'&&n.note==='paired inside it')`;
+    const edgeOf = (sel, edge) => ev(`(()=>{const h=${sel}.querySelector('.cal-resize-handle.${edge}');const r=h.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {x:r.left+r.width/2,y:r.top+r.height/2,hit:e===h}})()`);
+    const dragEdge = async (edge, sel, minute) => {
+      const h = await edgeOf(sel, edge);
+      const target = await at(minute);
+      await mouse('mouseMoved', h.x, h.y, { button: 'none', clickCount: 0 });
+      await mouse('mousePressed', h.x, h.y);
+      for (let i = 1; i <= 8; i++) await mouse('mouseMoved', h.x, h.y + ((target.y - h.y) * i) / 8, { buttons: 1 });
+      await mouse('mouseReleased', h.x, target.y);
+      return h.hit;
+    };
+    check('each: the top and bottom edge of a block are what the pointer meets at their centres', (await edgeOf(block(630, 690), 'top')).hit && (await edgeOf(block(630, 690), 'bottom')).hit);
+    check('each: the bottom edge of the 10:30 block is under the pointer', await dragEdge('bottom', block(630, 690), 12 * 60));
+    check('each: the bottom edge let go at 12:00 writes a length of 1h30m and keeps the start', await waitFor(`(${FRI_NOTE}||{}).duration==='1h30m'&&${FRI_NOTE}.at==='10:30'`, 5000), await ev(`JSON.stringify(${FRI_NOTE})`));
+    check('each: and the block is drawn again from 10:30 to 12:00', await waitFor(`!!${block(630, 720)}`, 4000));
+    check('each: the top edge is under the pointer', await dragEdge('top', block(630, 720), 10 * 60));
+    check('each: the top edge let go at 10:00 writes the start 10:00 and a length of 2h, so the end stays at 12:00', await waitFor(`(${FRI_NOTE}||{}).at==='10:00'&&${FRI_NOTE}.duration==='2h'`, 5000), await ev(`JSON.stringify(${FRI_NOTE})`));
+    check('each: the edge drags opened no palette and hold no poll', await ev(PAL_GONE) && await ev(`isDragging===false`));
 
     // --- Grouped brings the 40px hours back ------------------------------------------------------------------------
     check('each: the week is drawn again', await showWeek());

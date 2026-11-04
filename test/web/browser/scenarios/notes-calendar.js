@@ -17,7 +17,7 @@
 // that the palette did NOT open.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
-// state, calendarAnchor, renderCalendarView.
+// state, calendarAnchor, isDragging, renderCalendarView.
 
 const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
@@ -219,6 +219,74 @@ module.exports = {
     check('calnotes: a double click on the divider goes back to the default width', await waitFor(`(()=>{const c=${COL('2026-10-15')}.getBoundingClientRect();const d=${DIVIDER('2026-10-15')}.getBoundingClientRect();const s=c.right-(d.left+d.width/2);return s>=44&&s<=171})()`, 3000) && await ev(`${STORED}===null`), String(await stripOf('2026-10-15')));
     await sleep(600);
     check('calnotes: and made no card form and opened no palette', await ev(`document.getElementById('modal').classList.contains('hidden')`) && await ev(PAL_GONE));
+
+    // --- a drag moves a note ----------------------------------------------------------------------------------------
+    // Real mouse drags on the week: a block, a chip on its day, a chip to another day. The 40px hour is 1.5
+    // minutes a pixel, and a move keeps the point the note was grabbed by and snaps to 15 minutes.
+    check('calnotes: the week is drawn again before a note is dragged', await showWeek());
+    await ev(`document.querySelector('#calendar-view .cal-tg-scroll').scrollTop=${9 * 40}`);
+    const dragBy = async (selector, dx, dy) => {
+      const p = await centre(selector);
+      await mouse('mouseMoved', p.x, p.y, { button: 'none', clickCount: 0 });
+      await mouse('mousePressed', p.x, p.y);
+      for (let i = 1; i <= 8; i++) await mouse('mouseMoved', p.x + (dx * i) / 8, p.y + (dy * i) / 8, { buttons: 1 });
+      await mouse('mouseReleased', p.x + dx, p.y + dy);
+    };
+    const noted = (text) => `state.logbook.notes.find((n)=>n.note===${JSON.stringify(text)})`;
+    const keys = `state.logbook.notes.map((n)=>[n.day,n.target,n.at,n.duration,n.note].join('|')).sort()`;
+    const rehearsalBlock = `#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|630|720"]`;
+    check('calnotes: a block and a chip can be grabbed by a finger at once, and a bubble and the untimed box cannot', await ev(`(()=>{const t=(s)=>getComputedStyle(document.querySelector(s)).touchAction;return t(${JSON.stringify(rehearsalBlock)})==='none'&&t(${JSON.stringify(slotEl('2026-10-15', 570))})==='none'&&t(${JSON.stringify(slotEl('2026-10-15', 600))})!=='none'&&t('#calendar-view .cal-note-untimed')!=='none'})()`));
+    await dragBy(rehearsalBlock, 0, 60);
+    check('calnotes: a block dragged down 60px, 90 minutes, is written at 12:00 with its 1h30m kept', await waitFor(`(${noted('rehearsed the migration')}||{}).at==='12:00'`, 4000) && await ev(`${noted('rehearsed the migration')}.duration==='1h30m'&&${noted('rehearsed the migration')}.day==='2026-10-16'`), await ev(`JSON.stringify(${noted('rehearsed the migration')})`));
+    check('calnotes: and is drawn from the 12:00 line to the 13:30 line', await waitFor(`!!document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|720|810"]')`, 4000));
+    await sleep(600);
+    check('calnotes: the drag opened no palette: the click after it was swallowed', await ev(PAL_GONE));
+    check('calnotes: and the poll is released', await ev(`isDragging===false`));
+    // An edge is pressed at its centre and let go where the drag ends, on the 40px hour (1.5 minutes a pixel).
+    const edge = (range, which) => `#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|${range}"] .cal-resize-handle.${which}`;
+    const OVER = (selector) => `(()=>{const h=document.querySelector(${JSON.stringify(selector)});const r=h.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return e===h})()`;
+    check('calnotes: a block has a top and a bottom edge, and the pointer meets each at its centre', await ev(OVER(edge('720|810', 'top'))) && await ev(OVER(edge('720|810', 'bottom'))));
+    check('calnotes: a chip and a bubble have no edge', await ev(`document.querySelectorAll('#calendar-view .cal-note-chip .cal-resize-handle, #calendar-view .cal-note-bubble .cal-resize-handle').length===0`));
+    await dragBy(edge('720|810', 'bottom'), 0, 60);
+    check('calnotes: the bottom edge dragged down 60px, 90 minutes, ends the note at 15:00: 3h from the same 12:00', await waitFor(`(${noted('rehearsed the migration')}||{}).duration==='3h'&&${noted('rehearsed the migration')}.at==='12:00'`, 4000), await ev(`JSON.stringify(${noted('rehearsed the migration')})`));
+    check('calnotes: and is drawn from the 12:00 line to the 15:00 line', await waitFor(`!!document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|720|900"]')`, 4000));
+    await dragBy(edge('720|900', 'top'), 0, -64);
+    check('calnotes: the top edge dragged up 64px to the 10:30 line starts the note at 10:30 and keeps its end at 15:00: 4h30m', await waitFor(`(${noted('rehearsed the migration')}||{}).at==='10:30'&&${noted('rehearsed the migration')}.duration==='4h30m'`, 4000), await ev(`JSON.stringify(${noted('rehearsed the migration')})`));
+    check('calnotes: the note stays on its day, and is drawn from the 10:30 line to the 15:00 line', await ev(`${noted('rehearsed the migration')}.day==='2026-10-16'`) && await waitFor(`!!document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-16"] .cal-note-block[data-range="2026-10-16|630|900"]')`, 4000));
+    const satX = await ev(`(()=>{const r=document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-17"]').getBoundingClientRect();return r.left+r.width/2})()`);
+    const rb = await centre(edge('630|900', 'bottom'));
+    await mouse('mouseMoved', rb.x, rb.y, { button: 'none', clickCount: 0 });
+    await mouse('mousePressed', rb.x, rb.y);
+    for (let i = 1; i <= 8; i++) await mouse('mouseMoved', rb.x + ((satX - rb.x) * i) / 8, rb.y - (40 * i) / 8, { buttons: 1 });
+    await mouse('mouseReleased', satX, rb.y - 40);
+    check('calnotes: a bottom edge let go in the Saturday column still stays on Friday: the end moves up 60 minutes, no day is sent', await waitFor(`(${noted('rehearsed the migration')}||{}).duration==='3h30m'&&${noted('rehearsed the migration')}.day==='2026-10-16'&&${noted('rehearsed the migration')}.at==='10:30'`, 4000), await ev(`JSON.stringify(${noted('rehearsed the migration')})`));
+    await sleep(600);
+    check('calnotes: the edge drags opened no palette, hold no poll and made no card', await ev(PAL_GONE) && await ev(`isDragging===false`) && await ev(`document.getElementById('modal').classList.contains('hidden')`));
+    const before = await ev(keys);
+    await dragBy(slotEl('2026-10-15', 570), 0, 60);
+    check('calnotes: a chip dragged down 90 minutes moves its note from 09:30 to 11:00 on its day', await waitFor(`state.logbook.notes.some((n)=>n.day==='2026-10-15'&&n.target==='7'&&n.at==='11:00')&&!state.logbook.notes.some((n)=>n.day==='2026-10-15'&&n.target==='7'&&n.at==='09:30')`, 4000));
+    const after = await ev(keys);
+    const gone = before.filter((k) => !after.includes(k));
+    const made = after.filter((k) => !before.includes(k));
+    check('calnotes: it is the only note that changed: 09:30 is gone and 11:00 is new', gone.length === 1 && made.length === 1 && gone[0].startsWith('2026-10-15|7|09:30|') && made[0].startsWith('2026-10-15|7|11:00|'), JSON.stringify([gone, made]));
+    const cellOf = (day) => ev(`(()=>{const r=document.querySelector('#calendar-view .cal-tg-col[data-day="${day}"]').getBoundingClientRect();return {x:r.left+r.width/2}})()`);
+    const thu = await cellOf('2026-10-15');
+    const sat = await cellOf('2026-10-17');
+    await dragBy(slotEl('2026-10-15', 840), sat.x - thu.x, 0);
+    const SCHEMA = 'schema diff reviewed, two enum renames left';
+    check('calnotes: a chip dragged two columns right at the same height moves its note to Saturday, 14:10 snapped to 14:15', await waitFor(`(${noted(SCHEMA)}||{}).day==='2026-10-17'&&${noted(SCHEMA)}.at==='14:15'`, 4000), await ev(`JSON.stringify(${noted(SCHEMA)})`));
+    check('calnotes: it keeps its card, and is a chip in Saturday\'s strip', await ev(`${noted(SCHEMA)}.target==='7'`) && await waitFor(`!!document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-17"] .cal-note-chip')&&document.querySelector('#calendar-view .cal-tg-col[data-day="2026-10-17"]').classList.contains('has-notes')`, 4000));
+    const held = await ev(keys);
+    const bp = await centre(slotEl('2026-10-15', 600));
+    await mouse('mouseMoved', bp.x, bp.y, { button: 'none', clickCount: 0 });
+    await mouse('mousePressed', bp.x, bp.y);
+    check('calnotes: a press on a count bubble holds no poll and starts no drag', await ev(`isDragging===false`));
+    await mouse('mouseMoved', bp.x, bp.y + 60, { buttons: 1 });
+    await mouse('mouseReleased', bp.x, bp.y + 60);
+    await sleep(500);
+    check('calnotes: and moves no note', JSON.stringify(await ev(keys)) === JSON.stringify(held));
+    await closePalette();
+    await shot('week-after-note-drags');
 
     // --- n on the Calendar opens the palette on the Calendar's range ----------------------------------------------------
     const RANGE_BTNS = `[...document.querySelectorAll('#notes-palette .np-range-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;

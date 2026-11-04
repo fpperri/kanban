@@ -228,6 +228,17 @@ function notesCalendarButton(className, title, req) {
   return b;
 }
 
+// What a drag of a chip or a block needs to find its note again (notesCalendarNoteOf): the note's file and
+// its place in it, which the board's payload gives a note once.
+function notesCalendarMark(el, note) {
+  el.dataset.noteFile = note.file;
+  el.dataset.noteIndex = String(note.index);
+}
+
+function notesCalendarNoteOf(el) {
+  return notesAll().find((n) => n.file === el.dataset.noteFile && String(n.index) === el.dataset.noteIndex) || null;
+}
+
 // One half hour's notes in a day's column: a chip for one note (the card's id and the first
 // words), a count bubble for two or more. `top` is the half hour's offset in pixels. `only`, in Each
 // note mode, is the one note of the slot to draw as a chip whatever else the slot holds.
@@ -245,6 +256,7 @@ function notesCalendarSlot(day, slot, top, only) {
   }
   el.dataset.slot = `${day}|${slot.fromMin}`;
   el.style.top = `${top}px`;
+  if (only || slot.notes.length === 1) notesCalendarMark(el, only || slot.notes[0]);
   return el;
 }
 
@@ -261,6 +273,8 @@ function notesCalendarBlock(day, item) {
   else words.append(notesGlyph());
   words.append(document.createTextNode(note.note));
   el.append(words);
+  for (const edge of ['top', 'bottom']) el.append(notesEl('span', `cal-resize-handle ${edge}`));
+  notesCalendarMark(el, note);
   el.dataset.range = `${day}|${item.startMin}|${item.endMin}`;
   el.style.top = `${item.top + 1}px`;
   el.style.height = `${item.height - 2}px`;

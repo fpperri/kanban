@@ -1508,6 +1508,9 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .cal-note-divider:focus-visible { outline: none; }
 .cal-note { box-sizing: border-box; margin: 0; padding: 0 4px; font-size: 10.5px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-align: left; }
 .cal-note-chip, .cal-note-bubble { position: absolute; right: 2px; width: calc(var(--cal-note-strip) - 4px); height: 18px; z-index: 2; }
+.cal-note-chip, .cal-note-block { cursor: grab; user-select: none; touch-action: none; } /* a chip and a block move by a drag (app.js onCalNoteDown), a finger at once as a card's block does */
+.cal-note-block:hover .cal-resize-handle { background: var(--handle-wash); } /* a block's top and bottom edge change its start and its end (app.js onCalNoteDown); the handle's size and cursor are .cal-resize-handle's */
+.cal-note-chip.dragging, .cal-note-block.dragging { opacity: 0.85; z-index: 5; box-shadow: 0 0 0 1px var(--accent); cursor: grabbing; }
 .cal-note-chip { background: var(--surface); border: 1px solid var(--line); border-radius: .15rem; color: var(--ink); box-shadow: var(--shadow); }
 .cal-note-chip:hover, .cal-note-chip:focus-visible { background: var(--hover-wash); border-color: var(--line-strong); }
 .cal-note-id { margin-right: 3px; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
