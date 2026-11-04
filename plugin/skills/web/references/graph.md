@@ -46,9 +46,9 @@ overlap, in every mode of the Unnested option. On a board with no hierarchy ever
 slice is a depth, so Tiers draws a ring for each depth.
 **A dot** shows the card's status colour (the same fixed hues and palette as the rest
 of the app), is bigger the more relations the card has, is hollow when the card is
-`done`, and is dimmed when archived. A type with an icon draws its dot in that outline
+`done`, and wears a dashed ring when archived (it keeps its full colour). A type with an icon draws its dot in that outline
 (circle, square, diamond, triangle, hexagon or star), still in the card's status colour,
-hollow when `done` and dimmed when archived; a card with no icon, or an unknown icon name,
+hollow when `done` and ringed with dashes when archived; a card with no icon, or an unknown icon name,
 keeps the round dot. An outer ring marks a card with children; a red
 ring is **blocked**, an amber ring **waiting**, a gold ring **review**; the child ring and
 the flag rings sit outside every shape, the star's points included. A card's id
