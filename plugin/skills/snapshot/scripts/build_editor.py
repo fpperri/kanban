@@ -1833,9 +1833,9 @@ else if(note)p.appendChild(el("div","note",note))}
 function payload(){
 const clean=ops.map(o=>{const x=Object.assign({},o);delete x._pid;return x});
 return "Apply kanban changes ("+clean.length+" ops, base "+BASE+"):\\n"+JSON.stringify(clean)}
-// The ONE clipboard code path (kanban.proj #252): the tray's Copy changes
+// The ONE clipboard code path: the tray's Copy changes
 // button, the header pill, and the close-guard's best-effort exit copy
-// (kanban.proj #251) all funnel through this, so there is exactly one place
+// all funnel through this, so there is exactly one place
 // that knows how to copy the payload and one fallback chain -- async
 // Clipboard API first, then focusing/selecting the hidden #payload textarea
 // and running the execCommand copy command for browsers (and the Claude
@@ -2662,7 +2662,7 @@ $("sdel").addEventListener("click",()=>{if(!modalOpen()||creating)return;const c
 if(String(delArm)===String(sel)){queue({op:"delete",id:sel});sel=null;delArm=null;pillEd=null;render()}
 else{delArm=sel;syncStack()}});
 $("snew").addEventListener("click",()=>{nfMore=false;creating=true;sel=null;ren=false;descEd=false;delArm=null;pillEd=null;ncStatus=null;nfPromptOpen=false;render()});
-// Tapping the pending pill (kanban.proj #252) does what the tray's
+// Tapping the pending pill does what the tray's
 // Copy changes button does, so a human who only ever taps the pill still
 // gets the payload on their clipboard -- the scroll-to-tray behavior is
 // unchanged and always runs, even if the copy itself fails, so a blocked
@@ -2800,7 +2800,7 @@ $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeCard()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(ctxMenuEl){closeCtxMenu();return}
 if(sel!==null||creating||notifView){closeCard();return}
 if(closePanel())e.preventDefault()}});
-// Close guard (kanban.proj #251): with ops queued, warn before the page
+// Close guard: with ops queued, warn before the page
 // goes away so a human doesn't lose an uncopied payload by accident. An
 // empty tray never registers any of this -- each handler early-returns on
 // !ops.length, so there is nothing to deregister. Three exit signals, not
@@ -2821,7 +2821,7 @@ if(closePanel())e.preventDefault()}});
 // write of the payload (forceSync=true: skip the unreliable async
 // Clipboard API and go straight to copyPayload's execCommand fallback,
 // since an in-flight promise is not expected to survive an unload/
-// dismissal) through the SAME copyPayload() helper card #252 uses --
+// dismissal) through the SAME copyPayload() helper the tray's Copy uses --
 // wrapped in try/catch so any failure here can never block or delay the
 // close itself.
 //
@@ -2841,8 +2841,8 @@ if(closePanel())e.preventDefault()}});
 //     only protection. Do not 'fix' this by asking for the prompt back:
 //     it is the host's call, not the page's.
 //   - the Claude mobile app's embedded snapshot: this is the host that
-//     motivated pagehide/visibilitychange in the first place (see the
-//     #250/#252 field notes above) -- beforeunload is NOT expected to fire
+//     motivated pagehide/visibilitychange in the first place (see
+//     the clipboard notes above copyPayload) -- beforeunload is NOT expected to fire
 //     on its dismiss-the-view gesture. Whether pagehide or a
 //     visibilitychange to "hidden" actually fires on THAT gesture, and
 //     whether the best-effort clipboard write below lands before the view

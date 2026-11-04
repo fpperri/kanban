@@ -48,3 +48,5 @@ different surface.
   which still treats archive as a 5th status-column — to be reconciled later.
 
 **Postscript (2026-08-31)** — The `kanban-browse`, `kanban-board`, `kanban-dashboard`, and `kanban-dependencies` skills named above were later consolidated and deleted; the archive-behavior divergence was reconciled by ADR 0005.
+
+**Note (2026-11-04)** — The Web is not desktop only. The server still binds 127.0.0.1, and a phone reaches it through a VS Code tunnel (the Snapshot is for where no server can run or be reached). The Simple Browser stays a first-class target.

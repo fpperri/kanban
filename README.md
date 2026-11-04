@@ -28,7 +28,7 @@ to pick up cards, dispatch agents, and run workflows based on the board state.
 A board is just a folder of cards — edit it from a browser or your phone. A
 guide for each editing surface:
 
-- **[Web editor (desktop)](docs/web.md)** — the live browser app: board,
+- **[Web editor](docs/web.md)** — the live browser app: board,
   dependency map, gantt, calendar, graph, and full drag-drop CRUD.
 - **[Mobile snapshot](docs/snapshot.md)** — a tap-through board for your phone that
   queues its edits back to Claude to apply.
@@ -80,7 +80,7 @@ node plugin/skills/web/scripts/server.js examples/demo-board
 
 This prints `Kanban app: http://localhost:7777` (or the next free port if
 7777 is busy). Open that URL in a browser, or paste it into VSCode's Simple
-Browser — it's desktop/localhost-only by design (see ADR 0002). `examples/demo-board/`
+Browser — it listens on localhost only by design, and a phone reaches it through a VS Code tunnel (see ADR 0002). `examples/demo-board/`
 is a self-contained sample board; point the same command at any directory of
 `*.card.md` files to run your own.
 
@@ -89,7 +89,7 @@ is a self-contained sample board; point the same command at any directory of
 | Surface | For | What it is |
 | --- | --- | --- |
 | `kanban` | the AI | AI-driven card management — every file contract (card frontmatter, `config.yaml`, `notifications.md`) and when the AI must notify the human lives here. |
-| `kanban-web` | the human, desktop | A live browser editor: a localhost Node server (stdlib-only) + vanilla-JS SPA with drag-drop board, full CRUD, bulk actions, a search panel of slices and pills, a selection you can isolate, a preferences sheet, a notifications inbox, and five views (board, dependency map, gantt, calendar, graph). Bound to `127.0.0.1` only. |
+| `kanban-web` | the human, at a browser | A live browser editor: a localhost Node server (stdlib-only) + vanilla-JS SPA with drag-drop board, full CRUD, bulk actions, a search panel of slices and pills, a selection you can isolate, a preferences sheet, a notifications inbox, and five views (board, dependency map, gantt, calendar, graph). Bound to `127.0.0.1` only. |
 | `kanban-snapshot` | the human, phone/tablet/Cowork | Generates a self-contained single-file HTML board — a tap UI (move, edit, archive, delete, create, and the web editor's search grammar and panel of slices and pills) whose edits queue in a tray, nothing touching disk until you paste its "Apply kanban changes" payload back into chat — Claude is the write path. |
 
 The web editor and the snapshot write under the same board contracts (the

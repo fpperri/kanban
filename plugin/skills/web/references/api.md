@@ -79,7 +79,7 @@ A note's `file` then reads `<iteration folder>/<day file>` (just the day file fo
 
 ### GET /api/board: `settings.paths`, `logbookNow`, `scratchpadNow`
 
-The settings' `paths.logbook` and `paths.scratchpad` stay the path as written, with `logbookNow` and `scratchpadNow` the folder a new write goes to today (`null` for a path without the placeholder). The gear never writes `vars:` and keeps it as it is, and its `paths` give the folder with the variables and `<repo>` filled in.
+The settings' `paths` give `config` (the absolute path of `config.yaml`) and `logbook`, `scratchpad`, `todos` and `groups` as absolute paths with the variables and `<repo>` filled in (`null` when off); only `<iteration>` and `<card>` are left as written. `logbookNow`, `scratchpadNow` and `todosNow` are the folder a new write goes to today (`null` for a path without `<iteration>`). The gear never writes `vars:` and keeps it as it is.
 
 ### /api/todos/<id> (GET, POST, PATCH, DELETE, PUT) and /api/todos/<id>/move, /indent, /outdent
 
