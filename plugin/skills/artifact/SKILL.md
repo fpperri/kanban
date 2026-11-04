@@ -17,7 +17,7 @@ node <skill dir>/../web/scripts/artifact-build.js <board dir> --out <file.html>
 
 Find the script with glob `**/web/scripts/artifact-build.js`. `<board dir>` is the board folder (`.kanban/`). The file carries the cards the Snapshot query picks (below), each with its whole body once, and the logbook, scratchpad, todo and group files the config names; pictures and other binary files stay out, and a card body's picture shows its alt text. It prints the file's size, the query and how many cards it carries.
 
-The file carries a content security policy, a meta tag in its head, that allows only the page's own scripts and style (each named by its hash): no remote script, no inline handler, no request out of the page, and no `unsafe-eval`. `--no-csp` builds the file without it. A browser honours a policy in a meta tag only in the head of the page it sits in, so where a host wraps the file in a page of its own, as the Board artifact's publisher does, the tag lands in the wrapper's body and is ignored: the policy protects the downloaded file, and the published page runs with whatever policy the host gives it.
+The file carries a content security policy, a meta tag in its head, that allows only the page's own scripts and style (each named by its hash): no remote script, no inline handler, no request out of the page, and no `unsafe-eval`. A browser honours a policy in a meta tag only in the head of the page it sits in, so where a host wraps the file in a page of its own, as the Board artifact's publisher does, the tag lands in the wrapper's body and is ignored: the policy protects the downloaded file, and the published page runs with whatever policy the host gives it.
 
 ### Which cards: the Snapshot query
 
