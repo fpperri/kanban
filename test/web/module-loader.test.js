@@ -66,3 +66,22 @@ test('a require cycle sees the exports made so far', () => {
   });
   assert.strictEqual(loader.load('a.js').fromB, 1);
 });
+
+test('a source given as a function runs as it is, with the same parameters, and nothing is compiled from text', () => {
+  const seen = [];
+  const realFunction = globalThis.Function;
+  globalThis.Function = function Blocked() { throw new Error('compiled from text'); };
+  try {
+    const loader = makeLoader({
+      sources: {
+        'a/main.js': function (exports, require, module, __filename, __dirname, process, Buffer) {
+          seen.push([__filename, __dirname, process.platform, typeof Buffer]);
+          exports.dep = require('./dep').n;
+        },
+        'a/dep.js': function (exports, require, module) { module.exports = { n: 7 }; },
+      },
+    });
+    assert.strictEqual(loader.load('a/main.js').dep, 7);
+  } finally { globalThis.Function = realFunction; }
+  assert.deepStrictEqual(seen, [['a/main.js', 'a', 'linux', 'function']]);
+});

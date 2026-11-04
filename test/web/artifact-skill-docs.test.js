@@ -177,3 +177,19 @@ test('the cloud and Cowork steps name the file the apply leaves in the board fol
     assert.ok(fs.existsSync(path.join(dir, APPLIED_FILE)), 'the apply leaves the file in the board folder');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the skill names --no-csp, and the build command takes it: the file has no policy, and without it the file has one', () => {
+  assert.ok(DOC.includes('`--no-csp`'));
+  const script = path.join(SKILL_DIR, '..', 'web', 'scripts', 'artifact-build.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-doc-'));
+  try {
+    const build = (...extra) => {
+      const out = path.join(dir, `board${extra.length}.html`);
+      const ran = spawnSync(process.execPath, [script, path.join(ROOT, 'test', 'web', 'browser', 'fixture'), '--out', out, ...extra], { encoding: 'utf8' });
+      assert.strictEqual(ran.status, 0, ran.stderr);
+      return fs.readFileSync(out, 'utf8');
+    };
+    assert.ok(build().includes('http-equiv="Content-Security-Policy"'));
+    assert.ok(!build('--no-csp').includes('http-equiv="Content-Security-Policy"'));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
