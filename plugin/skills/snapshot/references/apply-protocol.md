@@ -8,7 +8,7 @@ Apply kanban changes (N ops, base <ISO-STAMP>):
 ```
 
 is the kanban-snapshot's change payload — the human's reviewed intent. Apply it to
-the card files. The base stamp is when the editor's page was built; anything
+the card files. The base stamp is when the Snapshot's page was built; anything
 that changed on disk after it is a potential conflict, not an overwrite target.
 
 The canonical board write contracts (card fields, `doing` entry gate, sticker
@@ -31,11 +31,11 @@ The prefix is part of the identity, so `#7` and `#G7` are two cards; match the
 op's id to the `id:` line of a card file as a whole (a padded `0003` and a plain
 `3` are the same number, `G3` is not `3`), never by its digits alone. Card files
 are named for their id, `0007.<slug>.card.md`, `G0003.<slug>.card.md`,
-`_0012.<slug>.card.md`, but the `id:` line is the source of truth. The editor only
+`_0012.<slug>.card.md`, but the `id:` line is the source of truth. The Snapshot only
 creates cards without a prefix. `assignee:""` removes the field. `body`
 replaces the card's full markdown body below the `# title` H1 (frontmatter and
 H1 untouched; `""` clears). `create.body` becomes the markdown under the new H1.
-The editor merges duplicate ops (last-wins) before sending, but don't rely on it.
+The Snapshot merges duplicate ops (last-wins) before sending, but don't rely on it.
 
 `edit.fm` is an object of **raw frontmatter assignments**:
 `{"fm":{"due_date":"2026-07-20","tags":"[ui, bug]","some-custom-key":"x"}}`.
@@ -45,7 +45,7 @@ quote it (double quotes, escaping any embedded `"`) whenever the value
 contains `:` or `#`, has leading/trailing space, or opens with a YAML
 indicator (`-`, `?`, `[`, `]`, `{`, `}`, `&`, `*`, `!`, `|`, `>`, `%`, `@`,
 `` ` ``, `'`, `"`). `prompt` is **always** written quoted and an embedded
-newline in it collapses to a space (kanban SKILL.md, `prompt`) — the editor's
+newline in it collapses to a space (kanban SKILL.md, `prompt`) — the Snapshot's
 prompt field is free text a human typed on a phone, so a `:` in it is the
 common case, not the edge case. Flow-style list values (below) are the
 exception: those go in bare.
@@ -54,7 +54,7 @@ assignments: `{"fm":{"type":"epic"}}`, `{"fm":{"parent":"12"}}` for a card on th
 board, `{"fm":{"parent":"fpp#4"}}` for another board's card, and `""` clears
 either. A `parent` that holds a `#` follows the quoting rule above, so write
 `parent: "fpp#4"`; a bare `parent: fpp#4` already on a card reads the same, and
-kanban-web reads both. The editor never sends `rank`.
+kanban-web reads both. The Snapshot never sends `rank`.
 
 Three keys are special:
 `id` is ignored outright; `status` in `fm` is treated exactly like a `move`
@@ -68,7 +68,7 @@ write them as-is. Refresh `updated:` on any fm write.
 `create.fm` is the same shape and the same rules, folded into the new card's
 *initial* frontmatter write instead of a follow-up edit — a `create` has no
 id yet at queue time, so there is no card to target a separate `edit.fm` op
-at. The editor's own new-card sheet uses this for the optional `prompt`
+at. The Snapshot's own new-card sheet uses this for the optional `prompt`
 field: `{"op":"create","title":"…","status":"todo","fm":{"prompt":"…"}}` —
 written quoted like any other `prompt`, e.g. `prompt: "snapshot: do X"`.
 The three special keys resolve on a create as follows: `fm.id` and
@@ -87,7 +87,7 @@ successfully — `fm` changes nothing about that order.
    current content and apply the op onto it (ops are field intents, not file
    images). Touched card missing from the root → skip the op, report the
    conflict. Never silently clobber a disk-side change.
-2. **Validate against disk state, not editor state:**
+2. **Validate against disk state, not the Snapshot's state:**
    - `doing` entry gate (hard rule; the full predicate is in the kanban
      skill's SKILL.md): reject move→`doing` while the card is **waiting** —
      any `waiting_for` id names a card not `done` (dangling ids don't
@@ -113,7 +113,7 @@ successfully — `fm` changes nothing about that order.
    - create: id = `nextId` from `config.yaml`; when the op's `fm.type` names a
      type that `config.yaml`'s `prefixes:` gives a prefix (kanban skill, `id`
      field), the id is that prefix and the next number of its entry on the
-     `counters:` line instead. The editor itself only queues plain `n1`-style
+     `counters:` line instead. The Snapshot itself only queues plain `n1`-style
      cards and never draws or allocates a prefixed id. Filename
      `<0000-padded-id>.<slug>.card.md` (the number padded to `idDigits`, 4 by
      default), slug lowercased/hyphenated, capped ~60 chars. Frontmatter: id, status, priority, assignee?, updated
@@ -128,7 +128,7 @@ successfully — `fm` changes nothing about that order.
    - Local session (board directly on disk): ordinary file writes; archive =
      move into the board directory's `archived/` subfolder; delete = actual
      file deletion, but only with the human's confirmation already given (the
-     editor's two-tap confirm counts).
+     Snapshot's two-tap confirm counts).
    - Cowork/remote session (device bridge): write via `device_bash` with
      base64 (`echo <b64> | base64 -d > <mounted-path>`) after an inline mtime
      guard (`stat`) in the same script; archive = `mv` into `archived/`. The
@@ -144,8 +144,8 @@ successfully — `fm` changes nothing about that order.
    Card ids in that text — and in the step-6 reply — follow the **Card mention**
    rule: one code span, `` `board#id title` ``, the board being its `name:` value.
 6. **Close the loop:** reply with per-op results (applied / skipped + why),
-   regenerate the editor with a fresh base stamp, redeliver it. If a board
-   dashboard artifact exists downstream, refresh it too.
+   rebuild the Snapshot with a fresh base stamp, redeliver it. If a Board
+   artifact exists downstream, refresh it too.
 
 ## Conflict and failure policy
 

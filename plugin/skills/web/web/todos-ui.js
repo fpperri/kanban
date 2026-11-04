@@ -7,7 +7,7 @@
 //
 // The tab is a box where Enter adds an item, and the list under it. Up and Down move between the box
 // and the rows; on a row Space ticks, e edits in place, c adds a child under it, d twice deletes it
-// with its children, Alt+Up and Alt+Down move it among its siblings, Tab indents it under the item above and Shift+Tab outdents it. A ticked item stays where it is,
+// with its children, Alt+Up and Alt+Down move it among its siblings, Tab indents it under the sibling above it and Shift+Tab outdents it. A ticked item stays where it is,
 // struck and muted. An item's text is drawn as inline Markdown (markdownInto with `inline`), and a line
 // of the file that is not an item shows muted and read only. The list is read when the tab opens and
 // again when the board refreshes (an agent or a hand edit shows without a reload); every write names

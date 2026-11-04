@@ -23,7 +23,7 @@ function hoverShowDefaults() {
   return { hierarchy: HOVER_SHOW_DEFAULTS.hierarchy.slice(), flow: HOVER_SHOW_DEFAULTS.flow.slice() };
 }
 
-// A list of sets as the panel keeps it: only the six, each once, in the panel's order.
+// A list of sets as the panel keeps it: only the six, each once, in HOVER_SHOW_KINDS' order.
 function hoverShowList(value) {
   return HOVER_SHOW_KINDS.filter((kind) => Array.isArray(value) && value.includes(kind));
 }
@@ -75,7 +75,7 @@ function hoverShowTiles(kinds, cards, id, ctx) {
   return tiles;
 }
 
-// The terms Space writes for a card: one per ticked set, as alternatives, in the panel's order
+// The terms Space writes for a card: one per ticked set, as alternatives, in HOVER_SHOW_KINDS' order
 // (`dlinks:12 | hlinks:12`), and empty when none is ticked. `key` is the card's id as the search
 // writes it (`12`, or `kanban#12` on a board with prefixed ids).
 function hoverShowTerms(kinds, key) {

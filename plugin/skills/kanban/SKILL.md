@@ -164,4 +164,4 @@ Each script's header comment gives its exact rules.
 
 ## Human surfaces
 
-This skill is the **AI's** lever set. When the human wants to see or work the board themselves, point them to (or launch) **kanban-web** (live browser editor, desktop/localhost) or **kanban-snapshot** (single-file HTML board for phone, tablet and Cowork; read-only, its queued changes come back as an "Apply kanban changes" payload) instead of narrating files. With no browser and no way to open a file, print the board with `view_board.sh` and take the human's edits conversationally.
+This skill is the **AI's** lever set. When the human wants to see or work the board themselves, point them to (or launch) **kanban-web** (live browser editor on 127.0.0.1; a phone reaches it through a VS Code tunnel) or **kanban-snapshot** (single-file HTML board for phone, tablet and Cowork; read-only, its queued changes come back as an "Apply kanban changes" payload) instead of narrating files. With no browser and no way to open a file, print the board with `view_board.sh` and take the human's edits conversationally.
