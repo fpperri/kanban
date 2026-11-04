@@ -1,9 +1,12 @@
 'use strict';
-// Focus and the contrast marks that depend on the cascade, on the plan board. Tab walks the Board's focusable
-// controls with real key presses, and each stop shows a ring: a solid outline of 2px or more, or, on a field,
-// the accent border it, or the box around it, wears when focused. Folding a column keeps focus on its toggle, whether the
-// fold is made from the keyboard (Enter, then Space, on the toggle that Tab reached) or by a click: the page
-// draws the board again, and the toggle it draws is the one that holds focus, with its ring. The cascade is read
+// Focus and the contrast marks that depend on the cascade, on the plan board. Tab walks the focusable controls of
+// the Board, the Map and the Graph with real key presses, and each stop shows a ring: a solid outline of 2px or
+// more, or, on a field, the accent border it, or the box around it, wears when focused. A walk ends only when Tab
+// comes round to its first stop again, so a focus a poll dropped fails it instead of cutting it short. Folding a
+// column keeps focus on its toggle, whether the fold is made from the keyboard (Enter, then Space, on the toggle
+// that Tab reached) or by a click, and through the poll that draws the board again: the toggle the page draws is
+// the one that holds focus, with its ring. The details, focused by script as a form closes, show
+// no ring, while the controls inside them still do. The cascade is read
 // from the page's own stylesheet in both themes, on probes drawn the way the views draw them: a ghost stub keeps
 // the amber of a waiting card and the red of a high-priority one over its dashes, an edge to a ghost is dashed and
 // not dimmed, a parent line to a ghost has a dash of its own, the gantt's today line and an archived Graph dot are
@@ -11,7 +14,7 @@
 // ghost stub is not dimmed. Each step waits on the page, never on a fixed sleep. Keys go through the runner's key helper,
 // a real key press.
 
-const MAX_STOPS = 150;
+const MAX_STOPS = 400;
 
 const ACTIVE = `document.activeElement`;
 const RING = `(()=>{const e=document.activeElement;if(!e||e===document.body)return null;const c=getComputedStyle(e);`
@@ -20,7 +23,9 @@ const RING = `(()=>{const e=document.activeElement;if(!e||e===document.body)retu
   + `const outline=c.outlineStyle!=='none'&&c.outlineStyle!=='hidden'&&parseFloat(c.outlineWidth)>=2&&c.outlineColor!=='rgba(0, 0, 0, 0)';`
   + `const wears=(n)=>getComputedStyle(n).borderTopColor===accent;`
   + `const border=field&&c.outlineStyle==='none'&&(wears(e)||(!!e.parentElement&&wears(e.parentElement)));`
-  + `return {tag:e.tagName.toLowerCase(),cls:String(e.getAttribute('class')||'').slice(0,60),id:e.id,outline,border,ok:outline||border}})()`;
+  + `const name=e.getAttribute('aria-label')||e.getAttribute('data-id')||e.getAttribute('data-col')||e.getAttribute('data-caption')||(e.textContent||'').trim().slice(0,24);`
+  + `const cls=String(e.getAttribute('class')||'');`
+  + `return {tag:e.tagName.toLowerCase(),cls:cls.slice(0,60),id:e.id,sig:e.tagName+'|'+cls+'|'+e.id+'|'+name,outline,border,ok:outline||border}})()`;
 const TOGGLE_FOCUSED = `(()=>{const e=document.activeElement;return !!e&&e.classList.contains('column-toggle')})()`;
 const toggleOf = (col) => `[...document.querySelectorAll('#board .column-toggle')].find((b)=>b.dataset.col===${JSON.stringify(col)})`;
 
@@ -76,29 +81,55 @@ const FOCUS_DOT = `(()=>{const NS='http://www.w3.org/2000/svg';const host=docume
 module.exports = {
   name: 'focus',
   board: 'plan',
-  timeoutMs: 120000,
+  timeoutMs: 300000,
   async run(page) {
     const { ev, open, waitFor, key, centre, click: clickAt, check } = page;
     const click = async (sel) => { const p = await centre(sel); await clickAt(p.x, p.y); };
     const ready = `document.querySelectorAll('#board .column').length>0&&document.querySelectorAll('#board .card-el').length>0`;
     const frames = () => ev(`new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))`);
 
-    // --- Tab shows a ring on every stop ---
-    await open('/?view=board');
-    check('the board is drawn', await waitFor(ready, 10000));
-    await ev(`document.activeElement&&document.activeElement.blur()`);
-    const stops = [];
-    for (let i = 0; i < MAX_STOPS; i++) {
-      await key('Tab');
-      await frames();
-      const ring = await ev(RING);
-      if (!ring) break;
-      stops.push(ring);
+    // --- Tab shows a ring on every stop, in the Board, the Map and the Graph ---
+    // The walk ends at the page's end: focus leaves for the browser (the body holds it), and the next Tab comes back
+    // to the first stop. Anything else, a focus a poll dropped among it, is not an end and fails the walk.
+    const walk = async (view, drawn) => {
+      await open(`/?view=${view}`);
+      const up = await waitFor(drawn, 10000);
+      await ev(`document.activeElement&&document.activeElement.blur()`);
+      const stops = [];
+      let wrapped = false;
+      for (let i = 0; i < MAX_STOPS; i++) {
+        await key('Tab');
+        await frames();
+        const ring = await ev(RING);
+        if (!ring) {
+          await key('Tab');
+          await frames();
+          const first = await ev(RING);
+          wrapped = !!first && stops.length > 0 && first.sig === stops[0].sig;
+          break;
+        }
+        stops.push(ring);
+      }
+      return { up, stops, wrapped };
+    };
+    const views = [
+      ['board', 'Board', ready],
+      ['map', 'Map', `document.querySelectorAll('#map-view .map-node').length>0`],
+      ['graph', 'Graph', `document.querySelectorAll('#graph-view .graph-node').length>0&&document.querySelectorAll('#graph-view .graph-caption[tabindex]').length>0`],
+    ];
+    for (const [view, label, drawn] of views) {
+      const { up, stops, wrapped } = await walk(view, drawn);
+      check(`the ${label} is drawn`, up);
+      check(`Tab reaches the ${label}'s controls`, stops.length >= 20, stops.length);
+      check(`the ${label} walk ends where it began: the last stop is followed by the page's end, then the first stop`, wrapped, stops.length);
+      const bare = stops.filter((s) => !s.ok);
+      check(`every Tab stop of the ${label} shows a ring`, bare.length === 0, bare.slice(0, 6));
+      check(`a Tab stop on a button or link of the ${label} rings with an outline, not a border`, stops.filter((s) => /^(button|a)$/.test(s.tag)).every((s) => s.outline));
+      if (view === 'graph') {
+        const captions = stops.filter((s) => /graph-caption/.test(s.cls));
+        check('the Graph walk stops on its captions, and each shows the page ring', captions.length > 0 && captions.every((s) => s.outline), captions.slice(0, 3));
+      }
     }
-    check('Tab reaches the board\'s controls', stops.length >= 20, stops.length);
-    const bare = stops.filter((s) => !s.ok);
-    check('every Tab stop shows a ring', bare.length === 0, bare.slice(0, 6));
-    check('a Tab stop on a button or link rings with an outline, not a border', stops.filter((s) => /^(button|a)$/.test(s.tag)).every((s) => s.outline));
 
     // --- folding a column keeps focus on its toggle ---
     await open('/?view=board');
@@ -118,6 +149,12 @@ module.exports = {
     check('after the fold from the keyboard, focus is on that column\'s toggle', await waitFor(`document.activeElement===${toggleOf(col)}`, 3000), await ev(`(${ACTIVE}.className||${ACTIVE}.tagName)`));
     const ring = await ev(RING);
     check('and the toggle shows its ring', !!ring && ring.ok && ring.outline, ring);
+    // The poll draws the board again, a few seconds after the fold in real use: a mark on the toggle is gone once it has.
+    await ev(`${toggleOf(col)}.dataset.probe='1'`);
+    await ev(`(async()=>{await autoRefreshTick();})()`);
+    check('a poll draws the board again', await waitFor(`(()=>{const b=${toggleOf(col)};return !!b&&!b.dataset.probe})()`, 5000));
+    const afterPoll = await ev(RING);
+    check('and focus is still on that column\'s toggle, with its ring', (await ev(`document.activeElement===${toggleOf(col)}`)) && !!afterPoll && afterPoll.outline, afterPoll);
     await key(' ');
     check('Space on the toggle unfolds the column and focus stays', await waitFor(`(()=>{const b=${toggleOf(col)};return !!b&&b.getAttribute('aria-expanded')==='${before && before.expanded}'&&document.activeElement===b})()`, 5000), await state());
     check('a click on the toggle folds it and focus stays on it', await (async () => {
@@ -126,6 +163,32 @@ module.exports = {
     })(), await state());
     await click(`#board .column-toggle[data-col=${JSON.stringify(col)}]`);
     await waitFor(`(()=>{const b=${toggleOf(col)};return !!b&&b.getAttribute('aria-expanded')==='${before && before.expanded}'})()`, 5000);
+
+    // --- the popup the page focuses by script shows no ring, its controls do ---
+    // The details are focused by script when the form that was opened from them closes (returnToDetails). The page is in
+    // keyboard modality (a Tab went before it), so :focus-visible matches the popup: only the rule for a tabindex of -1
+    // keeps the page ring off a container that is not a control.
+    await open('/?view=graph');
+    await waitFor(`document.querySelectorAll('#graph-view .graph-node').length>0`, 10000);
+    await key('Tab');
+    await ev(`document.querySelector('#graph-view .graph-node').focus()`);
+    await key('Enter');
+    check('Enter on a focused card in the Graph opens its details', await waitFor(`!document.getElementById('detail-modal').classList.contains('hidden')`, 5000));
+    await ev(`document.getElementById('detail-edit-btn').click()`);
+    check('Edit opens the form', await waitFor(`!document.getElementById('modal').classList.contains('hidden')`, 5000));
+    await ev(`document.getElementById('modal-close').click()`);
+    check('closing the form returns focus to the details popup', await waitFor(`(()=>{const e=document.activeElement;return !!e&&e.matches('.detail-modal')})()`, 5000), await ev(`(${ACTIVE}.className||${ACTIVE}.tagName)`));
+    const popup = JSON.parse(await ev(`(()=>{const e=document.activeElement;const c=getComputedStyle(e);return JSON.stringify({visible:e.matches(':focus-visible'),outline:c.outlineStyle})})()`));
+    check('the popup is focus-visible and shows no ring of its own', popup.visible && popup.outline === 'none', popup);
+    let inside = null;
+    for (let i = 0; i < 20 && !inside; i++) {
+      await key('Tab');
+      await frames();
+      if (await ev(`!!${ACTIVE}.closest('.detail-modal')&&!${ACTIVE}.matches('.detail-modal')`)) inside = await ev(RING);
+    }
+    check('a control inside the popup still shows the page ring', !!inside && inside.ok && inside.outline, inside);
+    await key('Escape');
+    await waitFor(`document.getElementById('detail-modal').classList.contains('hidden')`, 5000);
 
     // --- the marks, in each theme ---
     for (const theme of ['light', 'dark']) {

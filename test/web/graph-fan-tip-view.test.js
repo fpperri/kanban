@@ -288,8 +288,10 @@ test('a caption takes the pointer, and a tip is a small token-coloured panel on 
   assert.match(rule('.graph-tip-line:first-child'), /font-weight: 600/, 'the count leads');
 });
 
-test('a focused caption shows it: its name in the accent on an accent-soft halo, with no underline', () => {
-  assert.match(css, /\.graph-caption:focus-visible[^{]*\{ outline: none; stroke: var\(--accent-soft\); \}/);
+test('a focused caption shows it: the page ring, and its name in the accent on an accent-soft halo, with no underline', () => {
+  assert.match(css, /\.graph-caption:focus-visible[^{]*\{ stroke: var\(--accent-soft\); \}/);
+  const own = css.match(/\.graph-caption:focus-visible[^{]*\{([^}]*)\}/)[1];
+  assert.doesNotMatch(own, /outline/, 'the caption sets no outline of its own, so the page ring applies');
   assert.match(css, /\.graph-caption:focus-visible \.graph-caption-name[^{]*\{ fill: var\(--accent\); \}/);
   assert.match(css, /\.graph-block-title:focus-visible \.graph-caption-name/);
   assert.match(css, /\.graph-block-caption:focus-visible \.graph-caption-name/);

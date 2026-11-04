@@ -119,13 +119,7 @@ function toggleColumn(col) {
   const collapsed = loadCollapsedColumns();
   collapsed[col] = !collapsed[col];
   saveCollapsedColumns();
-  const held = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.column-toggle') : null;
   renderBoard();
-  // The board is drawn again, so the toggle that held focus is gone: focus the one drawn in its place.
-  if (held) {
-    const next = [...document.querySelectorAll('#board .column-toggle')].find((b) => b.dataset.col === col);
-    if (next) next.focus();
-  }
 }
 
 // column-sort.js provides SORT_FIELDS / SORT_FIELD_LABELS / DEFAULT_SORT /
@@ -1594,10 +1588,10 @@ function renderMapView() {
   main.scrollTop = keepTop;
 }
 
-const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
+const REFOCUS_SELECTOR = '.column-toggle, .map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
 
-// What finds a rebuilt control again after a render: its class and what names it, a fold
-// toggle's section, a panel button its view, or for a button of the
+// What finds a rebuilt control again after a render: its class and what names it, a column
+// toggle's column, a fold toggle's section, a panel button its view, or for a button of the
 // Graph's option row its option and its value.
 function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -1605,6 +1599,7 @@ function refocusSelector(el) {
   if (el.dataset.graphInfo !== undefined) return '.graph-info-toggle';
   if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
+  if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
   return `.${el.classList[0]}${named('section')}`;
 }
 
@@ -3079,7 +3074,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#board').addEventListener('touchmove', onBoardTouchMove, { passive: false });
   $('#board').addEventListener('click', (e) => {
     const toggleBtn = e.target.closest('.column-toggle');
-    if (toggleBtn) { toggleColumn(toggleBtn.dataset.col); return; }
+    if (toggleBtn) { keepControlFocus(toggleBtn, () => toggleColumn(toggleBtn.dataset.col)); return; }
     const sortDirBtn = e.target.closest('.column-sort-dir');
     if (sortDirBtn) { toggleColumnSortDirection(sortDirBtn.dataset.col); return; }
     const addBtn = e.target.closest('.column-add');
