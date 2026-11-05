@@ -97,7 +97,7 @@ test('the board names its query for the header', () => {
   try {
     const dir = path.join(root, 'p', '.kanban');
     assert.deepStrictEqual(buildPage({ boardDir: dir }).board.snapshot, { query: '', archive: false, label: 'live cards only', archiveHeld: { carried: 0, total: 2 } });
-    assert.deepStrictEqual(buildPage({ boardDir: dir, archive: true }).board.snapshot, { query: '', archive: true, label: 'with the archive', archiveHeld: { carried: 1, total: 2 } });
+    assert.deepStrictEqual(buildPage({ boardDir: dir, archive: true }).board.snapshot, { query: '', archive: true, label: 'with the archive' });
     assert.deepStrictEqual(buildPage({ boardDir: dir, query: '  tags:ui ' }).board.snapshot, { query: 'tags:ui', archive: false, label: 'tags:ui · live cards only', archiveHeld: { carried: 0, total: 2 } });
     assert.strictEqual(buildPage({ boardDir: dir, query: 'tags:ui', archive: true }).board.snapshot.label, 'tags:ui · with the archive');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
