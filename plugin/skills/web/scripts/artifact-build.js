@@ -148,7 +148,8 @@ function withPolicy(page) {
 
 const normal = (p) => path.resolve(p).split(path.sep).join('/');
 
-// The Snapshot query's pick, as sets of card ids and the files of the cards left out. The cards are
+// The Snapshot query's pick, as sets of card ids, the files of the cards left out, and how many of the archive's
+// cards the page carries. The cards are
 // searched as the page holds them (cs.toJSON), live and archived together.
 function pickCards(dir, name, { query, archive }) {
   return iter.scoped(() => {
@@ -164,7 +165,8 @@ function pickCards(dir, name, { query, archive }) {
       if (found.has(c.id) && (archive || !c.archived)) carried.add(c.id);
       else { leftOut.add(c.id); leftFiles.add(normal(c.file)); }
     }
-    return { carried, leftOut, leftFiles };
+    const archived = cards.filter((c) => c.archived);
+    return { carried, leftOut, leftFiles, archive: { carried: archived.filter((c) => carried.has(c.id)).length, total: archived.length } };
   });
 }
 
@@ -225,6 +227,7 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
   const taken = takenBy(readApplied(dir));
   if (Object.keys(taken).length) board.taken = taken;
   const picked = pickCards(dir, name, { query: asked, archive: !!archive });
+  if (picked.archive.carried < picked.archive.total) board.snapshot.archiveHeld = picked.archive;
   const ownerOf = ownerOfFile(dir);
   const placed = boardFiles(dir, (abs) => {
     if (picked.leftFiles.has(normal(abs))) return true;

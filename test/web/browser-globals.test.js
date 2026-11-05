@@ -45,6 +45,8 @@ const PAGE_GLOBALS = [
   'renderGraphView',
   'scratchUi',
   'selectedIds',
+  'setView',
+  'loadGanttStatusFilter',
   'selectionFromParts',
   'selectionState',
   'setSelection',

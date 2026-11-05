@@ -1,5 +1,5 @@
 'use strict';
-const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], typesOn: true, pills: [], archivePackages: [], logbook: null, todos: null, groups: null, scratchpad: null, iterations: false, settings: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
+const state = { active: [], archived: [], projectName: '', boardDir: '', notifications: [], priorities: [], tags: [], statuses: [], assignees: [], types: [], hierarchy: [], typesOn: true, pills: [], archivePackages: [], logbook: null, todos: null, groups: null, scratchpad: null, iterations: false, settings: null, archiveHeld: null }; // logbook seeded null (the board keeps none until a payload says so); hierarchy and pills seeded empty — slices, the tier fan and the pill row read them before the first /api/board response lands. assignees seeded empty — renderBoard's Assignee sort reads it before the first /api/board response lands. boardDir seeded empty — copyBoardPath toasts honestly on a pre-first-poll click.
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -1394,7 +1394,8 @@ function renderBoardColumns() {
     // Counts stay truthful whether or not the column is collapsed — column-count
     // renders in both states, so a collapsed column with hits signals them on its
     // strip with no extra branching.
-    const countLabel = narrowed ? `${cards.length}/${allCards.length}` : `${allCards.length}`;
+    const heldWords = isArchive && !isCollapsed ? archiveHeldWords() : null;
+    const countLabel = heldWords && archiveAbsent() ? heldWords : (narrowed ? `${cards.length}/${allCards.length}` : `${allCards.length}`) + (heldWords ? ` of ${state.archiveHeld.total}` : '');
     const colEl = document.createElement('div');
     // col-<name> only for css-safe names (the built-in five have color rules;
     // a custom name's rule wouldn't exist anyway — its color is inline below).
@@ -1411,7 +1412,7 @@ function renderBoardColumns() {
     // dropdown's selected option and the direction glyph both reflect the
     // persisted per-column state, so a re-render (poll/drag/toggle/search)
     // never visually resets the control out from under the user.
-    const sortControls = isCollapsed ? '' :
+    const sortControls = isCollapsed || (isArchive && archiveAbsent()) ? '' :
       `<select class="column-sort-field" data-holds-poll data-col="${escapeHtml(col)}" ` +
         `aria-label="Sort ${escapeHtml(label)} column by" title="Sort by">` +
         SORT_FIELDS.map((f) =>
@@ -1466,7 +1467,10 @@ function renderBoardColumns() {
     }
   }
   board.scrollLeft = keepBoardLeft;
-  renderBoardTabs(phone ? phoneTabs(statuses, tabCounts, phoneActive, narrowed) : []);
+  renderBoardTabs(phone ? phoneTabs(statuses, tabCounts, phoneActive, narrowed).map((t) => {
+    const words = t.status === 'archive' ? archiveHeldWords() : null;
+    return words ? { ...t, count: archiveAbsent() ? words : `${t.count} of ${state.archiveHeld.total}` } : t;
+  }) : []);
   wireDrag();
 }
 
@@ -2235,10 +2239,24 @@ function applyQueued(source) {
 // A page built with a Snapshot query says it in the header, so it is plain which cards it carries. The server's
 // board load has no such field and the label stays hidden.
 function applySnapshotQuery(snapshot) {
+  state.archiveHeld = snapshot && snapshot.archiveHeld ? snapshot.archiveHeld : null;
   const el = $('#snapshot-query');
   const label = snapshot && snapshot.label ? snapshot.label : '';
   el.textContent = label;
   el.classList.toggle('hidden', label === '');
+}
+
+// What a page built with only part of the archive says it holds: null when the page holds all of it (or is the
+// desk's), else "not in this page" or "12 of 469". The Archive pill, the Archive column and the phone's Archive
+// tab all read these two, so the words are the same wherever they show.
+function archiveHeldWords() {
+  const held = state.archiveHeld;
+  if (!held) return null;
+  return held.carried === 0 ? 'not in this page' : `${held.carried} of ${held.total}`;
+}
+
+function archiveAbsent() {
+  return !!state.archiveHeld && state.archiveHeld.carried === 0;
 }
 
 function applyHomeUrl(url) {

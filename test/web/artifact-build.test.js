@@ -72,6 +72,17 @@ test('the embedded board boots into a page source that answers the board load an
   assert.strictEqual(boot(data, { storage, device: 'd1' }).records().length, 1);
 });
 
+test('the build records how much of the archive the page holds, and only when it is not all of it', () => {
+  const none = buildPage({ boardDir: FIXTURE }).board.snapshot;
+  assert.deepStrictEqual(none.archiveHeld, { carried: 0, total: 3 });
+  const part = buildPage({ boardDir: FIXTURE, archive: true, query: '#19 | #20' }).board.snapshot;
+  assert.deepStrictEqual(part.archiveHeld, { carried: 2, total: 3 });
+  const whole = buildPage({ boardDir: FIXTURE, archive: true }).board.snapshot;
+  assert.ok(!('archiveHeld' in whole));
+  const bare = path.join(tmpTree({ '.kanban/0001.a.card.md': card(1, 'a') }), '.kanban');
+  assert.ok(!('archiveHeld' in buildPage({ boardDir: bare }).board.snapshot), 'a board with no archive has nothing to say');
+});
+
 test('the file holds no path of the machine that built it', () => {
   const { html } = buildPage({ boardDir: FIXTURE });
   for (const form of new Set([FIXTURE, FIXTURE.replace(/\\/g, '/'), FIXTURE.replace(/\\/g, '\\\\'), path.dirname(FIXTURE)])) assert.ok(!html.includes(form), form);
