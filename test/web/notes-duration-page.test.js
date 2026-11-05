@@ -147,13 +147,13 @@ const times = (p) => p.all('.np-note').map((r) => {
 
 test('the list shows a range as 10:30–11:15 and a length with no time as 45m, in Grouped and in Timeline', async () => {
   const p = await open();
-  const want = [['09:10', false], ['10:30–11:15', false], ['1h30m', false]];
+  const want = [['10:30–11:15', false], ['09:10', false], ['1h30m', false]];
   assert.deepStrictEqual(times(p), want);
   p.find('.np-by-btn[data-layout="timeline"]').click();
   assert.deepStrictEqual(times(p), want);
   p.board.logbook.notes.push(note('2026-11-03', '7', null, '@human', 'no time, no length', 3));
   await p.reload();
-  assert.deepStrictEqual(times(p).pop(), ['untimed', true]);
+  assert.deepStrictEqual(times(p)[2], ['untimed', true]);
 });
 
 test('a list with a range in it widens its time column for every row, and one without keeps it', async () => {
@@ -262,20 +262,20 @@ async function openEdit() {
 
 test('e on a note shows its duration beside its time, and an empty field for a note with none', async () => {
   const p = await openEdit();
-  const row = p.edit(1);
+  const row = p.edit(0);
   assert.deepStrictEqual([row.time.value, row.duration.value, row.text.value], ['10:30', '45m', 'schema review']);
   assert.strictEqual(row.duration.attrs['aria-label'], 'Duration, blank for none');
   p.find('.np-edit-cancel').click();
   const length = p.edit(2);
   assert.deepStrictEqual([length.time.value, length.duration.value], ['', '1h30m']);
   p.find('.np-edit-cancel').click();
-  const plain = p.edit(0);
+  const plain = p.edit(1);
   assert.deepStrictEqual([plain.time.value, plain.duration.value], ['09:10', '']);
 });
 
 test('saving a changed duration sends it, in the written form, with a ref that names the duration the page read', async () => {
   const p = await openEdit();
-  const row = p.edit(1);
+  const row = p.edit(0);
   p.type(row.duration, '1h40');
   await p.save();
   assert.strictEqual(p.patches.length, 1);
@@ -286,27 +286,27 @@ test('saving a changed duration sends it, in the written form, with a ref that n
 
 test('clearing the duration and saving sends null; leaving it as it was sends no duration', async () => {
   const p = await openEdit();
-  const cleared = p.edit(1);
+  const cleared = p.edit(0);
   p.type(cleared.duration, '');
   await p.save();
   assert.strictEqual(p.patches[0].duration, null);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(p.patches[0], 'duration'), true);
-  const same = p.edit(1);
+  const same = p.edit(0);
   p.type(same.text, 'schema review, again');
   await p.save();
   assert.strictEqual(Object.prototype.hasOwnProperty.call(p.patches[1], 'duration'), false);
-  p.edit(0);
+  p.edit(1);
   await p.save();
   assert.strictEqual(Object.prototype.hasOwnProperty.call(p.patches[2], 'duration'), false);
 });
 
 test('a note with no duration is given one in the row, and clearing the time of a timed note sends the untimed time and leaves its duration alone', async () => {
   const p = await openEdit();
-  const plain = p.edit(0);
+  const plain = p.edit(1);
   p.type(plain.duration, '30m');
   await p.save();
   assert.deepStrictEqual([p.patches[0].at, p.patches[0].duration], ['09:10', '30m']);
-  const range = p.edit(1);
+  const range = p.edit(0);
   p.type(range.time, '');
   await p.save();
   assert.deepStrictEqual([p.patches[1].at, 'duration' in p.patches[1]], ['', false]);
@@ -314,7 +314,7 @@ test('a note with no duration is given one in the row, and clearing the time of 
 
 test('a duration that is no length, or that would end past 24:00 from the row\'s time, is said and nothing is sent', async () => {
   const p = await openEdit();
-  const row = p.edit(1);
+  const row = p.edit(0);
   p.type(row.duration, 'soon');
   await p.save();
   p.type(row.duration, '1h');
