@@ -138,6 +138,7 @@ const SETTINGS_PAGE_READS = {
   types: { path: 'config', kind: 'File' },
   prefixes: { path: 'config', kind: 'File' },
   counters: { path: 'config', kind: 'File' },
+  snapshot: { path: 'config', kind: 'File' },
   logbook: { path: 'logbook', kind: 'Folder', now: 'logbookNow' },
   scratchpad: { path: 'scratchpad', kind: 'Folder', now: 'scratchpadNow' },
   todos: { path: 'todos', kind: 'Folder', now: 'todosNow' },

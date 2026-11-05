@@ -11,7 +11,9 @@
 // the same call with a file written.
 //
 // What the page carries comes from the board's config.yaml (snapshotQuery, snapshotArchive) unless a flag
-// is given: --query and --archive / --no-archive win for one build. A Snapshot query, in the Web's search words, picks the cards the page carries (search.js, the module the
+// is given: --query and --archive / --no-archive win for one build.
+//
+// A Snapshot query, in the Web's search words, picks the cards the page carries (search.js, the module the
 // search box runs): by default the live cards, with `archive` the archived ones too. The query is read
 // over the whole board, archive included, as the box reads it, so a graph term walks cards it does not
 // carry. A card it leaves out carries nothing: its file, and the logbook, scratchpad and todo files made for
@@ -221,7 +223,7 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
   const kept = cfg.readConfig(dir);
   const asked = String(query === undefined ? kept.snapshotQuery : query || '').trim();
   if (archive === undefined) archive = kept.snapshotArchive;
-  const where = query === undefined && asked ? 'The snapshotQuery in config.yaml' : 'The query';
+  const where = query === undefined && asked ? 'The saved snapshotQuery in config.yaml' : 'The query';
   const problem = searchQueryProblem(asked);
   if (problem) throw new Error(`${where} cannot be read, so the page is not built (${JSON.stringify(asked)}). ${problem}`);
   const board = {

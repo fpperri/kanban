@@ -811,7 +811,7 @@ test('snapshotArchive true writes the line below the feature lines, false remove
 test('snapshotQuery saves as one line the reader gives back as typed, quoted when it must be, and an empty one removes it', async () => {
   const dir = tmpBoard({ config: PLAN });
   await withServer(dir, async (base) => {
-    for (const query of ['tags:ui', 'tags:ui | #3', 'title:"two words" # note', '"quoted" first']) {
+    for (const query of ['tags:ui', 'tags:ui | #3', '#3', '#3 | #5', '@human', '[x] open', '{a}', '&a', '*', '!a', '%a', '>a', '-group:I2', 'title:"two words" # note', '"quoted" first']) {
       const saved = await set(base, 'snapshotQuery', `  ${query}  `);
       assert.strictEqual(saved.status, 200, query);
       assert.strictEqual(saved.json.settings.snapshotQuery, query);

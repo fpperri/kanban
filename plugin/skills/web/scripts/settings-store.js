@@ -278,8 +278,8 @@ function checkVersion(dir, version) {
 }
 
 // A query as the line holds it: bare unless the reader would not give the same text back (a ` #` starts
-// a comment, a leading quote opens a quoted value).
-const queryLine = (query) => (yaml.scalar(query) === query && !/^["']/.test(query) ? query : yaml.quote(query));
+// a comment; a leading quote, `#` or other YAML indicator would not read as text).
+const queryLine = (query) => (yaml.scalar(query) === query && !/^["'#\[{&*!%>|@`?-]/.test(query) ? query : yaml.quote(query));
 
 // One change from the page: { key, value } for a line, { block, value } for a whole block (types,
 // hierarchy or prefixes: a list, or a map for prefixes; empty or absent removes it), each with the

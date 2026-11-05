@@ -302,7 +302,7 @@ test('a type shows the prefix the prefixes: block gives it, read only', () => {
 
 test('every page of This board names the file or folder it reads, absolute, and nothing when that is off', () => {
   const st = { paths: { config: '/b/config.yaml', logbook: '/b/logbook', scratchpad: null, groups: '/b/.groups' } };
-  for (const id of ['types', 'prefixes', 'counters']) assert.strictEqual(s.settingsPagePath(id, st), '/b/config.yaml', id);
+  for (const id of ['types', 'prefixes', 'counters', 'snapshot']) assert.strictEqual(s.settingsPagePath(id, st), '/b/config.yaml', id);
   assert.strictEqual(s.settingsPagePath('logbook', st), '/b/logbook');
   assert.strictEqual(s.settingsPagePath('groups', st), '/b/.groups');
   assert.strictEqual(s.settingsPagePath('scratchpad', st), null);

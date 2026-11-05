@@ -378,3 +378,19 @@ test('a saved setting that makes the page pass 16 MB is refused with the size, a
     assert.ok(buildPage({ boardDir: dir, archive: false }).bytes < 16 * 1024 * 1024, 'the flag builds it');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('the gear in a built page shows the query and archive the page was built with, not the config copy inside it, and a save answers 403', async () => {
+  const root = keeping('snapshotQuery: tags:api\n');
+  try {
+    const built = buildPage({ boardDir: dirOf(root), query: '#1 | #3', archive: true });
+    const src = boot(dataOf(built.html), { storage: memoryStorage(), device: 'd' });
+    const settings = (await src.request('GET', '/api/board')).json.settings;
+    assert.strictEqual(settings.snapshotQuery, '#1 | #3');
+    assert.strictEqual(settings.snapshotArchive, true);
+    assert.ok(settings.lock);
+    const plain = boot(dataOf(buildPage({ boardDir: dirOf(root) }).html), { storage: memoryStorage(), device: 'd' });
+    assert.strictEqual((await plain.request('GET', '/api/board')).json.settings.snapshotQuery, 'tags:api');
+    const saved = await src.request('POST', '/api/config', { key: 'snapshotQuery', value: 'tags:ui' });
+    assert.strictEqual(saved.status, 403);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
