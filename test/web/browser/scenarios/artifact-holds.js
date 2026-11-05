@@ -7,7 +7,7 @@
 // wide, with the words visible in the text (not in a title) and inside the screen. Each step waits on what the
 // page shows, never on a fixed sleep.
 //
-// Page globals this scenario reads (listed in test/web/browser-globals.test.js): setView, state,
+// Page globals this scenario reads (listed in test/web/browser-globals.test.js): setView, state, loadMapStatusFilter,
 // loadGanttStatusFilter.
 
 const fs = require('fs');
@@ -22,6 +22,8 @@ const PILL = `document.querySelector('#search-statuses .status-pill[data-col=arc
 const PILL_TEXT = `(()=>{const p=${PILL};return p?p.textContent.replace(/\\s+/g,' ').trim():''})()`;
 const STORED = `JSON.stringify(Object.keys(localStorage).sort().map((k)=>[k,localStorage.getItem(k)]))`;
 const HEADER_TEXT = `(()=>{const h=document.querySelector('#board .column[data-col=archive] .column-header');return h?h.textContent.replace(/\\s+/g,' ').trim():''})()`;
+const COL = "#board .column[data-col=archive]";
+const STRIP = (words, count) => `(()=>{const c=document.querySelector('${COL}');if(!c||!c.classList.contains('collapsed'))return false;const t=c.querySelector('.column-toggle');return c.title.includes(${JSON.stringify(words)})&&t.getAttribute('aria-label').includes(${JSON.stringify(words)})&&c.querySelector('.column-count').textContent===${JSON.stringify(count)}})()`;
 const FITS = (sel, inScreen = true) => `(()=>{const e=document.querySelector(${JSON.stringify(sel)});if(!e)return false;const r=e.getBoundingClientRect();return (${inScreen}?r.left>=0&&r.right<=window.innerWidth:true)&&e.scrollWidth<=e.clientWidth+1})()`;
 
 module.exports = {
@@ -59,7 +61,14 @@ module.exports = {
       await ev(`${PILL}.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}))`);
       check('pressing it, or right-clicking it, changes neither the filter nor what is stored', (await ev(`JSON.stringify(loadGanttStatusFilter())+${STORED}`)) === before);
       check('the other status pills carry no note', await ev(`[...document.querySelectorAll('#search-statuses .status-pill:not([data-col=archive])')].every((p)=>!p.querySelector('.pill-note').textContent&&!p.hasAttribute('aria-disabled'))`));
+      await ev(`setView('map')`);
+      check('the Map draws its Archive pill, which says it is not in this page', await waitFor(`!!${PILL}&&/not in this page/.test(${PILL_TEXT})`, 6000), await ev(PILL_TEXT));
+      const mapBefore = await ev(`JSON.stringify(loadMapStatusFilter())+${STORED}`);
+      await ev(`${PILL}.click()`);
+      await ev(`${PILL}.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}))`);
+      check('pressing it in the Map changes neither the filter nor what is stored', (await ev(`JSON.stringify(loadMapStatusFilter())+${STORED}`)) === mapBefore);
       await ev(`setView('board')`);
+      check('the collapsed Archive strip says it is not in this page, not a bare 0', await waitFor(STRIP('not in this page', 'not in this page'), 6000), await ev(`document.querySelector('${COL}').title+'|'+document.querySelector('${COL} .column-count').textContent`));
       await ev(`document.querySelector('#board .column[data-col=archive] .column-toggle').getAttribute('aria-expanded')==='false'&&document.querySelector('#board .column[data-col=archive] .column-toggle').click()`);
       check('the Archive column says the same in its header', await waitFor(`/not in this page/.test(${HEADER_TEXT})`, 6000), await ev(HEADER_TEXT));
       check('and the header offers no sort of nothing', await ev(`!document.querySelector('#board .column[data-col=archive] .column-sort-field')`));
@@ -84,7 +93,14 @@ module.exports = {
       await ev(`${PILL}.click()`);
       check('pressing it switches the archive on', await waitFor(`${PILL}.getAttribute('aria-pressed')==='true'`, 6000));
       await ev(`${PILL}.click()`);
+      await ev(`setView('map')`);
+      check('the Map pill gives the count and shows the archive to start', await waitFor(`!!${PILL}&&/2 of 3/.test(${PILL_TEXT})&&${PILL}.getAttribute('aria-pressed')==='true'`, 6000), await ev(PILL_TEXT));
+      await ev(`${PILL}.click()`);
+      check('pressing it in the Map switches the archive off', await waitFor(`${PILL}.getAttribute('aria-pressed')==='false'`, 6000));
+      await ev(`${PILL}.click()`);
       await ev(`setView('board')`);
+      await ev(`document.querySelector('${COL} .column-toggle').getAttribute('aria-expanded')==='true'&&document.querySelector('${COL} .column-toggle').click()`);
+      check('the collapsed Archive strip gives the count', await waitFor(STRIP('2 of 3', '2 of 3'), 6000), await ev(`document.querySelector('${COL}').title+'|'+document.querySelector('${COL} .column-count').textContent`));
       await ev(`document.querySelector('#board .column[data-col=archive] .column-toggle').getAttribute('aria-expanded')==='false'&&document.querySelector('#board .column[data-col=archive] .column-toggle').click()`);
       check('the Archive column gives the count', await waitFor(`/2 of 3/.test(${HEADER_TEXT})`, 6000), await ev(HEADER_TEXT));
       await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });

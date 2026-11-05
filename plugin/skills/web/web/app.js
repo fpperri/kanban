@@ -1394,8 +1394,8 @@ function renderBoardColumns() {
     // Counts stay truthful whether or not the column is collapsed — column-count
     // renders in both states, so a collapsed column with hits signals them on its
     // strip with no extra branching.
-    const heldWords = isArchive && !isCollapsed ? archiveHeldWords() : null;
-    const countLabel = heldWords && archiveAbsent() ? heldWords : (narrowed ? `${cards.length}/${allCards.length}` : `${allCards.length}`) + (heldWords ? ` of ${state.archiveHeld.total}` : '');
+    const plainCount = narrowed ? `${cards.length}/${allCards.length}` : `${allCards.length}`;
+    const countLabel = isArchive ? archiveCountLabel(plainCount) : plainCount;
     const colEl = document.createElement('div');
     // col-<name> only for css-safe names (the built-in five have color rules;
     // a custom name's rule wouldn't exist anyway — its color is inline below).
@@ -1405,7 +1405,8 @@ function renderBoardColumns() {
       (isArchive ? ' archive-column' : '') +
       (searchActive && (boxLitIds ? cards.some((c) => boxLitIds.has(c.id)) : cards.length > 0) ? ' search-match' : '');
     colEl.dataset.col = col;
-    colEl.title = label; // native tooltip; matters most while collapsed
+    const heldWords = isArchive ? archiveHeldWords() : null;
+    colEl.title = heldWords ? `${label}: ${heldWords}` : label; // native tooltip; matters most while collapsed
     // Sort controls share the header with the collapse toggle —
     // hidden entirely while collapsed (no card list visible to sort, and no
     // room in the narrow strip), so the two never fight for space. The
@@ -1427,12 +1428,12 @@ function renderBoardColumns() {
     colEl.innerHTML =
       `<div class="column-header">` +
         `<button type="button" class="column-toggle" data-col="${escapeHtml(col)}" ` +
-          `aria-label="${isCollapsed ? 'Expand' : 'Collapse'} ${escapeHtml(label)} column" aria-expanded="${!isCollapsed}">` +
+          `aria-label="${isCollapsed ? 'Expand' : 'Collapse'} ${escapeHtml(label)} column${heldWords ? ` (${heldWords})` : ''}" aria-expanded="${!isCollapsed}">` +
           (isCollapsed ? CHEVRON_RIGHT_ICON : CHEVRON_LEFT_ICON) +
         `</button>` +
         (isCollapsed ? '' : `<span class="column-name">${escapeHtml(label)}</span>`) +
         sortControls +
-        `<span class="column-count">${escapeHtml(countLabel)}</span>` +
+        `<span class="column-count${heldWords ? ' held' : ''}">${escapeHtml(countLabel)}</span>` +
         // + quick-create, pre-aimed at this column. Live expanded
         // headers only (showsColumnAdd: archive never — you can't create an
         // archived card — and a collapsed strip has no room). Wired through
@@ -1468,8 +1469,7 @@ function renderBoardColumns() {
   }
   board.scrollLeft = keepBoardLeft;
   renderBoardTabs(phone ? phoneTabs(statuses, tabCounts, phoneActive, narrowed).map((t) => {
-    const words = t.status === 'archive' ? archiveHeldWords() : null;
-    return words ? { ...t, count: archiveAbsent() ? words : `${t.count} of ${state.archiveHeld.total}` } : t;
+    return t.status === 'archive' ? { ...t, count: archiveCountLabel(t.count) } : t;
   }) : []);
   wireDrag();
 }
@@ -2253,6 +2253,13 @@ function archiveHeldWords() {
   const held = state.archiveHeld;
   if (!held) return null;
   return held.carried === 0 ? 'not in this page' : `${held.carried} of ${held.total}`;
+}
+
+// A count of the archive's cards in this page, written so it is never a bare number that reads as the whole
+// archive: "not in this page" when the page holds none, "12 of 469" when it holds part, the count as it is otherwise.
+function archiveCountLabel(count) {
+  if (!archiveHeldWords()) return count;
+  return archiveAbsent() ? archiveHeldWords() : `${count} of ${state.archiveHeld.total}`;
 }
 
 function archiveAbsent() {

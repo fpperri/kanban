@@ -46,6 +46,7 @@ const PAGE_GLOBALS = [
   'scratchUi',
   'selectedIds',
   'setView',
+  'loadMapStatusFilter',
   'loadGanttStatusFilter',
   'selectionFromParts',
   'selectionState',

@@ -526,6 +526,7 @@ main#board { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; h
    of leaving it to stretch with its flex:1 siblings; the column's own `title`
    attribute (set in JS) carries the hover tooltip naming the column. */
 .column.collapsed { min-width: 44px; width: 44px; flex: 0 0 44px; }
+.column.collapsed .column-count.held { writing-mode: vertical-rl; white-space: nowrap; }
 .column.collapsed .column-header { flex-direction: column; padding: 10px 4px; gap: 6px; border-bottom: none; }
 /* flex: 1 (fills whatever height .column-header didn't
    use) + min-height: 0 (flex items default to their content's min size,
