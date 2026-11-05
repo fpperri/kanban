@@ -40,6 +40,7 @@ const CASES = [
   ['outside var, a fixed sprint', '<sprints>/<iteration>/<card>/.scratchpad', '<sprints>/sprint 497/<card>/.scratchpad', false, 400, WORD('<sprints>')],
   ['outside var, .. after the var', '<sprints>/<iteration>/<card>/.scratchpad', '<sprints>/../../evil/<card>', false, 400, /^A folder from the page sits inside the board/],
   ['outside var, an unknown word', '<sprints>/<iteration>/<card>/.scratchpad', '<nope>/<card>', false, 400, WORD('<nope>')],
+  ['a name that only holds a word stays not a plain name', '.scratchpad', 'foo<bar>', false, 400, /^foo<bar> is not a plain folder name/],
   ['plain name with a bad character', '.scratchpad', 'a b/x:y', false, 400, /^x:y is not a plain folder name/],
 ];
 

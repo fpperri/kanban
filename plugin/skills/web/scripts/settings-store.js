@@ -70,7 +70,7 @@ function checkFolder(dir, value, what) {
   }
   for (const part of parts) {
     if (part === iter.PLACEHOLDER) continue;
-    if (/<[^<>]*>/.test(part)) {
+    if (/^<[^<>]*>$/.test(part)) {
       throw new StatusError(`${part} is a word the gear does not write: it is a hand edit in config.yaml.`, 400);
     }
     if (!/^[\p{L}\p{N}_.][\p{L}\p{N}_ .()+,@-]*$/u.test(part) || /[. ]$/.test(part)) {
