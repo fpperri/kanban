@@ -574,3 +574,18 @@ test('Timeline on one group heads each day with the group, linked', async () => 
   assert.ok(label, 'the head names the group');
   assert.strictEqual(label.tag, 'button');
 });
+
+test('Timeline with several targets heads each day with the day alone, in the strongest ink', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run(`openNotes(${DAY})`);
+  const days = p.all('.np-tgroup .np-nday');
+  assert.ok(days.length > 0);
+  assert.ok(days.every((d) => d.classList.contains('np-nday-only')), 'the day-only head is marked');
+  const css = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.css'), 'utf8');
+  const rule = css.match(/\.np-nday\.np-nday-only\s*\{([^}]*)\}/);
+  assert.ok(rule, 'a rule styles the day-only head');
+  assert.match(rule[1], /color:\s*var\(--ink-strong\)/);
+  assert.match(rule[1], /font-weight:\s*600/);
+});

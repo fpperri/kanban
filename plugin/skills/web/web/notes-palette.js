@@ -879,7 +879,7 @@ function notesList() {
         block.append(notesDayHead(day.notes[0].target, day.day, day.notes.length, today, multiDay));
       } else if (multiDay || day.day !== today) {
         const head = notesEl('div', 'np-nhead');
-        head.append(notesEl('span', 'np-nday', notesDayText(day.day, today)), notesEl('span', 'np-nhead-count', String(day.notes.length)));
+        head.append(notesEl('span', 'np-nday np-nday-only', notesDayText(day.day, today)), notesEl('span', 'np-nhead-count', String(day.notes.length)));
         block.append(head);
       }
       for (const n of day.notes) {
