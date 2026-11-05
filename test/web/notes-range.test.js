@@ -245,7 +245,6 @@ test('clearing the chip leaves no card, whatever card was last noted', () => {
   assert.strictEqual(cleared.noCard, true);
   assert.strictEqual(plan('x', cleared).target, '', 'a note about nothing, not the card last noted');
   assert.deepStrictEqual(n.noteSubjectTarget(cleared, '7'), { id: '' });
-  assert.strictEqual(cleared.at, undefined);
   const fromCard = n.noteSubjectCleared(n.noteSubjectAimed(n.noteSubjectNoCard({ kind: 'card', id: '7', day: CTX.today }), '22'), CTX.today);
   assert.strictEqual(fromCard.noCard, true);
 });

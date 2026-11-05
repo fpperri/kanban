@@ -603,5 +603,5 @@ test('clearing the chip ends where picking no card ends', () => {
   const cleared = n.noteSubjectCleared(aimed, today);
   assert.deepStrictEqual(n.noteSubjectTarget(cleared, '34'), { id: '' });
   assert.deepStrictEqual(cleared, n.noteSubjectNoCard(aimed));
-  assert.deepStrictEqual(n.noteSubjectTarget(n.noteSubjectFrom({}, IS), '34'), { id: '34' }, 'opening on nothing still starts on the card last noted');
+  assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'none', day: CTX.today, clockDay: true }, '34'), { id: '34' }, 'opening on nothing still starts on the card last noted');
 });

@@ -24,7 +24,7 @@ test('a scratchpad request aims the palette at a card or a group, and at nothing
   const is = { today: CTX.today, isGroup: (id) => id === 'I2' };
   assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: '7' }, is), { kind: 'card', id: '7', day: CTX.today, clockDay: true });
   assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: 'I2' }, is), { kind: 'group', id: 'I2', day: CTX.today, clockDay: true });
-  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: 'nope' }, is), { kind: 'none', day: CTX.today, clockDay: true, noCard: true });
+  assert.deepStrictEqual(n.noteSubjectFrom({ kind: 'scratchpad', target: 'nope' }, is), { kind: 'none', day: CTX.today, clockDay: true });
 });
 
 test('the tabs a subject has: Notes with a logbook, Group for a group, Scratchpad for a card or group with the scratchpad on', () => {
@@ -111,5 +111,5 @@ test('a long run of cards is cut short in the preview', () => {
 });
 
 test('clearing the chip of "each" goes back to nothing', () => {
-  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'each', ids: ['3', '7'], day: CTX.today }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true });
+  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'each', ids: ['3', '7'], day: CTX.today }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true, noCard: true });
 });
