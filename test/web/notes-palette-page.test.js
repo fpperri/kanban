@@ -532,3 +532,45 @@ test('Timeline names a card by its id, with the full label as the title, and a r
   assert.strictEqual(p.all('.np-act').length, 0);
   assert.strictEqual(p.all('.np-note-acts').length, 0);
 });
+
+test('Timeline heads each day with the name of the card, as Grouped does, when every listed note is about one card', async () => {
+  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  const heads = p.all('.np-tgroup .np-nhead');
+  assert.deepStrictEqual(heads.map((h) => p.text(h.querySelector('.np-nhead-label'))), ['#7 Port the zephyr schema', '#7 Port the zephyr schema']);
+  assert.deepStrictEqual(p.all('.np-tgroup .np-nday').map((d) => p.text(d)), ['Thu 15', 'Wed 14']);
+  assert.deepStrictEqual(p.all('.np-tgroup .np-nhead-count').map((d) => p.text(d)), ['1', '1']);
+});
+
+test('Timeline on one card still heads a lone day that is today, with no day line, as Grouped does', async () => {
+  const today = (await openPalette({ notes: [] })).page.run('localTodayStr()');
+  const p = await openPalette({ notes: [note(today, '7', '09:00', '@human', 'today only')], stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+  assert.strictEqual(p.all('.np-tgroup .np-nhead-label').length, 1);
+  assert.strictEqual(p.all('.np-nday').length, 0);
+});
+
+test('Timeline on one group or on notes about nothing names it in the head too', async () => {
+  const today = (await openPalette({ notes: [] })).page.run('localTodayStr()');
+  const p = await openPalette({ notes: [note(today, '', '09:00', '@human', 'on nothing')], stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run('openNotes({})');
+  const label = p.find('.np-tgroup .np-nhead-label');
+  assert.strictEqual(p.text(label), 'no card');
+  assert.strictEqual(label.tag, 'span');
+});
+
+test('Timeline on two targets keeps the day head as it was: the day and its count, no name', async () => {
+  const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run(`openNotes(${DAY})`);
+  assert.strictEqual(p.all('.np-nhead-label').length, 0);
+  assert.strictEqual(p.all('.np-tgroup .np-nday').length, 1);
+});
+
+test('Timeline on one group heads each day with the group, linked', async () => {
+  const today = (await openPalette({ notes: [] })).page.run('localTodayStr()');
+  const p = await openPalette({ notes: [note(today, 'I2', '09:00', '@human', 'on the group')], groups: { list: [{ id: 'I2', name: 'Ice', cards: ['7'], file: 'f' }] }, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
+  p.page.run('openNotes({})');
+  const label = p.find('.np-tgroup .np-nhead-label');
+  assert.ok(label, 'the head names the group');
+  assert.strictEqual(label.tag, 'button');
+});

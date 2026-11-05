@@ -875,7 +875,9 @@ function notesList() {
     for (const day of noteTimeline(notes, { first })) {
       const block = notesEl('section', 'np-ngroup np-tgroup');
       block.dataset.day = day.day;
-      if (multiDay || day.day !== today) {
+      if (one) {
+        block.append(notesDayHead(day.notes[0].target, day.day, day.notes.length, today, multiDay));
+      } else if (multiDay || day.day !== today) {
         const head = notesEl('div', 'np-nhead');
         head.append(notesEl('span', 'np-nday', notesDayText(day.day, today)), notesEl('span', 'np-nhead-count', String(day.notes.length)));
         block.append(head);
@@ -890,10 +892,7 @@ function notesList() {
     return wrap;
   }
   for (const section of noteGroups(notes, { first })) {
-    const head = notesEl('div', 'np-nhead');
-    head.append(notesTargetLabel(section.target, 'np-nhead-label'));
-    if (multiDay || section.day !== today) head.append(notesEl('span', 'np-nday', notesDayText(section.day, today)));
-    head.append(notesEl('span', 'np-nhead-count', String(section.notes.length)));
+    const head = notesDayHead(section.target, section.day, section.notes.length, today, multiDay);
     const block = notesEl('section', 'np-ngroup');
     block.dataset.day = section.day;
     block.dataset.target = section.target;
@@ -906,6 +905,16 @@ function notesList() {
     wrap.append(block);
   }
   return wrap;
+}
+
+// The head of one day's notes about one card or group: its name, the day where the list spans days or the
+// day is not today, then the count. Grouped heads every section so; Timeline does when one target is listed.
+function notesDayHead(target, day, count, today, multiDay) {
+  const head = notesEl('div', 'np-nhead');
+  head.append(notesTargetLabel(target, 'np-nhead-label'));
+  if (multiDay || day !== today) head.append(notesEl('span', 'np-nday', notesDayText(day, today)));
+  head.append(notesEl('span', 'np-nhead-count', String(count)));
+  return head;
 }
 
 const notesDayText = (day, today) => `${noteDayName(day)}${day === today ? ' · today' : ''}`;
