@@ -274,6 +274,20 @@ test('a folder may name the iteration with a whole <iteration> segment (ADR 0019
   });
 });
 
+test('a path with <card> or a variable is refused with 400 and the answer says it is a hand edit in config.yaml', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    for (const bad of ['pads/<card>', '<sprints>/x', 'pads/<iteration>/<card>']) {
+      const r = await set(base, 'scratchpad', bad);
+      assert.strictEqual(r.status, 400, bad);
+      assert.match(r.json.error, /<(card|sprints)> is a word the gear does not write: it is a hand edit in config\.yaml\./);
+    }
+    const plain = await set(base, 'scratchpad', 'a b/<x');
+    assert.strictEqual(plain.status, 400);
+    assert.match(plain.json.error, /not a plain folder name/);
+  });
+});
+
 test('a folder cannot start with <iteration>: the board folder would be scanned and written beside the cards', async () => {
   const dir = tmpBoard();
   const before = config(dir);

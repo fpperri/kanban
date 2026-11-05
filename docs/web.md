@@ -1020,10 +1020,10 @@ exists), except that assigning it to an iteration itself takes it into that iter
 Notes and pages are read from every folder the path can name, past iterations included. The gear
 shows the path as written and, under it, the folder a new write goes to today, and it will not
 save a path that starts with `<iteration>`. A write to a path with any other `<word>` is
-refused, since Windows cannot make that folder; reading it stays tolerant. A path without
+refused, and the answer says the word is a hand edit in `config.yaml`; reading it stays tolerant. A path without
 `<iteration>` reads as it always did.
 
-**Iteration folders, the gear** — The gear's path bar shows both and the folder field accepts a `<iteration>` segment, as in `0005.sprint-496`.
+**Iteration folders, the gear** — The gear's path bar shows both and the folder field accepts a `<iteration>` segment, as in `0005.sprint-496`. On the Logbook, Scratchpad and Todos pages of a board that has an iteration, a path with no `<iteration>` says that every iteration writes to the one folder and where `<iteration>` goes, and a path with it says that only a folder whose name starts with an id is read, so an older folder needs renaming. The line under the path bar keeps `<card>` as written and, for a card that is a member of an iteration, says it goes to that iteration's folder. A line that holds `<card>` or a variable says under the field that the gear does not write those words and that switching it off still works.
 
 **Variables, `<repo>` and `<card>`** — the same three paths take more words, each as a whole
 segment. A `vars:` block of `name: value` lines in `config.yaml` (a name is letters, digits,

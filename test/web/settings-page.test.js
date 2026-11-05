@@ -920,6 +920,18 @@ test('a path with <iteration> says a folder is read only when its name starts wi
   assert.strictEqual(both.length, 1);
 });
 
+test('a line that holds <card> or a variable says under the field that the gear does not write them, on and not off', () => {
+  const hand = (root) => root.one((el) => el.dataset.note === 'hand-words');
+  for (const folder of ['pads/<card>', '<sprints>/<iteration>/x', '<kanban>\\x']) {
+    assert.strictEqual(hand(pageWith(folder, null)).textContent, settings.SETTINGS_HAND_WORDS, folder);
+  }
+  assert.match(settings.SETTINGS_HAND_WORDS, /by hand in config\.yaml\. Switching it off here still works\./);
+  assert.strictEqual(hand(pageWith('pads/<iteration>', null)), undefined);
+  assert.strictEqual(hand(pageWith('pads', null)), undefined);
+  assert.strictEqual(hand(pageWith('pads/<card>', null, { on: false })), undefined);
+  assert.strictEqual(settings.settingsHandWordsNote(''), '');
+});
+
 test('the iteration words are one pure function of the folder and the groups', () => {
   assert.deepStrictEqual(settings.settingsIterationNotes('', ITER_GROUPS.list), []);
   assert.deepStrictEqual(settings.settingsIterationNotes('x', undefined), []);

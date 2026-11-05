@@ -115,6 +115,15 @@ function settingsIterationNotes(folder, groupsList) {
   return iterationGroups(groupsList).length > 0 ? [SETTINGS_ITERATION_SAME] : [];
 }
 
+// The line under a folder field when the line as it stands holds `<card>` or a variable: the gear saves
+// neither word, so a hand edit in config.yaml changes it; '' for any other line.
+const SETTINGS_HAND_WORDS = 'The gear does not write <card> or a variable: change this line by hand in config.yaml. Switching it off here still works.';
+
+function settingsHandWordsNote(folder) {
+  const words = String(folder || '').replace(/\\/g, '/').split('/').filter((s) => /<[^<>]*>/.test(s) && s !== '<iteration>');
+  return words.length > 0 ? SETTINGS_HAND_WORDS : '';
+}
+
 function settingsDigitsBody(text, version) {
   return settingsWithVersion({ key: 'idDigits', value: String(text).trim() }, version);
 }
@@ -432,7 +441,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
-  settingsFolderBody, settingsFolderProblem, settingsIterationNotes, SETTINGS_ITERATION_SAME, SETTINGS_ITERATION_ID, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
+  settingsFolderBody, settingsFolderProblem, settingsIterationNotes, settingsHandWordsNote, SETTINGS_HAND_WORDS, SETTINGS_ITERATION_SAME, SETTINGS_ITERATION_ID, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody, settingsSnapshotQueryBody, settingsSnapshotArchiveBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,

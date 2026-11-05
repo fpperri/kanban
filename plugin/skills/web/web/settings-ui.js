@@ -186,6 +186,11 @@ function settingsFeatureNodes(key, label, what) {
     settingsEl('p', 'prefs-hint', `config.yaml's ${key}: line turns ${what} on and names the folder inside the board where they live. Off removes the line; the files stay where they are.`),
   ];
   if (lock) nodes.push(settingsEl('p', 'prefs-note', `Locked. ${lock} (${key}: ${feature.folder})`));
+  if (key !== 'groups' && feature.on && settingsHandWordsNote(feature.folder)) {
+    const hand = settingsEl('p', 'prefs-hint', settingsHandWordsNote(feature.folder));
+    hand.dataset.note = 'hand-words';
+    nodes.push(hand);
+  }
   if (key !== 'groups' && feature.on) {
     for (const text of settingsIterationNotes(feature.folder, state.groups ? state.groups.list : [])) {
       const note = settingsEl('p', 'prefs-hint', text);
