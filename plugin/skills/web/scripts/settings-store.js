@@ -123,11 +123,17 @@ function folderPath(dir, config, key) {
 
 // The folder a new write would go to today when the feature's path holds `<iteration>` (docs/adr/0019):
 // the iteration whose dates hold today, else the path with the segment dropped; null for a path
-// without the placeholder.
+// without the placeholder. A path with `<card>` keeps it in the text: a card's own folder is named by
+// the card, and a card that is a member of an iteration writes to that iteration's folder.
 function folderToday(dir, config, key) {
   const value = filledPath(config, key);
   if (value === '' || !iter.hasPlaceholder(value)) return null;
-  return iter.folderOfDay(dir, value, localToday()).abs;
+  const segs = iter.segmentsOf(value);
+  const at = segs.indexOf(iter.CARD);
+  if (at < 0) return iter.folderOfDay(dir, value, localToday()).abs;
+  const head = segs.slice(0, at).join('/');
+  const base = head === '' ? path.resolve(dir) : iter.folderOfDay(dir, head, localToday()).abs;
+  return [base, ...segs.slice(at)].join(path.sep);
 }
 
 // `cards` is the board's cards, active and archived, when the caller has read them already.

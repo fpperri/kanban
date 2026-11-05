@@ -785,6 +785,15 @@ test('a logbook or scratchpad path with <iteration> is answered as written, with
   });
 });
 
+test('a path with <card> keeps it in the folder a new write goes to today, after the iteration folder when the path has one', async () => {
+  const dir = tmpBoard({ config: 'name: t\nlogbook: .log/<card>\nscratchpad: pads/<iteration>/<card>/x\n' });
+  await withServer(dir, async (base) => {
+    const { paths } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(paths.logbookNow, [path.resolve(dir), '.log', '<card>'].join(path.sep));
+    assert.strictEqual(paths.scratchpadNow, [path.resolve(dir, 'pads'), '<card>', 'x'].join(path.sep));
+  });
+});
+
 test('a path without the placeholder has no folder-today', async () => {
   const dir = tmpBoard({ config: 'name: t\nlogbook: notes\n' });
   await withServer(dir, async (base) => {
