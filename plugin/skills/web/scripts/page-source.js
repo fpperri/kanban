@@ -33,18 +33,20 @@ const pageSourceModule = (() => {
   const tempIds = node ? require('./temp-ids') : window.kanbanTempIds;
   const ids = node ? require('../web/ids') : window.kanbanIds;
   const { plain } = node ? require('./field-value') : window.kanbanFieldValue;
+  const { deskJob, canonical, UNREADABLE } = node ? require('./desk-job') : window.kanbanDeskJob;
 
-  const DESK_JOB = 'That is a desk job: settings and notifications do not save in this page.';
-  const DESK_JOB_PATH = /^\/api\/(?:config|notifications)(?:\/|$)/;
   const DESK_LOCK = 'a desk job';
   const LOCKED_FEATURES = ['logbook', 'scratchpad', 'todos', 'groups'];
 
   // The gear's settings as the page shows them: read, never saved. Every feature the gear can switch shows
   // locked through the gear's own locked path (the reason a folder set by hand outside the board gets), and
   // `lock` is the same reason for the pages that have no feature to lock.
-  function lockedSettings(settings) {
+  // The Snapshot page shows what this page carries (the query and archive it was built with), not the
+  // config copy inside it, which a flag of the build may have overridden.
+  function lockedSettings(settings, snapshot) {
     if (!settings) return settings;
     const out = { ...settings, lock: DESK_LOCK };
+    if (snapshot) { out.snapshotQuery = snapshot.query || ''; out.snapshotArchive = !!snapshot.archive; }
     for (const key of LOCKED_FEATURES) if (settings[key]) out[key] = { ...settings[key], locked: true, reason: DESK_LOCK };
     return out;
   }
@@ -202,9 +204,13 @@ const pageSourceModule = (() => {
     }
 
     async function answer(method, path, body) {
-      const pathname = path.split('?')[0];
       const write = method !== 'GET';
-      if (write && DESK_JOB_PATH.test(pathname)) return reply(403, { error: DESK_JOB });
+      const deskReason = write ? deskJob({ method, path, body }) : null;
+      if (deskReason) return reply(403, { error: deskReason });
+      const at = canonical(ids.routePath(path));
+      if (at === null) return write ? reply(403, { error: UNREADABLE }) : { status: 404, json: null, text: 'not found', statusText: 'Not Found' };
+      path = at;
+      const pathname = path.split('?')[0];
       const sent = clone(body);
       const list = write ? TODO_EDIT.exec(pathname) : null;
       const folded = list ? foldedChange(list[1]) : null;
@@ -232,7 +238,7 @@ const pageSourceModule = (() => {
           boardDir: '',
           source: sourceInfo(),
           ...(board.snapshot ? { snapshot: board.snapshot } : {}),
-          settings: lockedSettings(result.body.settings),
+          settings: lockedSettings(result.body.settings, board.snapshot),
         });
       }
       return reply(result.status, result.body);

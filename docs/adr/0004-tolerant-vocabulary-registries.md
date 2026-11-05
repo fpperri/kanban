@@ -24,3 +24,5 @@ Vocabulary drift is visible (unknown values look unstyled/sort last) instead
 of forbidden. Planned extension: an official `statuses` list where unknown
 statuses render in backlog until promoted — the same suggest-never-validate
 posture applied to columns.
+
+**Note (2026-11-04)** — The app now writes more than `nextId`. It also writes the `counters:` line, and the gear writes the `logbook:`, `scratchpad:`, `todos:`, `groups:`, `iterations:`, `typesOn:` and `idDigits:` lines and the `types:`, `hierarchy:` and `prefixes:` blocks, each by a surgical replace that keeps comments and unknown keys. The `assignees:`, `priorities:` and `tags:` lists stay the human's to edit.

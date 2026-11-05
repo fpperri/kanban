@@ -65,6 +65,7 @@ function settingsPageState(id, settings, foundGroups) {
   }
   if (id === 'prefixes') return String(settings.prefixes.length);
   if (id === 'types') return settings.typesOn ? String(settings.types.length) : 'off';
+  if (id === 'snapshot') return settings.snapshotArchive ? 'archive' : 'live';
   return '';
 }
 
@@ -137,6 +138,7 @@ const SETTINGS_PAGE_READS = {
   types: { path: 'config', kind: 'File' },
   prefixes: { path: 'config', kind: 'File' },
   counters: { path: 'config', kind: 'File' },
+  snapshot: { path: 'config', kind: 'File' },
   logbook: { path: 'logbook', kind: 'Folder', now: 'logbookNow' },
   scratchpad: { path: 'scratchpad', kind: 'Folder', now: 'scratchpadNow' },
   todos: { path: 'todos', kind: 'Folder', now: 'todosNow' },
@@ -285,6 +287,15 @@ function settingsTypesOnBody(on, version) {
   return { key: 'typesOn', value: !!on, version };
 }
 
+// The Snapshot page's two saves: the query as typed (the server judges it with the search parser), and the archive switch.
+function settingsSnapshotQueryBody(text, version) {
+  return settingsWithVersion({ key: 'snapshotQuery', value: String(text).trim() }, version);
+}
+
+function settingsSnapshotArchiveBody(on, version) {
+  return settingsWithVersion({ key: 'snapshotArchive', value: !!on }, version);
+}
+
 // What a typed type name plainly gets wrong, before the server is asked: it must not match another
 // listed type, with or without capitals. `self` = the type being renamed. Only what the person just
 // typed is checked; a name already in the file is never refused.
@@ -407,7 +418,7 @@ const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
   settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
-  settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody,
+  settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody, settingsSnapshotQueryBody, settingsSnapshotArchiveBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
   settingsConflictNote, settingsRemoveConfirm, settingsPrefixNote, settingsPrefixList, settingsPrefixSet, settingsPrefixAdd,
   settingsPrefixRemove, settingsPrefixProblem, settingsPrefixVerb, settingsPrefixConfirm,

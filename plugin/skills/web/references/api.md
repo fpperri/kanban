@@ -18,18 +18,19 @@ Each `pills:` entry of `config.yaml` is a query, shown as its query, or a label 
 
 ### POST /api/config
 
-**This board** has the pages Logbook, Scratchpad, Todos, Groups, Types, Prefixes and Counters, each written to `config.yaml` one top-level line at a time (or one block, `references/api.md`, **One line or one whole block per save**; the line replaced, inserted or removed, every other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with `{ key, value }`, which answers `{ settings }` as the file now reads.
+**This board** has the pages Logbook, Scratchpad, Todos, Groups, Types, Prefixes, Counters and Snapshot, each written to `config.yaml` one top-level line at a time (or one block, `references/api.md`, **One line or one whole block per save**; the line replaced, inserted or removed, every other byte kept: comments, unknown keys, the file's line ending) by `POST /api/config` with `{ key, value }`, which answers `{ settings }` as the file now reads.
 **One line or one whole block per save.** A save changes one top-level line of `config.yaml`, or rewrites one whole top-level block, `types:`, `hierarchy:` or `prefixes:`, from `{ block, value }`: `types` a list of names or of `{ name, color?, icon? }` (an entry with neither is written bare, as the starter writes `- bug`), `hierarchy` a list of names (written inline, or as a block when a name will not sit in a flow list), `prefixes` a map from each prefix to a card type or a groups folder (or a list of `{ prefix, target }`).
 An empty or absent value removes the block.
 A value from the file is kept as written (ADR 0004), so the server refuses (400) only what would corrupt the file: a name that is empty, any value that is not one line of plain text, a prefix that is not `_` and capitals, a prefix declared twice, a prefix with no card type or groups folder, a groups-folder target that is absolute or holds `..`, and a block value of the wrong shape.
 A color is any text (a hex, a name) and an icon any word, and two names that differ only in capitals are both kept, in `types:` and in `hierarchy:`; a name that would not read back bare is quoted.
+**What the built page carries** is `{ key: "snapshotQuery", value }`, search words as one line (empty or null removes the line; a value the search module reads no term in is refused with 400 and its reason), and `{ key: "snapshotArchive", value }`, `true` writes `snapshotArchive: true` and `false` removes the line.
 **Types off** is `{ key: "typesOn", value }`: `false` writes `typesOn: false`, `true` removes the line (no line means on); it is display only and writes no list and no card.
 Every save from the gear sends the `version` the settings answered, a line save as much as a block: when `config.yaml` has changed on disk since, the save is refused with 409 and writes nothing, and the page reads again and says so.
 A save that sends no version is not checked.
 
 ### GET /api/board: the `settings` key
 
-The `/api/board` payload carries `settings`: `logbook`, `scratchpad`, `todos` and `groups` as `{ on, folder, locked, reason }`, `idDigits`, `nextId`, `prefixes` (and `prefixClashes`, the prefixes two lines name for different targets) and `counters`, and for the Types page `types`, `hierarchy`, `typesOn`, `typeUse` (how many cards, on the board and archived, carry each `type:` word as written), `version`, and `paths` (the absolute path of `config.yaml` and of the logbook, scratchpad, todos and groups folders, resolved whether or not the folder exists, `null` when off) for each page's copy button (the Iterations switch shows the payload's own top-level `iterations`).
+The `/api/board` payload carries `settings`: `logbook`, `scratchpad`, `todos` and `groups` as `{ on, folder, locked, reason }`, `idDigits`, `nextId`, `prefixes` (and `prefixClashes`, the prefixes two lines name for different targets) and `counters`, and for the Types page `types`, `hierarchy`, `typesOn`, `snapshotQuery`, `snapshotArchive`, `typeUse` (how many cards, on the board and archived, carry each `type:` word as written), `version`, and `paths` (the absolute path of `config.yaml` and of the logbook, scratchpad, todos and groups folders, resolved whether or not the folder exists, `null` when off) for each page's copy button (the Iterations switch shows the payload's own top-level `iterations`).
 
 ### /api/notes (POST, PATCH, DELETE) and POST /api/notes/assign
 
@@ -79,7 +80,7 @@ A note's `file` then reads `<iteration folder>/<day file>` (just the day file fo
 
 ### GET /api/board: `settings.paths`, `logbookNow`, `scratchpadNow`
 
-The settings' `paths.logbook` and `paths.scratchpad` stay the path as written, with `logbookNow` and `scratchpadNow` the folder a new write goes to today (`null` for a path without the placeholder). The gear never writes `vars:` and keeps it as it is, and its `paths` give the folder with the variables and `<repo>` filled in.
+The settings' `paths` give `config` (the absolute path of `config.yaml`) and `logbook`, `scratchpad`, `todos` and `groups` as absolute paths with the variables and `<repo>` filled in (`null` when off); only `<iteration>` and `<card>` are left as written. `logbookNow`, `scratchpadNow` and `todosNow` are the folder a new write goes to today (`null` for a path without `<iteration>`). The gear never writes `vars:` and keeps it as it is.
 
 ### /api/todos/<id> (GET, POST, PATCH, DELETE, PUT) and /api/todos/<id>/move, /indent, /outdent
 

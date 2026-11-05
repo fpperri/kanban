@@ -29,6 +29,8 @@ const { findRepo } = require('./path-vars');
 const oldPayload = require('./old-payload');
 const tempIds = require('./temp-ids');
 const { sameValue } = require('./field-value');
+const { deskJob, canonical } = require('./desk-job');
+const ids = require('../web/ids');
 
 const WEB = path.join(__dirname, '..');
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -65,9 +67,14 @@ function malformed(r) {
   if (typeof r.id !== 'string' || r.id === '') return 'the record has no id';
   const c = r.change;
   if (!c || typeof c !== 'object') return 'the record has no change';
-  if (typeof c.method !== 'string' || !WRITES.has(c.method.toUpperCase())) return `only saves are applied, not ${c.method}`;
-  if (typeof c.path !== 'string' || !c.path.startsWith('/api/')) return 'the change names no /api route';
-  return null;
+  if (typeof c.method !== 'string' || !WRITES.has(c.method.toUpperCase())) return `only saves are applied, not ${typeof c.method === 'string' ? c.method : typeof c.method}`;
+  if (r.temp !== undefined && typeof r.temp !== 'string') return "the record's temp is not text";
+  if (r.device !== undefined && typeof r.device !== 'string') return "the record's device is not text";
+  if (typeof c.path !== 'string') return 'the change names no /api route';
+  const deskReason = deskJob({ method: c.method, path: c.path, body: c.body });
+  if (deskReason) return deskReason;
+  if (!c.path.startsWith('/api/')) return 'the change names no /api route';
+  return canonical(c.path) === null ? 'the change path is not in the form a page records (starting /api/ and unchanged by reading it as a URL), so it is not applied' : null;
 }
 
 const forward = (p) => String(p).replace(/\\/g, '/');
@@ -111,7 +118,12 @@ const listOf = (names) => (names.length < 2 ? names.join('') : `${names.slice(0,
 
 const CARD_EDIT = /^\/api\/cards\/([^/?]+)$/;
 const valueOf = (card, key) => (card[key] === undefined ? null : card[key]);
-const poisonKey = (p, field) => `${String(p).split('?')[0].replace(/^(\/api\/cards\/)0+(?=\d)/, '$1')}\u0000${field}`;
+const cardKey = (segment) => ids.idKey(segment) || segment;
+const poisonKey = (p, field) => {
+  const at = String(p).split('?')[0];
+  const m = CARD_EDIT.exec(at);
+  return `${m ? `/api/cards/${cardKey(m[1])}` : at}\u0000${field}`;
+};
 
 // The fields a card edit named a before value for, with the card path they sit on, or null for any other record.
 function editedFields(record) {
@@ -137,8 +149,8 @@ function staleness(route, record, path, known, poisoned) {
   if (missing.length) return null;
   const read = route('GET', '/api/board', {});
   if (!read || read.status !== 200) return null;
-  const key = CARD_EDIT.exec(path.split('?')[0])[1].replace(/^0+(?=\d)/, '');
-  const card = read.body.active.concat(read.body.archived).find((c) => String(c.id) === key);
+  const key = cardKey(CARD_EDIT.exec(path.split('?')[0])[1]);
+  const card = read.body.active.concat(read.body.archived).find((c) => cardKey(String(c.id)) === key);
   if (!card) return null;
   const changed = fields.filter((f) => JSON.stringify(valueOf(card, f)) !== JSON.stringify(held.body[f] === undefined ? null : held.body[f]));
   return changed.length ? `${listOf(changed)} changed at the desk since` : null;
@@ -153,6 +165,14 @@ function staleness(route, record, path, known, poisoned) {
 // not pass never has its later saves land on the card another device made under the same id. { res } when it ran, { refusal } when it did not or the board refused it. `guard`, when
 // given ({ poisoned }), holds a card edit to the value the page had for each field it changed.
 function run(route, record, made, makers, guard = null) {
+  try {
+    return runOne(route, record, made, makers, guard);
+  } catch (e) {
+    return { refusal: `it could not be tried: ${(e && e.message) || e}` };
+  }
+}
+
+function runOne(route, record, made, makers, guard) {
   const device = String(record.device === undefined ? '' : record.device);
   const known = {};
   const missing = [];
@@ -174,6 +194,7 @@ function run(route, record, made, makers, guard = null) {
   }
   const method = change.method.toUpperCase();
   const res = route(method, change.path, change.body || {});
+  if (!res) return { refusal: 'no such route', path: change.path };
   if (res.status >= 400) return { refusal: reasonOf(res), path: change.path };
   const id = record.temp ? tempIds.createdId(method, change.path, res.body) : null;
   if (id !== null) made[device] = { ...made[device], [record.temp]: id };
@@ -200,7 +221,7 @@ function applyTray({ dir, records }) {
   const todo = [];
   const seen = new Set();
   for (const r of records) {
-    const bad = malformed(r);
+    const bad = r && typeof r.id === 'string' && applied.has(r.id) ? null : malformed(r);
     if (bad) {
       report.refused.push({ id: r && typeof r.id === 'string' ? r.id : null, reason: bad });
     } else if (applied.has(r.id) || seen.has(r.id)) {

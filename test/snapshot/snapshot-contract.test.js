@@ -75,7 +75,7 @@ test('each fm payload the protocol shows is the op the editor makes when that fi
 });
 
 test('the editor never sends rank, as the protocol says, even for a card that has one', () => {
-  assert.match(protocol, /The editor never sends `rank`\./);
+  assert.match(protocol, /The Snapshot never sends `rank`\./);
   const ops = open(BOARD, (page) => {
     sheet(page, 2);
     page.click(page.byId('modalscroll').all().find((n) => n.dataset.act === 'fmtoggle'));

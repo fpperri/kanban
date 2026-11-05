@@ -148,7 +148,7 @@
 <div id="modal" class="modal-backdrop hidden">
   <!-- autocomplete=off: the browser's form-history dropdown fights the
        hand-rolled combobox menus and offers stale typed values -->
-  <form id="card-form" class="modal" autocomplete="off">
+  <form id="card-form" class="modal" role="dialog" aria-labelledby="modal-title" autocomplete="off">
     <div class="modal-header popup-header">
       <h2 id="modal-title">New card</h2>
       <div class="modal-header-actions">
@@ -273,7 +273,7 @@
 </div>
 
 <div id="detail-modal" class="modal-backdrop hidden" data-keeps-selection>
-  <div class="modal detail-modal" tabindex="-1">
+  <div class="modal detail-modal" role="dialog" aria-labelledby="detail-title" tabindex="-1">
     <div class="detail-header popup-header">
       <div>
         <h2 id="detail-title"></h2>
@@ -388,7 +388,7 @@
      priority…; the tags popup is the add/remove workbench. Same
      .modal-backdrop convention as every popup (pauses the poll). -->
 <div id="bulk-single" class="modal-backdrop hidden" data-keeps-selection>
-  <div class="modal bulk-modal">
+  <div class="modal bulk-modal" role="dialog" aria-labelledby="bulk-single-title">
     <div class="modal-header popup-header">
       <h2 id="bulk-single-title"></h2>
       <div class="modal-header-actions">
@@ -407,7 +407,7 @@
 </div>
 
 <div id="bulk-tags" class="modal-backdrop hidden" data-keeps-selection>
-  <div class="modal bulk-modal">
+  <div class="modal bulk-modal" role="dialog" aria-labelledby="bulk-tags-title">
     <div class="modal-header popup-header">
       <h2 id="bulk-tags-title"></h2>
       <div class="modal-header-actions">
@@ -429,7 +429,7 @@
 <!-- Set status… popup — one button per status of the board (script fills the list). A tap on one moves every
      card the popup opened for, by the route a drop on that status's column takes. -->
 <div id="bulk-status" class="modal-backdrop hidden" data-keeps-selection>
-  <div class="modal bulk-modal">
+  <div class="modal bulk-modal" role="dialog" aria-labelledby="bulk-status-title">
     <div class="modal-header popup-header">
       <h2 id="bulk-status-title"></h2>
       <div class="modal-header-actions">
@@ -445,7 +445,7 @@
      archived/<package>/ folders; a new name creates that folder, an empty box
      archives to the archived/ root. -->
 <div id="bulk-archive" class="modal-backdrop hidden" data-keeps-selection>
-  <div class="modal bulk-modal">
+  <div class="modal bulk-modal" role="dialog" aria-labelledby="bulk-archive-title">
     <div class="modal-header popup-header">
       <h2 id="bulk-archive-title"></h2>
       <div class="modal-header-actions">
@@ -479,7 +479,7 @@
      by the shared .date-pick-btn loop) plus a "clear" checkbox; clear wins
      over a typed value, empty+unchecked leaves the card's value alone. -->
 <div id="bulk-schedule" class="modal-backdrop hidden" data-keeps-selection>
-  <div class="modal bulk-modal">
+  <div class="modal bulk-modal" role="dialog" aria-labelledby="bulk-schedule-title">
     <div class="modal-header popup-header">
       <h2 id="bulk-schedule-title"></h2>
       <div class="modal-header-actions">
@@ -508,9 +508,9 @@
 </div>
 
 <div id="notif-modal" class="modal-backdrop hidden">
-  <div class="modal notif-modal">
+  <div class="modal notif-modal" role="dialog" aria-labelledby="notif-title">
     <div class="modal-header popup-header">
-      <h2>Notifications</h2>
+      <h2 id="notif-title">Notifications</h2>
       <div class="detail-actions">
         <button type="button" id="notif-clear-btn" class="icon-btn danger" title="Clear all notifications (moves them to archived/notifications.md)" aria-label="Clear all notifications">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path></svg>

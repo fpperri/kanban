@@ -793,3 +793,50 @@ test('a path without the placeholder has no folder-today', async () => {
     assert.strictEqual(paths.scratchpadNow, null);
   });
 });
+
+test('snapshotArchive true writes the line below the feature lines, false removes it, and nothing else moves', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    const on = await set(base, 'snapshotArchive', true);
+    assert.strictEqual(on.status, 200);
+    assert.strictEqual(on.json.settings.snapshotArchive, true);
+    assert.strictEqual(config(dir), PLAN.replace('groups: .groups\n', 'groups: .groups\nsnapshotArchive: true\n'));
+    assert.strictEqual((await set(base, 'snapshotArchive', false)).json.settings.snapshotArchive, false);
+    assert.strictEqual(config(dir), PLAN);
+    assert.strictEqual((await set(base, 'snapshotArchive', 'yes')).status, 400);
+    assert.strictEqual(config(dir), PLAN);
+  });
+});
+
+test('snapshotQuery saves as one line the reader gives back as typed, quoted when it must be, and an empty one removes it', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    for (const query of ['tags:ui', 'tags:ui | #3', '#3', '#3 | #5', '@human', '[x] open', '{a}', '&a', '*', '!a', '%a', '>a', '-group:I2', 'title:"two words" # note', '"quoted" first']) {
+      const saved = await set(base, 'snapshotQuery', `  ${query}  `);
+      assert.strictEqual(saved.status, 200, query);
+      assert.strictEqual(saved.json.settings.snapshotQuery, query);
+      assert.strictEqual(parseConfig(config(dir)).snapshotQuery, query);
+    }
+    assert.strictEqual(config(dir).split('\n').filter((l) => /^snapshotQuery:/.test(l)).length, 1);
+    const cleared = await set(base, 'snapshotQuery', '  ');
+    assert.strictEqual(cleared.status, 200);
+    assert.strictEqual(cleared.json.settings.snapshotQuery, '');
+    assert.strictEqual(config(dir), PLAN);
+  });
+});
+
+test('a snapshotQuery the search parser cannot read is refused with its reason, and the file stays', async () => {
+  const dir = tmpBoard({ config: PLAN });
+  await withServer(dir, async (base) => {
+    for (const bad of ['()', 'tags:']) {
+      const refused = await set(base, 'snapshotQuery', bad);
+      assert.strictEqual(refused.status, 400, bad);
+      assert.match(refused.json.error, /no search term/);
+    }
+    const lines = await set(base, 'snapshotQuery', 'a\nb');
+    assert.strictEqual(lines.status, 400);
+    assert.match(lines.json.error, /one line/);
+    assert.strictEqual((await set(base, 'snapshotQuery', 5)).status, 400);
+    assert.strictEqual(config(dir), PLAN);
+  });
+});

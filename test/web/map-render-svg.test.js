@@ -194,3 +194,22 @@ test('every card-derived string is escaped, a parent mention included', () => {
   assert.ok(!html.includes('<b>x'));
   assert.ok(!html.includes('<i>'));
 });
+
+// A ghost stub is a hidden card a visible one waits on. It carries its waiting and priority classes, because the
+// stylesheet draws those two states on the stub's edge and a node has no other mark for them.
+test('a ghost stub of a waiting or high-priority card carries those classes beside ghost', () => {
+  const cards = [
+    card(1, 'todo', { priority: 'High', waiting_for: [2] }),
+    card(2, 'doing'),
+    card(3, 'todo', { waiting_for: [1] }),
+    card(4, 'todo', { waiting_for: [5] }),
+    card(5, 'doing'),
+  ];
+  const visible = new Set(['3', '4']);
+  const view = mapShapeRelations(buildRelationsGraph(cards, visible, CTX), { ...MAP_OPTION_DEFAULTS });
+  const w = drawing(cards);
+  const look = { ...MAP_OPTION_DEFAULTS, statuses: STATUSES, byId: new Map(cards.map((c) => [c.id, c])) };
+  const html = view.graphs.map((g) => w.buildMapSvg(g, layerNodes(g.ids, g.layoutEdges), look).innerHTML).join('\n');
+  assert.match(html, /<g class="map-node ghost high waiting"[^>]*data-id="1"/);
+  assert.match(html, /<g class="map-node ghost"[^>]*data-id="5"/);
+});

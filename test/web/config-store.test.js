@@ -59,7 +59,7 @@ test('parseConfig tolerates missing sections: assignees only, nextId only, empty
   assert.strictEqual(onlyCounter.nextId, 5);
   assert.deepStrictEqual(onlyCounter.assignees, []);
 
-  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [], vars: {}, varNotices: [] });
+  assert.deepStrictEqual(cfg.parseConfig(''), { name: '', nextId: null, idDigits: 4, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, snapshotQuery: '', snapshotArchive: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [], vars: {}, varNotices: [] });
 });
 
 test('parseConfig skips assignee entries without a handle and non-numeric nextId', () => {
@@ -731,4 +731,14 @@ test('isPrefix is exported for the settings write', () => {
   assert.strictEqual(cfg.isPrefix(''), false);
   assert.strictEqual(cfg.isPrefix('g'), false);
   assert.strictEqual(cfg.isPrefix('G1'), false);
+});
+
+test('parseConfig reads snapshotQuery as the text of the line and snapshotArchive: true as on, and nothing else', () => {
+  assert.strictEqual(cfg.parseConfig('snapshotQuery: tags:ui | group:I2   # the phone page\n').snapshotQuery, 'tags:ui | group:I2');
+  assert.strictEqual(cfg.parseConfig('snapshotQuery: "title:\\"a # b\\" #1"\n').snapshotQuery, 'title:"a # b" #1');
+  assert.strictEqual(cfg.parseConfig('snapshotQuery:\n').snapshotQuery, '');
+  assert.strictEqual(cfg.parseConfig('assignees:\n  - handle: "@x"\n    snapshotQuery: nope\n').snapshotQuery, '', 'an indented line is not the key');
+  assert.strictEqual(cfg.parseConfig('snapshotArchive: true\n').snapshotArchive, true);
+  assert.strictEqual(cfg.parseConfig('snapshotArchive: true   # yes\n').snapshotArchive, true);
+  for (const off of ['snapshotArchive: false\n', 'snapshotArchive: yes\n', 'snapshotArchive:\n', '']) assert.strictEqual(cfg.parseConfig(off).snapshotArchive, false, JSON.stringify(off));
 });

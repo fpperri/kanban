@@ -29,13 +29,13 @@ const J = jobs(workflow);
 // that follow it.
 const UNIT_JOB = `    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
       - run: npm test
@@ -60,8 +60,8 @@ test('the two jobs do not wait on each other, so a Chrome problem never hides a 
 
 test('the browser job runs on Ubuntu with Node only: checkout and Node 22, no Python', () => {
   assert.match(J.browser, /runs-on: ubuntu-latest/);
-  assert.match(J.browser, /actions\/checkout@v4/);
-  assert.match(J.browser, /actions\/setup-node@v4\s+with:\s+node-version: 22/);
+  assert.match(J.browser, /actions\/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4/);
+  assert.match(J.browser, /actions\/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4\s+with:\s+node-version: 22/);
   assert.ok(!/setup-python/.test(J.browser));
 });
 
@@ -88,14 +88,14 @@ test('the browser job runs the scenarios, then in reverse order, then the smoke 
 });
 
 test('the older plugin is main checked out beside this one, before the run that serves it', () => {
-  const older = /- uses: actions\/checkout@v4\s+with:\s+ref: main\s+path: older\s/.exec(J.browser);
+  const older = /- uses: actions\/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4\s+with:\s+ref: main\s+path: older\s/.exec(J.browser);
   assert.ok(older, 'no checkout of main into older');
   assert.ok(older.index < J.browser.indexOf('--plugin older'), 'the run comes before the checkout');
-  assert.strictEqual(J.browser.split('actions/checkout@v4').length - 1, 2, 'this checkout and the one of main');
+  assert.strictEqual(J.browser.split('actions/checkout@11d5960a326750d5838078e36cf38b85af677262').length - 1, 2, 'this checkout and the one of main');
 });
 
 test('the browser job uploads its screenshots when a step fails and when the job hits its time limit, which cancels it', () => {
-  assert.match(J.browser, /- if: failure\(\) \|\| cancelled\(\)\s+uses: actions\/upload-artifact@v4/);
+  assert.match(J.browser, /- if: failure\(\) \|\| cancelled\(\)\s+uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4/);
   const folders = [...J.browser.matchAll(/--shots (\S+)/g)].map((m) => m[1]);
   for (const f of folders) assert.ok(new RegExp(`^\\s+${f}$`, 'm').test(J.browser), `${f} is not uploaded`);
 });
@@ -107,4 +107,13 @@ test('a missing browser fails the job, because the runner exits 2 and no step ig
 
 test('the workflow still runs on pushes to main and on pull requests', () => {
   assert.match(workflow, /on:\n {2}push:\n {4}branches: \[main\]\n {2}pull_request:\n/);
+});
+
+test('every action is pinned to the full commit of the tag it used, with the tag named in a comment', () => {
+  const uses = [...workflow.matchAll(/uses: (\S+)(.*)$/gm)];
+  assert.strictEqual(uses.length, 7);
+  for (const [, ref, comment] of uses) {
+    assert.match(ref, /^actions\/[\w-]+@[0-9a-f]{40}$/, `${ref} is not pinned to a commit`);
+    assert.match(comment, /^ # v\d+$/, `${ref} does not name its tag`);
+  }
 });

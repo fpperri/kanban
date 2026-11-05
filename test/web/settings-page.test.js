@@ -106,8 +106,8 @@ function loadUi() {
   return sandbox;
 }
 
-test('This board lists Logbook, Groups, Types, Prefixes and Counters', () => {
-  assert.deepStrictEqual(ids(loadUi().pages), ['logbook', 'groups', 'types', 'prefixes', 'counters']);
+test('This board lists Logbook, Groups, Types, Prefixes, Counters and Snapshot', () => {
+  assert.deepStrictEqual(ids(loadUi().pages), ['logbook', 'groups', 'types', 'prefixes', 'counters', 'snapshot']);
 });
 
 test('a later page is added after the one named, else at the end', () => {
@@ -115,7 +115,7 @@ test('a later page is added after the one named, else at the end', () => {
   ctx.add({ id: 'scratchpad', title: 'Scratchpad', build: () => [] }, 'logbook');
   ctx.add({ id: 'last', title: 'Last', build: () => [] });
   ctx.add({ id: 'unknown-anchor', title: 'U', build: () => [] }, 'nothing');
-  assert.deepStrictEqual(ids(ctx.pages), ['logbook', 'scratchpad', 'groups', 'types', 'prefixes', 'counters', 'last', 'unknown-anchor']);
+  assert.deepStrictEqual(ids(ctx.pages), ['logbook', 'scratchpad', 'groups', 'types', 'prefixes', 'counters', 'snapshot', 'last', 'unknown-anchor']);
 });
 
 // --- the page's own open and click ------------------------------------------------------------
@@ -214,7 +214,7 @@ const act = (row, a) => row.one((el) => el.tag === 'button' && el.dataset.act ==
 
 test('the Types page sits between Groups and Prefixes in the menu', () => {
   const ctx = loadPages();
-  assert.deepStrictEqual(ids(ctx.run('settingsBoardPages')), ['logbook', 'groups', 'types', 'prefixes', 'counters']);
+  assert.deepStrictEqual(ids(ctx.run('settingsBoardPages')), ['logbook', 'groups', 'types', 'prefixes', 'counters', 'snapshot']);
   assert.strictEqual(ctx.run("settingsBoardPages.find((p) => p.id === 'types').title"), 'Types');
 });
 
@@ -810,4 +810,45 @@ test('the render puts the path under the page title for every page, and focus is
   assert.match(ui, /settingsPageReads\(current\.id, state\.settings\)/);
   assert.match(ui, /settingsUi\.focusKey/);
   assert.match(ui, /navigator\.clipboard\.writeText/);
+});
+
+const inputOf = (root, key) => root.one((el) => el.tag === 'input' && el.dataset.fk === `field:${key}`);
+
+test('the Snapshot page shows the kept query and archive, saves the query with the version, and the archive switch writes true', async () => {
+  const ctx = loadPages();
+  Object.assign(ctx.state.settings, { snapshotQuery: 'tags:ui', snapshotArchive: false });
+  const root = ctx.page('snapshot');
+  const input = inputOf(root, 'snapshotQuery');
+  assert.strictEqual(input.value, 'tags:ui');
+  input.value = '  group:I2 | #3 ';
+  await root.one((el) => el.tag === 'form' && el.all((e) => e === input).length).fire('submit');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[0][2])), { key: 'snapshotQuery', value: 'group:I2 | #3', version: 'v1' });
+  await root.one((el) => el.tag === 'button' && el.dataset.switch === 'snapshotArchive' && el.dataset.value === 'on').fire('click');
+  await ctx.settle();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(ctx.calls[1][2])), { key: 'snapshotArchive', value: true, version: 'v1' });
+});
+
+test('a query the server refuses stays in the field with the parser\'s reason under it', async () => {
+  const ctx = loadPages();
+  Object.assign(ctx.state.settings, { snapshotQuery: '', snapshotArchive: false });
+  ctx.fail = { status: 400, message: 'The query has no search term: write words like tags:ui.' };
+  const root = ctx.page('snapshot');
+  const input = inputOf(root, 'snapshotQuery');
+  input.value = '()';
+  await root.one((el) => el.tag === 'form' && el.all((e) => e === input).length).fire('submit');
+  await ctx.settle();
+  assert.match(ctx.run("settingsUi.errors.snapshotQuery"), /no search term/);
+  assert.strictEqual(ctx.run("settingsUi.drafts.snapshotQuery"), '()');
+});
+
+test('in a built page the Snapshot controls are disabled, and the menu says live or archive', () => {
+  const ctx = loadPages();
+  Object.assign(ctx.state.settings, { snapshotQuery: 'tags:ui', snapshotArchive: true, lock: 'a desk job' });
+  const root = ctx.page('snapshot');
+  assert.strictEqual(inputOf(root, 'snapshotQuery').disabled, true);
+  const buttons = root.all((el) => el.tag === 'button');
+  assert.ok(buttons.length >= 3 && buttons.every((b) => b.disabled), 'save and both switch buttons stand still');
+  assert.strictEqual(settings.settingsPageState('snapshot', { snapshotArchive: true }, 0), 'archive');
+  assert.strictEqual(settings.settingsPageState('snapshot', {}, 0), 'live');
 });

@@ -18,10 +18,10 @@ end, so all of it takes a line). **All** draws a line to every child and **off**
 none. Which children are the ends is read on the whole board, so a search or a status
 pill never moves a line. A parent is not a dependency: it never makes a card waiting,
 the `doing` gate ignores it, and a card with only a parent relation is in a graph, not
-in the No relations row. A parent hidden by a filter, or with no card, is a dimmed stub
+in the No relations row. A parent hidden by a filter, or with no card, is a muted, dashed stub
 ("not found" when no card answers to the id) and a parent on another board is one
-dimmed stub per `board#id` mention, labelled with it and not clickable; each child keeps
-its own line to the stub, drawn dimmed. Self-parent is ignored. A child that waits on
+muted, dashed stub per `board#id` mention, labelled with it and not clickable; each child keeps
+its own line to the stub, drawn at full strength and dotted. Self-parent is ignored. A child that waits on
 its parent, or the reverse, is placed by that dependency alone and still gets its
 parent line. A parent line that runs against the layout (a loop of parents, or a
 dependency that put the parent on the other side) bows out to the side like a back
@@ -99,7 +99,8 @@ regardless of their parked status. The choice persists per board in `localStorag
 search by **intersection** — a card stays visible only when both agree. The active
 search query filters the map exactly as it filters the board: matching cards are full
 nodes; a card hidden by either filter that's still referenced by a visible one's
-`waiting_for` or `parent` (in either direction) renders as a dimmed, dashed ghost stub — never
+`waiting_for` or `parent` (in either direction) renders as a muted, dashed ghost stub (its edge keeps the amber of a waiting card or the red of a
+high-priority one, and an edge to it is dashed too, and a parent line to it dotted) — never
 silently dropped — and is itself clickable through to its detail popup. A
 `waiting_for` or `parent` id with no matching card at all renders as a "not found" ghost. Cards
 with no relation at all always render in the No relations row below the

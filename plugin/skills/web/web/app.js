@@ -932,7 +932,7 @@ function shownMatchCardIds() {
     const archived = new Set(state.archived.map((c) => c.id));
     shown = new Set([...shown].filter((id) => !archived.has(id)));
   }
-  return shownMatchIds(currentSearchMatch().matched, shown);
+  return shownMatchIds(currentSearchMatch().matched, shown, searchStatusesChipNames().length > 0);
 }
 
 // The cards the view shows before the search box and any cut: what the pill counts
@@ -1317,8 +1317,9 @@ function renderBoard() {
 }
 
 // Publishes the sticky page header's real rendered height as
-// a CSS var so each column-header's `top: var(--board-header-h)` (app.css)
-// parks it directly under the page header instead of a guessed fixed px
+// the CSS var --board-header-h, which app.css subtracts from the viewport height
+// of main#board and the map, graph, calendar and gantt views, so each fits under
+// the page header instead of a guessed fixed px
 // offset — the header wraps to a second row on a narrow viewport, a long
 // project name, or the notif badge appearing, so a hardcoded value would
 // drift out of sync with the header it's supposed to sit below. Wired at
@@ -1592,10 +1593,10 @@ function renderMapView() {
   main.scrollTop = keepTop;
 }
 
-const REFOCUS_SELECTOR = '.map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
+const REFOCUS_SELECTOR = '.column-toggle, .map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
 
-// What finds a rebuilt control again after a render: its class and what names it, a fold
-// toggle's section, a panel button its view, or for a button of the
+// What finds a rebuilt control again after a render: its class and what names it, a column
+// toggle's column, a fold toggle's section, a panel button its view, or for a button of the
 // Graph's option row its option and its value.
 function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -1603,6 +1604,7 @@ function refocusSelector(el) {
   if (el.dataset.graphInfo !== undefined) return '.graph-info-toggle';
   if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
+  if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
   return `.${el.classList[0]}${named('section')}`;
 }
 
@@ -2204,7 +2206,8 @@ function applyProjectName(name) {
     resetGraphViewState(); // graph memos too
   }
   state.projectName = next;
-  document.title = name || 'Kanban App';
+  // A page built with its board keeps the title the build gave it (artifact-build.js).
+  if (!window.kanbanSourceInUse) document.title = name || 'Kanban App';
   $('#project-name').innerHTML = name ? escapeHtml(name) : 'Kanban';
 }
 
@@ -2772,7 +2775,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { clockTick(); autoRefreshTick(); }
   });
-  // Sticky column headers park below the sticky page
+  // The views size themselves under the sticky page
   // header via --board-header-h — sync it now (static markup, already
   // parsed) and keep it current across wraps/resizes.
   syncBoardHeaderHeight();
@@ -3098,7 +3101,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#board').addEventListener('touchmove', onBoardTouchMove, { passive: false });
   $('#board').addEventListener('click', (e) => {
     const toggleBtn = e.target.closest('.column-toggle');
-    if (toggleBtn) { toggleColumn(toggleBtn.dataset.col); return; }
+    if (toggleBtn) { keepControlFocus(toggleBtn, () => toggleColumn(toggleBtn.dataset.col)); return; }
     const sortDirBtn = e.target.closest('.column-sort-dir');
     if (sortDirBtn) { toggleColumnSortDirection(sortDirBtn.dataset.col); return; }
     const addBtn = e.target.closest('.column-add');
@@ -8190,14 +8193,14 @@ document.addEventListener('click', (e) => {
 // Esc closes the picker and ONLY the picker — the combobox Esc rule. Capture
 // phase so this runs before the document-level bubble Esc handler (popup
 // close / search clear) no matter where focus sits (input, 📅 button, or a popover
-// button), and stopPropagation keeps that handler from also firing on the
-// same press.
+// button), and stopImmediatePropagation keeps that handler, and the group dialog's and the tray's own
+// capture listeners on the document (added after this one), from also firing on the same press.
 document.addEventListener('keydown', (e) => { // key-guard: exempt (acts only while the date picker is open, which Esc closes from its field)
   if (e.key !== 'Escape' || !datePickerFor) return;
   const input = datePickerFor;
   closeDatePicker();
   input.focus();
-  e.stopPropagation();
+  e.stopImmediatePropagation();
 }, true);
 
 // position:fixed goes stale the moment the anchor moves under it: close on

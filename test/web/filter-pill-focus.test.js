@@ -73,7 +73,7 @@ test('the pill and fold toggles are focusable controls the stylesheet rings', ()
   }
 });
 
-const PILL_CLASSES = ['map-section-toggle'];
+const PILL_CLASSES = ['map-section-toggle', 'column-toggle'];
 
 const NOT_A_CALL = new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'new', 'await', 'async', 'do', 'else', 'throw', 'delete', 'void', 'with', 'in', 'of', 'instanceof', 'super', 'import', 'yield', 'class']);
 

@@ -9,9 +9,10 @@ const { toJSON, readCardFile } = require('../../plugin/skills/web/scripts/card-s
 const { parseNotifications } = require('../../plugin/skills/web/scripts/notifications-store');
 const { parseParent } = require('../../plugin/skills/web/web/nesting');
 
-// What an agent or a person copies from the kanban skill (its SKILL.md and the config.md and nesting.md
-// beside it in references/), the README's config section and the web skill's config example: the
-// config.yaml they show, the card frontmatter, the notifications entry, the starter, the commands.
+// What an agent or a person copies from the kanban skill (its SKILL.md, the config.md and nesting.md
+// in references/, and its starter-config.yaml), the README's config and starter sections, the config
+// example in docs/web.md and the bundled demo board: the config.yaml they show, the card frontmatter,
+// the notifications entry, the starter, the commands.
 // Each is read by the real module, and what the module reads is where the expectation comes from, so
 // a doc is held to the file formats and not to its own sentences.
 
@@ -207,4 +208,12 @@ test('every file in the kanban skill\'s references folder is one the body sends 
   const files = fs.readdirSync(path.join(ROOT, 'plugin', 'skills', 'kanban', 'references')).filter((f) => f.endsWith('.md')).sort();
   assert.deepStrictEqual(files, ['archive-packages.md', 'config.md', 'groups.md', 'nesting.md', 'notes-kit.md', 'notifications.md']);
   for (const file of files) assert.ok(skill.includes(`\`references/${file}\``), `the body names references/${file}`);
+});
+
+test('the sample in the config reference shows snapshotQuery and snapshotArchive, and the reader gives back what it shows', () => {
+  const config = parseConfig(fenced(configSection, 'yaml')[0]);
+  assert.strictEqual(config.snapshotQuery, 'tags:ui | group:I2');
+  assert.strictEqual(config.snapshotArchive, true);
+  assert.deepStrictEqual(KEY_ORDER.filter((k) => /^snapshot/.test(k)), ['snapshotQuery', 'snapshotArchive']);
+  assert.match(configSection, /`--query`[^.]*`--archive` and `--no-archive`/);
 });

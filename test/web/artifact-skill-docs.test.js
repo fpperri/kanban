@@ -177,3 +177,22 @@ test('the cloud and Cowork steps name the file the apply leaves in the board fol
     assert.ok(fs.existsSync(path.join(dir, APPLIED_FILE)), 'the apply leaves the file in the board folder');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('the flags the skill names for one build are the ones the build command accepts, and a board\'s kept choice is read without them', () => {
+  const named = [...DOC.matchAll(/`(--[a-z-]+)(?: [^`]*)?`/g)].map((m) => m[1]);
+  for (const flag of ['--query', '--archive', '--no-archive']) assert.ok(named.includes(flag), `${flag} is named`);
+  const script = path.join(ROOT, 'plugin', 'skills', 'web', 'scripts', 'artifact-build.js');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-keeps-'));
+  try {
+    const board = path.join(root, 'b');
+    fs.mkdirSync(board);
+    fs.writeFileSync(path.join(board, 'config.yaml'), 'name: b\nsnapshotArchive: true\n');
+    fs.writeFileSync(path.join(board, '0001.one.card.md'), '---\nid: 1\nstatus: todo\npriority: Normal\n---\n\n# One\n');
+    const out = path.join(root, 'out.html');
+    for (const [flags, label] of [[[], 'with the archive'], [['--no-archive'], 'live cards only']]) {
+      const ran = spawnSync(process.execPath, [script, board, '--out', out, ...flags], { encoding: 'utf8' });
+      assert.strictEqual(ran.status, 0, ran.stderr);
+      assert.match(ran.stdout, new RegExp(label));
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

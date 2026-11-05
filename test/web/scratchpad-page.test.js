@@ -40,7 +40,7 @@ test('the gear gains a Scratchpad page right after the Logbook\'s, through the h
   vm.createContext(sandbox);
   vm.runInContext(`${read('settings-ui.js')}\nthis.pages = settingsBoardPages;`, sandbox);
   vm.runInContext(ui, sandbox);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(sandbox.pages.map((p) => p.id))), ['logbook', 'scratchpad', 'groups', 'types', 'prefixes', 'counters']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(sandbox.pages.map((p) => p.id))), ['logbook', 'scratchpad', 'groups', 'types', 'prefixes', 'counters', 'snapshot']);
   assert.strictEqual(sandbox.pages[1].title, 'Scratchpad');
 });
 

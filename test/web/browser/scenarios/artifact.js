@@ -85,6 +85,7 @@ module.exports = {
       // the fixture file opens and draws every view with no server
       check('the file opens from disk and draws the board', await load('fixture'));
       check('it is the fixture board', (await ev(NAME)) === 'fixture');
+      check('its title stays kanban and the board name once the page has booted', (await ev('document.title')) === 'kanban fixture', await ev('document.title'));
       check('it was opened as a file', (await ev('location.protocol')) === 'file:');
       check('nothing in the page asked a server for the board', (await ev(`performance.getEntriesByType('resource').filter((e)=>e.name.includes('/api/')).length`)) === 0);
       check('the header shows no queued count yet', (await ev(PILL)) === '');

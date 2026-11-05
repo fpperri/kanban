@@ -5,7 +5,7 @@
 // the same with Isolate on and off, 44 px tall inside the screen. A tap on it selects them all, the bar
 // rises reading the same number, and Archive on the bar archives them and asks about the same number:
 // three taps from the query, none on a card. The step leaves the board as it found it: the archived
-// cards are restored.
+// cards are restored. Last, on the Map, a status switched off brings the button with an empty box.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): api, loadBoard, selectedIds, state.
 
@@ -75,5 +75,21 @@ module.exports = {
     for (const id of live) await ev(`api('POST','/api/cards/${id}/restore').then(()=>true)`);
     await ev(`loadBoard().then(()=>true)`);
     check('the step puts the cards back', await waitFor(live.map((id) => `state.active.some((c)=>String(c.id)==='${id}')`).join('&&'), 5000));
+
+    // --- a status switched off brings it with an empty box, on the Map ---------------------------------
+    await ev(TYPE(''));
+    await ev(`document.getElementById('map-toggle-btn').click()`);
+    check('the Map shows the Statuses section', await waitFor(`document.querySelectorAll('#search-statuses .status-pill').length>0`, 10000));
+    await page.sleep(500);
+    await ev(`document.getElementById('search-btn').click()`);
+    await ev(`document.getElementById('search-input').focus()`);
+    check('the panel is open on the Map', await waitFor(`!document.getElementById('search-panel').classList.contains('hidden')`, 5000));
+    check('with every status on and an empty box the panel has no Select all shown', !(await ev(buttonShown)));
+    await tapOn('#search-statuses .status-pill[data-col="todo"]');
+    const drawn = `document.querySelectorAll('#map-view .card-el').length`;
+    check('with Todo switched off and an empty box the button shows, counting the cards the Map draws', await waitFor(`${buttonShown}&&${BUTTON}.textContent==='Select all shown ('+${drawn}+')'&&${drawn}<${await ev(`state.active.length+state.archived.length`)}`, 5000), await label());
+    await shot('map-status-off');
+    await tapOn('#search-select-all');
+    check('a tap on it selects them', await waitFor(`${picked}.split(',').length===${drawn}`, 3000), await ev(picked));
   },
 };
