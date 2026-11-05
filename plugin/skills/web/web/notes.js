@@ -236,10 +236,12 @@ function noteSubjectTarget(sub, lastNoted) {
   return { id: lastNoted || '' };
 }
 
+// Clearing the chip ends where choosing no card ends: the moment stays, the card goes, and a note is
+// about nothing, not the card last noted.
 function noteSubjectCleared(subject, today) {
-  if (!subject.when) return { kind: 'none', day: today, clockDay: true };
-  const { noCard, ...moment } = subject.when; // a no-card choice ends with the chip it was made beside
-  return moment;
+  if (!subject.when) return { kind: 'none', day: today, clockDay: true, noCard: true };
+  const { noCard, ...moment } = subject.when;
+  return { ...moment, noCard: true };
 }
 
 // A subject whose day came from the clock and not from the request carries clockDay: its day is

@@ -313,8 +313,8 @@ test('clearing the chip goes back to the slot it came from, else to nothing', ()
   const slot = { kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600, at: '09:00' };
   const aimed = n.noteSubjectAimed(slot, '22');
   assert.deepStrictEqual([aimed.kind, aimed.id, aimed.day, aimed.at, aimed.when], ['card', '22', '2026-10-14', '09:00', slot]);
-  assert.deepStrictEqual(n.noteSubjectCleared(aimed, CTX.today), slot);
-  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'card', id: '7', day: '2026-10-16' }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true });
+  assert.deepStrictEqual(n.noteSubjectCleared(aimed, CTX.today), { ...slot, noCard: true });
+  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'card', id: '7', day: '2026-10-16' }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true, noCard: true });
   const untimedAim = n.noteSubjectAimed({ kind: 'untimed', day: '2026-10-14' }, '22');
   assert.deepStrictEqual([untimedAim.kind, untimedAim.untimed, untimedAim.when.kind], ['card', true, 'untimed']);
   const fromNone = n.noteSubjectAimed({ kind: 'none', day: CTX.today }, '22');
@@ -595,4 +595,13 @@ test('a note about nothing has one name, in the palette and on the Calendar', ()
 test('a subject is a target when it is a card or a group, and about cards when it is also several of them', () => {
   assert.deepStrictEqual(['card', 'group', 'each', 'none', 'slot', 'untimed'].map((kind) => n.noteIsTarget({ kind })), [true, true, false, false, false, false]);
   assert.deepStrictEqual(['card', 'group', 'each', 'none', 'slot', 'untimed'].map((kind) => n.noteIsAboutCards({ kind })), [true, true, true, false, false, false]);
+});
+
+test('clearing the chip ends where picking no card ends', () => {
+  const today = CTX.today;
+  const aimed = { kind: 'card', id: '34', day: today, clockDay: true };
+  const cleared = n.noteSubjectCleared(aimed, today);
+  assert.deepStrictEqual(n.noteSubjectTarget(cleared, '34'), { id: '' });
+  assert.deepStrictEqual(cleared, n.noteSubjectNoCard(aimed));
+  assert.deepStrictEqual(n.noteSubjectTarget(n.noteSubjectFrom({}, IS), '34'), { id: '34' }, 'opening on nothing still starts on the card last noted');
 });
