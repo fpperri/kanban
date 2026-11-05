@@ -932,7 +932,7 @@ function shownMatchCardIds() {
     const archived = new Set(state.archived.map((c) => c.id));
     shown = new Set([...shown].filter((id) => !archived.has(id)));
   }
-  return shownMatchIds(currentSearchMatch().matched, shown);
+  return shownMatchIds(currentSearchMatch().matched, shown, searchStatusesChipNames().length > 0);
 }
 
 // The cards the view shows before the search box and any cut: what the pill counts

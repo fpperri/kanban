@@ -227,14 +227,15 @@ function syncSearchBoardNote() {
 }
 
 // Select all shown (N), the button between the pills and the divider: there while the box holds a
-// query, which a pill that is on is one, and not with an empty box. N counts the cards the search
+// query, which a pill that is on is one, or a status is switched off in the Statuses section (then with
+// an empty box it counts every card the view shows), and not otherwise. N counts the cards the search
 // matches among the ones the view shows (shownMatchCardIds, app.js), so it reads the same with isolate
 // on or off, and it has nothing to press at 0. A closed panel shows no button, so it is worked out
 // when the panel opens.
 function syncSelectAllShown() {
   const button = $('#search-select-all');
   if (!button || !searchPanelOpen) return;
-  const searching = currentSearchMatch().matched !== null;
+  const searching = currentSearchMatch().matched !== null || searchStatusesChipNames().length > 0;
   button.classList.toggle('hidden', !searching);
   if (!searching) return;
   const count = shownMatchCardIds().length;
