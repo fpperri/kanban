@@ -29,6 +29,7 @@ const { findRepo } = require('./path-vars');
 const oldPayload = require('./old-payload');
 const tempIds = require('./temp-ids');
 const { sameValue } = require('./field-value');
+const { deskJob } = require('./desk-job');
 
 const WEB = path.join(__dirname, '..');
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -66,8 +67,10 @@ function malformed(r) {
   const c = r.change;
   if (!c || typeof c !== 'object') return 'the record has no change';
   if (typeof c.method !== 'string' || !WRITES.has(c.method.toUpperCase())) return `only saves are applied, not ${c.method}`;
-  if (typeof c.path !== 'string' || !c.path.startsWith('/api/')) return 'the change names no /api route';
-  return null;
+  if (typeof c.path !== 'string') return 'the change names no /api route';
+  const deskReason = deskJob({ method: c.method, path: c.path, body: c.body });
+  if (deskReason) return deskReason;
+  return c.path.startsWith('/api/') ? null : 'the change names no /api route';
 }
 
 const forward = (p) => String(p).replace(/\\/g, '/');

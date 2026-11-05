@@ -33,9 +33,8 @@ const pageSourceModule = (() => {
   const tempIds = node ? require('./temp-ids') : window.kanbanTempIds;
   const ids = node ? require('../web/ids') : window.kanbanIds;
   const { plain } = node ? require('./field-value') : window.kanbanFieldValue;
+  const { deskJob } = node ? require('./desk-job') : window.kanbanDeskJob;
 
-  const DESK_JOB = 'That is a desk job: settings and notifications do not save in this page.';
-  const DESK_JOB_PATH = /^\/api\/(?:config|notifications)(?:\/|$)/;
   const DESK_LOCK = 'a desk job';
   const LOCKED_FEATURES = ['logbook', 'scratchpad', 'todos', 'groups'];
 
@@ -204,7 +203,8 @@ const pageSourceModule = (() => {
     async function answer(method, path, body) {
       const pathname = path.split('?')[0];
       const write = method !== 'GET';
-      if (write && DESK_JOB_PATH.test(pathname)) return reply(403, { error: DESK_JOB });
+      const deskReason = write ? deskJob({ method, path, body }) : null;
+      if (deskReason) return reply(403, { error: deskReason });
       const sent = clone(body);
       const list = write ? TODO_EDIT.exec(pathname) : null;
       const folded = list ? foldedChange(list[1]) : null;

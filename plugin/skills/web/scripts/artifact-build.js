@@ -42,7 +42,7 @@ const { readApplied, takenBy } = require('./applied-ids');
 
 const WEB_ROOT = path.join(__dirname, '..');
 const MODULE_PARAMS = 'exports, require, module, __filename, __dirname, process, Buffer';
-const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'artifact-tray', 'field-value', 'page-source'];
+const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'artifact-tray', 'field-value', 'desk-job', 'page-source'];
 const SKIP_NAMES = new Set(['.git', 'node_modules', '.kanban-app.pid']);
 const MAX_BYTES = 16 * 1024 * 1024;
 
