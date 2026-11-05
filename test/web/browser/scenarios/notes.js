@@ -191,7 +191,7 @@ module.exports = {
     check('notes: card 22\'s notes are listed', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|22|1']), await ev(SECTIONS));
     await key('Backspace');
     check('notes: Backspace on the empty box clears the chip', await waitFor(`${CHIP}===''`, 2500), await chip());
-    check('notes: with no chip the notes written today are listed and the card last noted is the target', await ev(`${PREVIEW}.includes('on #7 Port the zephyr schema (last noted)')`) && (await ev(SECTIONS))[0].startsWith(await ev(TODAY)), await preview());
+    check('notes: with no chip the notes written today are listed and the line names no card, not the card last noted', (await preview()).endsWith('on no card')&&!/last noted/.test(await preview()) && (await ev(SECTIONS))[0].startsWith(await ev(TODAY)), await preview());
     await setBox('#22 from the line');
     check('notes: a leading mention before the text aims that one note', /^Note at \d\d:\d\d on #22 Cut over the data layer$/.test(await preview()), await preview());
     await key('Enter');
