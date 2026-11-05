@@ -365,6 +365,6 @@ test('the details can take the focus the form hands back, and no rule hides its 
   const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const html = fs.readFileSync(path.join(web, 'app.html'), 'utf8');
   const css = fs.readFileSync(path.join(web, 'app.css'), 'utf8');
-  assert.match(html, /<div class="modal detail-modal" tabindex="-1">/);
+  assert.match(html, /<div class="modal detail-modal"[^>]* tabindex="-1">/);
   assert.doesNotMatch(css, /\.detail-modal:focus\s*\{\s*outline:\s*none/);
 });
