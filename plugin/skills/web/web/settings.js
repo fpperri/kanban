@@ -118,10 +118,12 @@ function settingsIterationNotes(folder, groupsList) {
 // The line under a folder field when the line as it stands holds `<card>` or a variable: the gear saves
 // neither word, so a hand edit in config.yaml changes it; '' for any other line.
 const SETTINGS_HAND_WORDS = 'The gear does not write <card> or a variable: change this line by hand in config.yaml. Switching it off here still works.';
+const SETTINGS_HAND_WORDS_LOCKED = 'The gear does not write <card> or a variable: change this line by hand in config.yaml.';
 
-function settingsHandWordsNote(folder) {
+function settingsHandWordsNote(folder, locked) {
   const words = String(folder || '').replace(/\\/g, '/').split('/').filter((s) => /<[^<>]*>/.test(s) && s !== '<iteration>');
-  return words.length > 0 ? SETTINGS_HAND_WORDS : '';
+  if (words.length === 0) return '';
+  return locked ? SETTINGS_HAND_WORDS_LOCKED : SETTINGS_HAND_WORDS;
 }
 
 function settingsDigitsBody(text, version) {
@@ -441,7 +443,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
-  settingsFolderBody, settingsFolderProblem, settingsIterationNotes, settingsHandWordsNote, SETTINGS_HAND_WORDS, SETTINGS_ITERATION_SAME, SETTINGS_ITERATION_ID, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
+  settingsFolderBody, settingsFolderProblem, settingsIterationNotes, settingsHandWordsNote, SETTINGS_HAND_WORDS, SETTINGS_HAND_WORDS_LOCKED, SETTINGS_ITERATION_SAME, SETTINGS_ITERATION_ID, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody, settingsSnapshotQueryBody, settingsSnapshotArchiveBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,

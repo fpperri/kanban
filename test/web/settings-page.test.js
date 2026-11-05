@@ -880,7 +880,7 @@ test('in a built page the Snapshot controls are disabled, and the menu says live
   assert.strictEqual(settings.settingsPageState('snapshot', {}, 0), 'live');
 });
 
-// The words on the Logbook, Scratchpad and Todos pages about iterations (docs/adr/0027).
+// The words on the Logbook, Scratchpad and Todos pages about iterations (docs/adr/0019).
 
 const ITER_GROUPS = { folder: '.groups', list: [{ id: '5', folder: 'iteration', cards: [] }, { id: 'G1', folder: 'goal', cards: [] }] };
 const noteOf = (root) => root.one((el) => el.dataset.note === 'iteration');
@@ -930,6 +930,10 @@ test('a line that holds <card> or a variable says under the field that the gear 
   assert.strictEqual(hand(pageWith('pads', null)), undefined);
   assert.strictEqual(hand(pageWith('pads/<card>', null, { on: false })), undefined);
   assert.strictEqual(settings.settingsHandWordsNote(''), '');
+  const locked = hand(pageWith('<sprints>/<iteration>/<card>/.scratchpad', null, { locked: true, reason: 'This folder is outside the board.' }));
+  assert.strictEqual(locked.textContent, settings.SETTINGS_HAND_WORDS_LOCKED);
+  assert.doesNotMatch(locked.textContent, /Switching it off/);
+  assert.match(locked.textContent, /by hand in config\.yaml\.$/);
 });
 
 test('the iteration words are one pure function of the folder and the groups', () => {
