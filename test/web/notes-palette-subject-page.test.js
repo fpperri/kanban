@@ -184,3 +184,22 @@ test('the stylesheet gives the date a field of its own', () => {
   assert.match(css, /^\.np-date \{/m);
   assert.match(css, /^\.np-date-btn \{/m);
 });
+
+// --- a note just written lands at the top of its day -------------------------------------------
+
+for (const layout of ['grouped', 'timeline']) {
+  test(`${layout}: a note written at a later time on a day with notes is the first row of that day`, async () => {
+    const p = await open({ stored: { 'kanban.kanban.notes.layout': layout } });
+    p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
+    p.ui().date.value = '2026-10-19';
+    p.ui().date.fire('input', {});
+    p.ui().time.value = '23:00';
+    p.ui().time.fire('input', {});
+    setBox(p, 'wrote late');
+    p.press(p.ui().input, 'Enter');
+    await p.settle();
+    const rows = p.rows();
+    assert.ok(rows.indexOf('wrote late') >= 0 && rows.indexOf('wrote late') < rows.indexOf('mon seven'), rows.join(' | '));
+    assert.ok(p.all('.np-note').find((r) => p.text(r.querySelector('.np-note-text')) === 'wrote late').classes.includes('np-new'));
+  });
+}
