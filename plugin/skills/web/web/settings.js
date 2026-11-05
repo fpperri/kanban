@@ -99,6 +99,22 @@ function settingsFolderProblem(text) {
   return '';
 }
 
+// What a folder page says about iterations, as lines of one sentence pair each: [] unless the page is
+// the logbook's, the scratchpad's or the todo lists' (the caller decides) and the folder is on. A path
+// without `<iteration>` on a board that has iteration groups writes every iteration to one folder; a
+// path with it reads only the folders whose name starts with an id (docs/adr/0019). `<iteration>` reads
+// the groups whether or not `iterations: true` is set.
+const SETTINGS_ITERATION_SAME = 'Every iteration writes to this one folder. Put <iteration> where an iteration\'s folder goes, like pads/<iteration>.';
+const SETTINGS_ITERATION_ID = 'A folder is read here only when its name starts with an id, like 0005.sprint-496. An older folder needs renaming, or its files stop showing.';
+
+function settingsIterationNotes(folder, groupsList) {
+  const text = String(folder || '');
+  if (text.trim() === '') return [];
+  if (text.replace(/\\/g, '/').split('/').includes('<iteration>')) return [SETTINGS_ITERATION_ID];
+  const iterationGroups = SETTINGS_NODE ? require('./iterations').iterationGroups : window.iterationGroups;
+  return iterationGroups(groupsList).length > 0 ? [SETTINGS_ITERATION_SAME] : [];
+}
+
 function settingsDigitsBody(text, version) {
   return settingsWithVersion({ key: 'idDigits', value: String(text).trim() }, version);
 }
@@ -416,7 +432,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
-  settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
+  settingsFolderBody, settingsFolderProblem, settingsIterationNotes, SETTINGS_ITERATION_SAME, SETTINGS_ITERATION_ID, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody, settingsSnapshotQueryBody, settingsSnapshotArchiveBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,
