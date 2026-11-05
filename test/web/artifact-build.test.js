@@ -107,6 +107,21 @@ test('a board with no name takes its name from the folder that holds it, as the 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('the page is titled kanban and the board name, escaped, and the desk page keeps its own title', () => {
+  const named = tmpTree({ 'one/.kanban/config.yaml': 'name: Tom & <Jerry>\nnextId: 2\n', 'one/.kanban/0001.x.card.md': card(1, 'X') });
+  const unnamed = tmpTree({ 'shipyard/.kanban/0001.x.card.md': card(1, 'X') });
+  try {
+    const { html } = buildPage({ boardDir: path.join(named, 'one', '.kanban') });
+    assert.match(html, /<title>kanban Tom &amp; &lt;Jerry&gt;<\/title>/);
+    assert.doesNotMatch(html, /<title>Kanban App<\/title>/);
+    assert.match(buildPage({ boardDir: path.join(unnamed, 'shipyard', '.kanban') }).html, /<title>kanban shipyard<\/title>/);
+    assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.html'), 'utf8'), /<title>Kanban App<\/title>/);
+  } finally {
+    fs.rmSync(named, { recursive: true, force: true });
+    fs.rmSync(unnamed, { recursive: true, force: true });
+  }
+});
+
 test('the board id tells two boards apart even when they share a name, and one board always has the same id', () => {
   const a = tmpTree({ 'one/.kanban/config.yaml': 'name: same\nnextId: 2\n', 'one/.kanban/0001.x.card.md': card(1, 'X') });
   const b = tmpTree({ 'two/.kanban/config.yaml': 'name: same\nnextId: 2\n', 'two/.kanban/0001.x.card.md': card(1, 'X') });
