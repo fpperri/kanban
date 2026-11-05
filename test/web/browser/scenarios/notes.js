@@ -87,7 +87,7 @@ module.exports = {
     check('notes: a click on the count opens the palette aimed at that card', await palUp() && await chip() === '#7 Port the zephyr schema', await chip());
     check('notes: its notes are listed newest day first', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|7|2', '2026-10-14|7|1']), await ev(SECTIONS));
     await shot('palette-on-card');
-    check('notes: each note shows its time and its author, the human\'s too', await ev(`${q('.np-ngroup .np-note')}.textContent.startsWith('09:30')&&[...document.querySelectorAll('#notes-palette .np-note-by')].map((b)=>b.textContent).join()==='@human,@afk,@human'&&document.querySelector('#notes-palette .np-note-time.untimed').textContent==='untimed'`));
+    check('notes: each note shows its time and its author, the human\'s too', await ev(`${q('.np-ngroup .np-note')}.textContent.startsWith('14:10')&&[...document.querySelectorAll('#notes-palette .np-note-by')].map((b)=>b.textContent).join()==='@afk,@human,@human'&&document.querySelector('#notes-palette .np-note-time.untimed').textContent==='untimed'`));
     check('notes: with no time given the time field starts on Now', await ev(`${q('.np-time')}.value`) === 'Now');
 
     // --- the filter narrows the list and leaves the note box alone -------------------------------------------
@@ -237,7 +237,7 @@ module.exports = {
     await key('n');
     check('notes: n reopens it on card 7', await palUp() && await chip() === '#7 Port the zephyr schema');
     await key('ArrowDown');
-    check('notes: the down arrow moves into the list, onto its first note', await waitFor(`document.activeElement.classList.contains('np-note')`, 2000) && await rowTextFocused() === 'renamed order_state', await rowTextFocused());
+    check('notes: the down arrow moves into the list, onto its first note', await waitFor(`document.activeElement.classList.contains('np-note')`, 2000) && await rowTextFocused() === 'line time wins', await rowTextFocused());
     await ev(`(()=>{const rows=[...document.querySelectorAll('#notes-palette .np-note')];rows.find((r)=>r.querySelector('.np-note-text').textContent==='line time wins').focus()})()`);
     check('notes: a listed note takes focus', await focusedRow() && await rowTextFocused() === 'line time wins');
     await key('i');
@@ -423,7 +423,7 @@ module.exports = {
     check('notes: Timeline presses its button and lists the same notes', await waitFor(`JSON.stringify(${LAYOUT_BTNS})===${JSON.stringify(JSON.stringify(['Grouped', 'Timeline*']))}`, 2500) && (await ev(ROW_TEXTS)).length === rowsBefore.length, await ev(LAYOUT_BTNS));
     await shot('palette-timeline');
     check('notes: it is a flat list, one block per day, newest day first', await ev(`(()=>{const g=[...document.querySelectorAll('#notes-palette .np-ngroup')];const days=g.map((x)=>x.dataset.day);return g.length>=2&&g.every((x)=>x.classList.contains('np-tgroup'))&&days.every((d,i)=>i===0||days[i-1]>d)})()`));
-    check('notes: inside a day the timed notes come in time order and the untimed ones last', await ev(`[...document.querySelectorAll('#notes-palette .np-tgroup')].every((g)=>{const t=[...g.querySelectorAll('.np-note-time')].map((e)=>e.classList.contains('untimed')||!e.textContent.includes(':')?'99:99':e.textContent.slice(0,5));return t.every((v,i)=>i===0||t[i-1]<=v)})`));
+    check('notes: inside a day the timed notes come newest first and the untimed ones last', await ev(`[...document.querySelectorAll('#notes-palette .np-tgroup')].every((g)=>{const t=[...g.querySelectorAll('.np-note-time')].map((e)=>e.classList.contains('untimed')||!e.textContent.includes(':')?'':e.textContent.slice(0,5));return t.every((v,i)=>i===0||(t[i-1]===''?v==='':v===''||t[i-1]>=v))})`));
     const ROW1 = '#notes-palette .np-tgroup .np-note';
     const MENU = `document.querySelector('.np-menu')`;
     const MENU_ITEMS = `[...document.querySelectorAll('.np-menu button')].map((b)=>b.textContent)`;

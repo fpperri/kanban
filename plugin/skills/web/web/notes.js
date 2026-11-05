@@ -491,8 +491,14 @@ function noteFilter(notes, text, label, o = {}) {
   });
 }
 
+// Newest first by the time a note starts, the untimed ones after the timed.
+function noteNewestFirst(a, b) {
+  if (!a.at || !b.at) return a.at ? -1 : b.at ? 1 : 0;
+  return a.at < b.at ? 1 : a.at > b.at ? -1 : 0;
+}
+
 // The list's sections: one per day and target, newest day first; within a day the target
-// the palette is on first, then by id, nothing last; within a section by time, untimed last.
+// the palette is on first, then by id, nothing last; within a section the timed notes newest first, then the untimed ones.
 function noteGroups(notes, o = {}) {
   const sections = new Map();
   for (const n of notes) {
@@ -505,7 +511,7 @@ function noteGroups(notes, o = {}) {
     || rank(a.target) - rank(b.target)
     || (a.target === b.target ? 0 : NOTE_IDS.compareIds(a.target, b.target)));
   for (const s of list) {
-    s.notes.sort((a, b) => (a.at || '99:99') < (b.at || '99:99') ? -1 : (a.at || '99:99') > (b.at || '99:99') ? 1 : a.index - b.index);
+    s.notes.sort((a, b) => noteNewestFirst(a, b) || b.index - a.index);
   }
   return list;
 }
@@ -516,7 +522,7 @@ function noteOneTarget(notes) {
 }
 
 // The same notes as one flat list per day, for the palette's Timeline switch: newest day first, and
-// within a day the timed notes in time order, then the untimed ones. Two notes at one time go the way
+// within a day the timed notes newest first, then the untimed ones. Two notes at one time go the way
 // noteGroups orders their targets: the one the palette is on first, then by id, nothing last.
 function noteTimeline(notes, o = {}) {
   const days = new Map();
@@ -525,13 +531,12 @@ function noteTimeline(notes, o = {}) {
     days.get(n.day).notes.push(n);
   }
   const rank = (t) => (t === o.first ? 0 : t === '' ? 2 : 1);
-  const when = (n) => n.at || '99:99';
   const list = [...days.values()].sort((a, b) => (a.day === b.day ? 0 : a.day < b.day ? 1 : -1));
   for (const d of list) {
-    d.notes.sort((a, b) => (when(a) < when(b) ? -1 : when(a) > when(b) ? 1 : 0)
+    d.notes.sort((a, b) => noteNewestFirst(a, b)
       || rank(a.target) - rank(b.target)
       || (a.target === b.target ? 0 : NOTE_IDS.compareIds(a.target, b.target))
-      || a.index - b.index);
+      || b.index - a.index);
   }
   return list;
 }
