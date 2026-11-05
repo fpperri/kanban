@@ -135,8 +135,7 @@ const trayDescribeModule = (() => {
   function describeChange(record) {
     const { method, path } = record.change;
     const body = isObject(record.change.body) ? record.change.body : {};
-    const kanbanIds = typeof module !== 'undefined' && module.exports ? require('./ids') : window.kanbanIds;
-    const pathname = (kanbanIds.routePath(path) || String(path)).split('?')[0];
+    const pathname = String(path).split('?')[0];
     for (const route of ROUTES) {
       if (route.method !== method) continue;
       const m = route.pattern.exec(pathname);

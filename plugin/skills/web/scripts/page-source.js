@@ -33,7 +33,7 @@ const pageSourceModule = (() => {
   const tempIds = node ? require('./temp-ids') : window.kanbanTempIds;
   const ids = node ? require('../web/ids') : window.kanbanIds;
   const { plain } = node ? require('./field-value') : window.kanbanFieldValue;
-  const { deskJob } = node ? require('./desk-job') : window.kanbanDeskJob;
+  const { deskJob, canonical, UNREADABLE } = node ? require('./desk-job') : window.kanbanDeskJob;
 
   const DESK_LOCK = 'a desk job';
   const LOCKED_FEATURES = ['logbook', 'scratchpad', 'todos', 'groups'];
@@ -201,12 +201,13 @@ const pageSourceModule = (() => {
     }
 
     async function answer(method, path, body) {
-      const at = ids.routePath(path);
-      if (at !== null) path = at;
-      const pathname = path.split('?')[0];
       const write = method !== 'GET';
       const deskReason = write ? deskJob({ method, path, body }) : null;
       if (deskReason) return reply(403, { error: deskReason });
+      const at = canonical(ids.routePath(path));
+      if (at === null) return write ? reply(403, { error: UNREADABLE }) : { status: 404, json: null, text: 'not found', statusText: 'Not Found' };
+      path = at;
+      const pathname = path.split('?')[0];
       const sent = clone(body);
       const list = write ? TODO_EDIT.exec(pathname) : null;
       const folded = list ? foldedChange(list[1]) : null;
