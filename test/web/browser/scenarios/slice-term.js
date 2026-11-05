@@ -90,11 +90,13 @@ module.exports = {
 
     // A page that is being left still answers for a moment after the navigation
     // starts, so a wait on the new page would read the old one. The old page is
-    // marked, and the new one is the first without the mark.
+    // marked, and the new one is the first without the mark. A new document has no
+    // mark from its first moment, before the parser has reached the search box or
+    // the script that wires it, so the wait also holds for the load to be complete.
     const load = async (url, key) => {
       await ev('window.__stale=true');
       await open(url, key);
-      return waitFor('!window.__stale', 10000);
+      return waitFor(`!window.__stale&&document.readyState==='complete'&&!!document.getElementById('search-input')`, 10000);
     };
     const write = (text) => ev(`(()=>{const i=document.getElementById('search-input');i.value=${JSON.stringify(text)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     const idsExpr = (selector) => `JSON.stringify([...new Set([...document.querySelectorAll(${JSON.stringify(selector)})].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b))`;

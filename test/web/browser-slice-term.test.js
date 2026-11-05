@@ -206,6 +206,25 @@ test('the scenario reads no page global, so a rename in the page cannot break it
   assert.ok(!/\b(state|selectedIds|autoRefreshTick|renderGraphView)\b/.test(src.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n')));
 });
 
+test('after every page it opens, the scenario waits for the load to complete and the search box to exist before it writes to the box', async () => {
+  let sinceOpen = [];
+  const unready = [];
+  const page = {
+    ev: async (expr) => {
+      if (/i\.value=/.test(expr) && !sinceOpen.some((w) => /readyState==='complete'/.test(w) && /getElementById\('search-input'\)/.test(w))) unready.push(expr);
+      return '';
+    },
+    send: async () => {},
+    click: async () => {},
+    open: async () => { sinceOpen = []; },
+    waitFor: async (expr) => { sinceOpen.push(expr); return true; },
+    shot: async () => {},
+    check: () => {},
+  };
+  await sliceTerm.run(page);
+  assert.deepStrictEqual(unready, [], 'a write came before the wait for the box: a page still loading has no #search-input to write to');
+});
+
 test('run against a stand-in page, the scenario writes each query to the box and makes its checks without throwing', async () => {
   const written = [];
   const opened = [];
