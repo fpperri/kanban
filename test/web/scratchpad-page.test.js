@@ -46,7 +46,7 @@ test('the gear gains a Scratchpad page right after the Logbook\'s, through the h
 
 test('the page keeps what the board payload says in state.scratchpad, seeded null', () => {
   assert.match(appSrc, /state\.scratchpad = data\.scratchpad \|\| null;/);
-  assert.match(appSrc, /groups: null, scratchpad: null, iterations: false, settings: null \};/);
+  assert.match(appSrc, /groups: null, scratchpad: null, iterations: false, settings: null, archiveHeld: null \};/);
 });
 
 test('the palette takes its tabs from noteTabs and draws the Scratchpad tab from scratchPanel', () => {
