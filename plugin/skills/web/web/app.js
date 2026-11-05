@@ -8168,14 +8168,14 @@ document.addEventListener('click', (e) => {
 // Esc closes the picker and ONLY the picker — the combobox Esc rule. Capture
 // phase so this runs before the document-level bubble Esc handler (popup
 // close / search clear) no matter where focus sits (input, 📅 button, or a popover
-// button), and stopPropagation keeps that handler from also firing on the
-// same press.
+// button), and stopImmediatePropagation keeps that handler, and the group dialog's and the tray's own
+// capture listeners on the document (added after this one), from also firing on the same press.
 document.addEventListener('keydown', (e) => { // key-guard: exempt (acts only while the date picker is open, which Esc closes from its field)
   if (e.key !== 'Escape' || !datePickerFor) return;
   const input = datePickerFor;
   closeDatePicker();
   input.focus();
-  e.stopPropagation();
+  e.stopImmediatePropagation();
 }, true);
 
 // position:fixed goes stale the moment the anchor moves under it: close on

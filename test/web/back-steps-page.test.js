@@ -990,6 +990,25 @@ test('the date picker alone over a selection is closed by Back, and the selectio
   await afterPopup(s);
 });
 
+// One Esc closes one layer: the date picker's capture listener keeps the dialog's and the tray's own capture
+// listeners on the document from running on the same press.
+test('one Esc over the date picker closes only the picker, over the group dialog and over the tray', async () => {
+  const over = {
+    'group-dialog': { stand: (s) => s.page.run('openGroupDialog("Group", { querySelector: () => null })'), up: (s) => s.shown('#group-dialog') },
+    tray: { stand: (s) => s.elements['#tray-sheet'].classList.remove('hidden'), up: (s) => s.shown('#tray-sheet') },
+  };
+  for (const [name, layer] of Object.entries(over)) {
+    const s = await selectedWithEntry();
+    layer.stand(s);
+    s.page.run('datePickerFor = { value: "", focus() {} }');
+    await esc(s);
+    assert.strictEqual(s.page.run('datePickerFor'), null, `the first Esc closed the picker over the ${name}`);
+    assert.ok(layer.up(s), `and left the ${name} standing`);
+    await esc(s);
+    assert.ok(!layer.up(s), `the second Esc closed the ${name}`);
+  }
+});
+
 test('the group dialog is closed by Back, as Esc closes it, and the selection stands', async () => {
   const s = await selectedWithEntry();
   s.page.run('openGroupDialog("Group", { querySelector: () => null })');
