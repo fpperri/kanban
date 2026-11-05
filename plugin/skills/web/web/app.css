@@ -244,6 +244,11 @@
    phase 3, style alignment): system stacks only, no webfont link ever — same
    deliberate reasoning as render.py, a webfont link is a call home on every view. */
 body { font: 400 15px/1.5 ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; background: var(--paper); color: var(--ink); padding: 16px; }
+/* The page ring: every control Tab reaches shows 2px of accent, clear of its edge. It is declared at the lowest
+   specificity, so a control's own ring (or its own cue, where an outline would hide it) wins; a container the page
+   focuses by script (tabindex -1) shows none. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[tabindex="-1"]:focus-visible { outline: none; }
 /* The top bar (title, search, view-switch/refresh/notif
    buttons) stays visible above the board — position: sticky against the
    document's own scroll. Needs an opaque background (matches <body>'s) so
@@ -1253,13 +1258,20 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* Ghost stub: a hidden card that a visible one waits on / is waited on by,
    kept on the map (never silently dropped) but muted and dashed so
    it reads as "not part of the current search slice" rather than a normal node. */
-.map-node.ghost rect { fill: transparent; stroke: var(--line-strong); stroke-dasharray: 4 3; }
+/* The dashed edge is a ghost stub's only cue, so it is a mark, not a rule: muted ink clears 3:1 where line-strong does
+   not. A waiting or high-priority card keeps its stroke on a stub (a node has no other mark for those states), and
+   waiting wins when both apply, as above. */
+.map-node.ghost rect { fill: transparent; stroke: var(--mut); stroke-dasharray: 4 3; }
+.map-node.ghost.high rect { stroke: var(--id-high); }
+.map-node.ghost.waiting rect { stroke: var(--id-waiting); }
 .map-node.ghost .map-node-title, .map-node.ghost .map-node-id { fill: var(--mut); }
+.map-node.ghost .map-node-title--prompt-fallback { fill-opacity: 1; }
 .map-node.ghost:not(.missing) { cursor: pointer; }
 .map-node.missing rect { stroke-dasharray: 2 3; }
 .map-node.missing { cursor: default; }
 .map-edge { fill: none; stroke: var(--mut); stroke-width: 1.6px; }
-.map-edge.ghost-edge { stroke-opacity: 0.5; }
+.map-edge.ghost-edge { stroke-dasharray: 4 3; }
+#map-arrow path { fill: var(--mut); }
 /* Back-edge: only possible when a cycle forced the layering to break order —
    routed as a side-bowed curve (see buildMapSvg in app.js) and colored like
    the board's own "waiting" amber so a cycle reads as a visible anomaly
@@ -1298,6 +1310,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .map-align-center .map-isolated-row { justify-content: center; }
 /* A parent line is a dependency edge's grey, dashed, with a dot on the parent's end. */
 .map-parent-line { stroke-dasharray: 6 4; }
+/* A parent line to a ghost is dotted: 6 4 is a live parent line, 4 3 an edge to a ghost, and the dash is what tells them apart. */
+.map-parent-line.ghost-edge { stroke-dasharray: 2 4; }
 .map-parent-dot circle { fill: var(--mut); }
 /* Rich nodes carry HTML rows (type chip, altitude badge, roll-up bar) in foreignObjects. */
 .map-node foreignObject { font-size: 14px; color: var(--ink); overflow: hidden; }
@@ -1601,7 +1615,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-block-title { fill: var(--ink); font-weight: 600; font-size: calc(13px / var(--graph-k, 1)); stroke-width: calc(4px / var(--graph-k, 1)); }
 .graph-caption-name { fill: var(--ink); }
 .graph-loose-caption { font-style: italic; }
-.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { outline: none; stroke: var(--accent-soft); }
+.graph-caption:focus-visible, .graph-block-caption:focus-visible, .graph-block-title:focus-visible { stroke: var(--accent-soft); }
 .graph-caption:focus-visible .graph-caption-name, .graph-block-caption:focus-visible .graph-caption-name, .graph-block-title:focus-visible .graph-caption-name { fill: var(--accent); }
 .graph-tip { position: absolute; z-index: 3; max-width: min(24em, 100%); padding: 6px 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 0.78em; line-height: 1.4; pointer-events: none; }
 .graph-tip[hidden] { display: none; }
@@ -1650,7 +1664,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-node.status-palette-7 { color: var(--hash-h); }
 .graph-dot { fill: currentColor; stroke: none; stroke-linejoin: round; }
 .graph-node.is-done .graph-dot { fill: var(--surface); stroke: currentColor; stroke-width: 1.8px; }
-.graph-node.archived { opacity: 0.65; }
+/* Archived is a location, told apart by a dashed ring, never by dimming the dot: a filled dot keeps its status colour
+   and gains a muted dashed edge, a done (hollow) one keeps its own colour's ring and dashes it. The done rule's :where() keeps it no heavier than the
+   selected, hovered and focused strokes below, which must win over it. */
+.graph-node.archived .graph-dot { stroke: var(--mut); stroke-width: 1.8px; stroke-dasharray: 2.5 2; }
+.graph-node.archived:where(.is-done) .graph-dot { stroke: currentColor; }
 .graph-kids-ring, .graph-flag-ring { fill: none; stroke-width: 1.4px; pointer-events: none; }
 .graph-node.has-kids .graph-kids-ring { stroke: var(--mut); }
 .graph-flag-ring { stroke: transparent; }
@@ -1707,7 +1725,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .gantt-week-mark { position: absolute; top: 3px; color: var(--mut); font-size: 0.68em; white-space: nowrap; padding-left: 3px; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; }
 .gantt-week-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 1px solid var(--line-soft); }
 .gantt-day-line { border-left-style: dashed; }
-.gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid var(--accent); opacity: 0.65; z-index: 1; }
+.gantt-today-line { position: absolute; top: 22px; bottom: 0; width: 0; border-left: 2px solid var(--accent); z-index: 1; }
 .gantt-row { height: 26px; }
 .gantt-row.gantt-group-row { height: 20px; line-height: 20px; font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--mut); }
 .gantt-group-row.status-backlog { color: var(--st-backlog); } /* cyan (was grey — read as archived) */
@@ -2419,7 +2437,8 @@ button.np-note-card:hover { color: var(--accent); }
 .pick-btn:disabled { opacity: .5; cursor: default; }
 .pick-meta { color: var(--mut); font-size: 0.85em; white-space: nowrap; }
 .context-menu button { background: transparent; border: none; text-align: left; padding: 6px 10px; border-radius: .15rem; }
-.context-menu button:hover, .context-menu button:focus-visible { background: var(--btn-hover); outline: none; }
+.context-menu button:hover, .context-menu button:focus-visible { background: var(--btn-hover); }
+.context-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .context-menu button.danger:hover, .context-menu button.danger:focus-visible { background: var(--crit-soft); color: var(--crit); }
 .context-menu.canvas-menu button:not(#ctx-isolate) { display: none; }
 /* The card menu's groups (menu-nest-ui.js): a row that opens a panel of entries beside it, or under it on a phone. */
