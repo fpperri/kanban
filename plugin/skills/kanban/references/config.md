@@ -16,6 +16,8 @@ prefixes:         # a prefix for a card type: a new card of that type takes it, 
 counters: { G: 3, O: 5, I: 2 }   # one line, one counter per prefix: the next number of each
 groups: .groups   # the folder of the board's groups; absent = no groups (a human writes it)
 iterations: true  # the web's iteration dropdown; needs groups; absent = off (a human writes it)
+snapshotQuery: tags:ui | group:I2   # the Snapshot query the built page carries, in the search box's words; absent = every live card
+snapshotArchive: true               # the built page carries the archive too; absent = it does not
 vars:             # names for the logbook:, scratchpad: and todos: paths, used as <cortex> below; a human writes it
   cortex: <repo>/.cortex
 assignees:        # registry of who can own cards; suggests handles, never validates
@@ -109,6 +111,8 @@ A `field:*` entry, such as `tags:*` or `assignee:*`, expands in the web app's se
 **`vars` — names for the kit's paths.** A human writes the block; the web's gear never writes it. See *The placeholders in the logbook, scratchpad and todo paths* in `references/notes-kit.md`.
 
 **`typesOn` — Types off.** `typesOn: false` makes the web and the snapshot show no types (display only), so keep writing `type:` and prefixed ids as ever. A human writes the line, or switches it in the web's gear sheet; nothing that services the board invents it.
+
+**`snapshotQuery` and `snapshotArchive` — what the built page carries.** `snapshotQuery: tags:ui | group:I2` is the **Snapshot query** (GLOSSARY.md) a build or refresh of the Web with the board inside uses when it is given no `--query`: the text of the line, in the search box's words, read by the same search module; the gear writes it quoted when it starts with `#`, a quote or another YAML indicator (`[ { & * ! % > | @`), or holds ` #`, so `#3` stays a query and not a comment. Absent or empty = every live card. `snapshotArchive: true` makes the build carry the archive too; the search words cannot say that, so it is its own line, and absent or any other value = no archive. A flag of the build wins for that one build: `--query` (an empty one too), `--archive` and `--no-archive`. A query that holds no search term, or that matches no card, refuses the build with the reason and writes no file, and a page that would pass 16 MB is refused with its size. The gear sheet (This board, Snapshot) shows and saves both at the desk, and refuses a query the search module cannot read; in a built page it shows them read only. A human writes them, or sets them in the gear; nothing that services the board invents them.
 
 **Who writes what.** Only a human, or a session a human tells to, writes `hierarchy:`, `pills:` and `icon:`; nothing that services the board invents them. The starter config (above) is the one source that writes `hierarchy:`, `prefixes:` and `icon:` for a new board, and `apply-starter.js` copies it to an existing one when a human asks. They are not exceptions to "never invent a config key" and have no seed trigger. `prefixes:` and `idDigits:` follow the same rule: only a human writes them (the web's gear sheet writes `idDigits:` for the human, one line, and `prefixes:` one block, and shows `counters:` read only). The `assignees`, `priorities`, `tags` and `statuses` lists are the ones SKILL.md describes.
 

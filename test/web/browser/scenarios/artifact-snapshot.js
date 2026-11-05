@@ -89,6 +89,11 @@ module.exports = {
       check('and its switch and folder stand still', await ev(`[...document.querySelectorAll('#prefs-board-page .prefs-opt, #prefs-board-page input[type="text"], #prefs-board-page button[type="submit"]')].every((el)=>el.disabled)`));
       check('the Types page opens', await waitFor(pageButton('Types'), 6000) && await waitFor(`/Types/.test(${pageText('#prefs-board-page .prefs-page-title')})`, 6000));
       check('it says "a desk job" too', await waitFor(`!!document.querySelector('#prefs-board-page .prefs-desk-lock')&&/Locked\\. a desk job/.test(${pageText('#prefs-board-page .prefs-desk-lock')})`, 6000), await ev(pageText('#prefs-board-page')));
+      check('the Snapshot page opens', await waitFor(pageButton('Snapshot'), 6000) && await waitFor(`/Snapshot/.test(${pageText('#prefs-board-page .prefs-page-title')})`, 6000));
+      check('it shows the query the page was built with, not an empty one, and its controls stand still', await waitFor(`!!document.querySelector('#pf-snapshotQuery')&&document.querySelector('#pf-snapshotQuery').value==='#3 | #5'&&[...document.querySelectorAll('#prefs-board-page .prefs-opt, #prefs-board-page input[type="text"], #prefs-board-page button[type="submit"]')].every((el)=>el.disabled)`, 6000), await ev(pageText('#prefs-board-page')));
+      check('and the archive reads as off, as the header says', await ev(`document.querySelector('#prefs-board-page .prefs-opt[data-value="off"]').getAttribute('aria-pressed')==='true'`));
+      const keptSave = await ev(`window.kanbanSourceInUse.request('POST','/api/config',{key:'snapshotQuery',value:'tags:ui'}).then((r)=>JSON.stringify({status:r.status}))`);
+      check('a save of the query answers 403', /"status":403/.test(keptSave), keptSave);
       const saved = await ev(`window.kanbanSourceInUse.request('POST','/api/config',{key:'logbook',value:'other'}).then((r)=>JSON.stringify({status:r.status,error:r.json&&r.json.error}))`);
       check('a settings save answers locked, with "a desk job"', /"status":403/.test(saved) && /a desk job/.test(saved), saved);
       check('and queues nothing', (await ev(PILL)) === '' && (await ev(TRAYS)) === 0);

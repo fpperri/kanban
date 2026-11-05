@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseSearchQuery, cardMatchesQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
+const { parseSearchQuery, searchQueryProblem, cardMatchesQuery, filterCards, searchSuggestionItems } = require('../../plugin/skills/web/web/search');
 
 // --- parseSearchQuery: the search syntax table ----------------------------
 
@@ -340,4 +340,10 @@ test('tree: and path: follow a parent written as the board\'s own name when the 
   assert.deepStrictEqual(ids('tree:12', { board: 'kanban' }), [12, 13]);
   assert.deepStrictEqual(ids('path:13', { board: 'kanban' }), [12, 13]);
   assert.deepStrictEqual(ids('tree:12'), [12]);
+});
+
+test('searchQueryProblem names why a query cannot be kept, and is empty for one the box reads', () => {
+  for (const ok of ['', '   ', 'tags:ui', '#3 | group:I2', 'fix(auth)', 'title:"two words"']) assert.strictEqual(searchQueryProblem(ok), '', JSON.stringify(ok));
+  for (const bad of ['()', '|', 'tags:', '( | )', '""']) assert.match(searchQueryProblem(bad), /no search term/, bad);
+  assert.match(searchQueryProblem('tags:ui\nstatus:doing'), /one line/);
 });

@@ -27,7 +27,7 @@ A plain request ("give me the board") carries the live cards and leaves the arch
 node <skill dir>/../web/scripts/artifact-build.js <board dir> --out <file.html> --query "<search words>" --archive
 ```
 
-Leave `--archive` off to leave the archive out, and `--query` off to take every live card. The page's header shows the query it was built with. A card the query leaves out carries nothing: not its file, and not the notes, scratchpad or todo files made for it. A group still lists every member by id, so its member line counts the ones left out, and a group delete in the page, applied to the board, takes them too. The build refuses when the page would pass 16 MB, naming its size and suggesting a narrower query, and writes no file.
+The board keeps its own choice in `config.yaml`: `snapshotQuery` (the search words) and `snapshotArchive: true` (the archive). A build and a refresh read them when no flag is given (the kanban skill's config reference; the gear's Snapshot page sets them), and a board without them carries every live card and no archive. A flag wins for one build: `--query ""` takes every live card, `--archive` adds the archive and `--no-archive` leaves it out of a board that keeps it on. The page's header shows the query it was built with. A card the query leaves out carries nothing: not its file, and not the notes, scratchpad or todo files made for it. A query that holds no search term, or that matches no card, refuses the build with the reason, writes no file and exits 2, rather than carry every card or an empty page. A group still lists every member by id, so its member line counts the ones left out, and a group delete in the page, applied to the board, takes them too. The build refuses when the page would pass 16 MB, naming its size and suggesting a narrower query, and writes no file.
 
 A **Private board** (`private: true`) never leaves the desk without the person's word: ask every time before you publish a Board artifact, make a file, or apply the tray from Cowork or from a cloud session. A yes to one is not a yes to the next.
 
@@ -39,6 +39,7 @@ The same build is the page. There is one Board artifact per board, its URL in `c
 2. Build the file into a session scratchpad directory, never the repo root.
 3. First publish, with no `artifact:` line: publish with the Artifact tool, passing the `capabilities` below (the database rule that makes `tray` owner-only, plus `user`). Record the URL as `artifact:` in `config.yaml` on the line after `name:`, and file the notification the `kanban` skill's contract asks for.
 4. Refresh, with an `artifact:` line: read the artifact by that URL, then publish by that URL with `capabilities` omitted. The rule and the documents carry forward. Never send `db` without its rules: that replaces the stored rules and opens the tray to everyone who can open the page.
+   If the build exits 2 because the saved `snapshotQuery` holds no search term or now matches no card (an apply can move every card a query such as `status:doing` named), leave the published page as it is, tell the person which saved query it was and why, and say how to change it: the gear's Snapshot page (This board) or the `snapshotQuery:` line of `config.yaml`, or a one-off `--query`.
 5. Refresh after every apply, and whenever the person asks, and never on your own otherwise.
 
 ```json

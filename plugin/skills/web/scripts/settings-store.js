@@ -23,6 +23,7 @@ const cs = require('./card-store');
 const yaml = require('./yaml-list');
 const { StatusError, posix, versionOf } = require('./store-common');
 const iter = require('./iteration-folders');
+const { searchQueryProblem } = require('../web/search');
 const { localToday } = require('../web/days');
 
 // The features that take a folder. Adding one is a line here, its reader in config-store and its
@@ -34,7 +35,7 @@ const FOLDER_KEYS = {
   groups: { label: 'groups' },
 };
 
-const WRITABLE = ['iterations', 'typesOn', 'idDigits', ...Object.keys(FOLDER_KEYS)];
+const WRITABLE = ['iterations', 'typesOn', 'idDigits', 'snapshotQuery', 'snapshotArchive', ...Object.keys(FOLDER_KEYS)];
 
 const MAX_ID_DIGITS = 15;
 
@@ -143,6 +144,8 @@ function readSettings(dir, cards) {
     prefixClashes: config.prefixClashes.map((c) => ({ ...c })),
     counters: { ...config.counters },
     typesOn: config.typesOn,
+    snapshotQuery: config.snapshotQuery,
+    snapshotArchive: config.snapshotArchive,
     types: config.types.map((t) => ({ ...t })),
     hierarchy: [...config.hierarchy],
     typeUse: typeUse(dir, cards),
@@ -274,10 +277,15 @@ function checkVersion(dir, version) {
   if (version !== configVersion(dir)) throw new StatusError('config.yaml changed on disk after this page read it, so nothing was saved. The page reads it again.', 409);
 }
 
+// A query as the line holds it: bare unless the reader would not give the same text back (a ` #` starts
+// a comment; a leading quote, `#` or other YAML indicator would not read as text).
+const queryLine = (query) => (yaml.scalar(query) === query && !/^["'#\[{&*!%>|@`?-]/.test(query) ? query : yaml.quote(query));
+
 // One change from the page: { key, value } for a line, { block, value } for a whole block (types,
 // hierarchy or prefixes: a list, or a map for prefixes; empty or absent removes it), each with the
 // `version` the page read. A folder key takes a path (on, or a new folder) or null (off); iterations
-// true or false; typesOn true (removes the line) or false; idDigits a whole number. Returns the
+// true or false; typesOn true (removes the line) or false; snapshotArchive true (false removes the line);
+// snapshotQuery search words (empty removes the line); idDigits a whole number. Returns the
 // settings after the write.
 function writeSetting(dir, body) {
   const { key, block, value, version } = body && typeof body === 'object' ? body : {};
@@ -303,6 +311,15 @@ function writeSetting(dir, body) {
   } else if (key === 'typesOn') {
     if (value !== true && value !== false) throw new StatusError('Types are on or off.', 400);
     writeLine(dir, 'typesOn', value ? null : 'false');
+  } else if (key === 'snapshotArchive') {
+    if (value !== true && value !== false) throw new StatusError('The archive is carried or not.', 400);
+    writeLine(dir, 'snapshotArchive', value ? 'true' : null);
+  } else if (key === 'snapshotQuery') {
+    if (value !== null && typeof value !== 'string') throw new StatusError('The query is text: search words.', 400);
+    const query = (value || '').trim();
+    const problem = searchQueryProblem(query);
+    if (problem) throw new StatusError(problem, 400);
+    writeLine(dir, 'snapshotQuery', query === '' ? null : queryLine(query));
   } else {
     const n = typeof value === 'string' && /^[0-9]+$/.test(value.trim()) ? Number(value) : value;
     if (!Number.isInteger(n) || n < 1 || n > MAX_ID_DIGITS) throw new StatusError(`idDigits is a whole number from 1 to ${MAX_ID_DIGITS}.`, 400);

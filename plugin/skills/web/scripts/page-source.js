@@ -41,9 +41,12 @@ const pageSourceModule = (() => {
   // The gear's settings as the page shows them: read, never saved. Every feature the gear can switch shows
   // locked through the gear's own locked path (the reason a folder set by hand outside the board gets), and
   // `lock` is the same reason for the pages that have no feature to lock.
-  function lockedSettings(settings) {
+  // The Snapshot page shows what this page carries (the query and archive it was built with), not the
+  // config copy inside it, which a flag of the build may have overridden.
+  function lockedSettings(settings, snapshot) {
     if (!settings) return settings;
     const out = { ...settings, lock: DESK_LOCK };
+    if (snapshot) { out.snapshotQuery = snapshot.query || ''; out.snapshotArchive = !!snapshot.archive; }
     for (const key of LOCKED_FEATURES) if (settings[key]) out[key] = { ...settings[key], locked: true, reason: DESK_LOCK };
     return out;
   }
@@ -235,7 +238,7 @@ const pageSourceModule = (() => {
           boardDir: '',
           source: sourceInfo(),
           ...(board.snapshot ? { snapshot: board.snapshot } : {}),
-          settings: lockedSettings(result.body.settings),
+          settings: lockedSettings(result.body.settings, board.snapshot),
         });
       }
       return reply(result.status, result.body);

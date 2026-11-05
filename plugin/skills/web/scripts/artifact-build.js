@@ -10,6 +10,9 @@
 // UTF-8 (a picture, a binary) is left out. `buildPage` is for tests and other scripts; the command is
 // the same call with a file written.
 //
+// What the page carries comes from the board's config.yaml (snapshotQuery, snapshotArchive) unless a flag
+// is given: --query and --archive / --no-archive win for one build.
+//
 // A Snapshot query, in the Web's search words, picks the cards the page carries (search.js, the module the
 // search box runs): by default the live cards, with `archive` the archived ones too. The query is read
 // over the whole board, archive included, as the box reads it, so a graph term walks cards it does not
@@ -35,7 +38,7 @@ const cs = require('./card-store');
 const gs = require('./group-store');
 const iter = require('./iteration-folders');
 const ids = require('../web/ids');
-const { parseSearchQuery, filterCards } = require('../web/search');
+const { parseSearchQuery, filterCards, searchQueryProblem } = require('../web/search');
 const { makeRoute } = require('./route');
 const { routeSources, configFolders, folderBefore } = require('./route-sources');
 const { readApplied, takenBy } = require('./applied-ids');
@@ -213,11 +216,18 @@ function snapshotLabel(query, archive) {
 
 const megabytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query = '', archive = false, maxBytes = MAX_BYTES }) {
+// `query` and `archive` left out (undefined) are what the board keeps in config.yaml (snapshotQuery,
+// snapshotArchive); given, they win for this build, an empty query included.
+function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query, archive, maxBytes = MAX_BYTES }) {
   if (!boardDir || !fs.existsSync(boardDir) || !fs.statSync(boardDir).isDirectory()) throw new Error(`Board dir not found: ${boardDir}`);
   const dir = fs.realpathSync(path.resolve(boardDir));
   const name = makeRoute(dir)('GET', '/api/board').body.projectName;
-  const asked = String(query || '').trim();
+  const kept = cfg.readConfig(dir);
+  const asked = String(query === undefined ? kept.snapshotQuery : query || '').trim();
+  if (archive === undefined) archive = kept.snapshotArchive;
+  const where = query === undefined && asked ? 'The saved snapshotQuery in config.yaml' : 'The query';
+  const problem = searchQueryProblem(asked);
+  if (problem) throw new Error(`${where} cannot be read, so the page is not built (${JSON.stringify(asked)}). ${problem}`);
   const board = {
     name,
     id: crypto.createHash('sha256').update(`${name}\0${dir}`).digest('hex').slice(0, 12),
@@ -227,6 +237,10 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
   const taken = takenBy(readApplied(dir));
   if (Object.keys(taken).length) board.taken = taken;
   const picked = pickCards(dir, name, { query: asked, archive: !!archive });
+  if (asked && picked.carried.size === 0) {
+    const archived = picked.leftOut.size && pickCards(dir, name, { query: asked, archive: true }).carried.size;
+    throw new Error(`${where} ${JSON.stringify(asked)} matches no card${archived ? ', but it matches archived ones and the archive is off' : ''}, so the page is not built. Change the query${archived ? ' or carry the archive' : ''}.`);
+  }
   const ownerOf = ownerOfFile(dir);
   const placed = boardFiles(dir, (abs) => {
     if (picked.leftFiles.has(normal(abs))) return true;
@@ -282,12 +296,13 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
 function main(argv) {
   let boardDir = null;
   let out = null;
-  let query = '';
-  let archive = false;
+  let query;
+  let archive;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--out') out = argv[++i];
     else if (argv[i] === '--query') { query = argv[++i]; if (query === undefined) return usage('--query takes the search words'); }
     else if (argv[i] === '--archive') archive = true;
+    else if (argv[i] === '--no-archive') archive = false;
     else if (!boardDir) boardDir = argv[i];
     else return usage(`unexpected argument ${argv[i]}`);
   }
@@ -306,7 +321,7 @@ function main(argv) {
 
 function usage(message) {
   if (message) console.error(message);
-  console.error('usage: node artifact-build.js <boardDir> --out <file.html> [--query <search words>] [--archive]');
+  console.error('usage: node artifact-build.js <boardDir> --out <file.html> [--query <search words>] [--archive | --no-archive]');
   return 2;
 }
 

@@ -32,6 +32,7 @@ const rows = `[...document.querySelectorAll('#prefs-board-page .prefs-table tbod
 module.exports = {
   name: 'settings',
   board: 'groups',
+  expectedErrors: [/status of 400 \(Bad Request\).*\/api\/config/],
   timeoutMs: 100000,
   async run(page) {
     const { ev, send, open, waitFor, centre, click, key, check } = page;
@@ -167,11 +168,27 @@ module.exports = {
     check('the Counters page lists nextId and the counters, read only', counterRows[0].join() === 'nextId,30' && counterRows.some((r) => r.join() === 'I,3') && counterRows.length === 4
       && await ev(`document.querySelectorAll('#prefs-board-page input, #prefs-board-page .prefs-opt').length`) === 0, counterRows);
 
+    // --- Snapshot ------------------------------------------------------------------------------------
+    await goPage('board:snapshot');
+    check('the Snapshot page shows an empty query and the archive off', await ev(pageTitle) === 'Snapshot' && await ev(`${field('snapshotQuery')}.value`) === '' && await ev(switchOff('snapshotArchive')));
+    await type('snapshotQuery', '()');
+    await save('snapshotQuery');
+    check('a query the parser cannot read is refused with its reason, the text stays and the file is untouched', await waitFor(`/no search term/.test(${errorText})`, 3000) && await ev(`${field('snapshotQuery')}.value`) === '()' && !config().includes('snapshotQuery'), await ev(errorText));
+    await type('snapshotQuery', '#3 | tags:ui');
+    await save('snapshotQuery');
+    check('a good query saves as one quoted line below the feature lines', await waitConfig((c) => /\niterations: true\nsnapshotQuery: "#3 \| tags:ui"\n/.test(c)));
+    await clickOn('.prefs-opt[data-switch="snapshotArchive"][data-value="on"]');
+    check('the archive switch writes snapshotArchive: true below the query', await waitConfig((c) => /\nsnapshotQuery: "#3 \| tags:ui"\nsnapshotArchive: true\n/.test(c)) && await waitFor(switchOn('snapshotArchive'), 3000));
+    await type('snapshotQuery', '');
+    await save('snapshotQuery');
+    await clickOn('.prefs-opt[data-switch="snapshotArchive"][data-value="off"]');
+    check('clearing the query and switching the archive off remove both lines', await waitConfig((c) => !c.includes('snapshotQuery') && !c.includes('snapshotArchive')) && await waitFor(switchOff('snapshotArchive'), 3000));
+
     // --- Esc and focus ---------------------------------------------------------------------------
     await key('Escape');
     check('on a wide sheet Esc closes it and hands focus to the gear', await waitFor(SHEET_SHUT, 2500) && await ev(GEAR_FOCUSED));
     await openSheet();
-    check('the sheet opens again on the page it had', await ev(`document.querySelector(${JSON.stringify(item('board:counters'))}).getAttribute('aria-current')==='page'`));
+    check('the sheet opens again on the page it had', await ev(`document.querySelector(${JSON.stringify(item('board:snapshot'))}).getAttribute('aria-current')==='page'`));
     await key('Escape');
     await waitFor(SHEET_SHUT, 2500);
 

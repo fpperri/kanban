@@ -351,6 +351,16 @@ function parseSearchQuery(raw, board) {
   return searchAltsToTerms(parseSearchAlts(lexed.tokens), lexed.text, board);
 }
 
+// Why a query cannot be kept as a standing one, '' when it can: the box reads whatever it is given, so
+// the only queries to refuse are one that is not a single line and a non-empty one that holds no term
+// (`()`, `|`, `tags:`), which would match every card rather than say so.
+function searchQueryProblem(raw) {
+  const text = String(raw == null ? '' : raw);
+  if (/[\r\n]/.test(text)) return 'A query is one line of search words.';
+  if (text.trim() !== '' && parseSearchQuery(text).length === 0) return 'The query has no search term: write words like tags:ui, status:doing or group:I2.';
+  return '';
+}
+
 // Runs of whitespace as one space, so a phrase or a whole title or body reads
 // the same across a line break.
 function searchFlat(text) {
@@ -976,13 +986,14 @@ function searchSuggestionItems(raw, caret, cards, ctx) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    parseSearchQuery, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
+    parseSearchQuery, searchQueryProblem, searchOtherBoardMentions, cardMatchesQuery, filterCards, resolveTerms, searchSuggestionItems,
     searchTermText, searchAddTerm, searchBracket, searchHasAlt, searchAddAlt, searchWithTerms, searchRemoveAlt, searchRemoveGrownAlt,
     searchSplitSlice, searchJoinSlice, searchWithoutCuts, searchSetSlice, searchCutOnly,
     searchIsolateText, searchBoxSaying, searchIsolateBox, searchMirrorBox, searchBoxMirrors, searchBoxHoldsTyped, searchIsolateRestore,
   };
 } else {
   window.parseSearchQuery = parseSearchQuery;
+  window.searchQueryProblem = searchQueryProblem;
   window.searchOtherBoardMentions = searchOtherBoardMentions;
   window.cardMatchesQuery = cardMatchesQuery;
   window.filterCards = filterCards;
