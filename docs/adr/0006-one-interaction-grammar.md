@@ -91,3 +91,5 @@ on their empty space no meaning. The page reads a double click as the second
 click of a pair (the click's count), as it reads a peek: the first click's
 repaint can replace the element under the pointer, and a double click event aimed
 at the replaced element never reaches the document.
+
+**Note (2026-11-04)** — Ctrl/Cmd+click toggles a card in every view, not only the Graph. In the Graph, Shift+click toggles one card as well; in the other views Shift+click keeps the range.

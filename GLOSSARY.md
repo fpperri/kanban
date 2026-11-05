@@ -349,7 +349,7 @@ Four skills, one board (`kanban-artifact` is new and waits for the switch, which
 | Surface | For | Medium |
 | --- | --- | --- |
 | `kanban` | the AI | file contracts + scripts; also defines `config.yaml` and `notifications.md` and when the AI must notify |
-| `kanban-web` | the human, desktop | live browser editor |
+| `kanban-web` | the human, at a browser (a phone through a VS Code tunnel) | live browser editor |
 | `kanban-artifact` | the human, phone/tablet/Cowork | the Web built with the board inside (the **Snapshot** above), a **Board artifact** or a file; saves are queued changes in a tray that Claude applies |
 | `kanban-snapshot` | the human, phone/tablet/Cowork, until the switch | the older generated single-file HTML, edits queue as a change payload |
 

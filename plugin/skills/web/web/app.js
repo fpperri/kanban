@@ -1317,8 +1317,9 @@ function renderBoard() {
 }
 
 // Publishes the sticky page header's real rendered height as
-// a CSS var so each column-header's `top: var(--board-header-h)` (app.css)
-// parks it directly under the page header instead of a guessed fixed px
+// the CSS var --board-header-h, which app.css subtracts from the viewport height
+// of main#board and the map, graph, calendar and gantt views, so each fits under
+// the page header instead of a guessed fixed px
 // offset — the header wraps to a second row on a narrow viewport, a long
 // project name, or the notif badge appearing, so a hardcoded value would
 // drift out of sync with the header it's supposed to sit below. Wired at
@@ -2748,7 +2749,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { clockTick(); autoRefreshTick(); }
   });
-  // Sticky column headers park below the sticky page
+  // The views size themselves under the sticky page
   // header via --board-header-h — sync it now (static markup, already
   // parsed) and keep it current across wraps/resizes.
   syncBoardHeaderHeight();
