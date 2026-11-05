@@ -256,3 +256,125 @@ test('the command takes --query and --archive', () => {
     assert.strictEqual(spawnSync(process.execPath, [SCRIPT, dir, '--out', out, '--query'], { encoding: 'utf8' }).status, 2);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+// --- a board keeps what its page carries: snapshotQuery and snapshotArchive in config.yaml ---------
+
+function keeping(lines) {
+  return tmpTree({
+    'p/.kanban/config.yaml': `name: tagged\nnextId: 9\n${lines}`,
+    'p/.kanban/0001.one.card.md': card(1, 'One', { tags: ['ui'] }),
+    'p/.kanban/0002.two.card.md': card(2, 'Two', { tags: ['api'] }),
+    'p/.kanban/archived/0003.three.card.md': card(3, 'Three', { tags: ['ui'] }),
+    'p/.kanban/archived/0004.four.card.md': card(4, 'Four', { tags: ['api'] }),
+  });
+}
+const dirOf = (root) => path.join(root, 'p', '.kanban');
+const cardFiles = (html) => Object.keys(dataOf(html).files).filter((f) => /\.card\.md$/.test(f)).map((f) => f.split('/').pop()).sort();
+
+test('a board with the keys builds the same page with no flags as with the matching flags', () => {
+  const root = keeping('snapshotQuery: tags:ui\nsnapshotArchive: true\n');
+  const plain = keeping('');
+  try {
+    const kept = buildPage({ boardDir: dirOf(root) });
+    const flagged = buildPage({ boardDir: dirOf(plain), query: 'tags:ui', archive: true });
+    assert.deepStrictEqual(kept.board.snapshot, { query: 'tags:ui', archive: true, label: 'tags:ui · with the archive' });
+    assert.deepStrictEqual(flagged.board.snapshot, kept.board.snapshot);
+    assert.deepStrictEqual(cardFiles(kept.html), cardFiles(flagged.html));
+    assert.deepStrictEqual(cardFiles(kept.html), ['0001.one.card.md', '0003.three.card.md']);
+    assert.strictEqual(kept.carried, 2);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(plain, { recursive: true, force: true }); }
+});
+
+test('a board without the keys builds as it did: live cards, no archive', async () => {
+  const root = keeping('');
+  try {
+    const built = buildPage({ boardDir: dirOf(root) });
+    assert.deepStrictEqual(built.board.snapshot, { query: '', archive: false, label: 'live cards only' });
+    const board = await load(built.html);
+    assert.deepStrictEqual(idsOf(board.active), ['1', '2']);
+    assert.deepStrictEqual(board.archived, []);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the archive key alone carries the archive; the query key alone keeps the archive out', async () => {
+  const root = keeping('snapshotArchive: true\n');
+  const queried = keeping('snapshotQuery: tags:ui\n');
+  try {
+    assert.deepStrictEqual(idsOf((await load(buildPage({ boardDir: dirOf(root) }).html)).archived), ['3', '4']);
+    const board = await load(buildPage({ boardDir: dirOf(queried) }).html);
+    assert.deepStrictEqual(idsOf(board.active), ['1']);
+    assert.deepStrictEqual(board.archived, []);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queried, { recursive: true, force: true }); }
+});
+
+test('a flag wins for one build: a query replaces the kept one, an empty query takes every live card, and no archive turns the key off', async () => {
+  const root = keeping('snapshotQuery: tags:ui\nsnapshotArchive: true\n');
+  try {
+    const dir = dirOf(root);
+    assert.deepStrictEqual(idsOf((await load(buildPage({ boardDir: dir, query: 'tags:api' }).html)).active), ['2']);
+    assert.deepStrictEqual(idsOf((await load(buildPage({ boardDir: dir, query: '' }).html)).active), ['1', '2']);
+    const noArchive = await load(buildPage({ boardDir: dir, archive: false }).html);
+    assert.deepStrictEqual(noArchive.archived, []);
+    assert.deepStrictEqual(idsOf(noArchive.active), ['1']);
+    const out = path.join(root, 'out.html');
+    const ran = spawnSync(process.execPath, [SCRIPT, dir, '--out', out, '--no-archive', '--query', 'tags:api'], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    assert.deepStrictEqual(dataOf(fs.readFileSync(out, 'utf8')).board.snapshot, { query: 'tags:api', archive: false, label: 'tags:api · live cards only' });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a kept query the search parser cannot read is refused with the reason and writes no file, instead of carrying every card', () => {
+  const root = keeping('snapshotQuery: "()"\n');
+  const out = path.join(root, 'out', 'board.html');
+  try {
+    const dir = dirOf(root);
+    assert.throws(() => buildPage({ boardDir: dir }), (e) => /snapshotQuery/.test(e.message) && /no search term/.test(e.message));
+    assert.throws(() => buildPage({ boardDir: dir, query: 'tags:' }), /no search term/);
+    const ran = spawnSync(process.execPath, [SCRIPT, dir, '--out', out], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 2);
+    assert.match(ran.stderr, /no search term/);
+    assert.ok(!fs.existsSync(path.dirname(out)));
+    assert.strictEqual(buildPage({ boardDir: dir, query: '' }).carried, 2, 'a flag still builds one page');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a query that matches no card is refused naming the query, and writes no file', () => {
+  const root = keeping('snapshotQuery: tags:nothing\n');
+  const out = path.join(root, 'out', 'board.html');
+  try {
+    const dir = dirOf(root);
+    assert.throws(() => buildPage({ boardDir: dir }), (e) => /tags:nothing/.test(e.message) && /matches no card/.test(e.message));
+    const ran = spawnSync(process.execPath, [SCRIPT, dir, '--out', out], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 2);
+    assert.match(ran.stderr, /matches no card/);
+    assert.ok(!fs.existsSync(path.dirname(out)));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a query that matches only archived cards says the archive is off', () => {
+  const root = keeping('snapshotQuery: "#3"\n');
+  try {
+    assert.throws(() => buildPage({ boardDir: dirOf(root) }), /archive/);
+    assert.strictEqual(buildPage({ boardDir: dirOf(root), archive: true }).carried, 1);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a saved setting that makes the page pass 16 MB is refused with the size, and no file is written', () => {
+  const filler = 'x'.repeat(9 * 1024 * 1024);
+  const root = tmpTree({
+    'p/.kanban/config.yaml': 'name: big\nnextId: 20\nsnapshotArchive: true\n',
+    'p/.kanban/0001.live.card.md': card(1, 'Live'),
+    'p/.kanban/archived/0002.old.card.md': card(2, 'Old', { body: filler }),
+    'p/.kanban/archived/0003.older.card.md': card(3, 'Older', { body: filler }),
+  });
+  const out = path.join(root, 'out', 'board.html');
+  try {
+    const dir = dirOf(root);
+    assert.throws(() => buildPage({ boardDir: dir }), (e) => /\d+\.\d MB/.test(e.message) && /over the 16 MB limit/.test(e.message));
+    const ran = spawnSync(process.execPath, [SCRIPT, dir, '--out', out], { encoding: 'utf8' });
+    assert.strictEqual(ran.status, 2);
+    assert.match(ran.stderr, /\d+\.\d MB/);
+    assert.ok(!fs.existsSync(path.dirname(out)), 'no file, not even its folder');
+    assert.ok(buildPage({ boardDir: dir, archive: false }).bytes < 16 * 1024 * 1024, 'the flag builds it');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

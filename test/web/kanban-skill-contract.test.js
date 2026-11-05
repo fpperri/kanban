@@ -208,3 +208,11 @@ test('every file in the kanban skill\'s references folder is one the body sends 
   assert.deepStrictEqual(files, ['archive-packages.md', 'config.md', 'groups.md', 'nesting.md', 'notes-kit.md', 'notifications.md']);
   for (const file of files) assert.ok(skill.includes(`\`references/${file}\``), `the body names references/${file}`);
 });
+
+test('the sample in the config reference shows snapshotQuery and snapshotArchive, and the reader gives back what it shows', () => {
+  const config = parseConfig(fenced(configSection, 'yaml')[0]);
+  assert.strictEqual(config.snapshotQuery, 'tags:ui | group:I2');
+  assert.strictEqual(config.snapshotArchive, true);
+  assert.deepStrictEqual(KEY_ORDER.filter((k) => /^snapshot/.test(k)), ['snapshotQuery', 'snapshotArchive']);
+  assert.match(configSection, /`--query`[^.]*`--archive` and `--no-archive`/);
+});

@@ -46,6 +46,9 @@
 //   typesOn: false        # Types off: the web and the snapshot ignore `types:`, the
 //                         # hierarchy and the chips, colors, icons and tiers they give;
 //                         # absent = on. Display only; the lists and the cards stay as written.
+//   snapshotQuery: tags:ui   # the Snapshot query the built page carries, in the search box's
+//                         # words; absent = every live card. A flag of the build wins for one build.
+//   snapshotArchive: true # the built page carries the archive too; absent = it does not
 //   iterations: true      # the header's iteration dropdown over the groups in the
 //                         # iteration/ folder (docs/adr/0015); needs groups:, absent = off
 //   assignees:           # who can own cards; feeds the form's combobox
@@ -190,7 +193,7 @@ const DEFAULT_ID_DIGITS = 4;
 
 function parseConfig(text) {
   const varEntries = [];
-  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [], vars: {}, varNotices: [] };
+  const config = { name: '', nextId: null, idDigits: DEFAULT_ID_DIGITS, logbook: '', scratchpad: '', todos: '', groups: '', iterations: false, typesOn: true, snapshotQuery: '', snapshotArchive: false, prefixes: {}, prefixClashes: [], counters: {}, port: null, portInvalid: null, assignees: [], priorities: [], tags: [], statuses: [], hierarchy: [], types: [], pills: [], vars: {}, varNotices: [] };
   let section = null; // 'assignees' | 'types' | one of LIST_KEYS | null
   let cur = null;
   let curType = null;
@@ -258,6 +261,12 @@ function parseConfig(text) {
         section = null;
       } else if (top[1] === 'typesOn') {
         config.typesOn = scalar(top[2]) !== 'false';
+        section = null;
+      } else if (top[1] === 'snapshotQuery') {
+        config.snapshotQuery = scalar(top[2]);
+        section = null;
+      } else if (top[1] === 'snapshotArchive') {
+        config.snapshotArchive = scalar(top[2]) === 'true';
         section = null;
       } else if (top[1] === 'counters') {
         for (const [prefix, text] of parseFlowMap(top[2])) {
@@ -468,7 +477,7 @@ function writeConfigLine(dir, key, value, after = null) {
 // when the file does not have it yet: below the nearest key before it in this order that the file
 // has, else at the top. keyBefore answers that key: the gear hands it to writeConfigLine as `after`,
 // and writeConfigBlock uses it itself.
-const KEY_ORDER = ['name', 'port', 'nextId', 'idDigits', 'prefixes', 'counters', 'logbook', 'scratchpad', 'todos', 'groups', 'iterations', 'typesOn', 'assignees', 'types', 'hierarchy', 'pills'];
+const KEY_ORDER = ['name', 'port', 'nextId', 'idDigits', 'prefixes', 'counters', 'logbook', 'scratchpad', 'todos', 'groups', 'iterations', 'typesOn', 'snapshotQuery', 'snapshotArchive', 'assignees', 'types', 'hierarchy', 'pills'];
 // The keys whose whole block the web rewrites (docs/adr/0018).
 const BLOCK_KEYS = ['types', 'hierarchy', 'prefixes'];
 

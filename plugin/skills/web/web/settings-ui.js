@@ -615,6 +615,28 @@ function settingsTypesNodes() {
   return nodes;
 }
 
+// ---------- the Snapshot page ----------
+
+// What the built page carries (the Snapshot query and the archive), kept in config.yaml so each build and
+// refresh starts from it. In a built page the settings show locked: the controls stand still.
+function settingsSnapshotNodes() {
+  const st = state.settings;
+  const lock = st.lock || null;
+  return [
+    settingsField('snapshotQuery', 'snapshotQuery: the cards the page carries', st.snapshotQuery || '', {
+      placeholder: 'search words, like tags:ui | group:I2; empty = every live card',
+      disabled: !!lock,
+      hint: 'The same words as the search box. A build or refresh with no flag carries the cards this picks; an empty query carries every live card. A query that holds no search term is refused.',
+      save: (text) => settingsSave('snapshotQuery', text, '', settingsSnapshotQueryBody(text, state.settings.version)),
+    }),
+    settingsSwitch('snapshotArchive', 'Archive', !!st.snapshotArchive, {
+      hint: 'On writes snapshotArchive: true and the built page carries the archived cards the query picks; off removes the line. A build can still turn it on or off for one build.',
+      disabled: lock,
+      set: (on) => settingsSendLater(() => settingsSnapshotArchiveBody(on, state.settings.version), 'snapshotArchive'),
+    }),
+  ];
+}
+
 // ---------- the Prefixes page ----------
 
 // `from` = the prefix of the row being changed or removed (null for an add): the row is found by it in
@@ -756,6 +778,7 @@ const settingsBoardPages = [
   { id: 'types', title: 'Types', build: settingsTypesNodes },
   { id: 'prefixes', title: 'Prefixes', build: settingsPrefixesNodes },
   { id: 'counters', title: 'Counters', build: settingsCountersNodes },
+  { id: 'snapshot', title: 'Snapshot', build: settingsSnapshotNodes },
 ];
 
 // Adds a page to This board, after the page `afterId` (at the end when none is named).
