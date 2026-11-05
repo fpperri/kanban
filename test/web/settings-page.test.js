@@ -638,11 +638,38 @@ test('a path with <iteration> gets a line under the path bar naming the folder a
   const logbook = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/s/<iteration>/.logbook', now: '/b/s/0005.x/.logbook' })");
   assert.match(logbook.textContent, /A new note written today goes to \/b\/s\/0005\.x\/\.logbook/);
   const pad = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/s/<iteration>', now: '/b/s' })");
-  assert.match(pad.textContent, /A new page written today goes to \/b\/s$/);
+  assert.match(pad.textContent, /A new page written today goes to \/b\/s\. A card that is a member of an iteration goes to that iteration's folder instead\.$/);
   const todos = ctx.run("settingsPathNowNode('todos', { kind: 'Folder', path: '/b/t/<iteration>', now: '/b/t' })");
-  assert.match(todos.textContent, /A new list written today goes to \/b\/t$/);
+  assert.match(todos.textContent, /A new list written today goes to \/b\/t\. A card that is a member of an iteration goes to that iteration's folder instead\.$/);
   assert.strictEqual(ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/l' })"), null);
   assert.strictEqual(ctx.run("settingsPathNowNode('logbook', null)"), null);
+});
+
+test('a path with <card> keeps it in the line under the path bar, and names the member case when it holds <iteration>', () => {
+  const ctx = loadPages();
+  const plain = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/s/<card>', now: '/b/s/<card>' })");
+  assert.match(plain.textContent, /goes to \/b\/s\/<card>, <card> being the card's own folder\.$/);
+  const both = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/<iteration>/<card>', now: '/b/I497.sprint-497/<card>' })");
+  assert.match(both.textContent, /I497\.sprint-497\/<card>, <card> being the card's own folder\. A card that is a member of an iteration goes to that iteration's folder instead\.$/);
+});
+
+test('the member sentence follows <iteration> for pages and lists, never for the logbook, which files by its day', () => {
+  const ctx = loadPages();
+  const member = /member of an iteration goes to that iteration's folder instead/;
+  for (const id of ['scratchpad', 'todos']) {
+    const bare = ctx.run(`settingsPathNowNode('${id}', { kind: 'Folder', path: '/b/.x/<iteration>', now: '/b/.x/I5.sprint-496' })`);
+    assert.match(bare.textContent, member, id);
+    const none = ctx.run(`settingsPathNowNode('${id}', { kind: 'Folder', path: '/b/.x/<card>', now: '/b/.x/<card>' })`);
+    assert.doesNotMatch(none.textContent, member, id);
+  }
+  const log = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/.lg/<iteration>/<card>', now: '/b/.lg/I5.sprint-496/<card>' })");
+  assert.doesNotMatch(log.textContent, member);
+  assert.match(log.textContent, /A note goes to the iteration that holds its day\. A note about nothing has no card, so <card> is dropped\.$/);
+  const day = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/.lg/<iteration>', now: '/b/.lg/I5.sprint-496' })");
+  assert.match(day.textContent, /A note goes to the iteration that holds its day\.$/);
+  const about = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/.lg/<card>', now: '/b/.lg/<card>' })");
+  assert.match(about.textContent, /A note about nothing has no card, so <card> is dropped\.$/);
+  assert.doesNotMatch(about.textContent, /iteration/);
 });
 
 test('the Prefixes page is a table of fields with a Remove each and an Add row, the id note, the warning, and idDigits', () => {

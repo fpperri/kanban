@@ -306,7 +306,15 @@ function settingsPathNode(path, kind) {
 // when the page's path has none.
 function settingsPathNowNode(id, reads) {
   if (!reads || !reads.now) return null;
-  return settingsEl('p', 'prefs-hint', `A new ${id === 'logbook' ? 'note' : id === 'todos' ? 'list' : 'page'} written today goes to ${reads.now}`);
+  const card = String(reads.now).includes('<card>');
+  const iteration = String(reads.path || '').includes('<iteration>');
+  let more = '';
+  if (id === 'logbook') {
+    more = `${iteration ? ' A note goes to the iteration that holds its day.' : ''}${card ? ' A note about nothing has no card, so <card> is dropped.' : ''}`;
+  } else if (iteration) {
+    more = ' A card that is a member of an iteration goes to that iteration\'s folder instead.';
+  }
+  return settingsEl('p', 'prefs-hint', `A new ${id === 'logbook' ? 'note' : id === 'todos' ? 'list' : 'page'} written today goes to ${reads.now}${card ? ', <card> being the card\'s own folder.' : '.'}${more}`);
 }
 
 // ---------- the Types page (docs/adr/0018) ----------
