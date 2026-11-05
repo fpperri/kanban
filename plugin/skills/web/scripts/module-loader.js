@@ -8,6 +8,11 @@
 // `globals` overrides them, and the default `process` says it runs on a POSIX system from the root.
 // Same dual-environment pattern as ids.js: required by node --test, and loaded as a plain <script>
 // (one global, window.kanbanModuleLoader).
+//
+// A source may also be a function (exports, require, module, __filename, __dirname, process, Buffer): it
+// runs as it is. A page under a content security policy with no 'unsafe-eval' cannot compile text, so the
+// artifact build writes each module as a function in an inline script the policy names by hash
+// (scripts/artifact-build.js); text is compiled only where there is no such policy, as in Node.
 
 const moduleLoaderModule = (() => {
   const posixPath = typeof module !== 'undefined' && module.exports ? require('./posix-path') : window.kanbanPosixPath;
@@ -40,7 +45,10 @@ const moduleLoaderModule = (() => {
         if (!Object.prototype.hasOwnProperty.call(builtins, name)) throw new Error(`The module loader has no shim for the Node built-in '${request}' (required by '${file}')`);
         return builtins[name];
       };
-      const run = new Function('exports', 'require', 'module', '__filename', '__dirname', 'process', 'Buffer', `${sources[file]}\n//# sourceURL=${file}`);
+      const source = sources[file];
+      const run = typeof source === 'function'
+        ? source
+        : new Function('exports', 'require', 'module', '__filename', '__dirname', 'process', 'Buffer', `${source}\n//# sourceURL=${file}`);
       try {
         run.call(mod.exports, mod.exports, require, mod, file, posixPath.dirname(file), sandbox.process, sandbox.Buffer);
       } catch (err) {

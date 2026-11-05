@@ -17,7 +17,7 @@ const memoryStorage = () => {
   const map = new Map();
   return { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, String(v)); }, map };
 };
-const dataOf = (html) => JSON.parse(html.match(/<script type="application\/json" id="kanban-board">([\s\S]*?)<\/script>/)[1]);
+const { pageData: dataOf } = require('./helpers/page-data');
 const card = (id, title) => `---\nid: ${id}\nstatus: todo\npriority: Normal\ntags: []\n---\n\n# ${title}\n\nbody of ${id}\n`;
 
 function makeBoard(applied = null) {

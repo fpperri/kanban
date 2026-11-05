@@ -16,6 +16,17 @@
 // carry. A card it leaves out carries nothing: its file, and the logbook, scratchpad and todo files made for
 // it, stay out of the page. The groups come whole, and a group lists its members by id, so a member left out is
 // still counted. A page over 16 MB is refused, with its size and a way to narrow it, before any file is written.
+//
+// The page carries a content security policy, a meta tag in its head: everything is refused by default, and
+// the only scripts and style allowed are the page's own inline ones, each named by the hash of its text, which
+// the build can compute (a nonce would need a server to vary it). So the policy has no 'unsafe-inline', no
+// 'unsafe-eval' and no remote source: a script a card's text slips in, an inline handler and a request out
+// of the page are all refused. That needs a page that never compiles text, so route's modules are not text
+// the module loader runs through Function: each is written as a function in one inline script
+// (window.kanbanModuleFns), which the loader runs as it is. The policy is a meta tag, which a browser honours
+// only in the head of the page it sits in: where a host wraps the file in a page of its own (the Board
+// artifact's publisher does) the tag lands in the wrapper's body, and what that does is pinned by
+// test/web/browser/scenarios/artifact-csp.js.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -30,6 +41,7 @@ const { routeSources, configFolders, folderBefore } = require('./route-sources')
 const { readApplied, takenBy } = require('./applied-ids');
 
 const WEB_ROOT = path.join(__dirname, '..');
+const MODULE_PARAMS = 'exports, require, module, __filename, __dirname, process, Buffer';
 const RUNTIME = ['posix-path', 'crypto-shim', 'buffer-shim', 'memory-fs', 'module-loader', 'memory-route', 'temp-ids', 'artifact-tray', 'field-value', 'page-source'];
 const SKIP_NAMES = new Set(['.git', 'node_modules', '.kanban-app.pid']);
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -99,6 +111,39 @@ function jsonForScript(value) {
 function scriptText(name, text) {
   if (/<\/script/i.test(text)) throw new Error(`${name} contains "</script"; it cannot be inlined`);
   return text.replace(/<!--/g, '<\\x21--');
+}
+
+// route's modules as one script's text: a function for each, which the module loader runs as it is.
+function moduleScript(sources) {
+  const entries = Object.entries(sources).map(([file, text]) => `${JSON.stringify(file)}: function (${MODULE_PARAMS}) {\n${scriptText(file, text)}\n}`);
+  return `window.kanbanModuleFns = {\n${entries.join(',\n')}\n};`;
+}
+
+const sha256 = (text) => `'sha256-${crypto.createHash('sha256').update(text, 'utf8').digest('base64')}'`;
+
+// The policy for a page whose inline scripts and style hold these texts: the hash of each, and nothing
+// else allowed (the tab icon is a data address).
+function policyFor(scripts, style) {
+  return [
+    "default-src 'none'",
+    `script-src ${[...new Set(scripts.map(sha256))].join(' ')}`,
+    `style-src ${sha256(style)}`,
+    'img-src data:',
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+}
+
+// The page with its policy in the head, after the charset, ahead of everything it governs.
+function withPolicy(page) {
+  const live = page.replace(/<!--[\s\S]*?-->/g, '');
+  const scripts = [...live.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  const styles = [...live.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+  if (styles.length !== 1) throw new Error('the page has not exactly one style element, so its policy cannot name it');
+  const tag = `<meta http-equiv="Content-Security-Policy" content="${policyFor(scripts, styles[0])}">`;
+  const charset = /<meta charset="UTF-8">/;
+  if (!charset.test(page)) throw new Error('app.html has no charset meta for the policy to follow');
+  return page.replace(charset, (m) => `${m}\n${tag}`);
 }
 
 const normal = (p) => path.resolve(p).split(path.sep).join('/');
@@ -186,13 +231,13 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
     const owner = ownerOf(abs);
     return owner !== null && picked.leftOut.has(owner);
   });
-  const data = { board, sources: routeSources(webRoot), files: placed.files, dir: placed.dir };
+  const data = { board, files: placed.files, dir: placed.dir };
 
   const web = path.join(webRoot, 'web');
   const read = (file) => lf(fs.readFileSync(file, 'utf8'));
   const runtime = RUNTIME.map((n) => `<script>${scriptText(n, read(path.join(webRoot, 'scripts', `${n}.js`)))}</script>`).join('\n');
-  const start = "window.kanbanSourceInUse = window.kanbanPageSource.boot(JSON.parse(document.getElementById('kanban-board').textContent), { storage: (function () { try { return window.localStorage; } catch (e) { return null; } })(), claude: window.claude });";
-  const boot = `<script type="application/json" id="kanban-board">${jsonForScript(data)}</script>\n${runtime}\n<script>${start}</script>`;
+  const start = "window.kanbanSourceInUse = window.kanbanPageSource.boot(Object.assign(JSON.parse(document.getElementById('kanban-board').textContent), { sources: window.kanbanModuleFns }), { storage: (function () { try { return window.localStorage; } catch (e) { return null; } })(), claude: window.claude });";
+  const boot = `<script type="application/json" id="kanban-board">${jsonForScript(data)}</script>\n${runtime}\n<script>${moduleScript(routeSources(webRoot))}</script>\n<script>${start}</script>`;
 
   const html = read(path.join(web, 'app.html'));
   const comments = [];
@@ -219,11 +264,12 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
     .replace(/\u0000(\d+)\u0000/g, (all, i) => comments[Number(i)]);
   if (!styled || !iconed || !scripts || !page.includes('id="kanban-board"')) throw new Error('app.html is not the page this build knows: a stylesheet, an icon or the app script is missing');
   if (/<(?:link|script)\b[^>]*\s(?:src|href)="\//.test(page.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('a root-relative reference is left in the page');
-  const bytes = Buffer.byteLength(page);
+  const out = withPolicy(page);
+  const bytes = Buffer.byteLength(out);
   if (bytes > maxBytes) {
     throw new Error(`The page would be ${megabytes(bytes)}, over the ${megabytes(maxBytes).replace('.0 ', ' ')} limit. Give a narrower query (one group, one iteration, one tag), or leave the archive out.`);
   }
-  return { html: page, board, bytes, carried: picked.carried.size, leftOut: picked.leftOut.size };
+  return { html: out, board, bytes, carried: picked.carried.size, leftOut: picked.leftOut.size };
 }
 
 function main(argv) {
@@ -259,4 +305,4 @@ function usage(message) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { buildPage, boardFiles };
+module.exports = { buildPage, boardFiles, sha256 };

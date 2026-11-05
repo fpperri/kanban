@@ -17,7 +17,7 @@ const http = require('http');
 const { materialize } = require('../boards');
 const { buildPage } = require('../../../../plugin/skills/web/scripts/artifact-build');
 const { tap, outwaitDoubleTap, backOut } = require('../steps');
-const { FRAME_ANSWERS, viewerHtml } = require('../viewer-frame');
+const { withFrameAnswers, viewerHtml } = require('../viewer-frame');
 
 
 module.exports = {
@@ -29,7 +29,7 @@ module.exports = {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-back-'));
     const dir = materialize('fixture', path.join(root, 'board', '.kanban'));
     const { html } = buildPage({ boardDir: dir });
-    const files = { '/page.html': html.replace('</body>', `${FRAME_ANSWERS}</body>`), '/start.html': '<!doctype html><title>start</title><link rel="icon" href="data:,"><p>start</p>' };
+    const files = { '/page.html': withFrameAnswers(html), '/start.html': '<!doctype html><title>start</title><link rel="icon" href="data:,"><p>start</p>' };
     const server = http.createServer((req, res) => {
       const body = files[new URL(req.url, 'http://x').pathname];
       if (body === undefined) { res.writeHead(404); res.end(); return; }
