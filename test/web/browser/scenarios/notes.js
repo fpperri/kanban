@@ -702,6 +702,11 @@ module.exports = {
     await key('Escape');
     check('notes: Esc clears the chip, exactly as the backspace does, and the palette stays up on Day, today', await waitFor(`${CHIP}===''`, 2500) && await ev(PAL_UP) && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week', '3 days', 'Day*']), JSON.stringify(await ev(RANGE_BTNS)));
     check('notes: with no chip the footer says Esc closes', await ev(ESC_HINT) === 'close', await ev(ESC_HINT));
+    check('notes: after the Esc the picker reads no card and the line under the box names no card', await ev(`${q('.np-pick-input')}.value`) === 'no card' && !/#\d/.test(await preview()) && !/last noted/.test(await preview()), await preview());
+    await setBox('esc wrote about nothing');
+    await key('Enter');
+    check('notes: Enter writes a note about nothing', await waitFor(`${NOTES}.some((n)=>n.note==='esc wrote about nothing'&&n.target==='')`, 4000), JSON.stringify(await ev(`${NOTES}.filter((n)=>n.note==='esc wrote about nothing')`)));
+    await setBox('');
     await key('Escape');
     check('notes: the next Esc closes the palette', await waitFor(PAL_GONE, 2500));
     await ev(`openNotes({ kind: 'card-notes', id: '7' })`);
