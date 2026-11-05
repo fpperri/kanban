@@ -123,8 +123,19 @@ const idsModule = (() => {
     return found;
   }
 
+  // A change's path as the route reads it (a URL against a dummy base): `.` and `..` resolved, a fragment and the
+  // tabs and newlines URL parsing drops gone, a backslash a slash. null when it does not parse.
+  function routePath(path) {
+    try {
+      const url = new URL(String(path), 'http://localhost');
+      return url.pathname + url.search;
+    } catch (_) {
+      return null;
+    }
+  }
+
   return {
-    parseId, idKey, isTempId, tempNumber, acceptTempIds, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, PREFIX_SOURCE,
+    routePath, parseId, idKey, isTempId, tempNumber, acceptTempIds, compareIds, sortIds, formatId, parseMention, findMentions, MENTION_SOURCE, PREFIX_SOURCE,
     get ID_SOURCE() { return tempAccepted ? `(?:${REAL_ID_SOURCE}|${TEMP_PREFIX}${DIGITS_SOURCE})` : REAL_ID_SOURCE; },
   };
 })();

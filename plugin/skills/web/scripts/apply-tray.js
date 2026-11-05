@@ -30,6 +30,7 @@ const oldPayload = require('./old-payload');
 const tempIds = require('./temp-ids');
 const { sameValue } = require('./field-value');
 const { deskJob } = require('./desk-job');
+const ids = require('../web/ids');
 
 const WEB = path.join(__dirname, '..');
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -196,7 +197,12 @@ function tempReport(made) {
   return out;
 }
 
-function applyTray({ dir, records }) {
+function applyTray({ dir, records: raw }) {
+  const records = raw.map((r) => {
+    const c = r && typeof r === 'object' ? r.change : null;
+    const at = c && typeof c === 'object' && typeof c.path === 'string' ? ids.routePath(c.path) : null;
+    return at === null ? r : { ...r, change: { ...c, path: at } };
+  });
   const applied = readApplied(dir);
   const report = { applied: [], refused: [], skipped: [], temp: {} };
   const made = {};

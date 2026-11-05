@@ -3,9 +3,13 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeRoute } = require('../../plugin/skills/web/scripts/route');
 const { deskJob } = require('../../plugin/skills/web/scripts/desk-job');
 const { applyTray, APPLIED_FILE } = require('../../plugin/skills/web/scripts/apply-tray');
 const { makeMemoryRoute } = require('../../plugin/skills/web/scripts/memory-route');
+const cs = require('../../plugin/skills/web/scripts/card-store');
+const tempIds = require('../../plugin/skills/web/scripts/temp-ids');
+const { describeChange } = require('../../plugin/skills/web/web/tray-describe');
 const { makePageSource, makeTrayStore } = require('../../plugin/skills/web/scripts/page-source');
 const { routeSources } = require('./helpers/route-sources');
 
@@ -41,8 +45,8 @@ test('the apply refuses every settings key and every alias, keeps the records be
   const dir = makeBoard();
   const before = rec('PATCH', '/api/cards/3', { priority: 'High' });
   const records = [before];
-  for (const key of KEYS) records.push(rec('POST', '/api/config', { key, value: key === 'name' ? 'x' : true }));
-  for (const p of ALIASES) records.push(rec('POST', p, { key: 'logbook', value: true }));
+  for (const key of KEYS) records.push(rec('POST', '/api/config', { key, value: key === 'idDigits' ? 5 : '.x' }));
+  for (const p of ALIASES) records.push(rec('POST', p, { key: 'logbook', value: '.logbook' }));
   const after = rec('PATCH', '/api/cards/12', { priority: 'Low' });
   records.push(after);
   const report = applyTray({ dir, records });
@@ -67,9 +71,42 @@ test('the page answers 403 for every alias and queues nothing', async () => {
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); } };
   const src = makePageSource({ route, tray: makeTrayStore(storage, 'k', 'dev'), board: { name: 'a', id: 'x', base: '2026-10-31T01:00:00.000Z' } });
   for (const p of ALIASES) {
-    const res = await src.request('POST', p, { key: 'logbook', value: true });
+    const res = await src.request('POST', p, { key: 'logbook', value: '.logbook' });
     assert.strictEqual(res.status, 403, JSON.stringify(p));
     assert.match(res.json.error, /desk job/);
   }
   assert.deepStrictEqual(src.records(), []);
+});
+
+const CARD_ALIASES = ['/api/./cards/3', '/api/x/../cards/3', '/api/cards/3#x', '/api/cards/	3', '/api/cards/3?a=1'];
+
+test('an aliased card edit is held to its before value like a plain one', () => {
+  for (const p of CARD_ALIASES) {
+    const dir = makeBoard();
+    assert.strictEqual(makeRoute(dir)('PATCH', '/api/cards/3', { title: 'At the desk' }).status, 200);
+    const stale = { ...rec('PATCH', p, { title: 'Renamed' }), before: { title: 'C3' } };
+    const report = applyTray({ dir, records: [stale] });
+    assert.deepStrictEqual(report.applied, [], JSON.stringify(p));
+    assert.match(report.refused[0].reason, /title changed at the desk since/, JSON.stringify(p));
+    assert.strictEqual(cs.toJSON(cs.readCardFile(cs.findCardFile(dir, 3), false)).title, 'At the desk');
+  }
+});
+
+test('an aliased edit is described and temp-id mapped like a plain one', () => {
+  for (const p of ['/api/./cards/n1', '/api/cards/n1#x', '/api/cards/n	1']) {
+    const change = { method: 'PATCH', path: p, body: { title: 'x' } };
+    assert.deepStrictEqual(tempIds.namesIn(change), ['n1'], JSON.stringify(p));
+    assert.strictEqual(tempIds.rewrite(change, { n1: '30' }).change.path, '/api/cards/30', JSON.stringify(p));
+    assert.strictEqual(describeChange({ change }), describeChange({ change: { ...change, path: '/api/cards/n1' } }), JSON.stringify(p));
+  }
+  assert.strictEqual(tempIds.createdId('POST', '/api/./cards', { id: 30 }), '30');
+});
+
+test('an aliased create and edit in one tray land on the card the create made', () => {
+  const dir = makeBoard();
+  const make = { ...rec('POST', '/api/./cards', { title: 'Made', status: 'todo' }), temp: 'n1' };
+  const edit = rec('PATCH', '/api/cards/n1#x', { priority: 'High' });
+  const report = applyTray({ dir, records: [make, edit] });
+  assert.deepStrictEqual(report.refused, []);
+  assert.strictEqual(report.applied.length, 2);
 });

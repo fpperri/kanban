@@ -31,7 +31,7 @@ const tempIdsModule = (() => {
 
   // A copy of the change with every temporary id in an id place replaced by fn(id).
   function mapChange(change, fn) {
-    const [pathname, ...query] = String(change.path).split('?');
+    const [pathname, ...query] = (ids.routePath(change.path) || String(change.path)).split('?');
     const path = pathname.split('/').map((seg) => (ids.isTempId(seg) ? fn(seg) : seg)).join('/');
     const scalars = change.method === 'POST' && pathname === ASSIGN ? [...SCALARS, 'to'] : SCALARS;
     return { ...change, path: query.length ? `${path}?${query.join('?')}` : path, body: isObject(change.body) ? mapBody(change.body, fn, scalars) : change.body };
@@ -59,7 +59,7 @@ const tempIdsModule = (() => {
   // The id a save made, as route answered it: a card's or a group's. null for any other save.
   function createdId(method, path, body) {
     if (method !== 'POST' || !isObject(body)) return null;
-    const route = String(path).split('?')[0];
+    const route = (ids.routePath(path) || String(path)).split('?')[0];
     const made = route === '/api/cards' ? body.id : route === '/api/groups' && isObject(body.group) ? body.group.id : undefined;
     return typeof made === 'string' || typeof made === 'number' ? String(made) : null;
   }

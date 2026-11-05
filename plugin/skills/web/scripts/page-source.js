@@ -201,6 +201,8 @@ const pageSourceModule = (() => {
     }
 
     async function answer(method, path, body) {
+      const at = ids.routePath(path);
+      if (at !== null) path = at;
       const pathname = path.split('?')[0];
       const write = method !== 'GET';
       const deskReason = write ? deskJob({ method, path, body }) : null;
