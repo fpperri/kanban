@@ -24,13 +24,14 @@ const makeBoard = () => ({
   archived: [],
 });
 
-async function open({ phone = true, view = 'board' } = {}) {
+async function open({ phone = true, view = 'board', hover = null } = {}) {
   const clock = { at: 1000, timers: [] };
   const hidden = () => { const el = control(); el.classList.add('hidden'); return el; };
   const menu = hidden();
   const lit = hidden();
   const closed = ['#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#bulk-single', '#bulk-tags', '#bulk-schedule', '#bulk-archive', '#bulk-status'];
   const stored = { 'kanban.kanban.view.mode': view };
+  if (hover) stored['kanban.kanban.hover.show'] = JSON.stringify(hover);
   const graph = control();
   const boardEl = control();
   const fake = { tiles: [] };
@@ -114,6 +115,29 @@ test('holding a card 500 ms lights it and the sets On hover show ticks, before t
   s.wait(1);
   assert.deepStrictEqual(s.litIds(), ['1', '2', '3'], 'the card, what it waits for and its child: the default sets');
   assert.strictEqual(s.menuOpen(), false, 'the menu waits for the lift');
+});
+
+test('a hold with Hierarchy on below lights the card and its children only, the wait staying whole', async () => {
+  const s = await open({ hover: { kinds: ['dlinks', 'hlinks'], hierarchy: 'below', dependencies: 'before&after' } });
+  longPress(s, 2);
+  assert.deepStrictEqual(s.litIds(), ['1', '2', '3'], 'the child 3 and the wait 1');
+  const above = await open({ hover: { kinds: ['hlinks'], hierarchy: 'above', dependencies: 'before&after' } });
+  longPress(above, 3);
+  assert.deepStrictEqual(above.litIds(), ['2', '3'], 'the parent only');
+  const none = await open({ hover: { kinds: ['hlinks'], hierarchy: 'below', dependencies: 'before&after' } });
+  longPress(none, 3);
+  assert.deepStrictEqual(none.litIds(), ['3'], 'nothing below card 3');
+});
+
+test('Explore writes its term with no side suffix, whatever sides the hover choice holds', async () => {
+  const s = await open({ hover: { kinds: ['hlinks'], hierarchy: 'below', dependencies: 'after' } });
+  const written = [];
+  s.page.ctx.__written = written;
+  s.page.run('writeSearch = (text, reason) => { globalThis.__written.push([text, reason]); }');
+  const { up } = longPress(s, 2);
+  up();
+  s.page.run("exploreIntoBox('hpath', {}); exploreIntoBox('dtree', {})");
+  assert.deepStrictEqual(written.map(([t]) => t), ['hpath:2', 'dtree:2']);
 });
 
 test('the light is its own state: it holds while the hover clears, as it does when the menu takes the focus', async () => {
