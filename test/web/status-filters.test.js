@@ -15,15 +15,15 @@ test('the registry has the Map, the Gantt, the Calendar and the Graph, and no en
   assert.strictEqual(STATUS_FILTERS.board, undefined);
 });
 
-test('Map pill titles: a status and Archive both carry the ghost-card sentence', () => {
+test('Map pill titles: a status and Archive name the Map', () => {
   assert.strictEqual(statusFilterTitle('map', 'todo', 'Todo', true),
-    'Hide Todo cards on the map (hidden cards ghost when a visible card references them)');
+    'Hide Todo cards on the map');
   assert.strictEqual(statusFilterTitle('map', 'todo', 'Todo', false),
-    'Show Todo cards on the map (hidden cards ghost when a visible card references them)');
+    'Show Todo cards on the map');
   assert.strictEqual(statusFilterTitle('map', 'archive', 'Archive', true),
-    'Hide Archive cards on the map (hidden cards ghost when a visible card references them)');
+    'Hide Archive cards on the map');
   assert.strictEqual(statusFilterTitle('map', 'archive', 'Archive', false),
-    'Show Archive cards on the map (hidden cards ghost when a visible card references them)');
+    'Show Archive cards on the map');
 });
 
 test('Gantt pill titles', () => {

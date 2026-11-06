@@ -12,7 +12,7 @@ const STATUS_FILTERS = {
     load: () => loadMapStatusFilter(),
     toggle: (col) => toggleMapStatusFilter(col),
     solo: (col) => soloMapStatusFilter(col),
-    title: (col, label, on) => `${on ? 'Hide' : 'Show'} ${label} cards on the map (hidden cards ghost when a visible card references them)`,
+    title: (col, label, on) => `${on ? 'Hide' : 'Show'} ${label} cards on the map`,
   },
   gantt: {
     archiveDefault: false,
