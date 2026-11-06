@@ -47,8 +47,8 @@ test('Timeline is one flat list by time, each row naming its card, and the choic
   p.page.run(`openNotes(${DAY})`);
   switchBtn(p, 'timeline').click();
   assert.deepStrictEqual(pressed(p), ['grouped:false', 'timeline:true']);
-  assert.deepStrictEqual(p.rows(), ['twenty-two first', 'early on seven']);
-  assert.deepStrictEqual(p.all('.np-note-card').map((c) => p.text(c)), ['#22', '#7']);
+  assert.deepStrictEqual(p.rows(), ['early on seven', 'twenty-two first']);
+  assert.deepStrictEqual(p.all('.np-note-card').map((c) => p.text(c)), ['#7', '#22']);
   assert.strictEqual(p.all('.np-ngroup').every((g) => g.classes.includes('np-tgroup')), true);
   assert.strictEqual(p.stored['kanban.kanban.notes.layout'], 'timeline');
   switchBtn(p, 'grouped').click();
@@ -67,10 +67,10 @@ test('Timeline names "no card" on a note about nothing, and links the others to 
   const today = (await openPalette({ notes: [] })).page.run('localTodayStr()');
   const p = await openPalette({ notes: [note(today, '7', '09:00', '@human', 'on seven'), note(today, '', '09:05', '@human', 'on nothing')], stored: { 'kanban.kanban.notes.layout': 'timeline' } });
   p.page.run('openNotes({})');
-  const label = p.all('.np-note-card')[1];
+  const label = p.all('.np-note-card')[0];
   assert.strictEqual(p.text(label), 'no card');
   assert.strictEqual(label.tag, 'span', 'a note about nothing links nowhere');
-  const link = p.all('.np-note-card')[0];
+  const link = p.all('.np-note-card')[1];
   assert.strictEqual(link.tag, 'button');
   let opened = null;
   p.page.ctx.openCard = (id) => { opened = id; };
@@ -527,8 +527,8 @@ test('Timeline names a card by its id, with the full label as the title, and a r
   const p = await openPalette({ notes: NOTES, stored: { 'kanban.kanban.notes.layout': 'timeline' } });
   p.page.run(`openNotes(${DAY})`);
   const cards = p.all('.np-note-card');
-  assert.deepStrictEqual(cards.map((c) => p.text(c)), ['#22', '#7']);
-  assert.deepStrictEqual(cards.map((c) => c.title), ['#22 Cut over the data layer', '#7 Port the zephyr schema']);
+  assert.deepStrictEqual(cards.map((c) => p.text(c)), ['#7', '#22']);
+  assert.deepStrictEqual(cards.map((c) => c.title), ['#7 Port the zephyr schema', '#22 Cut over the data layer']);
   assert.strictEqual(p.all('.np-act').length, 0);
   assert.strictEqual(p.all('.np-note-acts').length, 0);
 });

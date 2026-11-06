@@ -365,23 +365,29 @@ test('the list groups notes by day then target, newest day first, the chip\'s ta
   ]);
 });
 
-test('the timeline is one flat list per day, newest day first, the timed notes in time order and then the untimed ones', () => {
+test('a section lists its timed notes newest first, then the untimed ones, the later written first at one time', () => {
+  const note = (at, text, index = 0) => ({ day: '2026-10-16', target: '7', at, by: '@human', note: text, index, file: 'f' });
+  const groups = n.noteGroups([note(null, 'u0'), note('09:10', 'a'), note('09:10', 'a2', 1), note('11:00', 'z'), note(null, 'u1', 1)]);
+  assert.deepStrictEqual(groups[0].notes.map((x) => x.note), ['z', 'a2', 'a', 'u1', 'u0']);
+});
+
+test('the timeline is one flat list per day, newest day first, the timed notes newest first and then the untimed ones', () => {
   const note = (day, target, at, text, index = 0) => ({ day, target, at, by: '@human', note: text, index, file: 'f' });
   const days = n.noteTimeline([
     note('2026-10-15', '7', '10:00', 'old'), note('2026-10-16', '22', '09:40', 'c'), note('2026-10-16', '', null, 'free'),
     note('2026-10-16', '7', null, 'untimed'), note('2026-10-16', '7', '09:10', 'a'), note('2026-10-16', 'G3', '07:00', 'g'),
   ]);
   assert.deepStrictEqual(days.map((d) => [d.day, d.notes.map((x) => x.note)]), [
-    ['2026-10-16', ['g', 'a', 'c', 'untimed', 'free']],
+    ['2026-10-16', ['c', 'a', 'g', 'untimed', 'free']],
     ['2026-10-15', ['old']],
   ]);
 });
 
-test('in the timeline two notes at one time keep the chip\'s target first, then the id order, then the file order', () => {
+test('in the timeline two notes at one time keep the chip\'s target first, then the id order, then the later written first', () => {
   const note = (target, text, index = 0) => ({ day: '2026-10-16', target, at: '09:00', by: '@human', note: text, index, file: 'f' });
   const order = (first) => n.noteTimeline([note('G3', 'g'), note('7', 'b', 1), note('7', 'a', 0), note('', 'none'), note('22', 'c')], { first })[0].notes.map((x) => x.note);
-  assert.deepStrictEqual(order(null), ['a', 'b', 'c', 'g', 'none']);
-  assert.deepStrictEqual(order('22'), ['c', 'a', 'b', 'g', 'none']);
+  assert.deepStrictEqual(order(null), ['b', 'a', 'c', 'g', 'none']);
+  assert.deepStrictEqual(order('22'), ['c', 'b', 'a', 'g', 'none']);
 });
 
 test('every note is about one card when all share a target, and an empty list is not', () => {
