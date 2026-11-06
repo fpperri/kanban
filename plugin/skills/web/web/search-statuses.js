@@ -15,7 +15,7 @@
 // good). The section never reads or writes the selection.
 //
 // This script reads app.js's globals at the moment it runs, never when it loads: $,
-// loadViewMode, boardColumnIds, columnLabel, statusColorVar. It also calls the page globals of
+// loadViewMode, boardColumnIds, columnLabel, statusColorVar, archiveHeldWords, archiveAbsent. It also calls the page globals of
 // status-filters.js (STATUS_FILTERS, statusFilterTitle) and search-panel.js (syncKeyedChildren).
 
 const STATUS_PILL_SOLO_HINT = 'Right-click to solo (right-click the soloed pill again to restore all).';
@@ -36,16 +36,31 @@ function buildStatusPill(doc, view, col, on) {
   dot.style.color = statusColorVar(col);
   const label = doc.createElement('span');
   label.textContent = columnLabel(col);
-  button.append(dot, label);
+  const note = button.pillNote = doc.createElement('span');
+  note.className = 'pill-note';
+  button.append(dot, label, note);
   updateStatusPill(button, view, col, on);
   return button;
 }
 
 function updateStatusPill(button, view, col, on) {
+  const words = col === 'archive' ? archiveHeldWords() : null;
+  const absent = col === 'archive' && archiveAbsent();
+  const note = button.pillNote;
+  if (note.textContent !== (words || '')) note.textContent = words || '';
+  button.classList.toggle('absent', absent);
+  if (absent) { // a page built without the archive has nothing for this pill to filter
+    button.removeAttribute('aria-pressed');
+    button.setAttribute('aria-disabled', 'true');
+    button.classList.remove('off');
+    button.title = 'The archive is not in this page: it was built without it.';
+    return;
+  }
+  if (button.getAttribute('aria-disabled')) button.removeAttribute('aria-disabled');
   const pressed = String(on);
   if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
   button.classList.toggle('off', !on);
-  const title = statusPillTitle(view, col, on);
+  const title = statusPillTitle(view, col, on) + (words ? ` This page holds ${words} of the archive.` : '');
   if (button.title !== title) button.title = title;
 }
 
@@ -89,7 +104,7 @@ function searchStatusesChipNames() {
 // view showing now.
 function applyStatusGesture(gesture, button) {
   const entry = STATUS_FILTERS[loadViewMode()];
-  if (entry) entry[gesture](button.dataset.col);
+  if (entry && !(button.dataset.col === 'archive' && archiveAbsent())) entry[gesture](button.dataset.col);
 }
 
 function onStatusPillClick(e) {

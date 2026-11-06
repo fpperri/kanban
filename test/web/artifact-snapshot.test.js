@@ -96,9 +96,9 @@ test('the board names its query for the header', () => {
   const root = tagged();
   try {
     const dir = path.join(root, 'p', '.kanban');
-    assert.deepStrictEqual(buildPage({ boardDir: dir }).board.snapshot, { query: '', archive: false, label: 'live cards only' });
+    assert.deepStrictEqual(buildPage({ boardDir: dir }).board.snapshot, { query: '', archive: false, label: 'live cards only', archiveHeld: { carried: 0, total: 2 } });
     assert.deepStrictEqual(buildPage({ boardDir: dir, archive: true }).board.snapshot, { query: '', archive: true, label: 'with the archive' });
-    assert.deepStrictEqual(buildPage({ boardDir: dir, query: '  tags:ui ' }).board.snapshot, { query: 'tags:ui', archive: false, label: 'tags:ui · live cards only' });
+    assert.deepStrictEqual(buildPage({ boardDir: dir, query: '  tags:ui ' }).board.snapshot, { query: 'tags:ui', archive: false, label: 'tags:ui · live cards only', archiveHeld: { carried: 0, total: 2 } });
     assert.strictEqual(buildPage({ boardDir: dir, query: 'tags:ui', archive: true }).board.snapshot.label, 'tags:ui · with the archive');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -107,7 +107,7 @@ test('the board load of the page says the query it was built with', async () => 
   const root = tagged();
   try {
     const board = await load(buildPage({ boardDir: path.join(root, 'p', '.kanban'), query: 'tags:api' }).html);
-    assert.deepStrictEqual(board.snapshot, { query: 'tags:api', archive: false, label: 'tags:api · live cards only' });
+    assert.deepStrictEqual(board.snapshot, { query: 'tags:api', archive: false, label: 'tags:api · live cards only', archiveHeld: { carried: 0, total: 2 } });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -252,7 +252,7 @@ test('the command takes --query and --archive', () => {
     assert.strictEqual(ran.status, 0, ran.stderr);
     assert.match(ran.stdout, /tags:ui/);
     const board = dataOf(fs.readFileSync(out, 'utf8')).board;
-    assert.deepStrictEqual(board.snapshot, { query: 'tags:ui', archive: true, label: 'tags:ui · with the archive' });
+    assert.deepStrictEqual(board.snapshot, { query: 'tags:ui', archive: true, label: 'tags:ui · with the archive', archiveHeld: { carried: 1, total: 2 } });
     assert.strictEqual(spawnSync(process.execPath, [SCRIPT, dir, '--out', out, '--query'], { encoding: 'utf8' }).status, 2);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -277,7 +277,7 @@ test('a board with the keys builds the same page with no flags as with the match
   try {
     const kept = buildPage({ boardDir: dirOf(root) });
     const flagged = buildPage({ boardDir: dirOf(plain), query: 'tags:ui', archive: true });
-    assert.deepStrictEqual(kept.board.snapshot, { query: 'tags:ui', archive: true, label: 'tags:ui · with the archive' });
+    assert.deepStrictEqual(kept.board.snapshot, { query: 'tags:ui', archive: true, label: 'tags:ui · with the archive', archiveHeld: { carried: 1, total: 2 } });
     assert.deepStrictEqual(flagged.board.snapshot, kept.board.snapshot);
     assert.deepStrictEqual(cardFiles(kept.html), cardFiles(flagged.html));
     assert.deepStrictEqual(cardFiles(kept.html), ['0001.one.card.md', '0003.three.card.md']);
@@ -289,7 +289,7 @@ test('a board without the keys builds as it did: live cards, no archive', async 
   const root = keeping('');
   try {
     const built = buildPage({ boardDir: dirOf(root) });
-    assert.deepStrictEqual(built.board.snapshot, { query: '', archive: false, label: 'live cards only' });
+    assert.deepStrictEqual(built.board.snapshot, { query: '', archive: false, label: 'live cards only', archiveHeld: { carried: 0, total: 2 } });
     const board = await load(built.html);
     assert.deepStrictEqual(idsOf(board.active), ['1', '2']);
     assert.deepStrictEqual(board.archived, []);
@@ -319,7 +319,7 @@ test('a flag wins for one build: a query replaces the kept one, an empty query t
     const out = path.join(root, 'out.html');
     const ran = spawnSync(process.execPath, [SCRIPT, dir, '--out', out, '--no-archive', '--query', 'tags:api'], { encoding: 'utf8' });
     assert.strictEqual(ran.status, 0, ran.stderr);
-    assert.deepStrictEqual(dataOf(fs.readFileSync(out, 'utf8')).board.snapshot, { query: 'tags:api', archive: false, label: 'tags:api · live cards only' });
+    assert.deepStrictEqual(dataOf(fs.readFileSync(out, 'utf8')).board.snapshot, { query: 'tags:api', archive: false, label: 'tags:api · live cards only', archiveHeld: { carried: 0, total: 2 } });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 

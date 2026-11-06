@@ -60,7 +60,7 @@ function templateSites(src, cls) {
 }
 
 function statusPillTags() {
-  const sandbox = { columnLabel: (c) => c, statusColorVar: () => '', statusFilterTitle: () => 'title' };
+  const sandbox = { columnLabel: (c) => c, statusColorVar: () => '', statusFilterTitle: () => 'title', archiveHeldWords: () => null, archiveAbsent: () => false };
   vm.runInNewContext(fn('statusPillTitle', statusesSrc) + fn('buildStatusPill', statusesSrc) + fn('updateStatusPill', statusesSrc) + 'const STATUS_PILL_SOLO_HINT = "";', sandbox);
   const node = (tag) => Object.assign(fakeNode(tag), {
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },

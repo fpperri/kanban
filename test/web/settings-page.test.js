@@ -128,7 +128,7 @@ test('the gear opens the sheet on the page it had, and the hotkey opens it on th
 
 test('the payload\'s settings are kept on the page state for the pages to read', () => {
   assert.match(appSrc, /state\.settings = data\.settings \|\| null;/);
-  assert.match(appSrc, /groups: null, scratchpad: null, iterations: false, settings: null \};/);
+  assert.match(appSrc, /groups: null, scratchpad: null, iterations: false, settings: null, archiveHeld: null \};/);
 });
 
 // --- the Types and Prefixes pages, built by the real script on a small stand-in DOM ------------------------
