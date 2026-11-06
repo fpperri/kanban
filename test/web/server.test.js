@@ -1779,9 +1779,9 @@ test('the map SVG node gets a priority/waiting border cue, matching the board ti
     // Mutually exclusive with archived — mirrors archiveCardEl never applying
     // pb.className/waiting on the board, rather than relying on CSS cascade
     // order to pick a winner between two co-applied classes.
-    assert.match(svg[0], /!missing && !n\.archived\)\s*\?\s*priorityBadge\(n, state\.priorities\)\s*:\s*\{\s*className:\s*''\s*\}/,
-      'priority classification is skipped entirely for an archived (or missing) node');
-    assert.match(svg[0], /!missing && !n\.archived && n\.waiting\)\s*\?\s*' waiting'/, 'waiting class likewise gated off archived/missing nodes');
+    assert.match(svg[0], /!external && !n\.archived\)\s*\?\s*priorityBadge\(n, state\.priorities\)\s*:\s*\{\s*className:\s*''\s*\}/,
+      'priority classification is skipped entirely for an archived (or external) node');
+    assert.match(svg[0], /!external && !n\.archived && n\.waiting\)\s*\?\s*' waiting'/, 'waiting class likewise gated off archived/external nodes');
   });
 });
 
