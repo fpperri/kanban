@@ -182,11 +182,11 @@ test('a rich node is as tall as its content: the parent with a bar is the talles
   assert.ok(heightOf(11) < 58);
 });
 
-test('a parent on another board is a labelled stub, and its dashed line is dimmed', () => {
+test('a parent on another board is a labelled external node, and its dashed line is marked', () => {
   const { html } = draw([card(2, 'todo', { parent: 'shop#7' })]);
   assert.match(html, /shop#7/);
   assert.match(html, /\(other board\)/);
-  assert.match(html, /class="map-edge map-parent-line ghost-edge"/);
+  assert.match(html, /class="map-edge map-parent-line external-edge"/);
 });
 
 test('every card-derived string is escaped, a parent mention included', () => {
@@ -195,9 +195,8 @@ test('every card-derived string is escaped, a parent mention included', () => {
   assert.ok(!html.includes('<i>'));
 });
 
-// A ghost stub is a hidden card a visible one waits on. It carries its waiting and priority classes, because the
-// stylesheet draws those two states on the stub's edge and a node has no other mark for them.
-test('a ghost stub of a waiting or high-priority card carries those classes beside ghost', () => {
+// A card the filters hide is not drawn, and a card whose every relation is to a hidden card is in the No relations row.
+test('a card the cut hides is not drawn, and the cards that waited on it have no relation left', () => {
   const cards = [
     card(1, 'todo', { priority: 'High', waiting_for: [2] }),
     card(2, 'doing'),
@@ -207,9 +206,20 @@ test('a ghost stub of a waiting or high-priority card carries those classes besi
   ];
   const visible = new Set(['3', '4']);
   const view = mapShapeRelations(buildRelationsGraph(cards, visible, CTX), { ...MAP_OPTION_DEFAULTS });
+  assert.deepStrictEqual(view.graphs, []);
+  assert.deepStrictEqual(view.noRelations, ['3', '4']);
+});
+
+test('a drawn graph holds no node for a hidden card and no class of a stub', () => {
+  const cards = [card(1, 'todo'), card(2, 'todo', { waiting_for: [1] }), card(3, 'todo', { waiting_for: [2] })];
+  const visible = new Set(['1', '2']);
+  const view = mapShapeRelations(buildRelationsGraph(cards, visible, CTX), { ...MAP_OPTION_DEFAULTS });
   const w = drawing(cards);
   const look = { ...MAP_OPTION_DEFAULTS, statuses: STATUSES, byId: new Map(cards.map((c) => [c.id, c])) };
   const html = view.graphs.map((g) => w.buildMapSvg(g, layerNodes(g.ids, g.layoutEdges), look).innerHTML).join('\n');
-  assert.match(html, /<g class="map-node ghost high waiting"[^>]*data-id="1"/);
-  assert.match(html, /<g class="map-node ghost"[^>]*data-id="5"/);
+  assert.match(html, /data-id="1"/);
+  assert.match(html, /data-id="2"/);
+  assert.ok(!/data-id="3"/.test(html), 'the hidden card is not drawn');
+  assert.strictEqual((html.match(/<path class="map-edge/g) || []).length, 1, 'one line, between the two drawn cards');
+  assert.ok(!/ghost|missing/.test(html));
 });

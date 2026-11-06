@@ -1197,7 +1197,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    per-status stroke would fight over this single channel with the archived
    mute below; status lives on its own channel (the dot) instead, so this
    rect only ever draws the plain neutral border (or archived's grey — the
-   one exception, same as selection glow / ghost dashing /
+   one exception, same as selection glow /
    the back-edge amber all keeping their own treatments). */
 .map-node rect { fill: var(--paper); stroke: var(--line); stroke-width: 2px; cursor: pointer; }
 .map-node text { fill: var(--ink); font-family: inherit; }
@@ -1241,7 +1241,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    undifferentiated grey mass. The dot always shows
    the node's true status color. The archived cue lives solely in the
    rect's border mute above (the one exception),
-   the "(archived)" SVG tooltip, and the ghost/selection treatments below. */
+   the "(archived)" SVG tooltip, and the external/selection treatments below. */
 .map-status-dot.status-backlog { fill: var(--st-backlog); } /* cyan (was grey — read as archived) */
 .map-status-dot.status-todo { fill: var(--st-todo); }
 .map-status-dot.status-doing { fill: var(--st-doing); }
@@ -1260,22 +1260,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    ARCHIVE_COLOR as .archived-dot, a dot in the node's right-edge column
    (buildMapSvg, app.js) beside the status dot, vertically centered. */
 .map-archived-dot { fill: var(--st-archive); }
-/* Ghost stub: a hidden card that a visible one waits on / is waited on by,
-   kept on the map (never silently dropped) but muted and dashed so
-   it reads as "not part of the current search slice" rather than a normal node. */
-/* The dashed edge is a ghost stub's only cue, so it is a mark, not a rule: muted ink clears 3:1 where line-strong does
-   not. A waiting or high-priority card keeps its stroke on a stub (a node has no other mark for those states), and
-   waiting wins when both apply, as above. */
-.map-node.ghost rect { fill: transparent; stroke: var(--mut); stroke-dasharray: 4 3; }
-.map-node.ghost.high rect { stroke: var(--id-high); }
-.map-node.ghost.waiting rect { stroke: var(--id-waiting); }
-.map-node.ghost .map-node-title, .map-node.ghost .map-node-id { fill: var(--mut); }
-.map-node.ghost .map-node-title--prompt-fallback { fill-opacity: 1; }
-.map-node.ghost:not(.missing) { cursor: pointer; }
-.map-node.missing rect { stroke-dasharray: 2 3; }
-.map-node.missing { cursor: default; }
+/* A parent on another board has no card here: muted ink and dashes mark it as not one of this board's nodes. The dashes are
+   its only cue, so they are a mark, not a rule: muted ink clears 3:1 where line-strong does not. */
+.map-node.external rect { fill: transparent; stroke: var(--mut); stroke-dasharray: 2 3; cursor: default; }
+.map-node.external .map-node-title, .map-node.external .map-node-id { fill: var(--mut); }
 .map-edge { fill: none; stroke: var(--mut); stroke-width: 1.6px; }
-.map-edge.ghost-edge { stroke-dasharray: 4 3; }
 #map-arrow path { fill: var(--mut); }
 /* Back-edge: only possible when a cycle forced the layering to break order —
    routed as a side-bowed curve (see buildMapSvg in app.js) and colored like
@@ -1315,8 +1304,8 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .map-align-center .map-isolated-row { justify-content: center; }
 /* A parent line is a dependency edge's grey, dashed, with a dot on the parent's end. */
 .map-parent-line { stroke-dasharray: 6 4; }
-/* A parent line to a ghost is dotted: 6 4 is a live parent line, 4 3 an edge to a ghost, and the dash is what tells them apart. */
-.map-parent-line.ghost-edge { stroke-dasharray: 2 4; }
+/* A parent line to a parent on another board is dotted: 6 4 is a live parent line, and the dash is what tells them apart. */
+.map-parent-line.external-edge { stroke-dasharray: 2 4; }
 .map-parent-dot circle { fill: var(--mut); }
 /* Rich nodes carry HTML rows (type chip, altitude badge, roll-up bar) in foreignObjects. */
 .map-node foreignObject { font-size: 14px; color: var(--ink); overflow: hidden; }

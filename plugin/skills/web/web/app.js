@@ -1509,7 +1509,7 @@ function renderBoardTabs(tabs) {
 }
 
 // --- Dependency map rendering ------------------------------------
-// Graph-building (nodes/edges/ghost-stubs/isolated, filter-aware) lives in
+// Graph-building (nodes/edges/isolated, filter-aware) lives in
 // dependency-graph.js — pure, unit-tested, dual-environment like search.js.
 // Everything below is presentation: laying the graph's nodes/edges out as an
 // SVG and gluing it to the DOM. Nodes come from BOTH state.active and
@@ -1566,14 +1566,14 @@ function renderMapView() {
   const searchIds = withIterationCut(currentSearchMatch().ids);
   // Status filter composes with search by INTERSECTION — a card is
   // visible only if BOTH say so, and buildRelationsGraph sees one combined
-  // visibleIds so the ghost-stub semantics stay EXACTLY the search filter's,
-  // for free. The rule (incl. either side's null "not filtering" pass-through)
-  // is column-state.js's intersectVisibleIds — pure and unit-pinned, not glue.
+  // visibleIds, so a card either filter hides is not drawn.
+  // The rule (incl. either side's null "not filtering" pass-through) is
+  // column-state.js's intersectVisibleIds — pure and unit-pinned, not glue.
   const statusIds = mapFilterVisibleIds(allCards, loadMapStatusFilter(), state.statuses);
   const visibleIds = intersectVisibleIds(searchIds, statusIds);
   const rel = buildRelationsGraph(allCards, visibleIds, nestingCtx());
 
-  if (!rel.nodes.length && !rel.ghosts.length) {
+  if (!rel.nodes.length) {
     const empty = document.createElement('div');
     empty.className = 'map-empty';
     empty.textContent = 'No cards match the current search/status filters.';
@@ -1782,7 +1782,7 @@ const MAP_OPTION_LABELS = {
   },
   order: {
     label: 'Row order',
-    hint: 'Left to right within each row. By status: doing, todo, backlog, other live statuses in column order, done, archived, then stubs; ties keep the layout order. Layout: as the layout falls.',
+    hint: 'Left to right within each row. By status: doing, todo, backlog, other live statuses in column order, done, archived, then parents on another board; ties keep the layout order. Layout: as the layout falls.',
     values: { status: 'by status', layout: 'layout' },
   },
   relayout: {
@@ -1931,7 +1931,7 @@ const MAP_RICH_BARE_H = 46;
 const MAP_RICH_DIMS = { top: MAP_RICH_TOP, metaH: MAP_RICH_META_H, barGap: 3, bottom: 8, bareH: MAP_RICH_BARE_H };
 
 function mapRichLayout(n, draw) {
-  if (draw.cards !== 'rich' || !n || n.ghost || n.missing || n.external) return null;
+  if (draw.cards !== 'rich' || !n || n.external) return null;
   const card = draw.byId && draw.byId.get(n.id);
   const type = state.typesOn !== false && card && card.type != null ? String(card.type).trim() : '';
   const alt = nestingIndex.altitudeOf(n.id);
@@ -1971,8 +1971,8 @@ function mapRichHtml(n, rich, statuses) {
 // the normal downward flow.
 function buildMapSvg(graph, layer, draw) {
   const allById = new Map();
-  graph.nodes.forEach((n) => allById.set(n.id, Object.assign({ ghost: false }, n)));
-  graph.ghosts.forEach((g) => allById.set(g.id, Object.assign({ ghost: true }, g)));
+  graph.nodes.forEach((n) => allById.set(n.id, n));
+  graph.externals.forEach((x) => allById.set(x.id, x));
 
   const layers = new Map(); // layerIndex -> [ids] left to right
   for (const [id, l] of layer) {
@@ -1980,7 +1980,7 @@ function buildMapSvg(graph, layer, draw) {
     layers.get(l).push(id);
   }
   for (const [l, ids] of layers) {
-    ids.sort(kanbanIds.compareIds); // the layout's own order is the tie-break for the status order (a stub's id is no id and sorts last)
+    ids.sort(kanbanIds.compareIds); // the layout's own order is the tie-break for the status order (an external node's id is no id and sorts last)
     layers.set(l, mapOrderRow(ids, graph, draw.order, draw.statuses));
   }
   const sizes = new Map();
@@ -2007,7 +2007,6 @@ function buildMapSvg(graph, layer, draw) {
     const from = pos.get(e.from);
     const to = pos.get(e.to);
     if (!from || !to) return; // defensive: every edge endpoint is always laid out, but never let a mismatch crash the render
-    const dimmed = e.fromGhost || e.toGhost;
     const backEdge = (layer.get(e.to) || 0) <= (layer.get(e.from) || 0);
     const x1 = from.cx, y1 = from.y + from.h, x2 = to.cx, y2 = to.y;
     let d;
@@ -2018,7 +2017,7 @@ function buildMapSvg(graph, layer, draw) {
       const midY = (y1 + y2) / 2;
       d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
     }
-    edgesSvg += `<path class="map-edge${backEdge ? ' back-edge' : ''}${dimmed ? ' ghost-edge' : ''}" d="${d}" marker-end="url(#map-arrow)"></path>`;
+    edgesSvg += `<path class="map-edge${backEdge ? ' back-edge' : ''}" d="${d}" marker-end="url(#map-arrow)"></path>`;
   });
 
   if (graph.lines.length) {
@@ -2034,21 +2033,16 @@ function buildMapSvg(graph, layer, draw) {
   for (const [id, p] of pos) {
     const n = allById.get(id);
     if (!n) continue;
-    const missing = !!n.missing;
-    // Only REAL nodes join the shared card-el grammar (selection +
-    // context menu). Ghost stubs stay click-through-to-detail only: a ghost
-    // stands for a card the active search filter deliberately hid, and the
-    // board never lets a filtered-out card join a selection (it isn't rendered
-    // there at all) — so its stub must not smuggle hidden cards into a bulk
-    // batch either. Archived cards that MATCH the filter render as real nodes
-    // and are selectable. A `missing` stub has no card to act on.
-    const selectable = !n.ghost && !missing;
+    const external = !!n.external;
+    // Only a card joins the shared card-el grammar (selection + context menu).
+    // A parent on another board has no card here to act on.
+    const selectable = !external;
     // The node border is one neutral weight for every node (see
     // .map-node rect in app.css) — status (its own dot) never fights over
     // that single stroke channel with archive.
     // `archived` still rides the group class: its neutral-grey
     // border mute is the one exception, same as selection glow
-    // / ghost dashing / the back-edge amber all keeping their own treatments.
+    // / the back-edge amber all keeping their own treatments.
     // priority/waiting join that same channel — same board-tile
     // parity `priorityBadge`+`isWaiting` gives cardEl (app.js), reused
     // straight off the node's own `priority`/`waiting` fields (computed once
@@ -2060,22 +2054,20 @@ function buildMapSvg(graph, layer, draw) {
     // marks WAITING (unresolved waiting_for
     // deps); the manual blocked sticker is the separate red
     // pill below, not a border.
-    const pb = (!missing && !n.archived) ? priorityBadge(n, state.priorities) : { className: '' };
-    const cls = `map-node${n.ghost ? ' ghost' : ''}${missing ? ' missing' : ''}${n.archived ? ' archived' : ''}` +
-      `${pb.className ? ` ${pb.className}` : ''}${(!missing && !n.archived && n.waiting) ? ' waiting' : ''}` +
+    const pb = (!external && !n.archived) ? priorityBadge(n, state.priorities) : { className: '' };
+    const cls = `map-node${external ? ' external' : ''}${n.archived ? ' archived' : ''}` +
+      `${pb.className ? ` ${pb.className}` : ''}${(!external && !n.archived && n.waiting) ? ' waiting' : ''}` +
       `${selectable ? ' card-el' : ''}${selectable && paintsSelected(id) ? ' selected' : ''}` +
       `${selectable && isHoverHighlighted(hoverLit, id) ? ' hover-highlight' : ''}`;
     const idLabel = n.external ? n.external : `#${id}`;
     // Same empty-title-shows-the-prompt fallback every
     // other view uses (cardTitleDisplay, card-title.js) — n already carries
-    // `prompt` (dependency-graph.js's cardToNode). A missing stub has no
-    // card behind it at all, so it keeps its own '(not found)' text instead.
+    // `prompt` (dependency-graph.js's cardToNode). A parent on another board has no
+    // card behind it at all, so it keeps its own '(other board)' text instead.
     const titleDisplay = cardTitleDisplay(n);
-    const titleLine = n.external ? '(other board)' : missing ? '(not found)' : truncateLabel(titleDisplay.text, 22);
-    const tooltip = n.external
+    const titleLine = external ? '(other board)' : truncateLabel(titleDisplay.text, 22);
+    const tooltip = external
       ? `${n.external} — parent on another board, not drawn on this map`
-      : missing
-      ? `#${id} — referenced but not found on the board`
       : `#${id} ${titleDisplay.text}${n.archived ? ' (archived)' : ''}`;
     // Status lives on its own dot — a filled circle. A non-built-in
     // status (custom column or unlisted on-disk value) gets one of the 8
@@ -2089,35 +2081,35 @@ function buildMapSvg(graph, layer, draw) {
     // archived cue is carried by the rect border alone (the one exception).
     // The dot's OWN <title> — SVG-native tooltip — names the RAW on-disk
     // status for every node, not just custom ones.
-    const statusDot = missing ? '' :
+    const statusDot = external ? '' :
       `<circle class="map-status-dot status-${statusColorClass(n.status)}" cx="${MAP_NODE_W - 10}" cy="10" r="4"><title>${escapeHtml(n.status)}</title></circle>`;
     // The archived ball: the
     // second right-edge dot, only for a truly archived node — same x column
     // as status (MAP_NODE_W - 10, already proven clear of the truncated
-    // title text). Never set for a `missing` stub (its `archived` is always
-    // false — dependency-graph.js's own stub shape). Status and this ball
+    // title text). Never set for a parent on another board (its `archived` is always
+    // false — dependency-graph.js's externalNode). Status and this ball
     // are the only right-edge dots.
     const archivedDot = n.archived ? `<circle class="map-archived-dot" cx="${MAP_NODE_W - 10}" cy="${MAP_NODE_H / 2}" r="4"><title>Archived</title></circle>` : '';
     // The red blocked pill — the map twin of the board tile's
     // sticker glyph, bottom-left under the title where no dot column lives.
     // The pill's own <title> carries the reason (SVG-native tooltip; the
     // reason is user data, escaped like every other user string in this
-    // SVG). Skipped for missing stubs (no card behind them) but NOT gated
+    // SVG). Skipped for a parent on another board (no card behind it) but NOT gated
     // off archived — a stop sign is identity, not location, and unlike
     // the waiting stroke it doesn't share a channel with the archived grey mute.
     const rich = sizes.get(id).rich;
     const pillY = rich ? rich.metaY + 1 : MAP_NODE_H - 18;
-    const blockedPill = (!missing && n.blocked)
+    const blockedPill = (!external && n.blocked)
       ? `<g class="map-blocked-pill"><title>${escapeHtml(n.blockedReason ? `blocked: ${n.blockedReason}` : 'blocked')}</title>` +
         `<rect x="8" y="${pillY}" width="46" height="13" rx="6.5"></rect>` +
         `<text x="31" y="${pillY + 10}" text-anchor="middle">blocked</text></g>`
       : '';
     nodesSvg +=
-      `<g class="${cls}" transform="translate(${p.x},${p.y})"${missing ? '' : ` data-id="${id}"`}${selectable ? ' tabindex="0"' : ''}>` +
+      `<g class="${cls}" transform="translate(${p.x},${p.y})"${external ? '' : ` data-id="${id}"`}${selectable ? ' tabindex="0"' : ''}>` +
         `<title>${escapeHtml(tooltip)}</title>` +
         `<rect width="${MAP_NODE_W}" height="${p.h}" rx="6"></rect>` +
         `<text x="10" y="18" class="map-node-id">${escapeHtml(idLabel)}</text>` +
-        `<text x="10" y="34" class="map-node-title${!missing && titleDisplay.isPromptFallback ? ' map-node-title--prompt-fallback' : ''}">${escapeHtml(titleLine)}</text>` +
+        `<text x="10" y="34" class="map-node-title${!external && titleDisplay.isPromptFallback ? ' map-node-title--prompt-fallback' : ''}">${escapeHtml(titleLine)}</text>` +
         statusDot + archivedDot + blockedPill + (rich ? mapRichHtml(n, rich, draw.statuses) : '') +
       `</g>`;
   }
@@ -2153,7 +2145,7 @@ function buildMapSvg(graph, layer, draw) {
 function buildParentLinesSvg(graph, pos, layer, parentSits) {
   const { paths, maxX } = mapParentLinePaths(graph, pos, layer, parentSits, MAP_DIMS);
   const dot = parentSits === 'above' ? 'marker-start' : 'marker-end';
-  const svg = paths.map((p) => `<path class="map-edge map-parent-line${p.dimmed ? ' ghost-edge' : ''}" d="${p.d}" ${dot}="url(#map-parent-dot)"></path>`).join('');
+  const svg = paths.map((p) => `<path class="map-edge map-parent-line${p.external ? ' external-edge' : ''}" d="${p.d}" ${dot}="url(#map-parent-dot)"></path>`).join('');
   return { svg, maxX };
 }
 
@@ -3514,7 +3506,7 @@ function closeDetailModal() {
 // separate keyboard shortcut to fight them. card-history.js owns the pure
 // "what URL, if any" decision; these two just apply it around the existing
 // open/close. Every call site that opens or closes the popup from a live
-// user gesture (tile, mention, tray, map ghost, close button, backdrop, Esc,
+// user gesture (tile, mention, tray, close button, backdrop, Esc,
 // archive/delete) goes through openCard/closeCard instead of
 // openDetailModal/closeDetailModal directly. The popstate listener below is
 // the one deliberate exception — it applies openDetailModal/closeDetailModal
@@ -4322,11 +4314,6 @@ function goToSearchMatch() {
 //   FIRST, same ordering as #board's delegated listener, so a click on a
 //   button nested inside a card-el tile triggers the action (the shared
 //   handler independently ignores clicks landing on buttons);
-// - ghost stubs with real card data behind them: click-through to detail
-//   only, deliberately NOT card-el (see buildMapSvg's selectable note), so
-//   "jump to a hidden dep's detail" still works straight from the stub.
-//   A `missing` stub (a waiting_for id with no matching card at all) has
-//   nothing to open and never gets data-id.
 window.addEventListener('DOMContentLoaded', () => {
   $('#map-toggle-btn').addEventListener('click', () => toggleView('map'));
   fillViewBar();
@@ -4367,8 +4354,6 @@ window.addEventListener('DOMContentLoaded', () => {
       if (actBtn.dataset.act === 'delete-arch') doDelete(id);
       return;
     }
-    const stub = e.target.closest('.map-node.ghost[data-id]');
-    if (stub) openCard(stub.dataset.id);
   });
   wireMapPanZoom();
 });
@@ -4600,7 +4585,7 @@ function wireMapPanZoom() {
     // DELEGATED #map-view container. Capturing immediately retargets the
     // compatibility `click` (and mouseup) that follows EVERY press —
     // including a plain, unmoved one — to the container itself, never the
-    // node/stub actually pressed. The shared card-el grammar's
+    // node actually pressed. The shared card-el grammar's
     // `e.target.closest('.card-el')` then finds nothing on #map-view, so a
     // plain click stopped opening cards and Ctrl/Shift-click stopped
     // selecting. Once the gesture IS a
@@ -6625,8 +6610,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // range start and the target (the file-manager grammar), right-click
 // opens the card menu (for the card alone outside the selection, for the whole
 // selection inside it; its actions are view-agnostic: they act on the menu's
-// subject, not on DOM). Only the map's ghost stubs opt out
-// (see buildMapSvg).
+// subject, not on DOM).
 // The selection: the anchor and the additions that make it up, and the range
 // start — the last card a selection gesture landed on (ctrl+click or a
 // range-starting shift+click; a right-click leaves it alone). The
@@ -7229,7 +7213,7 @@ function onClickAway(e) {
 
 // The canvas of the view on show, where a right-click on empty space opens the menu of Isolate
 // alone: the Graph's and the Map's. Empty is what the click-away rule calls empty space, and no
-// Map node either (a ghost stub opens a card), and no relation line: a link between two cards, the
+// Map node either and no relation line: a link between two cards, the
 // Graph's line and its count and the Map's edge, belongs to the cards it joins. Every other view,
 // and a point of these views outside their canvas (a toolbar, a section header), keeps the
 // browser's own menu.

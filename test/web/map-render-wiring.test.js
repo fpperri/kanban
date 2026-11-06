@@ -29,7 +29,7 @@ function headingSandbox() {
   return sandbox;
 }
 const node = (id, title) => ({ id, title });
-const treeOf = (nodes, roots, ghosts = []) => ({ nodes, ghosts, roots });
+const treeOf = (nodes, roots) => ({ nodes, roots });
 
 test('the graph section counts trees and cards when it holds one graph per tree', () => {
   const w = headingSandbox();
@@ -43,10 +43,10 @@ test('the graph section counts cards only when it holds one graph', () => {
   assert.strictEqual(w.mapGraphSectionLabel([treeOf([node(1), node(2)], [1])], 'one'), 'Relations graph (2 cards):');
 });
 
-test('a tree\'s heading names its roots and counts its cards and stubs', () => {
+test('a tree\'s heading names its roots and counts its cards', () => {
   const w = headingSandbox();
-  const html = w.mapGraphHeadingHtml(treeOf([node(10, 'Spec: cards nest'), node(11, 'Chip'), node(12, 'Nest')], [10], [node(9, 'Hidden')]));
-  assert.strictEqual(html, '<strong>#10 Spec: cards nest</strong><span>3 cards + 1 stub</span>');
+  const html = w.mapGraphHeadingHtml(treeOf([node(10, 'Spec: cards nest'), node(11, 'Chip'), node(12, 'Nest')], [10]));
+  assert.strictEqual(html, '<strong>#10 Spec: cards nest</strong><span>3 cards</span>');
 });
 
 test('a heading names three roots at most and counts the rest', () => {
@@ -93,13 +93,13 @@ const STATUSES = ['backlog', 'todo', 'doing', 'done'];
 const RICH = (cards) => ({ cards: 'rich', byId: byId(...cards), statuses: STATUSES });
 const heightOf = (w, node, opts) => w.mapNodeSize(node, opts).h;
 
-test('plain cards, stubs and cards from another board draw as they always did, at the fixed height', () => {
+test('plain cards and cards from another board draw as they always did, at the fixed height', () => {
   const w = richSandbox({ index: parentIndex(3) });
   const card = { id: 1, type: 'epic' };
   const plain = { cards: 'plain', byId: byId(card), statuses: STATUSES };
   assert.strictEqual(w.mapNodeSize({ id: 1 }, plain).rich, null);
   assert.strictEqual(heightOf(w, { id: 1 }, plain), 58);
-  for (const stub of [{ id: 1, ghost: true }, { id: 1, missing: true }, { id: -1, external: 'shop#7' }]) {
+  for (const stub of [{ id: -1, external: 'shop#7' }]) {
     assert.strictEqual(w.mapNodeSize(stub, RICH([card])).rich, null);
     assert.strictEqual(heightOf(w, stub, RICH([card])), 58);
   }
@@ -219,7 +219,7 @@ test('the SVG\'s rich rows and roll-up segments are painted after the markup lan
   assert.ok(body.indexOf('paintTypeColors(svg)') > painted, 'type colors too');
 });
 
-test('a card from another board is named by its mention, with the label of a stub', () => {
+test('a card from another board is named by its mention, with the label of an external node', () => {
   const body = fn('buildMapSvg');
   assert.match(body, /n\.external \? n\.external : `#\$\{id\}`/);
   assert.match(body, /\(other board\)/);

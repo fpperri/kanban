@@ -13,15 +13,13 @@ const CARDS = [
   { id: '6', title: 'Blocked by archived', status: 'todo', waiting_for: ['5'], archived: false },
 ];
 
-test('no active filter (visibleIds null): every card is a full node, every waiting_for is a plain edge, no ghosts', () => {
+test('no active filter (visibleIds null): every card is a full node, every waiting_for is a plain edge', () => {
   const g = buildDependencyGraph(CARDS, null);
   assert.deepStrictEqual(g.nodes.map((n) => n.id).sort((a, b) => a - b), ['1', '2', '3', '4', '5', '6']);
   assert.deepStrictEqual(
     g.edges.map((e) => [e.from, e.to]).sort(),
     [['1', '2'], ['2', '3'], ['5', '6']].sort(),
   );
-  assert.ok(g.edges.every((e) => !e.fromGhost && !e.toGhost));
-  assert.deepStrictEqual(g.ghosts, []);
 });
 
 test('archived cards are included as full nodes (archive is a location, not exclusion — matches board isWaiting semantics)', () => {
@@ -81,51 +79,30 @@ test('a hidden dep still resolves `waiting` on the visible waiting card, same as
     { id: '1', title: 'Hidden dep', status: 'todo', waiting_for: [], archived: false },
     { id: '2', title: 'Waiting on 1', status: 'todo', waiting_for: ['1'], archived: false },
   ];
-  const g = buildDependencyGraph(cards, new Set(['2'])); // 1 is hidden by the filter, ghosts in
-  assert.strictEqual(g.nodes.find((n) => n.id === '2').waiting, true, 'the visible card still reads waiting even though its dep is only a ghost');
+  const g = buildDependencyGraph(cards, new Set(['2'])); // 1 is hidden by the filter
+  assert.strictEqual(g.nodes.find((n) => n.id === '2').waiting, true, 'the visible card still reads waiting even though its dep is hidden');
 });
 
-test('a ghost stub for a real (non-dangling) card carries its priority and waiting flag too — only the fully-missing stub defaults both', () => {
-  const cards = [
-    { id: '1', title: 'Hidden hot dep', status: 'todo', waiting_for: [], archived: false, priority: 'High' },
-    { id: '2', title: 'Visible, waiting on 1', status: 'todo', waiting_for: ['1'], archived: false },
-  ];
-  const g = buildDependencyGraph(cards, new Set(['2']));
-  const ghost1 = g.ghosts.find((gh) => gh.id === '1');
-  assert.strictEqual(ghost1.priority, 'High');
-  assert.strictEqual(ghost1.waiting, false, 'card 1 has no waiting_for of its own');
-});
-
-test('a hidden BLOCKER (search hides card 1, keeps 2/3/4) becomes a dimmed ghost stub; the edge is kept, not dropped', () => {
+test('a hidden BLOCKER (search hides card 1, keeps 2/3/4) is not drawn, and neither is its edge', () => {
   const visible = new Set(['2', '3', '4']);
   const g = buildDependencyGraph(CARDS, visible);
   assert.deepStrictEqual(g.nodes.map((n) => n.id).sort((a, b) => a - b), ['2', '3', '4']);
-  const edge12 = g.edges.find((e) => e.from === '1' && e.to === '2');
-  assert.ok(edge12, 'edge to the hidden blocker survives as a stub edge, not dropped');
-  assert.strictEqual(edge12.fromGhost, true);
-  assert.strictEqual(edge12.toGhost, false);
-  const ghost1 = g.ghosts.find((gh) => gh.id === '1');
-  assert.ok(ghost1);
-  assert.strictEqual(ghost1.title, 'Root A');
-  assert.strictEqual(ghost1.missing, undefined);
+  assert.strictEqual(g.edges.some((e) => e.from === '1' || e.to === '1'), false, 'no edge runs to the hidden blocker');
+  assert.deepStrictEqual(g.edges.map((e) => [e.from, e.to]), [['2', '3']]);
 });
 
-test('a hidden BLOCKED card also becomes a ghost stub (symmetric — the courtesy is not one-directional)', () => {
+test('a hidden BLOCKED card is not drawn either, and neither is its edge (symmetric)', () => {
   // visible = {1, 4}: card 2 (blocked by 1) is hidden.
   const g = buildDependencyGraph(CARDS, new Set(['1', '4']));
-  const edge12 = g.edges.find((e) => e.from === '1' && e.to === '2');
-  assert.ok(edge12);
-  assert.strictEqual(edge12.fromGhost, false);
-  assert.strictEqual(edge12.toGhost, true);
-  assert.ok(g.ghosts.find((gh) => gh.id === '2'));
+  assert.deepStrictEqual(g.nodes.map((n) => n.id).sort((a, b) => a - b), ['1', '4']);
+  assert.deepStrictEqual(g.edges, []);
 });
 
-test('an edge with NEITHER endpoint visible is dropped entirely, not rendered as a double-ghost floating edge', () => {
-  // visible = {2, 3, 4}: edge 5 -> 6 has neither endpoint visible.
+test('an edge with NEITHER endpoint visible is dropped, and so is one with only one', () => {
+  // visible = {2, 3, 4}: edge 5 -> 6 has neither endpoint visible; 1 -> 2 has one.
   const g = buildDependencyGraph(CARDS, new Set(['2', '3', '4']));
   assert.strictEqual(g.edges.some((e) => e.from === '5' && e.to === '6'), false);
-  assert.strictEqual(g.ghosts.some((gh) => gh.id === '5'), false);
-  assert.strictEqual(g.ghosts.some((gh) => gh.id === '6'), false);
+  assert.strictEqual(g.edges.some((e) => e.from === '1' && e.to === '2'), false);
 });
 
 test('clearing the search (visibleIds null) restores the full graph, including previously-dropped edges', () => {
@@ -135,12 +112,11 @@ test('clearing the search (visibleIds null) restores the full graph, including p
   assert.ok(cleared.edges.some((e) => e.from === '5' && e.to === '6'));
 });
 
-test('a stale/dangling waiting_for id (references a card that no longer exists) still gets a ghost stub, marked missing', () => {
+test('a stale/dangling waiting_for id (references a card that no longer exists) draws nothing: no node, no edge', () => {
   const cards = [{ id: '10', title: 'Orphan blocker ref', status: 'todo', waiting_for: ['999'], archived: false }];
   const g = buildDependencyGraph(cards, null);
-  assert.strictEqual(g.edges.length, 1);
-  assert.deepStrictEqual(g.edges[0], { from: '999', to: '10', kind: 'dep', fromGhost: true, toGhost: false });
-  assert.deepStrictEqual(g.ghosts, [{ id: '999', title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true }]); // priority/waiting joined the node shape; blocked/blockedReason = the manual sticker
+  assert.deepStrictEqual(g.nodes.map((n) => n.id), ['10']);
+  assert.deepStrictEqual(g.edges, []);
 });
 
 test('a duplicate waiting_for entry collapses to a single edge', () => {
@@ -152,32 +128,21 @@ test('a duplicate waiting_for entry collapses to a single edge', () => {
   assert.strictEqual(g.edges.length, 1);
 });
 
-test('an unblocked card (empty waiting_for) that blocks another card keeps its edge even when the filter hides every card it blocks, ghost-stubbing them instead', () => {
+test('an unblocked card (empty waiting_for) that blocks another card is still a node when the filter hides every card it blocks, and has no edge', () => {
   // visible = {1, 4}: hides 2 (directly blocked by 1) and 3 (transitively).
   const g = buildDependencyGraph(CARDS, new Set(['1', '4']));
   assert.ok(g.nodes.some((n) => n.id === '1'), 'the blocker itself is still a real graph node');
-  const edge12 = g.edges.find((e) => e.from === '1' && e.to === '2');
-  assert.ok(edge12, 'its outgoing edge survives as a ghost-stub edge, not dropped');
-  assert.strictEqual(edge12.toGhost, true);
-  assert.ok(g.ghosts.find((gh) => gh.id === '2'), 'the hidden blocked card ghosts in — it does not orphan the blocker');
-});
-
-test('archived blocker variant: card 5 blocks card 6; hiding 6 alone keeps the edge as a ghost stub', () => {
-  // visible = {1, 4, 5}: hides 2, 3, 6 — 5's only edge (5 -> 6) is now a ghost stub.
-  const g = buildDependencyGraph(CARDS, new Set(['1', '4', '5']));
-  const edge56 = g.edges.find((e) => e.from === '5' && e.to === '6');
-  assert.ok(edge56);
-  assert.strictEqual(edge56.toGhost, true);
+  assert.strictEqual(g.edges.some((e) => e.from === '1'), false, 'its edge to a hidden card is not drawn');
 });
 
 test('a self-referencing waiting_for (a card blocking itself) is an edge, just a degenerate one', () => {
   const cards = [{ id: '7', title: 'Self-blocked', status: 'todo', waiting_for: ['7'], archived: false }];
   const g = buildDependencyGraph(cards, null);
-  assert.deepStrictEqual(g.edges, [{ from: '7', to: '7', kind: 'dep', fromGhost: false, toGhost: false }]);
+  assert.deepStrictEqual(g.edges, [{ from: '7', to: '7', kind: 'dep' }]);
 });
 
 test('an empty card list yields an empty graph, no throw', () => {
-  assert.deepStrictEqual(buildDependencyGraph([], null), { nodes: [], edges: [], ghosts: [] });
+  assert.deepStrictEqual(buildDependencyGraph([], null), { nodes: [], edges: [] });
 });
 
 // --- layerNodes --------------------------------------------------------------
@@ -274,10 +239,9 @@ test('a chainless child is its own terminal — it keeps a direct parent edge, n
 });
 
 test('terminality is computed on the FULL board — a search-hidden downstream child still absorbs the upstream hop', () => {
-  // 12 (hidden) waits on 11: 11 is NOT terminal even though its downstream is filtered out.
+  // 12 (hidden) waits on 11: 11 is NOT terminal even though its downstream is filtered out, and 12 is not drawn, so no parent edge is.
   const g = buildDependencyGraph(family, new Set(['10', '11']));
-  const parentEdges = g.edges.filter((e) => e.kind === 'parent');
-  assert.deepStrictEqual(parentEdges.map((e) => `${e.from}->${e.to}:${e.fromGhost}`), ['12->10:true']);
+  assert.deepStrictEqual(g.edges.filter((e) => e.kind === 'parent'), []);
 });
 
 test('a parent with only parent edges is on the end of a parent edge, which tree: and path: walk', () => {
@@ -295,16 +259,16 @@ test('parent does not make anyone waiting — nesting is not sequencing', () => 
   assert.strictEqual(childB.waiting, true); // waiting_for: ['11'] still does
 });
 
-test('a dangling parent id renders a missing ghost stub, same courtesy as waiting_for', () => {
+test('a dangling parent id draws nothing, same as a dangling waiting_for', () => {
   const g = buildDependencyGraph([{ id: '5', title: 'orphan', status: 'todo', parent: 99, waiting_for: [] }], null);
-  assert.deepStrictEqual(g.ghosts.map((gh) => [gh.id, gh.missing]), [['99', true]]);
-  assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}:${e.toGhost}`), ['5->99:parent:true']);
+  assert.deepStrictEqual(g.nodes.map((n) => n.id), ['5']);
+  assert.deepStrictEqual(g.edges, []);
 });
 
-test('a search-hidden parent ghosts into its visible terminal\'s graph', () => {
+test('a search-hidden parent is not drawn, and the terminal child keeps no edge to it', () => {
   const g = buildDependencyGraph(family, new Set(['12'])); // 12 is the terminal; parent 10 hidden
-  assert.deepStrictEqual(g.edges.filter((e) => e.kind === 'parent').map((e) => `${e.from}->${e.to}:${e.toGhost}`), ['12->10:true']);
-  assert.ok(g.ghosts.some((gh) => gh.id === '10' && !gh.missing));
+  assert.deepStrictEqual(g.nodes.map((n) => n.id), ['12']);
+  assert.deepStrictEqual(g.edges, []);
 });
 
 test('layerNodes puts the parent BELOW its children — down is later, and a parent ends the work under it', () => {
@@ -322,14 +286,13 @@ test('a self-parent adds no edge (nonsense); parent null/absent adds nothing', (
   assert.deepStrictEqual(g.edges, []);
 });
 
-test('a parent on another board (board#id) adds no edge and no ghost: the map does not follow it', () => {
+test('a parent on another board (board#id) adds no edge: the map does not follow it', () => {
   const g = buildDependencyGraph([
     { id: '1', title: 'plain', status: 'todo', waiting_for: [] },
     { id: '2', title: 'cross', status: 'todo', parent: 'fpp#4', waiting_for: [] },
     { id: '3', title: 'cross waiting', status: 'todo', parent: 'fpp#4', waiting_for: ['1'] },
   ], null);
   assert.deepStrictEqual(g.edges.map((e) => `${e.from}->${e.to}:${e.kind}`), ['1->3:dep']);
-  assert.deepStrictEqual(g.ghosts, []);
   assert.ok(g.nodes.every((n) => /^\d+$/.test(n.id)), 'no node with a non-numeric id');
 });
 

@@ -90,8 +90,8 @@ function mapParentLineEnds(children) {
   return ends;
 }
 
-// A pair with no `ends` points at a stub (a parent on another board, or an id
-// with no card): a stub has no sibling chain to read, so every child keeps its line.
+// A pair with no `ends` points at a parent on another board: it has no sibling
+// chain to read, so every child keeps its line.
 function mapPairDrawn(pair, parentLines, parentAbove) {
   if (parentLines === 'all') return true;
   if (parentLines !== 'chain') return false;
@@ -121,7 +121,7 @@ function mapGraphRoots(nodes, pairs, edges) {
   return (roots.length ? roots : nodes.slice(0, 1)).map((n) => n.id);
 }
 
-// What the map draws for the relations `rel` ({ nodes, ghosts, edges, pairs }, see
+// What the map draws for the relations `rel` ({ nodes, externals, edges, pairs }, see
 // buildRelationsGraph) under `options` (see MAP_OPTION_VALUES). A card is in a
 // graph when any relation touches it, drawn or not, and a tree is every card any
 // relation joins, so a line toggle never moves a card out of its graph. Layout
@@ -139,8 +139,8 @@ function mapShapeRelations(rel, options) {
   for (const p of rel.pairs) { touched.add(p.child); touched.add(p.parent); }
   const byId = (a, b) => MR_IDS.compareIds(a.id, b.id);
   const nodes = rel.nodes.filter((n) => touched.has(n.id)).sort(byId);
-  const ghosts = rel.ghosts.filter((g) => touched.has(g.id)).sort(byId);
-  const everyId = nodes.concat(ghosts).map((n) => n.id).sort(MR_IDS.compareIds);
+  const externals = rel.externals.filter((g) => touched.has(g.id)).sort(byId);
+  const everyId = nodes.concat(externals).map((n) => n.id).sort(MR_IDS.compareIds);
 
   const joined = o.group === 'tree'
     ? mapRelJoin(everyId, rel.edges.map((e) => [e.from, e.to]).concat(rel.pairs.map((p) => [p.child, p.parent])))
@@ -152,24 +152,24 @@ function mapShapeRelations(rel, options) {
     return {
       ids: ids.slice().sort(MR_IDS.compareIds),
       nodes: gNodes,
-      ghosts: ghosts.filter((g) => inGraph.has(g.id)),
+      externals: externals.filter((g) => inGraph.has(g.id)),
       roots: mapGraphRoots(gNodes, own(rel.pairs, 'child'), own(rel.edges, 'from')),
       edges: own(edges, 'from'),
       lines: own(lines, 'child'),
       layoutEdges: own(layoutEdges, 'from'),
     };
   });
-  graphs.sort((a, b) => (b.nodes.length - a.nodes.length) || (b.ghosts.length - a.ghosts.length)
+  graphs.sort((a, b) => (b.nodes.length - a.nodes.length) || (b.externals.length - a.externals.length)
     || MR_IDS.compareIds(a.ids[0], b.ids[0]));
   return { graphs, noRelations: rel.nodes.filter((n) => !touched.has(n.id)).map((n) => n.id) };
 }
 
 // How near the reader's attention a card sits, lowest first: doing, todo,
 // backlog, any other live status in the board's column order (one the board does
-// not list after those), done, archived, and last the stubs.
+// not list after those), done, archived, and last the parents on another board.
 const MAP_RANK_DONE = 800;
 const MAP_RANK_ARCHIVED = 900;
-const MAP_RANK_STUB = 1000;
+const MAP_RANK_EXTERNAL = 1000;
 
 function mapStatusRank(node, statuses) {
   if (node.archived) return MAP_RANK_ARCHIVED;
@@ -182,12 +182,12 @@ function mapStatusRank(node, statuses) {
   return 3 + (at >= 0 ? at : live.length);
 }
 
-// A card that is not one of the graph's `nodes` is a stub and goes last. Ties
+// A card that is not one of the graph's `nodes` is a parent on another board and goes last. Ties
 // keep the order given, which is the layout's.
 function mapOrderRow(ids, graph, order, statuses) {
   if (order !== 'status') return ids.slice();
   const nodeOf = new Map(graph.nodes.map((n) => [n.id, n]));
-  const rank = (id) => (nodeOf.has(id) ? mapStatusRank(nodeOf.get(id), statuses || []) : MAP_RANK_STUB);
+  const rank = (id) => (nodeOf.has(id) ? mapStatusRank(nodeOf.get(id), statuses || []) : MAP_RANK_EXTERNAL);
   return ids.map((id, i) => ({ id, i, r: rank(id) })).sort((a, b) => (a.r - b.r) || (a.i - b.i)).map((k) => k.id);
 }
 
@@ -222,14 +222,14 @@ const MAP_PORT_FIRST = 0.14;
 const MAP_PORT_SPAN = 0.72;
 
 // One dashed line per drawn pair in `graph.lines`, as a path and whether it is
-// dimmed (an end is a stub). It runs child to parent when the parent sits below
+// marked external (an end is a parent on another board). It runs child to parent when the parent sits below
 // and parent to child when above, so the dot goes on the parent's end, which has
 // no arrowhead. A line that would lie on a solid arrow is nudged aside, one that
 // runs against the layout bows out to the side like a back edge, and a parent with
 // three or more lines spreads where they meet it. `maxX` is how far a bow reaches.
 function mapParentLinePaths(graph, pos, layer, parentSits, dims) {
   const above = parentSits === 'above';
-  const stubIds = new Set(graph.ghosts.map((g) => g.id));
+  const externalIds = new Set(graph.externals.map((g) => g.id));
   const byParent = new Map();
   for (const l of graph.lines) {
     if (!byParent.has(l.parent)) byParent.set(l.parent, []);
@@ -270,7 +270,7 @@ function mapParentLinePaths(graph, pos, layer, parentSits, dims) {
     } else {
       d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
     }
-    paths.push({ d, dimmed: stubIds.has(l.child) || stubIds.has(l.parent) });
+    paths.push({ d, external: externalIds.has(l.child) || externalIds.has(l.parent) });
   }
   return { paths, maxX };
 }
@@ -291,8 +291,7 @@ function mapPlural(count, word) {
 }
 
 function mapGraphCounts(graph) {
-  const stubs = graph.ghosts.length ? ` + ${mapPlural(graph.ghosts.length, 'stub')}` : '';
-  return mapPlural(graph.nodes.length, 'card') + stubs;
+  return mapPlural(graph.nodes.length, 'card');
 }
 
 function mapGraphsLabel(graphs, group) {

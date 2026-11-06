@@ -66,12 +66,11 @@ test('cards linked only through the same parent on another board share a tree; a
   assert.deepStrictEqual(view.graphs['1'].nodes.map((n) => n.id), ['4']);
 });
 
-test('a stub is part of the tree it joins and counts for the size order', () => {
+test('a hidden card is no part of a tree: the trees are sized by the cards drawn', () => {
   const view = shape([card(1, 'todo'), card(2, 'todo', { parent: 1 }), card(3, 'todo', { parent: 1 }), card(7, 'todo', { parent: 99 })],
     {}, new Set(['1', '2', '7']));
-  assert.deepStrictEqual(view.graphs.map((g) => g.nodes.length), [2, 1]);
-  assert.deepStrictEqual(view.graphs['0'].ghosts.map((g) => g.id), ['3']);
-  assert.deepStrictEqual(view.graphs['1'].ghosts.map((g) => g.id), ['99']);
+  assert.deepStrictEqual(view.graphs.map((g) => g.nodes.map((n) => n.id)), [['1', '2']]);
+  assert.deepStrictEqual(view.noRelations, ['7']);
 });
 
 // --- the roots a graph's heading names ---------------------------------------
@@ -91,9 +90,10 @@ test('a chain with no parent names the card that waits on none', () => {
   assert.deepStrictEqual(chain.roots, ['1']);
 });
 
-test('a child whose parent is a stub is the root of what is shown', () => {
-  const [tree] = shape([card(1, 'todo'), card(2, 'todo', { parent: 1 })], {}, new Set(['2'])).graphs;
+test('a child whose parent is hidden heads its own tree', () => {
+  const [tree] = shape([card(1, 'todo'), card(2, 'todo', { parent: 1 }), card(3, 'todo', { parent: 2 })], {}, new Set(['2', '3'])).graphs;
   assert.deepStrictEqual(tree.roots, ['2']);
+  assert.deepStrictEqual(tree.nodes.map((n) => n.id), ['2', '3']);
 });
 
 test('a loop of parents still names a root', () => {

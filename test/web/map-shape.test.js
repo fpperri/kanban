@@ -77,24 +77,28 @@ test('turning every line off leaves each card where its relations put it, and No
   assert.deepStrictEqual(off.graphs.flatMap((g) => g.ids).sort(), on.graphs.flatMap((g) => g.ids).sort());
 });
 
-test('a visible card whose only relation is a hidden one is in a graph, beside the stub', () => {
+test('a visible card whose only relation is a hidden one is in the No relations row, with nothing drawn beside it', () => {
   const view = shape([card(1, 'done'), card(2, 'todo', { parent: 1 })], {}, new Set(['2']));
-  assert.deepStrictEqual(view.noRelations, []);
-  assert.deepStrictEqual(view.graphs.flatMap((g) => g.ids).sort(), ['1', '2']);
-  assert.deepStrictEqual(view.graphs['0'].ghosts.map((g) => g.id), ['1']);
+  assert.deepStrictEqual(view.noRelations, ['2']);
+  assert.deepStrictEqual(view.graphs, []);
 });
 
-test('a card that blocks others is in a graph, not in No relations, even when a filter hides every card it blocks', () => {
+test('a card that blocks others, when a filter hides every card it blocks, is in No relations; the hidden ones are not drawn', () => {
   const view = shape([card(1, 'done'), card(2, 'todo', { waiting_for: ['1'] }), card(3, 'todo', { waiting_for: ['2'] }), card(4, 'backlog')], {}, new Set(['1', '4']));
-  assert.deepStrictEqual(view.noRelations, ['4']);
-  assert.deepStrictEqual(view.graphs.flatMap((g) => g.ids).sort(), ['1', '2']);
-  assert.deepStrictEqual(view.graphs['0'].ghosts.map((g) => g.id), ['2']);
+  assert.deepStrictEqual(view.noRelations, ['1', '4']);
+  assert.deepStrictEqual(view.graphs, []);
 });
 
-test('a card whose parent is on another board is in a graph with that stub, not in No relations', () => {
+test('a card whose parent id names no card is in No relations', () => {
+  const view = shape([card(2, 'todo', { parent: 99 }), card(3, 'todo')]);
+  assert.deepStrictEqual(view.noRelations, ['2', '3']);
+  assert.deepStrictEqual(view.graphs, []);
+});
+
+test('a card whose parent is on another board is in a graph with that external node, not in No relations', () => {
   const view = shape([card(2, 'todo', { parent: 'shop#7' }), card(3, 'todo')]);
   assert.deepStrictEqual(view.noRelations, ['3']);
-  assert.strictEqual(view.graphs[0].ghosts[0].external, 'shop#7');
+  assert.strictEqual(view.graphs[0].externals[0].external, 'shop#7');
 });
 
 test('an empty board has no graph and nothing in No relations', () => {
