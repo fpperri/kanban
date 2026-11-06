@@ -1,13 +1,14 @@
 'use strict';
 // "On hover show": which of the six sets (dtree, htree, dpath, hpath, dlinks, hlinks; explore-sets.js)
-// a hover or a keyboard focus on a card lights. The choice is one list of sets per graph kind, the
-// Hierarchy's and the Flow's, kept per board in the browser; the Hierarchy's applies in every view that
-// is not the Flow. Pure, no DOM, the dual-environment pattern of explore-sets.js, which this reads the
-// sets from: loaded as a plain <script> in the browser and required directly by node --test.
+// a hover or a keyboard focus on a card lights, and which side of the card each relation is cut to. The
+// choice is one record per board, kept in the browser and the same in every view, the Flow included:
+// the six sets ticked, the Hierarchy toggle (above&below, above, below) that cuts the h sets, and the
+// Dependencies toggle (before&after, before, after) that cuts the d sets. Pure, no DOM, the
+// dual-environment pattern of explore-sets.js, which this reads the sets from: loaded as a plain
+// <script> in the browser and required directly by node --test.
 //
-// The defaults are dlinks and hlinks for both kinds: what the Hierarchy lit before the choice existed, a card with
-// the cards one line away over parent and waiting_for. The Flow lit the waits alone (dlinks) then and now lights
-// the parent and children too, though it draws no parent line. The card is in every set of it, so a union with any set ticked holds it;
+// The defaults are dlinks and hlinks with both sides on &: what the Hierarchy lit before the choice existed, a card with
+// the cards one line away over parent and waiting_for. The card is in every set of it, so a union with any set ticked holds it;
 // nothing ticked holds nothing, which dims nothing in the Graph.
 const HS_SETS = (typeof module !== 'undefined' && module.exports) ? require('./explore-sets') : window;
 
@@ -16,11 +17,12 @@ const HOVER_SHOW_KINDS = ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks'
 // left, the d sets on the right, links, then path, then tree. Only the display: the stored list and the terms
 // Space writes keep HOVER_SHOW_KINDS' order.
 const HOVER_SHOW_GRID = ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'];
-const HOVER_SHOW_GRAPHS = ['hierarchy', 'flow'];
-const HOVER_SHOW_DEFAULTS = { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] };
+// The states each toggle steps through, the & state first: it is where the choice starts.
+const HOVER_SHOW_SIDES = { hierarchy: HS_SETS.HIERARCHY_SIDES.slice(), dependencies: HS_SETS.DEPENDENCY_SIDES.slice() };
+const HOVER_SHOW_DEFAULT_KINDS = ['dlinks', 'hlinks'];
 
 function hoverShowDefaults() {
-  return { hierarchy: HOVER_SHOW_DEFAULTS.hierarchy.slice(), flow: HOVER_SHOW_DEFAULTS.flow.slice() };
+  return { kinds: HOVER_SHOW_DEFAULT_KINDS.slice(), hierarchy: HOVER_SHOW_SIDES.hierarchy[0], dependencies: HOVER_SHOW_SIDES.dependencies[0] };
 }
 
 // A list of sets as the panel keeps it: only the six, each once, in HOVER_SHOW_KINDS' order.
@@ -28,8 +30,11 @@ function hoverShowList(value) {
   return HOVER_SHOW_KINDS.filter((kind) => Array.isArray(value) && value.includes(kind));
 }
 
-// What a browser stored for a board (the text, or the value parsed from it): a graph kind with a list keeps
-// that list, an empty one included, and any other reads as its default.
+// What a browser stored for a board (the text, or the value parsed from it). The record is the sets ticked
+// ({ kinds }) and the two sides; a list that is there is kept, an empty one included, and a side that is not
+// one of its toggle's three reads as the & side. The record from before the sides ({ hierarchy: [...],
+// flow: [...] }, a list for each kind of Graph) reads as its Hierarchy list with both sides on &, and its
+// Flow list is let go. Anything else reads as the defaults.
 function mergeHoverShow(saved) {
   let own = saved;
   if (typeof own === 'string') {
@@ -37,24 +42,36 @@ function mergeHoverShow(saved) {
   }
   if (own === null || typeof own !== 'object' || Array.isArray(own)) own = {};
   const merged = hoverShowDefaults();
-  for (const graph of HOVER_SHOW_GRAPHS) {
-    if (Object.prototype.hasOwnProperty.call(own, graph) && Array.isArray(own[graph])) merged[graph] = hoverShowList(own[graph]);
+  if (Array.isArray(own.kinds)) merged.kinds = hoverShowList(own.kinds);
+  else if (Array.isArray(own.hierarchy)) merged.kinds = hoverShowList(own.hierarchy);
+  for (const toggle of Object.keys(HOVER_SHOW_SIDES)) {
+    if (HOVER_SHOW_SIDES[toggle].includes(own[toggle])) merged[toggle] = own[toggle];
   }
   return merged;
 }
 
-// The choice with one set of one graph kind ticked or unticked; the argument is not touched.
-function hoverShowWith(shown, graph, kind, on) {
+// The choice with one set ticked or unticked; the argument is not touched.
+function hoverShowWith(shown, kind, on) {
   const next = mergeHoverShow(shown);
-  if (!HOVER_SHOW_GRAPHS.includes(graph) || !HOVER_SHOW_KINDS.includes(kind)) return next;
-  const kept = next[graph].filter((k) => k !== kind);
-  next[graph] = hoverShowList(on ? kept.concat(kind) : kept);
+  if (!HOVER_SHOW_KINDS.includes(kind)) return next;
+  const kept = next.kinds.filter((k) => k !== kind);
+  next.kinds = hoverShowList(on ? kept.concat(kind) : kept);
   return next;
 }
 
-// The graph kind whose choice a hover reads: the Flow's in the Graph's Flow, the Hierarchy's everywhere else.
-function hoverShowGraph(view, layout) {
-  return view === 'graph' && layout === 'flow' ? 'flow' : 'hierarchy';
+// The choice with one toggle ('hierarchy' or 'dependencies') on its next state, the third one round to the first.
+function hoverShowStep(shown, toggle) {
+  const next = mergeHoverShow(shown);
+  const states = HOVER_SHOW_SIDES[toggle];
+  if (!states) return next;
+  next[toggle] = states[(states.indexOf(next[toggle]) + 1) % states.length];
+  return next;
+}
+
+// The two sides of a choice, as hoverShowIds and hoverShowTerms read them.
+function hoverShowSides(shown) {
+  const { hierarchy, dependencies } = mergeHoverShow(shown);
+  return { hierarchy, dependencies };
 }
 
 // The side a set is cut to: the h sets take the Hierarchy's, the d sets the Dependencies'. `sides` is
@@ -94,15 +111,16 @@ function hoverShowTerms(kinds, key, sides) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms };
+  module.exports = { HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_SIDES, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowStep, hoverShowSides, hoverShowIds, hoverShowTiles, hoverShowTerms };
 } else {
   window.HOVER_SHOW_KINDS = HOVER_SHOW_KINDS;
   window.HOVER_SHOW_GRID = HOVER_SHOW_GRID;
-  window.HOVER_SHOW_GRAPHS = HOVER_SHOW_GRAPHS;
+  window.HOVER_SHOW_SIDES = HOVER_SHOW_SIDES;
   window.hoverShowDefaults = hoverShowDefaults;
   window.mergeHoverShow = mergeHoverShow;
   window.hoverShowWith = hoverShowWith;
-  window.hoverShowGraph = hoverShowGraph;
+  window.hoverShowStep = hoverShowStep;
+  window.hoverShowSides = hoverShowSides;
   window.hoverShowIds = hoverShowIds;
   window.hoverShowTiles = hoverShowTiles;
   window.hoverShowTerms = hoverShowTerms;

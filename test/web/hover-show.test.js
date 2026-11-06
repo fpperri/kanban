@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_GRAPHS, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds, hoverShowTiles, hoverShowTerms,
+  HOVER_SHOW_KINDS, HOVER_SHOW_GRID, HOVER_SHOW_SIDES, hoverShowDefaults, mergeHoverShow, hoverShowWith, hoverShowStep, hoverShowSides, hoverShowIds, hoverShowTiles, hoverShowTerms,
 } = require('../../plugin/skills/web/web/hover-show');
 
 const set = (ids) => new Set(ids);
@@ -28,72 +28,88 @@ test('the grid the six are shown in is two columns by three rows read across, th
   assert.deepStrictEqual(HOVER_SHOW_GRID.filter((_, i) => i % 2 === 1).map((k) => k[0]), ['d', 'd', 'd']);
   assert.notDeepStrictEqual(HOVER_SHOW_GRID, HOVER_SHOW_KINDS);
   assert.strictEqual(hoverShowTerms(HOVER_SHOW_GRID, '7'), 'dtree:7 | htree:7 | dpath:7 | hpath:7 | dlinks:7 | hlinks:7', 'the terms Space writes keep the stored order, whatever order the sets are listed in');
-  assert.deepStrictEqual(mergeHoverShow({ hierarchy: HOVER_SHOW_GRID, flow: [] }).hierarchy, HOVER_SHOW_KINDS, 'and so does the stored list');
 });
 
-test('the six sets, in the panel\'s order, and the two graph kinds that keep their own choice', () => {
+test('the six sets, in the panel\'s order, and the two toggles\' states', () => {
   assert.deepStrictEqual(HOVER_SHOW_KINDS, ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks']);
-  assert.deepStrictEqual(HOVER_SHOW_GRAPHS, ['hierarchy', 'flow']);
+  assert.deepStrictEqual(HOVER_SHOW_SIDES, { hierarchy: ['above&below', 'above', 'below'], dependencies: ['before&after', 'before', 'after'] });
 });
 
-test('the defaults: the Hierarchy lights dlinks and hlinks, the Flow the same, and each call gives a copy', () => {
-  assert.deepStrictEqual(hoverShowDefaults(), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
-  hoverShowDefaults().flow.push('dtree');
-  assert.deepStrictEqual(hoverShowDefaults().flow, ['dlinks', 'hlinks']);
-  hoverShowDefaults().hierarchy.push('dtree');
-  assert.deepStrictEqual(hoverShowDefaults().hierarchy, ['dlinks', 'hlinks']);
+test('the defaults: dlinks and hlinks, both sides on &, and each call gives a copy', () => {
+  assert.deepStrictEqual(hoverShowDefaults(), { kinds: ['dlinks', 'hlinks'], hierarchy: 'above&below', dependencies: 'before&after' });
+  hoverShowDefaults().kinds.push('dtree');
+  assert.deepStrictEqual(hoverShowDefaults().kinds, ['dlinks', 'hlinks']);
 });
 
 test('mergeHoverShow: nothing, junk and a corrupt text read as the defaults', () => {
-  for (const saved of [null, undefined, '', 'not json', '[]', '7', 7, [], true, '{"hierarchy": 3}']) {
+  for (const saved of [null, undefined, '', 'not json', '[]', '7', 7, [], true, '{"hierarchy": 3}', '{"kinds": "dtree"}']) {
     assert.deepStrictEqual(mergeHoverShow(saved), hoverShowDefaults(), String(saved));
   }
 });
 
-test('mergeHoverShow: a kept choice is read per graph kind, from the stored text or its parsed value', () => {
-  const kept = { hierarchy: ['htree', 'dpath'], flow: ['dtree'] };
+test('mergeHoverShow: a kept choice is read from the stored text or its parsed value', () => {
+  const kept = { kinds: ['htree', 'dpath'], hierarchy: 'below', dependencies: 'before' };
   assert.deepStrictEqual(mergeHoverShow(kept), kept);
   assert.deepStrictEqual(mergeHoverShow(JSON.stringify(kept)), kept);
-  assert.deepStrictEqual(mergeHoverShow({ flow: ['hlinks'] }), { hierarchy: ['dlinks', 'hlinks'], flow: ['hlinks'] }, 'a kind the store lacks keeps its default');
+  assert.deepStrictEqual(mergeHoverShow({ kinds: ['hlinks'] }), { kinds: ['hlinks'], hierarchy: 'above&below', dependencies: 'before&after' }, 'a side the store lacks is the & side');
+});
+
+test('mergeHoverShow: a side that is not one of its three, or one of the other relation, reads as the & side', () => {
+  assert.deepStrictEqual(mergeHoverShow({ kinds: [], hierarchy: 'before', dependencies: 'above' }), { kinds: [], hierarchy: 'above&below', dependencies: 'before&after' });
+  assert.strictEqual(mergeHoverShow({ kinds: [], hierarchy: 'sideways' }).hierarchy, 'above&below');
+  assert.strictEqual(mergeHoverShow({ kinds: [], dependencies: 7 }).dependencies, 'before&after');
+});
+
+test('mergeHoverShow: the old record, a list for the Hierarchy and one for the Flow, reads as the Hierarchy\'s list with both sides on &', () => {
+  const old = { hierarchy: ['htree', 'dpath'], flow: ['dtree'] };
+  const expected = { kinds: ['htree', 'dpath'], hierarchy: 'above&below', dependencies: 'before&after' };
+  assert.deepStrictEqual(mergeHoverShow(old), expected);
+  assert.deepStrictEqual(mergeHoverShow(JSON.stringify(old)), expected);
+  assert.deepStrictEqual(mergeHoverShow({ hierarchy: [], flow: ['dtree'] }).kinds, [], 'an empty list was a choice');
+  assert.deepStrictEqual(mergeHoverShow({ flow: ['hlinks'] }), hoverShowDefaults(), 'a Flow list alone is dropped');
 });
 
 test('mergeHoverShow: unknown sets and repeats drop, the rest come back in the panel\'s order', () => {
-  assert.deepStrictEqual(mergeHoverShow({ hierarchy: ['hlinks', 'nope', 'dtree', 'hlinks', 7, null] }).hierarchy, ['dtree', 'hlinks']);
-  assert.deepStrictEqual(mergeHoverShow({ hierarchy: ['tree', 'path'] }).hierarchy, [], 'only the six count');
+  assert.deepStrictEqual(mergeHoverShow({ kinds: ['hlinks', 'nope', 'dtree', 'hlinks', 7, null] }).kinds, ['dtree', 'hlinks']);
+  assert.deepStrictEqual(mergeHoverShow({ kinds: ['tree', 'path'] }).kinds, [], 'only the six count');
+  assert.deepStrictEqual(mergeHoverShow({ kinds: HOVER_SHOW_GRID }).kinds, HOVER_SHOW_KINDS);
+  assert.deepStrictEqual(mergeHoverShow({ hierarchy: HOVER_SHOW_GRID, flow: [] }).kinds, HOVER_SHOW_KINDS, 'and so does the old list');
 });
 
-test('mergeHoverShow: nothing ticked is a choice, not a missing one', () => {
-  assert.deepStrictEqual(mergeHoverShow({ hierarchy: [], flow: [] }), { hierarchy: [], flow: [] });
+test('mergeHoverShow: nothing ticked is a choice, not a missing one, and a key this version does not draw is dropped', () => {
+  assert.deepStrictEqual(mergeHoverShow({ kinds: [], hierarchy: 'above', dependencies: 'after' }), { kinds: [], hierarchy: 'above', dependencies: 'after' });
+  assert.deepStrictEqual(Object.keys(mergeHoverShow({ tiers: ['dtree'], kinds: ['dtree'] })), ['kinds', 'hierarchy', 'dependencies']);
 });
 
-test('mergeHoverShow: a kind the store holds that this version does not draw is dropped', () => {
-  assert.deepStrictEqual(Object.keys(mergeHoverShow({ tiers: ['dtree'], hierarchy: ['dtree'] })), ['hierarchy', 'flow']);
+test('hoverShowWith ticks or unticks one set, keeps the panel\'s order, and leaves the sides and its argument alone', () => {
+  const start = { ...hoverShowDefaults(), hierarchy: 'below' };
+  const ticked = hoverShowWith(start, 'dtree', true);
+  assert.deepStrictEqual(ticked, { kinds: ['dtree', 'dlinks', 'hlinks'], hierarchy: 'below', dependencies: 'before&after' });
+  assert.deepStrictEqual(start.kinds, ['dlinks', 'hlinks'], 'the argument is not touched');
+  assert.deepStrictEqual(hoverShowWith(ticked, 'dlinks', false).kinds, ['dtree', 'hlinks']);
+  assert.deepStrictEqual(hoverShowWith(start, 'dlinks', true), start, 'ticking a ticked set changes nothing');
+  assert.deepStrictEqual(hoverShowWith(hoverShowWith(start, 'dlinks', false), 'hlinks', false).kinds, [], 'the last one can be unticked');
+  assert.deepStrictEqual(hoverShowWith(start, 'tree', true), start, 'a set it does not know changes nothing');
 });
 
-test('hoverShowWith ticks or unticks one set of one graph kind, keeps the panel\'s order, and leaves the rest and its argument alone', () => {
+test('hoverShowStep moves one toggle to its next state, round to the first, and leaves the other toggle and its argument alone', () => {
   const start = hoverShowDefaults();
-  const ticked = hoverShowWith(start, 'hierarchy', 'dtree', true);
-  assert.deepStrictEqual(ticked, { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
+  const states = [];
+  let at = start;
+  for (let i = 0; i < 4; i++) { states.push(at.hierarchy); at = hoverShowStep(at, 'hierarchy'); }
+  assert.deepStrictEqual(states, ['above&below', 'above', 'below', 'above&below']);
+  const deps = [];
+  at = start;
+  for (let i = 0; i < 4; i++) { deps.push(at.dependencies); at = hoverShowStep(at, 'dependencies'); }
+  assert.deepStrictEqual(deps, ['before&after', 'before', 'after', 'before&after']);
+  assert.deepStrictEqual(hoverShowStep(start, 'hierarchy'), { kinds: ['dlinks', 'hlinks'], hierarchy: 'above', dependencies: 'before&after' });
   assert.deepStrictEqual(start, hoverShowDefaults(), 'the argument is not touched');
-  assert.deepStrictEqual(hoverShowWith(ticked, 'hierarchy', 'dlinks', false).hierarchy, ['dtree', 'hlinks']);
-  assert.deepStrictEqual(hoverShowWith(start, 'flow', 'dtree', true).flow, ['dtree', 'dlinks', 'hlinks']);
-  assert.deepStrictEqual(hoverShowWith(start, 'flow', 'dlinks', true), start, 'ticking a ticked set changes nothing');
-  assert.deepStrictEqual(hoverShowWith(hoverShowWith(start, 'flow', 'dlinks', false), 'flow', 'hlinks', false).flow, [], 'the last one can be unticked');
+  assert.deepStrictEqual(hoverShowStep(start, 'tiers'), start, 'a toggle it does not know changes nothing');
 });
 
-test('hoverShowWith ignores a set or a graph kind it does not know', () => {
-  const start = hoverShowDefaults();
-  assert.deepStrictEqual(hoverShowWith(start, 'hierarchy', 'tree', true), start);
-  assert.deepStrictEqual(hoverShowWith(start, 'tiers', 'dtree', true), start);
-});
-
-test('hoverShowGraph: the Flow has its own setting, and every other view (the Hierarchy, the Board, the Map) reads the Hierarchy\'s', () => {
-  assert.strictEqual(hoverShowGraph('graph', 'flow'), 'flow');
-  assert.strictEqual(hoverShowGraph('graph', 'hierarchy'), 'hierarchy');
-  for (const view of ['board', 'map', 'calendar', 'gantt']) {
-    assert.strictEqual(hoverShowGraph(view, 'flow'), 'hierarchy', `${view} reads the Hierarchy's setting even when the Graph last showed the Flow`);
-  }
-  assert.strictEqual(hoverShowGraph('graph', 'tiers'), 'hierarchy', 'a layout this version does not draw reads as the Hierarchy');
+test('hoverShowSides hands the two sides as the sets read them', () => {
+  assert.deepStrictEqual(hoverShowSides({ kinds: [], hierarchy: 'below', dependencies: 'after' }), { hierarchy: 'below', dependencies: 'after' });
+  assert.deepStrictEqual(hoverShowSides(hoverShowDefaults()), { hierarchy: 'above&below', dependencies: 'before&after' });
 });
 
 test('hoverShowIds: the union of the ticked sets for the card', () => {
@@ -147,14 +163,13 @@ test('with the defaults the Graph\'s hover lights what it lit before: the card a
       if (c.id === id) related.forEach((r) => hops.add(r));
       if (related.includes(id)) hops.add(c.id);
     }
-    assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().hierarchy, BOARD, id), hops, `card ${id}`);
+    assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().kinds, BOARD, id), hops, `card ${id}`);
   }
 });
 
-test('with the Flow default the hover lights the card, one hop over waiting_for, and its parent and children, as the Hierarchy default does', () => {
-  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 3), set(['1', '2', '3', '5']));
-  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 1), set(['1', '2', '3']), 'the children are lit though the Flow draws no parent line');
-  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().flow, BOARD, 3), hoverShowIds(hoverShowDefaults().hierarchy, BOARD, 3));
+test('the one default lights the card, one hop over waiting_for, and its parent and children, in the Flow too: the children are lit though the Flow draws no parent line', () => {
+  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().kinds, BOARD, 3), set(['1', '2', '3', '5']));
+  assert.deepStrictEqual(hoverShowIds(hoverShowDefaults().kinds, BOARD, 1), set(['1', '2', '3']));
 });
 
 // --- the text Space writes -------------------------------------------------------------------------
