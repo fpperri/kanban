@@ -185,3 +185,11 @@ test('with no set ticked, or a set the panel does not offer, Space has nothing t
   assert.strictEqual(hoverShowTerms(['tree', 'nonsense'], '12'), '');
   assert.strictEqual(hoverShowTerms(undefined, '12'), '');
 });
+
+test('the stored record docs/web.md gives reads as itself, and the old record it names reads as its Hierarchy list', () => {
+  const doc = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../docs/web.md'), 'utf8');
+  const example = '{"kinds":["dlinks","hlinks"],"hierarchy":"below","dependencies":"before&after"}';
+  assert.ok(doc.includes('`' + example + '`'));
+  assert.deepStrictEqual(mergeHoverShow(example), JSON.parse(example));
+  assert.ok(doc.includes('`{ "hierarchy": [...], "flow": [...] }`'));
+});

@@ -322,7 +322,7 @@ The selection written into the search box as the text Isolate would write for it
 _Avoid_: sync, echo.
 
 **On hover show**:
-The choice, made in the search panel and in the Graph's option panel (one choice, shown in both), of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads.
+The choice, made in the search panel and in the Graph's option panel (one choice, shown in both), of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, and which side of the card the h sets and the d sets light, by the Hierarchy toggle (`above&below`, `above`, `below`) and the Dependencies toggle (`before&after`, `before`, `after`). It is kept per board and is the same in every view, the Flow included.
 _Avoid_: hover mode, hover filter.
 
 **Peek**:
