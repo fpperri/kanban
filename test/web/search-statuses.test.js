@@ -53,7 +53,7 @@ const host = () => {
   return el;
 };
 
-async function open({ view = 'gantt', stored = {} } = {}) {
+async function open({ view = 'gantt', stored = {}, board = makeBoard() } = {}) {
   const elements = {};
   for (const sel of ['#context-menu', '#notif-modal', '#prefs-sheet', '#detail-modal', '#modal', '#search-panel']) elements[sel] = hidden();
   elements['#search-statuses'] = host();
@@ -64,7 +64,7 @@ async function open({ view = 'gantt', stored = {} } = {}) {
   elements['#search-pills'] = host();
   elements['#search-chip'] = chipEl();
   const storage = { 'kanban.kanban.view.mode': view, ...stored };
-  const page = await loadPage({ board: makeBoard(), stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
+  const page = await loadPage({ board, stored: storage, elements, documentExtras: { createElement: () => control() } }).start();
   assert.deepStrictEqual(page.failures.map((e) => e.message), [], 'the page starts without an error');
   const section = elements['#search-statuses-section'];
   const pills = elements['#search-statuses'];
@@ -331,4 +331,48 @@ test("a right-click that is not on a pill is left to the browser and the card me
   s.pills.fire('contextmenu', { target: { closest: () => null }, preventDefault() { prevented++; } });
   assert.strictEqual(prevented, 0);
   assert.deepStrictEqual(s.pressed(), before);
+});
+
+const noArchiveBoard = () => ({ ...makeBoard(), archived: [], snapshot: { query: '', archive: false, label: 'live cards only', archiveHeld: { carried: 0, total: 1 } } });
+const archiveOne = (s) => { s.page.run(`state.archived.push(${JSON.stringify(card(4, { archived: true, status: 'done' }))}); applySnapshotQuery({ archiveHeld: { carried: 0, total: 1 } })`); s.render(); };
+
+test('a page built with no archive: a right-click on the Archive pill does nothing until a card is archived, then solos it', async () => {
+  const s = await open({ view: 'gantt', board: noArchiveBoard() });
+  assert.strictEqual(s.pill('archive').attrs['aria-disabled'], 'true');
+  s.rightClick('archive');
+  assert.deepStrictEqual(s.pressed(), ['backlog', 'todo', 'doing', 'done']);
+  archiveOne(s);
+  assert.strictEqual(s.pill('archive').attrs['aria-disabled'], undefined);
+  s.rightClick('archive');
+  assert.deepStrictEqual(s.pressed(), ['archive']);
+  s.rightClick('archive');
+  assert.deepStrictEqual(s.pressed(), ['backlog', 'todo', 'doing', 'done', 'archive']);
+});
+
+test('the Graph panel pill of a page built with no archive starts off and works once a card is archived', async () => {
+  const s = await open({ view: 'graph', board: noArchiveBoard() });
+  assert.strictEqual(s.pill('archive').attrs['aria-disabled'], 'true');
+  archiveOne(s);
+  assert.strictEqual(s.pill('archive').attrs['aria-pressed'], 'false');
+  s.tap('archive');
+  assert.strictEqual(s.pill('archive').attrs['aria-pressed'], 'true');
+});
+
+test('the Gantt draws the card archived in the page only while the Archive pill is on', async () => {
+  const s = await open({ view: 'gantt', board: noArchiveBoard() });
+  archiveOne(s);
+  assert.strictEqual(s.page.run('[...shownCardIds()].includes(4)'), false);
+  s.tap('archive');
+  assert.strictEqual(s.page.run('[...shownCardIds()].includes(4)'), true);
+  s.tap('archive');
+  assert.strictEqual(s.page.run('[...shownCardIds()].includes(4)'), false);
+});
+
+test("the pill's saved on stays in force behind the disabled pill and shows pressed once a card is archived", async () => {
+  const stored = { 'kanban.kanban.gantt.statusFilter': JSON.stringify({ backlog: true, todo: true, doing: true, done: true, archive: true }) };
+  const s = await open({ view: 'gantt', stored, board: noArchiveBoard() });
+  assert.strictEqual(s.pill('archive').attrs['aria-disabled'], 'true');
+  archiveOne(s);
+  assert.strictEqual(s.pill('archive').attrs['aria-pressed'], 'true');
+  assert.strictEqual(s.page.run('[...shownCardIds()].includes(4)'), true);
 });

@@ -18,9 +18,11 @@ function fakeDom() {
           return on;
         },
         contains: (name) => el.classes().has(name),
+        remove(name) { const set = el.classes(); set.delete(name); el.className = [...set].join(' '); },
       },
       setAttribute(k, v) { el.attrs[k] = String(v); },
       getAttribute: (k) => (k in el.attrs ? el.attrs[k] : null),
+      removeAttribute(k) { delete el.attrs[k]; },
       append(...nodes) { for (const n of nodes) { n.parent = el; el.children.push(n); } },
       insertBefore(node, ref) {
         if (node.parent) node.parent.children = node.parent.children.filter((c) => c !== node);

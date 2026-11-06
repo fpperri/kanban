@@ -127,7 +127,7 @@ module.exports = {
       await ev(`${PILL}.click()`);
       check('pressing it switches the archive on', await waitFor(`${PILL}.getAttribute('aria-pressed')==='true'`, 6000));
       await ev(`setView('map')`);
-      const NODE = `document.querySelector('.map-node[data-id="7"]')`;
+      const NODE = `document.querySelector('.map-node:not(.ghost)[data-id="7"]')`;
       check('the Map draws the archived card while the pill is on', await waitFor(`!!${PILL}&&/1 of 4/.test(${PILL_TEXT})&&!!${NODE}`, 6000), await ev(PILL_TEXT));
       await ev(`${PILL}.click()`);
       check('pressing the Map pill switches the archive off', await waitFor(`${PILL}.getAttribute('aria-pressed')==='false'`, 6000));
