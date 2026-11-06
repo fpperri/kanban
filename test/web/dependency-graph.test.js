@@ -433,3 +433,12 @@ test('tree: and path: follow the own-name parent edge', () => {
   assert.deepStrictEqual([...treeIds(OWN_NAME, 13, { board: 'kanban' })].sort(), ['12', '13', '15']);
   assert.deepStrictEqual([...pathIds(OWN_NAME, 13, { board: 'kanban' })].sort(), ['12', '13']);
 });
+
+test('treeIds/pathIds: two cards waiting on the same id with no card are not related through it', () => {
+  const cards = [
+    { id: 1, title: 'a', status: 'todo', waiting_for: [99] },
+    { id: 2, title: 'b', status: 'todo', waiting_for: [99] },
+  ];
+  assert.deepStrictEqual(treeIds(cards, 1), new Set(['1']));
+  assert.deepStrictEqual(pathIds(cards, 1), new Set(['1']));
+});
