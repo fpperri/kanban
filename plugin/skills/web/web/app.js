@@ -2242,7 +2242,10 @@ function applyQueued(source) {
 // A page built with a Snapshot query says it in the header, so it is plain which cards it carries. The server's
 // board load has no such field and the label stays hidden.
 function applySnapshotQuery(snapshot) {
-  state.archiveHeld = snapshot && snapshot.archiveHeld ? snapshot.archiveHeld : null;
+  const built = snapshot && snapshot.archiveHeld ? snapshot.archiveHeld : null;
+  // What the page holds now: the archived cards it has, of the archive's total with the page's own archives
+  // added and its restores taken off. It runs after state.archived is set, on every board load.
+  state.archiveHeld = built ? { carried: state.archived.length, total: built.total + state.archived.length - built.carried } : null;
   const el = $('#snapshot-query');
   const label = snapshot && snapshot.label ? snapshot.label : '';
   el.textContent = label;
