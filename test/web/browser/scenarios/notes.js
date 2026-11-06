@@ -191,7 +191,7 @@ module.exports = {
     check('notes: card 22\'s notes are listed', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|22|1']), await ev(SECTIONS));
     await key('Backspace');
     check('notes: Backspace on the empty box clears the chip', await waitFor(`${CHIP}===''`, 2500), await chip());
-    check('notes: with no chip the notes written today are listed and the card last noted is the target', await ev(`${PREVIEW}.includes('on #7 Port the zephyr schema (last noted)')`) && (await ev(SECTIONS))[0].startsWith(await ev(TODAY)), await preview());
+    check('notes: with no chip the notes written today are listed and the line names no card, not the card last noted', / on no card · type the note$/.test(await preview())&&!/last noted/.test(await preview()) && (await ev(SECTIONS))[0].startsWith(await ev(TODAY)), await preview());
     await setBox('#22 from the line');
     check('notes: a leading mention before the text aims that one note', /^Note at \d\d:\d\d on #22 Cut over the data layer$/.test(await preview()), await preview());
     await key('Enter');
@@ -702,6 +702,11 @@ module.exports = {
     await key('Escape');
     check('notes: Esc clears the chip, exactly as the backspace does, and the palette stays up on Day, today', await waitFor(`${CHIP}===''`, 2500) && await ev(PAL_UP) && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week', '3 days', 'Day*']), JSON.stringify(await ev(RANGE_BTNS)));
     check('notes: with no chip the footer says Esc closes', await ev(ESC_HINT) === 'close', await ev(ESC_HINT));
+    check('notes: after the Esc the picker reads no card and the line under the box names no card', await ev(`${q('.np-pick-input')}.value`) === 'no card' && !/#\d/.test(await preview()) && !/last noted/.test(await preview()), await preview());
+    await setBox('esc wrote about nothing');
+    await key('Enter');
+    check('notes: Enter writes a note about nothing', await waitFor(`${NOTES}.some((n)=>n.note==='esc wrote about nothing'&&n.target==='')`, 4000), JSON.stringify(await ev(`${NOTES}.filter((n)=>n.note==='esc wrote about nothing')`)));
+    await setBox('');
     await key('Escape');
     check('notes: the next Esc closes the palette', await waitFor(PAL_GONE, 2500));
     await ev(`openNotes({ kind: 'card-notes', id: '7' })`);
