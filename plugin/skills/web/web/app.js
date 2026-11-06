@@ -6792,7 +6792,7 @@ function litFocusId() {
 
 // The card and the sets On hover show ticks for it, every view alike (the Graph dims by them).
 function hoverTilesOf(id) {
-  return hoverShowTiles(hoverShowKindsNow(), state.active.concat(state.archived), id, searchCtx());
+  return hoverShowTiles(hoverShowKindsNow(), state.active.concat(state.archived), id, searchCtx(), hoverShowSidesNow());
 }
 
 function hoverLitNow() {

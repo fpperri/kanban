@@ -1,12 +1,12 @@
 'use strict';
 // The search panel's "On hover show" section: six checkboxes, one per set (dtree, htree, dpath, hpath, dlinks,
-// hlinks), that choose which sets a hover or a keyboard focus on a card lights. The Graph's side panel has the
-// same six as toggles in its On hover section (graph-view.js), and the two edit the one choice, each showing a
-// change made in the other at once (syncHoverShowPanel). The choice is kept
-// per board in this browser, under the feature key 'hover.show' (storageKey), as one list of sets per graph
-// kind, the Hierarchy's and the Flow's (hover-show.js merges it with the defaults, so a value this version
-// does not offer, or storage that refuses, reads as the default). The panel shows the choice of the view
-// that is on: the Flow's in the Graph's Flow, the Hierarchy's everywhere else.
+// hlinks), that choose which sets a hover or a keyboard focus on a card lights, and under them the Hierarchy
+// and Dependencies toggles (above&below, above, below; before&after, before, after) that cut the h sets and
+// the d sets to one side of the card. The Graph's side panel has the same eight controls in its On hover
+// section (graph-view.js), and the two edit the one choice, each showing a change made in the other at once
+// (syncHoverShowPanel). The choice is kept per board in this browser, under the feature key 'hover.show'
+// (storageKey), as one record, the same in every view, the Flow included (hover-show.js merges it with the
+// defaults, so a value this version does not offer, or storage that refuses, reads as the default).
 //
 // Space takes the hover: on a hovered card, else the focused one, it writes the terms of the ticked sets into
 // the search box (`dlinks:12 | hlinks:12`), and Shift+Space adds them to what the box holds as more
@@ -18,7 +18,7 @@
 //
 // This script reads app.js's globals at the moment it runs, never when it loads, the way search-panel.js
 // does: state, storageKey, loadViewMode, hoveredId, searchCtx, refreshHover, writeSearch, $. It also calls
-// graphLoadLayout and graphHoverLineTerms (graph-view.js), hover-show.js (mergeHoverShow, hoverShowWith, hoverShowGraph, hoverShowIds,
+// graphHoverLineTerms (graph-view.js), hover-show.js (mergeHoverShow, hoverShowWith, hoverShowStep, hoverShowSides, hoverShowIds,
 // hoverShowTerms), hotkeys.js (hotkeySpace), search.js (searchWithTerms) and key-guard.js (keyGuardDetailOff).
 
 let hoverShowMemo = null;
@@ -37,19 +37,17 @@ function hoverShowSave() {
   catch (e) { /* storage unavailable — the choice just won't persist this session */ }
 }
 
-// The graph kind whose choice the view on screen reads.
-function hoverShowGraphNow() {
-  const view = loadViewMode();
-  return hoverShowGraph(view, view === 'graph' ? graphLoadLayout() : null);
+function hoverShowKindsNow() {
+  return hoverShowLoad().kinds;
 }
 
-function hoverShowKindsNow() {
-  return hoverShowLoad()[hoverShowGraphNow()];
+function hoverShowSidesNow() {
+  return hoverShowSides(hoverShowLoad());
 }
 
 // The cards that light with `id` under the choice now, `id` among them when any set is ticked.
 function hoverSetOf(id) {
-  return hoverShowIds(hoverShowKindsNow(), state.active.concat(state.archived), id, searchCtx());
+  return hoverShowIds(hoverShowKindsNow(), state.active.concat(state.archived), id, searchCtx(), hoverShowSidesNow());
 }
 
 const hoverFold = searchFoldSection('hoverFolded', '#search-hover', '#search-hover-fold');
@@ -57,13 +55,23 @@ const applyHoverFold = hoverFold.apply;
 const toggleSearchHoverFold = hoverFold.toggle;
 const foldSearchHover = hoverFold.set;
 
+// How a toggle names itself: its state is its label, and the name a screen reader hears says which relation it cuts.
+const HOVER_SIDE_NAMES = { hierarchy: 'Hierarchy', dependencies: 'Dependencies' };
+
+function paintHoverSide(btn, toggle, side) {
+  if (btn.textContent !== side) btn.textContent = side;
+  btn.setAttribute('aria-label', `${HOVER_SIDE_NAMES[toggle]}: ${side}`);
+  btn.title = `${HOVER_SIDE_NAMES[toggle]}: ${side}. Click for the next side.`;
+}
+
 // Every repaint of the board comes here (renderSearchPanel), and so does a pick: the search panel's boxes
-// and the Graph's side panel's toggles (graph-view.js, key hover) show the choice that applies, and the note
-// says whose it is.
+// and toggles and the Graph's side panel's (graph-view.js, keys hover and hover-side) show the one choice.
 function syncHoverShowPanel() {
   applyHoverFold();
   const kinds = hoverShowKindsNow();
-  document.querySelectorAll('#graph-view .graph-option-btn[data-key="hover"]').forEach((btn) => {
+  const sides = hoverShowSidesNow();
+  document.querySelectorAll('#graph-view .graph-option-btn[data-key="hover"], #graph-view .graph-option-btn[data-key="hover-side"]').forEach((btn) => {
+    if (btn.dataset.key === 'hover-side') { paintHoverSide(btn, btn.dataset.val, sides[btn.dataset.val]); return; }
     const on = kinds.includes(btn.dataset.val);
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', String(on));
@@ -74,13 +82,19 @@ function syncHoverShowPanel() {
     const on = kinds.includes(box.dataset.hoverKind);
     if (box.checked !== on) box.checked = on;
   });
-  const note = $('#search-hover-for');
-  const text = hoverShowGraphNow() === 'flow' ? 'Flow' : 'Hierarchy and the other views';
-  if (note && note.textContent !== text) note.textContent = text;
+  host.querySelectorAll('[data-hover-side]').forEach((btn) => paintHoverSide(btn, btn.dataset.hoverSide, sides[btn.dataset.hoverSide]));
 }
 
 function hoverShowPick(kind, on) {
-  hoverShowMemo = hoverShowWith(hoverShowLoad(), hoverShowGraphNow(), kind, on);
+  hoverShowMemo = hoverShowWith(hoverShowLoad(), kind, on);
+  hoverShowSave();
+  syncHoverShowPanel();
+  refreshHover();
+}
+
+// A press on a toggle: its next state, the one choice kept and shown in both panels.
+function hoverShowStepSide(toggle) {
+  hoverShowMemo = hoverShowStep(hoverShowLoad(), toggle);
   hoverShowSave();
   syncHoverShowPanel();
   refreshHover();
@@ -113,7 +127,7 @@ function onHoverSpaceKey(e) {
   if (keyGuardDetailOff(document)) return;
   if (e.target && e.target.closest && e.target.closest(HOVER_SPACE_OWN)) return;
   const id = hoverSpaceSubject();
-  const terms = id == null ? hoverSpaceLineTerms() : hoverShowTerms(hoverShowKindsNow(), window.kanbanIds.idKey(id) ?? id);
+  const terms = id == null ? hoverSpaceLineTerms() : hoverShowTerms(hoverShowKindsNow(), window.kanbanIds.idKey(id) ?? id, hoverShowSidesNow());
   if (!terms) return;
   e.preventDefault();
   const box = $('#search-input');
@@ -127,5 +141,9 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#search-hover').addEventListener('change', (e) => {
     const box = e.target.closest('[data-hover-kind]');
     if (box) hoverShowPick(box.dataset.hoverKind, box.checked);
+  });
+  $('#search-hover').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-hover-side]');
+    if (btn) hoverShowStepSide(btn.dataset.hoverSide);
   });
 });
