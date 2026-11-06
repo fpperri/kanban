@@ -198,8 +198,8 @@ function soloStatusFilter(filter, ids, col) {
 // visible only when BOTH say so. Either feature's "not filtering" is null
 // (search: empty query; filter: all toggles ON), so a lone active feature
 // passes its set through untouched and both-null stays null — one combined
-// visibleIds for buildDependencyGraph, ghost semantics exactly the search
-// filter's. Pure and here (not inline in renderMapView) so the rule is
+// visibleIds for buildDependencyGraph, hiding exactly what the search
+// filter hides. Pure and here (not inline in renderMapView) so the rule is
 // unit-pinned: a combiner drifting to union passed the whole suite as glue.
 function intersectVisibleIds(searchIds, statusIds) {
   if (!searchIds || !statusIds) return searchIds || statusIds;

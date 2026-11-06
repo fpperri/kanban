@@ -59,11 +59,11 @@ test('a line that runs against the layout bows out to the side and widens the ca
   assert.ok(maxX > 112 + W / 2, 'the bow reaches past the cards');
 });
 
-test('a line to or from a stub is dimmed like the stub', () => {
+test('a line to or from a parent on another board is marked external', () => {
   const w = geometrySandbox();
   const pos = place({ 1: [24, 24], 2: [24, 130] });
   const { svg } = w.buildParentLinesSvg({ lines: [{ child: 1, parent: 2 }], ghosts: [{ id: 2 }], edges: [] }, pos, new Map([[1, 0], [2, 1]]), 'below');
-  assert.match(svg, /class="map-edge map-parent-line ghost-edge"/);
+  assert.match(svg, /class="map-edge map-parent-line external-edge"/);
 });
 
 test('a line whose end was not placed is skipped rather than breaking the draw', () => {

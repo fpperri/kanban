@@ -391,51 +391,29 @@ for (const [name, set] of [['light', LIGHT], ['dark', DARK]]) {
     }
   });
 
-  test(`${name}: a ghost map stub is muted text with a dashed edge, not opacity, and holds the floor on the canvas`, () => {
-    for (const r of RULES) if (r.selectors.some((x) => x.startsWith('.map-node.ghost'))) assert.ok(!/(^|[;\s])opacity\s*:/.test(r.body), `${r.selectors} dims with opacity`);
-    assert.ok(declsFor('.map-node.ghost rect')['stroke-dasharray']);
-    for (const sel of ['.map-node.ghost .map-node-title', '.map-node.ghost .map-node-id']) {
+  test(`${name}: a parent on another board is muted text with a dashed edge, not opacity, and holds the floor on the canvas`, () => {
+    for (const r of RULES) if (r.selectors.some((x) => x.startsWith('.map-node.external'))) assert.ok(!/(^|[;\s])opacity\s*:/.test(r.body), `${r.selectors} dims with opacity`);
+    assert.ok(declsFor('.map-node.external rect')['stroke-dasharray']);
+    for (const sel of ['.map-node.external .map-node-title', '.map-node.external .map-node-id']) {
       const tok = tokenIn(declsFor(sel).fill, sel);
       assert.strictEqual(tok, '--mut');
       clears(set, tok, '--surface', TEXT, sel);
     }
   });
 
-  test(`${name}: the dashed edges that are decoration use the stronger line, and the ghost stub's edge, the only cue it has, is a mark that clears ${UI}:1`, () => {
+  test(`${name}: the dashed edges that are decoration use the stronger line, and the external node's edge, the only cue it has, is a mark that clears ${UI}:1`, () => {
     assert.strictEqual(tokenIn(declsFor('.cal-day.outside')['border-color'], 'outside day edge'), '--line-strong');
     assert.strictEqual(tokenIn(declsFor('.notif-row.level-debug')['border-color'], 'debug row edge'), '--line-strong');
-    const edge = tokenIn(declsFor('.map-node.ghost rect').stroke, 'ghost stub edge');
+    const edge = tokenIn(declsFor('.map-node.external rect').stroke, 'external node edge');
     assert.strictEqual(edge, '--mut');
-    clears(set, edge, '--surface', UI, 'ghost stub edge');
+    clears(set, edge, '--surface', UI, 'external node edge');
   });
 
-  test(`${name}: a ghost stub keeps the amber of a waiting card and the red of a high-priority one, each a mark that clears ${UI}:1`, () => {
-    const ghost = declsFor('.map-node.ghost rect');
-    assert.ok(ghost['stroke-dasharray'], 'the ghost stub keeps its dashes');
-    for (const [state, tok] of [['waiting', '--id-waiting'], ['high', '--id-high']]) {
-      const sel = `.map-node.ghost.${state} rect`;
-      assert.strictEqual(tokenIn(declsFor(sel).stroke, sel), tok);
-      clears(set, tok, '--surface', UI, sel);
-    }
-    const at = (sel) => css.indexOf(sel + ' {');
-    assert.ok(at('.map-node.ghost.waiting rect') > at('.map-node.ghost rect'), 'the state strokes come after the ghost rule');
-    assert.ok(at('.map-node.ghost.waiting rect') > at('.map-node.ghost.high rect'), 'waiting wins over high, as everywhere');
-  });
-
-  test(`${name}: a map edge and an edge to a ghost are full-strength marks that clear ${UI}:1 on the canvas, the ghost one told apart by dashes`, () => {
-    for (const sel of ['.map-edge', '.map-edge.ghost-edge']) {
-      const d = declsFor(sel);
-      assert.ok(!('opacity' in d) && !('stroke-opacity' in d), `${sel} dims with opacity`);
-    }
-    clears(set, tokenIn(declsFor('.map-edge').stroke, 'map edge'), '--surface', UI, 'map edge');
-    assert.ok(declsFor('.map-edge.ghost-edge')['stroke-dasharray'], 'an edge to a ghost is dashed');
+  test(`${name}: a map edge is a full-strength mark that clears ${UI}:1 on the canvas`, () => {
+    const d = declsFor('.map-edge');
+    assert.ok(!('opacity' in d) && !('stroke-opacity' in d), '.map-edge dims with opacity');
+    clears(set, tokenIn(d.stroke, 'map edge'), '--surface', UI, 'map edge');
     clears(set, tokenIn(declsFor('#map-arrow path').fill, 'arrowhead'), '--surface', UI, 'arrowhead');
-  });
-
-  test(`${name}: the prompt-fallback title on a ghost stub is not dimmed, so it holds ${TEXT}:1`, () => {
-    const d = declsFor('.map-node.ghost .map-node-title--prompt-fallback');
-    assert.strictEqual(d['fill-opacity'], '1');
-    clears(set, tokenIn(declsFor('.map-node.ghost .map-node-title').fill, 'ghost title'), '--surface', TEXT, 'ghost fallback title');
   });
 
   test(`${name}: the gantt today line is a full-strength accent mark on the surface`, () => {
@@ -505,16 +483,14 @@ test("the archived done dot's ring never outweighs the selected, hovered and foc
   }
 });
 
-test('a parent line to a ghost has a dash of its own, told apart from a live parent line and from an edge to a ghost', () => {
+test('a parent line to a parent on another board has a dash of its own, told apart from a live parent line', () => {
   const dash = (sel) => declsFor(sel)['stroke-dasharray'];
   const parent = dash('.map-parent-line');
-  const ghostEdge = dash('.map-edge.ghost-edge');
-  const ghostParent = dash('.map-parent-line.ghost-edge');
-  assert.ok(ghostParent, 'a parent line to a ghost is dashed');
-  assert.notStrictEqual(ghostParent, parent);
-  assert.notStrictEqual(ghostParent, ghostEdge);
+  const external = dash('.map-parent-line.external-edge');
+  assert.ok(external, 'a parent line to a parent on another board is dashed');
+  assert.notStrictEqual(external, parent);
   const at = (sel) => css.indexOf(sel + ' {');
-  assert.ok(at('.map-parent-line.ghost-edge') > at('.map-edge.ghost-edge'), 'it comes after the edge rule it overrides');
+  assert.ok(at('.map-parent-line.external-edge') > at('.map-parent-line'), 'it comes after the rule it overrides');
 });
 
 // Every way a stylesheet can dim: opacity, and its paint twins fill-opacity and stroke-opacity, to anything under 1.
@@ -553,7 +529,7 @@ function dimmers(rules) {
 
 test('no rule dims live text or a resting mark with opacity, fill-opacity or stroke-opacity, the Graph\'s included', () => {
   // Disabled and dragging states are transient; the prompt-fallback titles are italic text on their own ground
-  // (the one on a ghost stub is pinned above).
+  // (the Map's, the Calendar's and the board's alike).
   const NOT_TEXT = /:disabled|\.dragging|--prompt-fallback/;
   const offenders = dimmers(RULES).filter((s) => !NOT_TEXT.test(s) && !(s in GRAPH_KEEPS));
   assert.deepStrictEqual(offenders, []);

@@ -29,7 +29,7 @@ const DEP_IDS = (typeof module !== 'undefined' && module.exports)
 
 // The graph keys every card on the id module's whole-id string, so `#7` and `#G7`
 // are two cards whatever the payload sent (a number or a string). Cards already in
-// that form pass through untouched. A stub for a card on another board takes an id
+// that form pass through untouched. The node for a card on another board takes an id
 // that is no id (`ext:board#4`), so it can collide with no card.
 function depKey(id) {
   const key = DEP_IDS.idKey(id);
@@ -60,9 +60,9 @@ function cardToNode(c, waiting) {
   };
 }
 
-// The stub for an id no card answers to: a stale waiting_for or parent.
-function missingNode(id) {
-  return { id, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', missing: true };
+// The node for a parent on another board: no card here stands behind it.
+function externalNode(ref) {
+  return { id: `ext:${ref}`, title: null, status: null, archived: false, priority: '', waiting: false, blocked: false, blockedReason: '', external: ref };
 }
 
 // Same derived-waiting rule as the board's own isWaiting() (app.js) — both
@@ -72,62 +72,47 @@ function isCardWaiting(c, byId) {
   return WB.unresolvedWaits(c.waiting_for, byId).length > 0;
 }
 
-// Build the node/edge/ghost-stub set from the full card list (active + archived
+// Build the node/edge set from the full card list (active + archived
 // — waiting is location-independent, same as the board's own isWaiting() check)
 // and the ids currently matching the search box (`visibleIds`: a Set, or
 // null/undefined meaning "no active query — every card is visible", mirroring
 // search.js's own "empty query matches everything"). `ctx` is the nesting
 // context ({ board }), which reads a parent written as this board's own name.
 // The map does not draw this graph: buildRelationsGraph (below) takes its
-// dependency edges and ghosts and drops its parent edges. The tree: and path:
+// dependency edges and drops its parent edges. The tree: and path:
 // terms walk the whole edge set, parent edges included.
 //
-// Design decisions:
-// - An edge with NEITHER endpoint visible is dropped entirely — only
-//   matching cards are "the slice you're looking at"; an edge floating
-//   between two invisible cards has nothing on-screen to anchor it to.
-// - An edge with exactly one endpoint hidden keeps the edge and turns the
-//   hidden endpoint into a dimmed ghost stub — in EITHER direction (a hidden
-//   dep of a visible card, or a hidden card that waits on a visible one):
-//   "a hidden dep is exactly what you're looking for," and the same
-//   courtesy applies symmetrically.
-// - A waiting_for id with no matching card at all (stale/deleted reference)
-//   still gets a ghost stub, marked `missing: true`, rather than silently
-//   vanishing.
+// Design decision: an edge is kept only when BOTH endpoints are visible cards.
+// A card the filters hide is not drawn, and neither is a line to it; a
+// waiting_for or parent id with no card draws nothing either.
 //
 // Parent edges: a child card's `parent: <parent-id>` becomes a child->parent edge
 // with `kind: 'parent'` (waiting_for edges carry `kind: 'dep'`). Nesting is not
-// sequencing: a parent edge gets the same ghost-stub courtesy but never makes
-// anyone `waiting`. A self-parent is nonsense and adds no edge; a dangling parent
-// id ghosts as missing, same as a dangling dep.
-function buildDependencyGraph(cardList, visibleList, ctx) {
+// sequencing: a parent edge never makes anyone `waiting`. A self-parent is
+// nonsense and adds no edge.
+function buildDependencyGraph(cardList, visibleList, ctx, opts) {
   const cards = depCards(cardList);
   const visibleIds = depSet(visibleList);
   const byId = new Map(cards.map((c) => [c.id, c]));
-  // A ghost placeholder from a dangling reference has no card behind it, so
-  // "visible" must require actual existence — not just query-membership —
-  // or an unfiltered board would wrongly treat a stale id as a real node.
+  // "Visible" requires actual existence, not just query-membership, so a stale
+  // id is no node.
   const isVisible = (id) => byId.has(id) && (!visibleIds || visibleIds.has(id));
 
   // A repeated id keeps only the copy byId resolves (the last), the one the map's own lookups use.
   const nodes = cards.filter((c) => byId.get(c.id) === c && isVisible(c.id)).map((c) => cardToNode(c, isCardWaiting(c, byId)));
-  const nodeIds = new Set(nodes.map((n) => n.id));
 
   const seenEdges = new Set();
   const edges = [];
-  const ghostIds = new Set();
-  // One shared endpoint-visibility rule for both edge kinds: drop when neither
-  // endpoint is on screen, ghost a hidden-but-real endpoint, ghost a missing id.
+  // One shared endpoint-visibility rule for both edge kinds: an edge is kept
+  // only when both endpoints are on screen.
   const addEdge = (from, to, kind) => {
     const key = `${from}->${to}:${kind}`;
     if (seenEdges.has(key)) return; // de-dupe a repeated entry
-    const fromVisible = isVisible(from);
-    const toVisible = isVisible(to);
-    if (!fromVisible && !toVisible) return;
+    // The tree: and path: walk (keepMissing) still crosses an id with no card, as it always has; only what
+    // the Map draws drops it.
+    if (opts && opts.keepMissing ? !(byId.has(from) || byId.has(to)) : !isVisible(from) || !isVisible(to)) return;
     seenEdges.add(key);
-    if (!fromVisible) ghostIds.add(from);
-    if (!toVisible) ghostIds.add(to);
-    edges.push({ from, to, kind, fromGhost: !fromVisible, toGhost: !toVisible });
+    edges.push({ from, to, kind });
   };
   // Parent edges run ALONG a chain of children instead of fanning from every
   // child. `nonTerminal` collects, per parent, the children some OTHER child of
@@ -182,12 +167,7 @@ function buildDependencyGraph(cardList, visibleList, ctx) {
     }
   }
 
-  const ghosts = [...ghostIds].filter((id) => !nodeIds.has(id))
-    .sort(DEP_IDS.compareIds)
-    .map((id) => (byId.has(id) ? cardToNode(byId.get(id), isCardWaiting(byId.get(id), byId))
-      : missingNode(id)));
-
-  return { nodes, edges, ghosts };
+  return { nodes, edges };
 }
 
 // Assign a top-down layer index (0 = topmost / least-waited-on) to every id
@@ -248,7 +228,7 @@ function layerNodes(nodeIds, edges) {
 // visited-set BFS makes both cycle-safe (never hangs, mirrors layerNodes'
 // own cycle tolerance).
 function buildAdjacency(cards, ctx) {
-  const { edges } = buildDependencyGraph(cards, null, ctx);
+  const { edges } = buildDependencyGraph(cards, null, ctx, { keepMissing: true });
   const forward = new Map(); // from -> Set(to)
   const backward = new Map(); // to -> Set(from)
   for (const { from, to } of edges) {
@@ -303,10 +283,13 @@ function pathIds(cardList, rawId, ctx) {
 // Every relation the map can draw, for the cards in `visibleIds` (null = all):
 // the dependency edges of buildDependencyGraph plus one pair per immediate parent
 // and child, never a grandparent and grandchild. A pair is not an edge:
-// map-relations.js decides which become lines and how they place cards. A parent
-// on another board is one stub per mention, with an id that is no id and no card
-// can have (`ext:board#id`, which is no id). `ends` (see mapParentLineEnds) is read on the whole board, so a filter
-// never moves a line; a pair into a stub has none.
+// map-relations.js decides which become lines and how they place cards. A pair is
+// made only between cards the filters show: a hidden card, or an id with no card,
+// takes no pair. `ghosts` holds the one stub left, a parent on another board: one
+// per mention, with an id that is no id and no card can have (`ext:board#id`). The
+// shaper also serves the Snapshot, whose own builder still fills `ghosts` with the
+// cards its filters hide. `ends` (see mapParentLineEnds) is read on the whole board,
+// so a filter never moves a line; a pair into a stub has none.
 function buildRelationsGraph(cardList, visibleList, ctx) {
   const cards = depCards(cardList);
   const visibleIds = depSet(visibleList);
@@ -320,22 +303,15 @@ function buildRelationsGraph(cardList, visibleList, ctx) {
   }
   const ends = MAPREL.mapParentLineEnds(children);
 
-  const ghosts = base.ghosts.slice();
-  const ghostIds = new Set(ghosts.map((g) => g.id));
-  const ensureGhost = (id) => {
-    if (isVisible(id) || ghostIds.has(id)) return;
-    ghostIds.add(id);
-    const card = byId.get(id);
-    ghosts.push(card ? cardToNode(card, isCardWaiting(card, byId)) : missingNode(id));
-  };
-  const external = new Map();
-  const externalStub = (ref) => {
-    if (!external.has(ref)) {
-      const id = `ext:${ref}`;
-      external.set(ref, id);
-      ghosts.push(Object.assign(missingNode(id), { external: ref }));
+  const ghosts = [];
+  const externalIds = new Map();
+  const externalId = (ref) => {
+    if (!externalIds.has(ref)) {
+      const node = externalNode(ref);
+      externalIds.set(ref, node.id);
+      ghosts.push(node);
     }
-    return external.get(ref);
+    return externalIds.get(ref);
   };
 
   const pairs = [];
@@ -343,12 +319,10 @@ function buildRelationsGraph(cardList, visibleList, ctx) {
     const parsed = NEST.parseParent(c.parent, ctx && ctx.board);
     if (!parsed || (parsed.local && parsed.id === c.id)) continue;
     if (!parsed.local) {
-      if (isVisible(c.id)) pairs.push({ child: c.id, parent: externalStub(`${parsed.board}#${parsed.id}`), ends: null });
+      if (isVisible(c.id)) pairs.push({ child: c.id, parent: externalId(`${parsed.board}#${parsed.id}`), ends: null });
       continue;
     }
-    if (!isVisible(c.id) && !isVisible(parsed.id)) continue;
-    ensureGhost(c.id);
-    ensureGhost(parsed.id);
+    if (!isVisible(c.id) || !isVisible(parsed.id)) continue;
     pairs.push({ child: c.id, parent: parsed.id, ends: ends.get(c.id) || null });
   }
   return { nodes: base.nodes, ghosts, edges: base.edges.filter((e) => e.kind === 'dep'), pairs };

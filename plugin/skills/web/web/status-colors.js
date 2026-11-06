@@ -187,7 +187,7 @@ function statusEscape(s) {
 // — that genuinely IS their status color), but that's keyed off the RAW
 // status string, never off the archived flag. The archived cue lives entirely
 // in the tile's dimmed body/grey border, the "(archived)" tooltip, and
-// ghost/selection treatments — none of them this function's concern.
+// selection treatments — none of them this function's concern.
 // Like the SVG twin (a CSS class per built-in status, custom ones also a
 // class — see statusColorClass above), this writes
 // a class, never an inline style: a strict CSP has no channel left to break.

@@ -125,14 +125,14 @@ test('the search box does not offer an epic: term', () => {
 
 // --- the map graph -----------------------------------------------------------
 
-test('graph nodes and ghosts carry no epic flag', () => {
+test('graph nodes carry no epic flag', () => {
   const cards = [
     { id: 1, title: 'Root', status: 'todo', waiting_for: [], archived: false, epic: true },
     { id: 2, title: 'Leaf', status: 'todo', waiting_for: [1], archived: false, parent: 1 },
     { id: 3, title: 'Far', status: 'todo', waiting_for: [999], archived: false },
   ];
   const g = buildDependencyGraph(cards, new Set([2, 3]));
-  for (const n of [...g.nodes, ...g.ghosts]) assert.ok(!('epic' in n), `node ${n.id}`);
+  for (const n of g.nodes) assert.ok(!('epic' in n), `node ${n.id}`);
 });
 
 // --- colors ------------------------------------------------------------------

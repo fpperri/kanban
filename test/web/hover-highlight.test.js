@@ -67,9 +67,9 @@ test('gantt gutter label: shares the bar\'s hover-highlight + tabIndex, same car
   assert.match(appJs, /'gantt-row gantt-label card-el' \+ \(paintsSelected\(bar\.card\.id\) \? ' selected' : ''\) \+ \(isHoverHighlighted\(hoverLit, bar\.card\.id\) \? ' hover-highlight' : ''\);/);
 });
 
-test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — ghost/missing stubs stay inert', () => {
+test('map node: the SVG group gates hover-highlight AND tabindex on `selectable`, same guard .selected uses — a parent on another board stays inert', () => {
   assert.match(appJs, /\$\{selectable && isHoverHighlighted\(hoverLit, id\) \? ' hover-highlight' : ''\}`;/);
-  assert.match(appJs, /<g class="\$\{cls\}" transform="translate\(\$\{p\.x\},\$\{p\.y\}\)"\$\{missing \? '' : ` data-id="\$\{id\}"`\}\$\{selectable \? ' tabindex="0"' : ''\}>/);
+  assert.match(appJs, /<g class="\$\{cls\}" transform="translate\(\$\{p\.x\},\$\{p\.y\}\)"\$\{external \? '' : ` data-id="\$\{id\}"`\}\$\{selectable \? ' tabindex="0"' : ''\}>/);
 });
 
 test('the gantt due diamond is NOT wired for hover — .selected skips it too, so hover stays at parity rather than inventing new treatment', () => {

@@ -365,6 +365,7 @@ names its own deliberate gaps in `plugin/skills/snapshot/references/gaps.md`
 other (or gets a line in that surface's own skill doc saying why not).
 Retired skills are deleted outright.
 The Graph view is web-only: the snapshot does not draw it.
+The Web's Map draws only the cards its filters show; the snapshot's map still draws a hidden card, or an id with no card, that a shown card relates to as a stub.
 The selection, Isolate and Peek are web-only too, since the snapshot has no selection to
 isolate; the search grammar, the slices and the pills are shared, the snapshot running the
 web's own search module and drawing the same panel, where a pill filters.

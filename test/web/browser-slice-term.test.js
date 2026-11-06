@@ -122,9 +122,8 @@ test('the selectors the scenario reads name classes and containers the page real
 });
 
 // The Map draws a card in one of three ways: a node in a tree when some relation
-// touches it, a tile in the No relations row when none does, and, for a card the cut
-// hid that a shown card still relates to, a stub. Only the first two are cards the
-// cut keeps. The Gantt lists every dated card as a row in its gutter, and draws a bar
+// touches it, a tile in the No relations row when none does. A card the cut hid is not drawn.
+// The Gantt lists every dated card as a row in its gutter, and draws a bar
 // for it only when the bar falls in the window, which for the All sub-view is
 // clamped to 180 days. The classes each is drawn with come from the page code, which
 // the first test below holds them to, so each selector is held to the page's own
@@ -132,7 +131,6 @@ test('the selectors the scenario reads name classes and containers the page real
 const ELEMENTS = {
   mapNode: { within: '#map-view', classes: ['map-node', 'card-el'], attrs: ['data-id'] },
   mapTile: { within: '#map-view', classes: ['card', 'card-el'], attrs: ['data-id'] },
-  mapStub: { within: '#map-view', classes: ['map-node', 'ghost'], attrs: ['data-id'] },
   ganttLabel: { within: '#gantt-view', classes: ['gantt-row', 'gantt-label', 'card-el'], attrs: ['data-id'] },
   ganttBar: { within: '#gantt-view', classes: ['gantt-bar', 'card-el'], attrs: ['data-id'] },
 };
@@ -151,10 +149,9 @@ const readBy = (selector, drawn) => [...new Set(drawn.filter(({ element }) => se
 test('the classes the Map and the Gantt draw their elements with come from the page code', () => {
   const web = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web');
   const app = fs.readFileSync(path.join(web, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
-  assert.ok(app.includes('const selectable = !n.ghost && !missing;'), 'a stub is not selectable');
-  assert.ok(app.includes("map-node${n.ghost ? ' ghost' : ''}"), 'a node and a stub are both map-node, and a stub is also a ghost');
-  assert.ok(app.includes("${selectable ? ' card-el' : ''}"), 'only a node that is not a stub is a card-el');
-  assert.ok(app.includes('graph.ghosts.forEach((g) => allById.set(g.id, Object.assign({ ghost: true }, g)));'), 'the ghosts of a graph are the stubs');
+  assert.ok(app.includes('const selectable = !external;'), 'a parent on another board is not selectable');
+  assert.ok(app.includes("map-node${external ? ' external' : ''}"), 'a card and a parent on another board are both map-node, and the second is also external');
+  assert.ok(app.includes("${selectable ? ' card-el' : ''}"), 'only a node that is a card is a card-el');
   assert.ok(app.includes("el.className = 'card card-el'"), 'a tile is a card and a card-el');
   const row = app.slice(app.indexOf('function buildIsolatedRow('), app.indexOf('// Rich rows are HTML'));
   assert.ok(row.includes('cardEl(card)'), 'the No relations row draws each card as a tile');
@@ -165,18 +162,17 @@ test('the classes the Map and the Gantt draw their elements with come from the p
   assert.ok(app.includes('el.className = `gantt-bar card-el status-'), 'a bar is a gantt-bar and a card-el');
 });
 
-test('the Map selector reaches each card the Map draws under the cut, the ones with a relation and the one with none, and no stub', () => {
+test('the Map selector reaches each card the Map draws under the cut, the ones with a relation and the one with none, and none the cut hid', () => {
   const board = load('plan');
   const { cut } = sliceTerm.CASES.plan;
   const rel = buildRelationsGraph(board.all, found(board, 'plan', cut.query), { board: 'plan', priorities: board.config.priorities });
   const view = mapShapeRelations(rel);
   const drawn = [
     ...view.graphs.flatMap((g) => g.nodes.map((n) => ({ id: n.id, element: ELEMENTS.mapNode }))),
-    ...view.graphs.flatMap((g) => g.ghosts.map((n) => ({ id: n.id, element: ELEMENTS.mapStub }))),
     ...view.noRelations.map((id) => ({ id, element: ELEMENTS.mapTile })),
   ];
   assert.ok(view.noRelations.length > 0, 'a card in the cut has no relation, so the Map draws it as a tile and not as a node');
-  assert.ok(drawn.some(({ element }) => element === ELEMENTS.mapStub), 'a card the cut hid is still drawn as a stub beside the cards it relates to');
+  assert.ok(view.graphs.every((g) => g.nodes.every((n) => cut.shows.includes(Number(n.id)))), 'a card the cut hid is not drawn beside the cards it relates to');
   assert.deepStrictEqual(readBy(sliceTerm.SELECTORS.map, drawn), cut.shows, 'what the scenario reads off the Map is the cards the cut keeps');
 });
 
