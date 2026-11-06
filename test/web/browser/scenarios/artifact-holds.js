@@ -8,7 +8,7 @@
 // page shows, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): setView, state, loadMapStatusFilter,
-// loadGanttStatusFilter.
+// loadGanttStatusFilter, loadBoard.
 
 const fs = require('fs');
 const os = require('os');
@@ -116,6 +116,37 @@ module.exports = {
       await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
       await ev(`setView('board')`);
       check('and its phone tab counts three', await waitFor(`(()=>{const t=document.querySelector('#board-tabs .board-tab[data-col=archive]');return !!t&&t.querySelector('.board-tab-count').textContent==='3'})()`, 6000));
+      await wide();
+      await ev('localStorage.clear()');
+      check('the page with no archive opens once more', await load('none'));
+      check('it holds no archived card and its Archive pill is not in this page', await ev(`state.archived.length===0`) && await ev(`setView('gantt'),true`) && await waitFor(`/not in this page/.test(${PILL_TEXT})`, 6000));
+      const archived = await ev(`window.kanbanSourceInUse.request('POST','/api/cards/7/archive').then((r)=>r.status)`);
+      check('archiving card 7 in the page is queued', archived < 300 && await ev('loadBoard().then(()=>true)') && await waitFor(`state.archived.length===1`, 6000), archived);
+      check('the Gantt pill now counts it, of the total with it added', await waitFor(`/1 of 4/.test(${PILL_TEXT})`, 6000), await ev(PILL_TEXT));
+      check('and is a working pill, announced as not pressed in the Gantt, which starts without the archive', await ev(`!${PILL}.hasAttribute('aria-disabled')&&${PILL}.getAttribute('aria-pressed')==='false'`));
+      await ev(`${PILL}.click()`);
+      check('pressing it switches the archive on', await waitFor(`${PILL}.getAttribute('aria-pressed')==='true'`, 6000));
+      await ev(`setView('map')`);
+      const NODE = `document.querySelector('.map-node[data-id="7"]')`;
+      check('the Map draws the archived card while the pill is on', await waitFor(`!!${PILL}&&/1 of 4/.test(${PILL_TEXT})&&!!${NODE}`, 6000), await ev(PILL_TEXT));
+      await ev(`${PILL}.click()`);
+      check('pressing the Map pill switches the archive off', await waitFor(`${PILL}.getAttribute('aria-pressed')==='false'`, 6000));
+      check('and the archived card is no longer drawn', await waitFor(`!${NODE}`, 6000));
+      await ev(`setView('board')`);
+      await ev(`document.querySelector('${COL} .column-toggle').getAttribute('aria-expanded')==='true'&&document.querySelector('${COL} .column-toggle').click()`);
+      check('the collapsed Archive strip reads the count', await waitFor(STRIP('1 of 4', '1 of 4'), 6000), await ev(`document.querySelector('${COL}').title+'|'+document.querySelector('${COL} .column-count').textContent`));
+      await ev(`document.querySelector('#board .column[data-col=archive] .column-toggle').getAttribute('aria-expanded')==='false'&&document.querySelector('#board .column[data-col=archive] .column-toggle').click()`);
+      check('the Archive column reads it in its header', await waitFor(`/1 of 4/.test(${HEADER_TEXT})`, 6000), await ev(HEADER_TEXT));
+      await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+      check('the phone tab reads it', await waitFor(`/1 of 4/.test(document.querySelector('#board-tabs .board-tab[data-col=archive]').textContent)`, 6000));
+      await wide();
+      await ev(`document.getElementById('queued-pill').click()`);
+      check('the tray opens', await waitFor(`!document.getElementById('tray-sheet').classList.contains('hidden')`, 4000));
+      await ev(`document.querySelector('#tray-list .tray-row:first-child .tray-remove').click()`);
+      check('removing the archive from the tray takes the count back to none', await waitFor(`state.archived.length===0`, 6000));
+      await ev(`document.getElementById('tray-sheet').classList.contains('hidden')||document.getElementById('tray-close').click()`);
+      await ev(`setView('map')`);
+      check('and the Map pill is not in this page again', await waitFor(`!!${PILL}&&/not in this page/.test(${PILL_TEXT})&&${PILL}.getAttribute('aria-disabled')==='true'`, 6000), await ev(PILL_TEXT));
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
