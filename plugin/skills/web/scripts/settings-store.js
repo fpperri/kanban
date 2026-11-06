@@ -70,6 +70,9 @@ function checkFolder(dir, value, what) {
   }
   for (const part of parts) {
     if (part === iter.PLACEHOLDER) continue;
+    if (/^<[^<>]*>$/.test(part)) {
+      throw new StatusError(`${part} is a word the gear does not write: it is a hand edit in config.yaml.`, 400);
+    }
     if (!/^[\p{L}\p{N}_.][\p{L}\p{N}_ .()+,@-]*$/u.test(part) || /[. ]$/.test(part)) {
       throw new StatusError(`${part} is not a plain folder name: use letters, digits, spaces and _ . - ( ) + , @.`, 400);
     }
@@ -123,11 +126,17 @@ function folderPath(dir, config, key) {
 
 // The folder a new write would go to today when the feature's path holds `<iteration>` (docs/adr/0019):
 // the iteration whose dates hold today, else the path with the segment dropped; null for a path
-// without the placeholder.
+// without the placeholder. A path with `<card>` keeps it in the text: a card's own folder is named by
+// the card, and a card that is a member of an iteration writes to that iteration's folder.
 function folderToday(dir, config, key) {
   const value = filledPath(config, key);
   if (value === '' || !iter.hasPlaceholder(value)) return null;
-  return iter.folderOfDay(dir, value, localToday()).abs;
+  const segs = iter.segmentsOf(value);
+  const at = segs.indexOf(iter.CARD);
+  if (at < 0) return iter.folderOfDay(dir, value, localToday()).abs;
+  const head = segs.slice(0, at).join('/');
+  const base = head === '' ? path.resolve(dir) : iter.folderOfDay(dir, head, localToday()).abs;
+  return [base, ...segs.slice(at)].join(path.sep);
 }
 
 // `cards` is the board's cards, active and archived, when the caller has read them already.

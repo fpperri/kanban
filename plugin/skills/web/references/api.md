@@ -72,7 +72,7 @@ The `/api/board` payload carries `scratchpad: { folder, targets }`, the ids that
 
 ### A write to a path with another `<word>`
 
-A write to a path with another `<word>` answers 400, and the gear refuses a folder that starts with `<iteration>`.
+A write to a path with another `<word>` answers 400 and says the word is a hand edit in `config.yaml`, and the gear refuses a folder that starts with `<iteration>`.
 
 ### A note's `file` and a page's `folder` with a placeholder in the path
 
@@ -80,7 +80,7 @@ A note's `file` then reads `<iteration folder>/<day file>` (just the day file fo
 
 ### GET /api/board: `settings.paths`, `logbookNow`, `scratchpadNow`
 
-The settings' `paths` give `config` (the absolute path of `config.yaml`) and `logbook`, `scratchpad`, `todos` and `groups` as absolute paths with the variables and `<repo>` filled in (`null` when off); only `<iteration>` and `<card>` are left as written. `logbookNow`, `scratchpadNow` and `todosNow` are the folder a new write goes to today (`null` for a path without `<iteration>`). The gear never writes `vars:` and keeps it as it is.
+The settings' `paths` give `config` (the absolute path of `config.yaml`) and `logbook`, `scratchpad`, `todos` and `groups` as absolute paths with the variables and `<repo>` filled in (`null` when off); only `<iteration>` and `<card>` are left as written. `logbookNow`, `scratchpadNow` and `todosNow` are the folder a new write goes to today (`null` for a path with neither `<iteration>` nor `<card>`; `<card>` stays as written in the text). The gear never writes `vars:` and keeps it as it is.
 
 ### /api/todos/<id> (GET, POST, PATCH, DELETE, PUT) and /api/todos/<id>/move, /indent, /outdent
 

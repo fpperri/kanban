@@ -27,6 +27,7 @@ const switchDisabled = (key) => `(()=>{const b=document.querySelector('.prefs-op
 const field = (key) => `document.getElementById('pf-${key}')`;
 const errorText = `(()=>{const e=document.querySelector('#prefs-board-page .prefs-error');return e?e.textContent:''})()`;
 const menuState = (page) => `(()=>{const b=document.querySelector(${JSON.stringify(item(page))});const s=b&&b.querySelector('.prefs-menu-state');return s?s.textContent:null})()`;
+const iterationNote = `(()=>{const e=document.querySelector('#prefs-board-page [data-note="iteration"]');return e?e.textContent:null})()`;
 const rows = `[...document.querySelectorAll('#prefs-board-page .prefs-table tbody tr')].map((r)=>[...r.children].map((c)=>c.textContent))`;
 
 module.exports = {
@@ -204,6 +205,17 @@ module.exports = {
     check('the menu says it is locked', await ev(menuState('board:logbook')) === 'on · locked');
     check('and the hand-written line is read as it stands: the board keeps the logbook', await ev(`state.logbook!==null&&state.logbook.folder==='../elsewhere'`));
     check('config.yaml is as it was written by hand', config() === handWritten);
+    check('a board with an iteration and a path with no <iteration> says every iteration writes to this one folder, locked or not', await ev(iterationNote) !== null && /^Every iteration writes to this one folder\. Put <iteration> where an iteration's folder goes/.test(await ev(iterationNote)), await ev(iterationNote));
+    await key('Escape');
+    await waitFor(SHEET_SHUT, 2500);
+
+    // --- a path with <iteration> says only a folder that starts with an id is read ------------------------
+    fs.writeFileSync(configPath, handWritten.replace(/^logbook: .*$/m, 'logbook: sprints/<iteration>/.logbook'));
+    await page.open('/');
+    await waitFor(`document.querySelectorAll('#board .card-el').length>20`, 10000);
+    await openSheet();
+    await goPage('board:logbook');
+    check('a path with <iteration> says a folder is read only when its name starts with an id', await waitFor(`/^A folder is read here only when its name starts with an id, like 0005\.sprint-496/.test(${iterationNote}||'')`, 3000), await ev(iterationNote));
     await key('Escape');
     await waitFor(SHEET_SHUT, 2500);
 

@@ -638,11 +638,38 @@ test('a path with <iteration> gets a line under the path bar naming the folder a
   const logbook = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/s/<iteration>/.logbook', now: '/b/s/0005.x/.logbook' })");
   assert.match(logbook.textContent, /A new note written today goes to \/b\/s\/0005\.x\/\.logbook/);
   const pad = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/s/<iteration>', now: '/b/s' })");
-  assert.match(pad.textContent, /A new page written today goes to \/b\/s$/);
+  assert.match(pad.textContent, /A new page written today goes to \/b\/s\. A card that is a member of an iteration goes to that iteration's folder instead\.$/);
   const todos = ctx.run("settingsPathNowNode('todos', { kind: 'Folder', path: '/b/t/<iteration>', now: '/b/t' })");
-  assert.match(todos.textContent, /A new list written today goes to \/b\/t$/);
+  assert.match(todos.textContent, /A new list written today goes to \/b\/t\. A card that is a member of an iteration goes to that iteration's folder instead\.$/);
   assert.strictEqual(ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/l' })"), null);
   assert.strictEqual(ctx.run("settingsPathNowNode('logbook', null)"), null);
+});
+
+test('a path with <card> keeps it in the line under the path bar, and names the member case when it holds <iteration>', () => {
+  const ctx = loadPages();
+  const plain = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/s/<card>', now: '/b/s/<card>' })");
+  assert.match(plain.textContent, /goes to \/b\/s\/<card>, <card> being the card's own folder\.$/);
+  const both = ctx.run("settingsPathNowNode('scratchpad', { kind: 'Folder', path: '/b/<iteration>/<card>', now: '/b/I497.sprint-497/<card>' })");
+  assert.match(both.textContent, /I497\.sprint-497\/<card>, <card> being the card's own folder\. A card that is a member of an iteration goes to that iteration's folder instead\.$/);
+});
+
+test('the member sentence follows <iteration> for pages and lists, never for the logbook, which files by its day', () => {
+  const ctx = loadPages();
+  const member = /member of an iteration goes to that iteration's folder instead/;
+  for (const id of ['scratchpad', 'todos']) {
+    const bare = ctx.run(`settingsPathNowNode('${id}', { kind: 'Folder', path: '/b/.x/<iteration>', now: '/b/.x/I5.sprint-496' })`);
+    assert.match(bare.textContent, member, id);
+    const none = ctx.run(`settingsPathNowNode('${id}', { kind: 'Folder', path: '/b/.x/<card>', now: '/b/.x/<card>' })`);
+    assert.doesNotMatch(none.textContent, member, id);
+  }
+  const log = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/.lg/<iteration>/<card>', now: '/b/.lg/I5.sprint-496/<card>' })");
+  assert.doesNotMatch(log.textContent, member);
+  assert.match(log.textContent, /A note goes to the iteration that holds its day\. A note about nothing has no card, so <card> is dropped\.$/);
+  const day = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/.lg/<iteration>', now: '/b/.lg/I5.sprint-496' })");
+  assert.match(day.textContent, /A note goes to the iteration that holds its day\.$/);
+  const about = ctx.run("settingsPathNowNode('logbook', { kind: 'Folder', path: '/b/.lg/<card>', now: '/b/.lg/<card>' })");
+  assert.match(about.textContent, /A note about nothing has no card, so <card> is dropped\.$/);
+  assert.doesNotMatch(about.textContent, /iteration/);
 });
 
 test('the Prefixes page is a table of fields with a Remove each and an Add row, the id note, the warning, and idDigits', () => {
@@ -851,4 +878,80 @@ test('in a built page the Snapshot controls are disabled, and the menu says live
   assert.ok(buttons.length >= 3 && buttons.every((b) => b.disabled), 'save and both switch buttons stand still');
   assert.strictEqual(settings.settingsPageState('snapshot', { snapshotArchive: true }, 0), 'archive');
   assert.strictEqual(settings.settingsPageState('snapshot', {}, 0), 'live');
+});
+
+// The words on the Logbook, Scratchpad and Todos pages about iterations (docs/adr/0019).
+
+const ITER_GROUPS = { folder: '.groups', list: [{ id: '5', folder: 'iteration', cards: [] }, { id: 'G1', folder: 'goal', cards: [] }] };
+const noteOf = (root) => root.one((el) => el.dataset.note === 'iteration');
+
+function pageWith(folder, groups, over = {}) {
+  const ctx = loadPages();
+  ctx.state.settings.logbook = { on: true, folder, ...over };
+  ctx.state.groups = groups;
+  return ctx.page('logbook');
+}
+
+test('a board with an iteration and a path with no <iteration> says every iteration writes to one folder, locked or not', () => {
+  for (const over of [{}, { locked: true, reason: 'This folder is outside the board.' }]) {
+    const note = noteOf(pageWith('pads/.log', ITER_GROUPS, over));
+    assert.strictEqual(note.textContent, settings.SETTINGS_ITERATION_SAME);
+    assert.match(note.textContent, /Every iteration writes to this one folder\. Put <iteration> where an iteration's folder goes/);
+  }
+});
+
+test('the iteration note stays out when the board has no iteration, when the path has <iteration> and no id note is due, or the page is Groups', () => {
+  assert.strictEqual(noteOf(pageWith('pads/.log', null)), undefined);
+  assert.strictEqual(noteOf(pageWith('pads/.log', { folder: '.groups', list: [{ id: 'G1', folder: 'goal', cards: [] }] })), undefined);
+  assert.strictEqual(noteOf(pageWith('', ITER_GROUPS, { on: false })), undefined);
+  const ctx = loadPages({ groupLabel: (g) => g.id });
+  ctx.state.groups = ITER_GROUPS;
+  ctx.state.settings.groups = { on: true, folder: '.groups/<iteration>' };
+  assert.strictEqual(noteOf(ctx.page('groups')), undefined);
+});
+
+test('a path with <iteration> says a folder is read only when its name starts with an id, and not the other note', () => {
+  for (const folder of ['pads/<iteration>/<card>', 'pads\\<iteration>']) {
+    const root = pageWith(folder, null);
+    assert.strictEqual(noteOf(root).textContent, settings.SETTINGS_ITERATION_ID);
+    assert.match(noteOf(root).textContent, /starts with an id, like 0005\.sprint-496\. An older folder needs renaming, or its files stop showing\./);
+  }
+  const both = pageWith('pads/<iteration>', ITER_GROUPS).all((el) => el.dataset.note === 'iteration');
+  assert.strictEqual(both.length, 1);
+});
+
+test('a line that holds <card> or a variable says under the field that the gear does not write them, on and not off', () => {
+  const hand = (root) => root.one((el) => el.dataset.note === 'hand-words');
+  for (const folder of ['pads/<card>', '<sprints>/<iteration>/x', '<kanban>\\x']) {
+    assert.strictEqual(hand(pageWith(folder, null)).textContent, settings.SETTINGS_HAND_WORDS, folder);
+  }
+  assert.match(settings.SETTINGS_HAND_WORDS, /by hand in config\.yaml\. Switching it off here still works\./);
+  assert.strictEqual(hand(pageWith('pads/<iteration>', null)), undefined);
+  assert.strictEqual(hand(pageWith('pads', null)), undefined);
+  assert.strictEqual(hand(pageWith('pads/<card>', null, { on: false })), undefined);
+  assert.strictEqual(settings.settingsHandWordsNote(''), '');
+  const locked = hand(pageWith('<sprints>/<iteration>/<card>/.scratchpad', null, { locked: true, reason: 'This folder is outside the board.' }));
+  assert.strictEqual(locked.textContent, settings.SETTINGS_HAND_WORDS_LOCKED);
+  assert.doesNotMatch(locked.textContent, /Switching it off/);
+  assert.match(locked.textContent, /by hand in config\.yaml\.$/);
+});
+
+test('the iteration words are one pure function of the folder and the groups', () => {
+  assert.deepStrictEqual(settings.settingsIterationNotes('', ITER_GROUPS.list), []);
+  assert.deepStrictEqual(settings.settingsIterationNotes('x', undefined), []);
+  assert.deepStrictEqual(settings.settingsIterationNotes('x', ITER_GROUPS.list), [settings.SETTINGS_ITERATION_SAME]);
+  assert.deepStrictEqual(settings.settingsIterationNotes('x/<iteration>', []), [settings.SETTINGS_ITERATION_ID]);
+});
+
+test('the Scratchpad and Todos pages draw their folder through the same nodes as the Logbook', () => {
+  assert.match(fs.readFileSync(path.join(WEB, 'scratchpad-ui.js'), 'utf8'), /settingsFeatureNodes\('scratchpad'/);
+  assert.match(fs.readFileSync(path.join(WEB, 'todos-ui.js'), 'utf8'), /settingsFeatureNodes\('todos'/);
+});
+
+test('the folder check the page makes before asking still lets a variable path through and still stops an absolute or .. path', () => {
+  assert.strictEqual(settings.settingsFolderProblem('<sprints>/sprint 497/<card>/.scratchpad'), '');
+  assert.strictEqual(settings.settingsFolderProblem('<kanban>/.scratchpad/<iteration>/<card>'), '');
+  assert.notStrictEqual(settings.settingsFolderProblem('<sprints>/../x'), '');
+  assert.notStrictEqual(settings.settingsFolderProblem('C:\\x'), '');
+  assert.notStrictEqual(settings.settingsFolderProblem('/x'), '');
 });

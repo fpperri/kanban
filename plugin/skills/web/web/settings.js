@@ -99,6 +99,33 @@ function settingsFolderProblem(text) {
   return '';
 }
 
+// What a folder page says about iterations, as lines of one sentence pair each: [] unless the page is
+// the logbook's, the scratchpad's or the todo lists' (the caller decides) and the folder is on. A path
+// without `<iteration>` on a board that has iteration groups writes every iteration to one folder; a
+// path with it reads only the folders whose name starts with an id (docs/adr/0019). `<iteration>` reads
+// the groups whether or not `iterations: true` is set.
+const SETTINGS_ITERATION_SAME = 'Every iteration writes to this one folder. Put <iteration> where an iteration\'s folder goes, like pads/<iteration>.';
+const SETTINGS_ITERATION_ID = 'A folder is read here only when its name starts with an id, like 0005.sprint-496. An older folder needs renaming, or its files stop showing.';
+
+function settingsIterationNotes(folder, groupsList) {
+  const text = String(folder || '');
+  if (text.trim() === '') return [];
+  if (text.replace(/\\/g, '/').split('/').includes('<iteration>')) return [SETTINGS_ITERATION_ID];
+  const iterationGroups = SETTINGS_NODE ? require('./iterations').iterationGroups : window.iterationGroups;
+  return iterationGroups(groupsList).length > 0 ? [SETTINGS_ITERATION_SAME] : [];
+}
+
+// The line under a folder field when the line as it stands holds `<card>` or a variable: the gear saves
+// neither word, so a hand edit in config.yaml changes it; '' for any other line.
+const SETTINGS_HAND_WORDS = 'The gear does not write <card> or a variable: change this line by hand in config.yaml. Switching it off here still works.';
+const SETTINGS_HAND_WORDS_LOCKED = 'The gear does not write <card> or a variable: change this line by hand in config.yaml.';
+
+function settingsHandWordsNote(folder, locked) {
+  const words = String(folder || '').replace(/\\/g, '/').split('/').filter((s) => /<[^<>]*>/.test(s) && s !== '<iteration>');
+  if (words.length === 0) return '';
+  return locked ? SETTINGS_HAND_WORDS_LOCKED : SETTINGS_HAND_WORDS;
+}
+
 function settingsDigitsBody(text, version) {
   return settingsWithVersion({ key: 'idDigits', value: String(text).trim() }, version);
 }
@@ -416,7 +443,7 @@ function settingsPrefixConfirm(kind, prefix, target) {
 
 const SETTINGS_EXPORTS = {
   settingsIsWide, settingsOpen, settingsResized, settingsEscape, settingsPageState, settingsSwitchBody,
-  settingsFolderBody, settingsFolderProblem, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
+  settingsFolderBody, settingsFolderProblem, settingsIterationNotes, settingsHandWordsNote, SETTINGS_HAND_WORDS, SETTINGS_HAND_WORDS_LOCKED, SETTINGS_ITERATION_SAME, SETTINGS_ITERATION_ID, settingsDigitsBody, settingsDigitsProblem, settingsIdExample, settingsGroupsFound, settingsPrefixTarget,
   settingsPagePath, settingsPageReads, settingsWithVersion, settingsDropIndex, settingsTypeKey, settingsTypeAreas, settingsTypeUseCount, settingsFoundOnCards, settingsMoveType, settingsDropType,
   settingsTypesAdd, settingsTypesRename, settingsTypesPatch, settingsTypesRemove, settingsBlockBody, settingsTypesOnBody, settingsSnapshotQueryBody, settingsSnapshotArchiveBody,
   settingsTypeNameProblem, settingsColorProblem, settingsPrefixOf, settingsIndexOf, settingsTypeWarnings, settingsPrefixWarnings, settingsPrefixClashWarnings,

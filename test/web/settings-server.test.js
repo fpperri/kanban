@@ -274,6 +274,20 @@ test('a folder may name the iteration with a whole <iteration> segment (ADR 0019
   });
 });
 
+test('a path with <card> or a variable is refused with 400 and the answer says it is a hand edit in config.yaml', async () => {
+  const dir = tmpBoard();
+  await withServer(dir, async (base) => {
+    for (const bad of ['pads/<card>', '<sprints>/x', 'pads/<iteration>/<card>']) {
+      const r = await set(base, 'scratchpad', bad);
+      assert.strictEqual(r.status, 400, bad);
+      assert.match(r.json.error, /<(card|sprints)> is a word the gear does not write: it is a hand edit in config\.yaml\./);
+    }
+    const plain = await set(base, 'scratchpad', 'a b/<x');
+    assert.strictEqual(plain.status, 400);
+    assert.match(plain.json.error, /not a plain folder name/);
+  });
+});
+
 test('a folder cannot start with <iteration>: the board folder would be scanned and written beside the cards', async () => {
   const dir = tmpBoard();
   const before = config(dir);
@@ -782,6 +796,15 @@ test('a logbook or scratchpad path with <iteration> is answered as written, with
     ({ paths } = (await req(base, 'GET', '/api/board')).json.settings);
     assert.strictEqual(paths.logbookNow, path.resolve(dir, 'sprints/0005.now/.logbook'));
     assert.strictEqual(paths.scratchpadNow, path.resolve(dir, 'pads/0005.now'));
+  });
+});
+
+test('a path with <card> keeps it in the folder a new write goes to today, after the iteration folder when the path has one', async () => {
+  const dir = tmpBoard({ config: 'name: t\nlogbook: .log/<card>\nscratchpad: pads/<iteration>/<card>/x\n' });
+  await withServer(dir, async (base) => {
+    const { paths } = (await req(base, 'GET', '/api/board')).json.settings;
+    assert.strictEqual(paths.logbookNow, [path.resolve(dir), '.log', '<card>'].join(path.sep));
+    assert.strictEqual(paths.scratchpadNow, [path.resolve(dir, 'pads'), '<card>', 'x'].join(path.sep));
   });
 });
 
