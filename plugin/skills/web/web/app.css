@@ -2149,6 +2149,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 button.np-nhead-label { cursor: pointer; }
 button.np-nhead-label:hover { color: var(--accent); }
 .np-nday { color: var(--mut); white-space: nowrap; }
+.np-nday.np-nday-only { color: var(--ink-strong); font-weight: 600; }
 .np-nhead-count { margin-left: auto; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; }
 /* A note's time column; a list with a range in it (10:30–11:15) widens it for every row, so they stay aligned. */
 .np-notes.np-ranges { --np-time-col: 6.9em; }
