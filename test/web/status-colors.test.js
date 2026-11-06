@@ -124,10 +124,10 @@ test('the map node border is one neutral weight for every status — status move
   for (const status of ['backlog', 'todo', 'doing', 'done', 'unknown']) {
     assert.ok(!css.includes(`.map-node.status-${status} rect`), `no more per-status rect stroke rule: ${status}`);
   }
-  // Untouched: selection glow, ghost dashing, the back-edge amber, and
+  // Untouched: selection glow, external dashing, the back-edge amber, and
   // archive's own border mute all keep their existing treatments.
   assert.match(css, /\.map-node\.selected\s*\{[^}]*filter:\s*drop-shadow/, 'selection glow untouched');
-  assert.match(css, /\.map-node\.ghost rect\s*\{[^}]*stroke-dasharray/, 'ghost-stub dashing untouched');
+  assert.match(css, /\.map-node\.external rect\s*\{[^}]*stroke-dasharray/, 'external-node dashing');
   assert.match(css, /\.map-edge\.back-edge\s*\{[^}]*stroke:\s*var\(--id-waiting\)/, 'cycle back-edge amber untouched');
   assert.ok(css.includes('.map-node.archived rect { stroke: var(--st-archive);'), 'archive dimming (the border exception) untouched');
 });
@@ -188,7 +188,7 @@ test('statusBadge NEVER mutes for an archived card — the true status color alw
   // grey — archived chains dominate any mature board's map forever, so muting
   // the status dot emptied the dot channel of the exact information it exists
   // to carry. The archived cue now lives ONLY in the tile's dimmed body/grey
-  // border, the "(archived)" tooltip, and ghost/selection treatments.
+  // border, the "(archived)" tooltip, and selection treatments.
   const html = statusBadge({ status: 'doing', archived: true });
   assert.match(html, /class="status-dot status-dot--doing"/);
   assert.match(html, /title="doing"/);
@@ -217,7 +217,7 @@ test('statusBadge escapes hostile on-disk status text in the tooltip attribute',
 // channel of the exact information it exists to carry. NEW LOCKED RULE:
 // STATUS DOTS NEVER MUTE — a dot always shows the card's true status color,
 // on every surface. The archived cue moves entirely to the tile's dimmed
-// body/grey border, the "(archived)" tooltip, and ghost/selection treatments.
+// body/grey border, the "(archived)" tooltip, and selection treatments.
 
 test('statusBadge: a done card is done-purple whether live OR archived — the dot never mutes', () => {
   const live = statusBadge({ status: 'done', archived: false });

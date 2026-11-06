@@ -64,7 +64,7 @@ const CASES = {
 };
 
 // What each view draws a card as. A cut is read off these, so each names only
-// real cards: the Map's stubs for cards a filter hid are not card-el. A card in
+// real cards. A card in
 // the Map with some relation is a map-node, and one with none is a tile in the
 // No relations row, so the Map is read off card-el alone. The Gantt lists a row in
 // its gutter for every dated card, but draws the card's bar only inside a window

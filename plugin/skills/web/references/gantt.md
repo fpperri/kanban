@@ -82,7 +82,7 @@ under its own key (`gantt.statusFilter`, same defensive-merge discipline as
 same **intersection** rule the map uses — search spans live + archived cards alike,
 though only archived ones that also survive the Archive pill (and any status pills)
 ever render. A live-status pill OFF drops that status's rows from the timeline
-outright — there's no dependency graph here for a hidden row to ghost into, so the
+outright — a hidden row is not drawn, so the
 window simply re-derives from whatever bars remain (may narrow); everything filtered
 out shows "No cards match the current search/status filters.", distinct from the plain
 "No dated cards" message. An on-disk status the `statuses` list doesn't include gets

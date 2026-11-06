@@ -67,7 +67,7 @@ not a deep link at all and is ignored outright.
 
 **Card popup history (Alt+Left/Alt+Right)** — opening the detail popup, from any
 surface (a tile, a mention chip in a card body or the parent field, the notification
-tray, or a map ghost node), and closing it are each a step in the browser's OWN
+tray), and closing it are each a step in the browser's OWN
 history: opening pushes a URL carrying `?card=<id>` (the other deep-link params
 already on the URL — `q`, `view` — ride along untouched), closing pushes one with
 `card` removed. That makes **Alt+Left/Alt+Right, the mouse back/forward buttons, and

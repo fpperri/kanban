@@ -14,7 +14,7 @@ test('every card is a node, every waiting_for an edge, and each child a pair wit
   assert.strictEqual(rel.edges.length, 12);
   assert.ok(rel.edges.every((e) => e.kind === 'dep'), 'a parent is not a dependency');
   assert.strictEqual(rel.pairs.length, 9);
-  assert.deepStrictEqual(rel.externals, []);
+  assert.deepStrictEqual(rel.ghosts, []);
 });
 
 test('only the immediate parent is paired: a grandchild is never paired with its grandparent', () => {
@@ -47,13 +47,13 @@ test('a hidden child of a visible parent is not drawn, and the parent has no pai
 test('a pair with neither end visible is left out', () => {
   const rel = buildRelationsGraph([card(1, 'todo'), card(2, 'todo', { parent: 1 }), card(3, 'todo')], new Set(['3']), CTX);
   assert.deepStrictEqual(rel.pairs, []);
-  assert.deepStrictEqual(rel.externals, []);
+  assert.deepStrictEqual(rel.ghosts, []);
 });
 
 test('a parent id with no card draws nothing: no node and no pair', () => {
   const rel = buildRelationsGraph([card(2, 'todo', { parent: 99 }), card(3, 'todo', { parent: 99 })], null, CTX);
   assert.deepStrictEqual(rel.pairs, []);
-  assert.deepStrictEqual(rel.externals, []);
+  assert.deepStrictEqual(rel.ghosts, []);
   assert.deepStrictEqual(ids(rel.nodes), ['2', '3']);
 });
 
@@ -63,8 +63,8 @@ test('a parent on another board is one external node named by its mention, share
     card(3, 'todo', { parent: 'shop#7' }),
     card(4, 'todo', { parent: 'shop#8' }),
   ], null, CTX);
-  assert.deepStrictEqual(rel.externals.map((g) => g.external).sort(), ['shop#7', 'shop#8']);
-  const stub = (ref) => rel.externals.find((g) => g.external === ref);
+  assert.deepStrictEqual(rel.ghosts.map((g) => g.external).sort(), ['shop#7', 'shop#8']);
+  const stub = (ref) => rel.ghosts.find((g) => g.external === ref);
   assert.strictEqual(stub('shop#7').id, 'ext:shop#7', 'an external node has an id no card can have: it is no id');
   assert.deepStrictEqual(rel.pairs.filter((p) => p.parent === stub('shop#7').id).map((p) => p.child), ['2', '3']);
   assert.ok(rel.pairs.every((p) => p.ends === null));
@@ -72,7 +72,7 @@ test('a parent on another board is one external node named by its mention, share
 
 test('a hidden child of a parent on another board brings no external node', () => {
   const rel = buildRelationsGraph([card(1, 'todo'), card(2, 'todo', { parent: 'shop#7' })], new Set(['1']), CTX);
-  assert.deepStrictEqual(rel.externals, []);
+  assert.deepStrictEqual(rel.ghosts, []);
   assert.deepStrictEqual(rel.pairs, []);
 });
 

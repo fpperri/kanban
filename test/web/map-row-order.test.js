@@ -7,13 +7,13 @@ const { card, treeWithArchivedAndBacklogChildren } = require('./map-fixtures');
 const CTX = { board: 'kanban', priorities: ['High', 'Normal', 'Low'] };
 const STATUSES = ['backlog', 'todo', 'review', 'qa', 'doing', 'done'];
 
-const graphOf = (nodes, externals = []) => ({ nodes, externals });
+const graphOf = (nodes, ghosts = []) => ({ nodes, ghosts });
 const n = (id, status, extra = {}) => ({ id, status, archived: false, ...extra });
 
-test('a row reads doing, todo, backlog, the other live statuses in column order, done, archived, then parents on another board', () => {
+test('a row reads doing, todo, backlog, the other live statuses in column order, done, archived, then stubs', () => {
   const graph = graphOf(
     [n(1, 'done'), n(2, 'qa'), n(3, 'backlog'), n(4, 'done', { archived: true }), n(5, 'doing'), n(6, 'review'), n(7, 'todo')],
-    [{ id: '8', status: null, external: 'shop#8' }],
+    [{ id: '8', status: 'doing' }],
   );
   assert.deepStrictEqual(mapOrderRow([1, 2, 3, 4, 5, 6, 7, 8], graph, 'status', STATUSES), [5, 7, 3, 6, 2, 1, 4, 8]);
 });
@@ -43,9 +43,9 @@ test('a status the board does not list reads as another live status, after the l
   assert.deepStrictEqual(mapOrderRow([1, 2, 3], graph, 'status', STATUSES), [3, 2, 1]);
 });
 
-test('a parent on another board is last', () => {
-  const graph = graphOf([n(1, 'done', { archived: true })], [{ id: -1, status: null, external: 'shop#7' }]);
-  assert.deepStrictEqual(mapOrderRow([-1, 1], graph, 'status', STATUSES), [1, -1]);
+test('every kind of stub is last: a hidden card, an id with no card, a parent on another board', () => {
+  const graph = graphOf([n(1, 'done', { archived: true })], [{ id: '2', status: 'doing' }, { id: '3', status: null, missing: true }, { id: -1, status: null, missing: true, external: 'shop#7' }]);
+  assert.deepStrictEqual(mapOrderRow([-1, 3, 2, 1], graph, 'status', STATUSES), [1, -1, 3, 2]);
 });
 
 test('the row is a new array: the one it was given is not reordered', () => {

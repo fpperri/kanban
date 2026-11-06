@@ -56,16 +56,16 @@ test('each surface places cards by its own card size and gaps', () => {
 
 const place = (entries) => new Map(Object.entries(entries).map(([id, [x, y, h = 46]]) => [Number(id), { x, y, h, cx: x + W / 2 }]));
 const layers = (entries) => new Map(Object.entries(entries).map(([id, l]) => [Number(id), l]));
-const lines = (graph, pos, layer, parentSits = 'below') => mapParentLinePaths({ externals: [], edges: [], ...graph }, pos, layer, parentSits, DIMS);
+const lines = (graph, pos, layer, parentSits = 'below') => mapParentLinePaths({ ghosts: [], edges: [], ...graph }, pos, layer, parentSits, DIMS);
 
 test('a parent below its child: the line runs from the child\'s foot to the parent\'s head', () => {
   const { paths } = lines({ lines: [{ child: 1, parent: 2 }] }, place({ 1: [24, 24], 2: [24, 130] }), layers({ 1: 0, 2: 1 }));
-  assert.deepStrictEqual(paths, [{ d: 'M112,70 C112,100 112,100 112,130', external: false }]);
+  assert.deepStrictEqual(paths, [{ d: 'M112,70 C112,100 112,100 112,130', dimmed: false }]);
 });
 
 test('a parent above its child: the line runs from the parent\'s foot to the child\'s head', () => {
   const { paths } = lines({ lines: [{ child: 2, parent: 1 }] }, place({ 1: [24, 24], 2: [24, 130] }), layers({ 1: 0, 2: 1 }), 'above');
-  assert.deepStrictEqual(paths, [{ d: 'M112,70 C112,100 112,100 112,130', external: false }]);
+  assert.deepStrictEqual(paths, [{ d: 'M112,70 C112,100 112,100 112,130', dimmed: false }]);
 });
 
 test('a line that would lie on a dependency arrow is nudged aside, so both stay visible', () => {
@@ -90,9 +90,9 @@ test('a line that runs against the layout bows out to the side and widens the ca
   assert.ok(maxX > 112 + W / 2, 'the bow reaches past the cards');
 });
 
-test('a line to or from a parent on another board is marked external', () => {
-  const { paths } = lines({ lines: [{ child: 1, parent: 2 }], externals: [{ id: 2 }] }, place({ 1: [24, 24], 2: [24, 130] }), layers({ 1: 0, 2: 1 }));
-  assert.strictEqual(paths[0].external, true);
+test('a line to or from a stub is dimmed like the stub', () => {
+  const { paths } = lines({ lines: [{ child: 1, parent: 2 }], ghosts: [{ id: 2 }] }, place({ 1: [24, 24], 2: [24, 130] }), layers({ 1: 0, 2: 1 }));
+  assert.strictEqual(paths[0].dimmed, true);
 });
 
 test('a line whose end was not placed is skipped rather than breaking the draw', () => {
@@ -103,7 +103,7 @@ test('a line whose end was not placed is skipped rather than breaking the draw',
 test('the bow follows the card width of the surface', () => {
   const narrow = { ...DIMS, nodeW: 100 };
   const pos = new Map([[1, { x: 14, y: 100, h: 46, cx: 64 }], [2, { x: 14, y: 14, h: 46, cx: 64 }]]);
-  const { maxX } = mapParentLinePaths({ lines: [{ child: 1, parent: 2 }], externals: [], edges: [] }, pos, layers({ 1: 1, 2: 0 }), 'below', narrow);
+  const { maxX } = mapParentLinePaths({ lines: [{ child: 1, parent: 2 }], ghosts: [], edges: [] }, pos, layers({ 1: 1, 2: 0 }), 'below', narrow);
   assert.strictEqual(maxX, 64 + 100 * 0.65);
 });
 
@@ -132,9 +132,9 @@ test('a count reads singular at one and plural otherwise', () => {
   assert.strictEqual(mapPlural(3, 'tree'), '3 trees');
 });
 
-test('a graph counts its cards alone', () => {
-  assert.strictEqual(mapGraphCounts({ nodes: [{}, {}, {}], externals: [{}] }), '3 cards');
-  assert.strictEqual(mapGraphCounts({ nodes: [{}], externals: [] }), '1 card');
+test('a graph counts its cards, and its stubs when it has any', () => {
+  assert.strictEqual(mapGraphCounts({ nodes: [{}, {}, {}], ghosts: [{}] }), '3 cards + 1 stub');
+  assert.strictEqual(mapGraphCounts({ nodes: [{}], ghosts: [] }), '1 card');
 });
 
 test('the section label counts trees and cards for one graph per tree, cards alone for one graph', () => {

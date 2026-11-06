@@ -281,11 +281,13 @@ function pathIds(cardList, rawId, ctx) {
 // Every relation the map can draw, for the cards in `visibleIds` (null = all):
 // the dependency edges of buildDependencyGraph plus one pair per immediate parent
 // and child, never a grandparent and grandchild. A pair is not an edge:
-// map-relations.js decides which become lines and how they place cards. A parent
-// on another board is one external node per mention, with an id that is no id and no card
-// can have (`ext:board#id`). A pair is made only between cards the filters show: a
-// hidden card, or an id with no card, takes no pair. `ends` (see mapParentLineEnds) is read on the whole board, so a filter
-// never moves a line; a pair into an external node has none.
+// map-relations.js decides which become lines and how they place cards. A pair is
+// made only between cards the filters show: a hidden card, or an id with no card,
+// takes no pair. `ghosts` holds the one stub left, a parent on another board: one
+// per mention, with an id that is no id and no card can have (`ext:board#id`). The
+// shaper also serves the Snapshot, whose own builder still fills `ghosts` with the
+// cards its filters hide. `ends` (see mapParentLineEnds) is read on the whole board,
+// so a filter never moves a line; a pair into a stub has none.
 function buildRelationsGraph(cardList, visibleList, ctx) {
   const cards = depCards(cardList);
   const visibleIds = depSet(visibleList);
@@ -299,13 +301,13 @@ function buildRelationsGraph(cardList, visibleList, ctx) {
   }
   const ends = MAPREL.mapParentLineEnds(children);
 
-  const externals = [];
+  const ghosts = [];
   const externalIds = new Map();
   const externalId = (ref) => {
     if (!externalIds.has(ref)) {
       const node = externalNode(ref);
       externalIds.set(ref, node.id);
-      externals.push(node);
+      ghosts.push(node);
     }
     return externalIds.get(ref);
   };
@@ -321,7 +323,7 @@ function buildRelationsGraph(cardList, visibleList, ctx) {
     if (!isVisible(c.id) || !isVisible(parsed.id)) continue;
     pairs.push({ child: c.id, parent: parsed.id, ends: ends.get(c.id) || null });
   }
-  return { nodes: base.nodes, externals, edges: base.edges.filter((e) => e.kind === 'dep'), pairs };
+  return { nodes: base.nodes, ghosts, edges: base.edges.filter((e) => e.kind === 'dep'), pairs };
 }
 
 if (typeof module !== 'undefined' && module.exports) {

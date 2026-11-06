@@ -1871,7 +1871,7 @@ function mapGraphSectionLabel(graphs, group) {
 function mapGraphHeadingHtml(graph) {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const named = mapRootsText(graph, (id) => truncateLabel(cardTitleDisplay(byId.get(id)).text, 32));
-  return `<strong>${escapeHtml(named)}</strong><span>${mapGraphCounts(graph)}</span>`;
+  return `<strong>${escapeHtml(named)}</strong><span>${mapPlural(graph.nodes.length, 'card')}</span>`;
 }
 
 // Scales the SVG's rendered width/height attributes by `zoom`, leaving the
@@ -1972,7 +1972,7 @@ function mapRichHtml(n, rich, statuses) {
 function buildMapSvg(graph, layer, draw) {
   const allById = new Map();
   graph.nodes.forEach((n) => allById.set(n.id, n));
-  graph.externals.forEach((x) => allById.set(x.id, x));
+  graph.ghosts.forEach((x) => allById.set(x.id, x));
 
   const layers = new Map(); // layerIndex -> [ids] left to right
   for (const [id, l] of layer) {
@@ -1980,7 +1980,7 @@ function buildMapSvg(graph, layer, draw) {
     layers.get(l).push(id);
   }
   for (const [l, ids] of layers) {
-    ids.sort(kanbanIds.compareIds); // the layout's own order is the tie-break for the status order (an external node's id is no id and sorts last)
+    ids.sort(kanbanIds.compareIds); // the layout's own order is the tie-break for the status order (a parent on another board's id is no id and sorts last)
     layers.set(l, mapOrderRow(ids, graph, draw.order, draw.statuses));
   }
   const sizes = new Map();
@@ -2145,7 +2145,7 @@ function buildMapSvg(graph, layer, draw) {
 function buildParentLinesSvg(graph, pos, layer, parentSits) {
   const { paths, maxX } = mapParentLinePaths(graph, pos, layer, parentSits, MAP_DIMS);
   const dot = parentSits === 'above' ? 'marker-start' : 'marker-end';
-  const svg = paths.map((p) => `<path class="map-edge map-parent-line${p.external ? ' external-edge' : ''}" d="${p.d}" ${dot}="url(#map-parent-dot)"></path>`).join('');
+  const svg = paths.map((p) => `<path class="map-edge map-parent-line${p.dimmed ? ' external-edge' : ''}" d="${p.d}" ${dot}="url(#map-parent-dot)"></path>`).join('');
   return { svg, maxX };
 }
 

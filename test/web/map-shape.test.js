@@ -98,7 +98,7 @@ test('a card whose parent id names no card is in No relations', () => {
 test('a card whose parent is on another board is in a graph with that external node, not in No relations', () => {
   const view = shape([card(2, 'todo', { parent: 'shop#7' }), card(3, 'todo')]);
   assert.deepStrictEqual(view.noRelations, ['3']);
-  assert.strictEqual(view.graphs[0].externals[0].external, 'shop#7');
+  assert.strictEqual(view.graphs[0].ghosts[0].external, 'shop#7');
 });
 
 test('an empty board has no graph and nothing in No relations', () => {

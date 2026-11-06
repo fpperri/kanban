@@ -1595,11 +1595,11 @@ test('the map draws no orange — parent edges are not drawn at all, and a depen
     assert.doesNotMatch(svg, /epic-edge|epic-chain|epicEdge|chainEdge|epicChain|map-arrow-epic/,
       'no epic-edge/epic-chain class, epicChain branching, or epic arrowhead reference remains');
     // Every drawn edge now takes the single plain path/marker shape —
-    // back-edge and ghost-edge are the only remaining class modifiers, and
+    // back-edge is the only remaining class modifier, and
     // every edge (including one between two cards under the same parent) uses the one
     // plain arrowhead.
-    assert.match(svg, /class="map-edge\$\{backEdge \? ' back-edge' : ''\}\$\{dimmed \? ' ghost-edge' : ''\}"/,
-      'the path carries only map-edge plus the back-edge/ghost-edge modifiers — no epic-flavored class');
+    assert.match(svg, /class="map-edge\$\{backEdge \? ' back-edge' : ''\}"/,
+      'the path carries only map-edge plus the back-edge modifier — no epic-flavored class');
     assert.match(svg, /marker-end="url\(#map-arrow\)"/, 'every drawn edge uses the one plain arrowhead marker');
     // The dedicated epic arrowhead <marker> definition is gone from defs too.
     assert.doesNotMatch(svg, /<marker id="map-arrow-epic"/, 'the epic-only marker definition is removed');
@@ -1790,7 +1790,7 @@ test('the map SVG node carries the red blocked pill for a stickered card, reason
   await withServer(dir, async (base) => {
     const js = await (await fetch(`${base}/app.js`)).text();
     const svg = js.match(/function buildMapSvg\([\s\S]*?\nfunction /);
-    assert.match(svg[0], /!missing && n\.blocked\)/, 'pill gated on the node\'s sticker flag only — never for missing stubs');
+    assert.match(svg[0], /!external && n\.blocked\)/, 'pill gated on the node\'s sticker flag only — never for a parent on another board');
     assert.match(svg[0], /map-blocked-pill/, 'the pill group class the CSS colors red');
     assert.match(svg[0], /escapeHtml\(n\.blockedReason \? `blocked: \$\{n\.blockedReason\}` : 'blocked'\)/,
       'the reason is user data — escaped into the SVG <title>, same discipline as every other user string here');

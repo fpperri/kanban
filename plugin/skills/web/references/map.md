@@ -18,8 +18,7 @@ end, so all of it takes a line). **All** draws a line to every child and **off**
 none. Which children are the ends is read on the whole board, so a search or a status
 pill never moves a line. A parent is not a dependency: it never makes a card waiting,
 the `doing` gate ignores it, and a card with only a parent relation is in a graph, not
-in the No relations row. A parent hidden by a filter, or with no card, is a muted, dashed stub
-("not found" when no card answers to the id) and a parent on another board is one
+in the No relations row. A parent hidden by a filter, or with no card, is not drawn and no line runs to it: its child heads its own tree, or goes to the No relations row when every relation it has is to a card that is not drawn. A parent on another board is one
 muted, dashed stub per `board#id` mention, labelled with it and not clickable; each child keeps
 its own line to the stub, drawn at full strength and dotted. Self-parent is ignored. A child that waits on
 its parent, or the reverse, is placed by that dependency alone and still gets its
@@ -30,13 +29,13 @@ or more lines spreads where they meet it.
 **Graphs and rows:** by default one small graph per **tree** — every card any
 dependency or parent relation joins, drawn or not — stacked biggest first (ties by the
 lowest card), each under a heading with its root titles (three at most, then "+N more")
-and its card count, stubs counted apart. The **Graphs** option's "one graph" shows
+and its count of the cards drawn (the stub for a parent on another board is not a card). The **Graphs** option's "one graph" shows
 everything in a single graph with no headings. A card is in a graph when any relation
 touches it, so turning a kind of line off never moves a card out of its tree; the
 bottom row, **No relations**, holds only cards with no dependency, no parent and no
 children. Within each row the **Row order** option's "by status" (the default) reads
 left to right: doing, todo, backlog, any other live status in column order, done,
-archived, then stubs, ties keeping the layout order (lowest id first); "layout" leaves
+archived, then the stub for a parent on another board, ties keeping the layout order (lowest id first); "layout" leaves
 the layout's own order. The **Layout** option's "keep" (the default) places cards by
 every relation, so toggling lines never moves one; "reflow" places them by the lines
 drawn. **Align** centers each row in its graph and each graph on the page, or sets them
@@ -44,7 +43,7 @@ left. **Rich nodes** (the **Cards** option, the default) carry, under the title,
 type chip and the ▲ altitude badge and, on a parent whose leaves are counted, the
 roll-up bar in the board's bar mode (thin while collapsed, with counts when
 open); a click on a bar flips every bar and never opens the card. A node's
-height follows what it holds (a plain node is 58px tall), and stubs stay plain; "plain"
+height follows what it holds (a plain node is 58px tall), and the stub stays plain; "plain"
 draws id and title only.
 **Map options:** one compact row in the option panel, under the zoom, holds the eight choices as
 segmented controls — Parent lines (chain ends / all / off), Dependency lines (on / off),
@@ -98,14 +97,13 @@ regardless of their parked status. The choice persists per board in `localStorag
 (`map.statusFilter`, merged defensively like collapse/sort state) and composes with
 search by **intersection** — a card stays visible only when both agree. The active
 search query filters the map exactly as it filters the board: matching cards are full
-nodes; a card hidden by either filter that's still referenced by a visible one's
-`waiting_for` or `parent` (in either direction) renders as a muted, dashed ghost stub (its edge keeps the amber of a waiting card or the red of a
-high-priority one, and an edge to it is dashed too, and a parent line to it dotted) — never
-silently dropped — and is itself clickable through to its detail popup. A
-`waiting_for` or `parent` id with no matching card at all renders as a "not found" ghost. Cards
+nodes; the map draws only the cards the filters show. A card hidden by either filter is not drawn at all, whatever a
+shown card's `waiting_for` or `parent` says of it, and no line runs to it: a shown card whose parent is hidden heads
+its own tree, and one whose every relation is to a hidden card goes to the No relations row. A
+`waiting_for` or `parent` id with no matching card at all draws nothing either. Cards
 with no relation at all always render in the No relations row below the
 graphs. Real nodes + No relations tiles carry the full shared grammar (click for
-detail, ctrl/shift-select, right-click menu); ghost stubs stay click-through only.
+detail, ctrl/shift-select, right-click menu); the stub for a parent on another board is inert.
 View mode, query, and status filter all persist across the poll's re-render.
 **Collapsible sections** — the graphs (one section for all of them), the No
 relations row each get their own collapse/expand toggle (same chevron + look as the board's per-column
@@ -143,8 +141,7 @@ Archive pill, same as any other search hit. Composes with the rest of the query 
 the status pills by the usual intersection rule; an unknown id matches nothing (no
 error), and a card with no edges resolves to a component/cone of one — itself.
 Focusing hides everything outside the result and re-lays-out, exactly like a typed
-search — a cone edge exiting the focused set renders as the existing ghost stub, no
-new rendering path. The right-click menu does not offer these two: its Path and Tree write the
+search — a card outside the cone is not drawn, nor a line to it. The right-click menu does not offer these two: its Path and Tree write the
 narrower `hpath:`, `htree:`, `dpath:` and `dtree:` terms into the box — see Multi-select.
 Mirrored in the snapshot: it reads the same `tree:` and `path:` terms, and its card sheet writes the four narrower `hpath:`, `htree:`, `dpath:` and `dtree:` terms, as the right-click menu does — see GLOSSARY.md's parity table.
 **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
