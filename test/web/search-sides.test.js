@@ -46,3 +46,11 @@ test('a prefixed id keeps its colon-free form with a side: kanban#4 and the side
 test('tree: and path: take no side', () => {
   assert.deepStrictEqual(ids('tree:4:below'), []);
 });
+
+test('the sided terms docs/web.md gives parse to the term they name', () => {
+  const doc = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../docs/web.md'), 'utf8');
+  for (const [text, field, value, side] of [['htree:467:below', 'htree', '467', 'below'], ['dpath:148:after', 'dpath', '148', 'after']]) {
+    assert.ok(doc.includes('`' + text + '`'), text);
+    assert.deepStrictEqual(parseSearchQuery(text, 'kanban'), [{ field, value, side }]);
+  }
+});
