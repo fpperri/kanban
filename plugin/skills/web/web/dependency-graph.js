@@ -90,7 +90,7 @@ function isCardWaiting(c, byId) {
 // with `kind: 'parent'` (waiting_for edges carry `kind: 'dep'`). Nesting is not
 // sequencing: a parent edge never makes anyone `waiting`. A self-parent is
 // nonsense and adds no edge.
-function buildDependencyGraph(cardList, visibleList, ctx) {
+function buildDependencyGraph(cardList, visibleList, ctx, opts) {
   const cards = depCards(cardList);
   const visibleIds = depSet(visibleList);
   const byId = new Map(cards.map((c) => [c.id, c]));
@@ -108,7 +108,9 @@ function buildDependencyGraph(cardList, visibleList, ctx) {
   const addEdge = (from, to, kind) => {
     const key = `${from}->${to}:${kind}`;
     if (seenEdges.has(key)) return; // de-dupe a repeated entry
-    if (!isVisible(from) || !isVisible(to)) return;
+    // The tree: and path: walk (keepMissing) still crosses an id with no card, as it always has; only what
+    // the Map draws drops it.
+    if (opts && opts.keepMissing ? !(byId.has(from) || byId.has(to)) : !isVisible(from) || !isVisible(to)) return;
     seenEdges.add(key);
     edges.push({ from, to, kind });
   };
@@ -226,7 +228,7 @@ function layerNodes(nodeIds, edges) {
 // visited-set BFS makes both cycle-safe (never hangs, mirrors layerNodes'
 // own cycle tolerance).
 function buildAdjacency(cards, ctx) {
-  const { edges } = buildDependencyGraph(cards, null, ctx);
+  const { edges } = buildDependencyGraph(cards, null, ctx, { keepMissing: true });
   const forward = new Map(); // from -> Set(to)
   const backward = new Map(); // to -> Set(from)
   for (const { from, to } of edges) {
