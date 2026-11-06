@@ -57,29 +57,40 @@ function hoverShowGraph(view, layout) {
   return view === 'graph' && layout === 'flow' ? 'flow' : 'hierarchy';
 }
 
+// The side a set is cut to: the h sets take the Hierarchy's, the d sets the Dependencies'. `sides` is
+// { hierarchy, dependencies }; a side left out is the & side, both.
+function hoverShowSide(kind, sides) {
+  const side = sides && sides[kind.startsWith('h') ? 'hierarchy' : 'dependencies'];
+  return side === undefined || side === null || side === '' ? '' : String(side);
+}
+
 // The union of the ticked sets for the card, as the ids the sets give. `cards` is the whole board, archived
 // cards included, and `ctx` is what the sets read the board's name from, as the search module is handed them.
-function hoverShowIds(kinds, cards, id, ctx) {
+function hoverShowIds(kinds, cards, id, ctx, sides) {
   const union = new Set();
-  for (const kind of hoverShowList(kinds)) for (const found of HS_SETS[`${kind}Ids`](cards, id, ctx)) union.add(found);
+  for (const kind of hoverShowList(kinds)) for (const found of HS_SETS[`${kind}Ids`](cards, id, ctx, hoverShowSide(kind, sides))) union.add(found);
   return union;
 }
 
 // The cards that take the hover look outside the Graph (the Graph lights its set by dimming the rest, and
 // its hover ring stays on the hovered card): the hovered card, which always takes it, and the ticked sets.
 // null when nothing is hovered.
-function hoverShowTiles(kinds, cards, id, ctx) {
+function hoverShowTiles(kinds, cards, id, ctx, sides) {
   if (id === null || id === undefined) return null;
-  const tiles = hoverShowIds(kinds, cards, id, ctx);
+  const tiles = hoverShowIds(kinds, cards, id, ctx, sides);
   tiles.add(String(id));
   return tiles;
 }
 
 // The terms Space writes for a card: one per ticked set, as alternatives, in HOVER_SHOW_KINDS' order
 // (`dlinks:12 | hlinks:12`), and empty when none is ticked. `key` is the card's id as the search
-// writes it (`12`, or `kanban#12` on a board with prefixed ids).
-function hoverShowTerms(kinds, key) {
-  return hoverShowList(kinds).map((kind) => `${kind}:${key}`).join(' | ');
+// writes it (`12`, or `kanban#12` on a board with prefixed ids). A set cut to one side says it
+// (`htree:12:below`); the & side is no suffix, as it is no cut.
+function hoverShowTerms(kinds, key, sides) {
+  return hoverShowList(kinds).map((kind) => {
+    const side = hoverShowSide(kind, sides);
+    return side === '' || side.includes('&') ? `${kind}:${key}` : `${kind}:${key}:${side}`;
+  }).join(' | ');
 }
 
 if (typeof module !== 'undefined' && module.exports) {
