@@ -251,6 +251,7 @@ module.exports = {
     check('a click on the Graph\'s Hierarchy toggle reads below in both', await graphSideIs('hierarchy', sd.graphHierarchy) && await searchSideIs('hierarchy', sd.graphHierarchy));
     await graphSideClick('dependencies');
     check('a click on the Graph\'s Dependencies toggle reads before in both, and the Hierarchy\'s stays', await graphSideIs('dependencies', sd.graphDependencies) && await searchSideIs('dependencies', sd.graphDependencies) && await graphSideIs('hierarchy', sd.graphHierarchy));
+    await ev(`document.activeElement.blur()`);
     await over(DOT(sd.card));
     check('a hover lights the cut set: the card and what is nested under it, not what waits behind it', await nodesAre(sd.lit) && await waitFor(DIMMED));
     await key(' ');
