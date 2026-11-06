@@ -115,7 +115,7 @@ test('outside the Graph hoverLit is the lit card and its ticked sets; in the Gra
   const fn = /function hoverLitNow\(\) \{[\s\S]*?\n\}/.exec(appJs)[0];
   assert.match(fn, /const id = litFocusId\(\);\s*\n\s*if \(id == null\) return null;/);
   assert.match(fn, /loadViewMode\(\) === 'graph' \? new Set\(\[id\]\) : hoverTilesOf\(id\)/);
-  assert.match(/function hoverTilesOf\(id\) \{[\s\S]*?\n\}/.exec(appJs)[0], /hoverShowTiles\(hoverShowKindsNow\(\), state\.active\.concat\(state\.archived\), id, searchCtx\(\)\)/);
+  assert.match(/function hoverTilesOf\(id\) \{[\s\S]*?\n\}/.exec(appJs)[0], /hoverShowTiles\(hoverShowKindsNow\(\), state\.active\.concat\(state\.archived\), id, searchCtx\(\), hoverShowSidesNow\(\)\)/);
   assert.match(/function litFocusId\(\) \{[\s\S]*?\n\}/.exec(appJs)[0], /pinnedLitId !== null \? pinnedLitId : hoveredId/);
 });
 
