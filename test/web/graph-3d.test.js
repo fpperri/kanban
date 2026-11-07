@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -509,4 +509,43 @@ test('the compass turns the camera back to north up the short way round, whole t
   assert.strictEqual(graph3dNorthUp(-0.4), 0);
   assert.ok(near(graph3dNorthUp(5.9), 2 * Math.PI), 'nearly a whole turn: on to the next north');
   assert.ok(near(graph3dNorthUp(-7), -2 * Math.PI));
+});
+
+test('w, a, s and d are the walk keys whatever their case; with Ctrl, Alt or Meta, or any other key, there is none', () => {
+  assert.deepStrictEqual(['w', 'a', 's', 'd', 'W', 'D'].map((key) => graph3dWalkKey({ key })), ['w', 'a', 's', 'd', 'w', 'd']);
+  assert.strictEqual(graph3dWalkKey({ key: 'W', shiftKey: true }), 'w', 'Shift is no chord: a held Shift still walks');
+  for (const mod of ['ctrlKey', 'altKey', 'metaKey']) assert.strictEqual(graph3dWalkKey({ key: 's', [mod]: true }), null, `${mod}+s keeps its own meaning`);
+  for (const key of ['g', 'q', 'ArrowUp', ' ', '', undefined]) assert.strictEqual(graph3dWalkKey({ key }), null, String(key));
+});
+
+test('the walk moves the target along the ground the way the camera faces: W ahead, S back, A left, D right', () => {
+  const dir = (keys, theta) => { const [x, z] = graph3dWalk(new Set(keys), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const same = (a, b) => near(a[0], b[0], 1e-9) && near(a[1], b[1], 1e-9);
+  // Straight above and north up, the stage's up is the plan's up: -z (the 2D Hierarchy's top), its right +x.
+  assert.ok(same(dir(['w'], 0), [0, -1]), 'W: toward the top of the stage');
+  assert.ok(same(dir(['s'], 0), [0, 1]));
+  assert.ok(same(dir(['a'], 0), [-1, 0]));
+  assert.ok(same(dir(['d'], 0), [1, 0]));
+  // A quarter turn (graph3dBasis: right [0, 0, -1]): D goes to -z, W to -x.
+  assert.ok(same(dir(['d'], Math.PI / 2), [0, -1]));
+  assert.ok(same(dir(['w'], Math.PI / 2), [-1, 0]));
+});
+
+test('two walk keys move diagonally at the speed of one; opposite keys, or none, stand still', () => {
+  const one = graph3dWalk(new Set(['w']), 0, 1000, 100);
+  const both = graph3dWalk(new Set(['w', 'd']), 0, 1000, 100);
+  assert.ok(near(Math.hypot(...both), Math.hypot(...one), 1e-9), 'no faster on the diagonal');
+  assert.ok(near(both[0], -both[1], 1e-9) && both[0] > 0, 'W and D: ahead and to the right, at 45 degrees');
+  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(), 0, 1000, 100), null);
+});
+
+test('a step of the walk is as long as the camera is far and as the key is held: the same on the screen zoomed in or out', () => {
+  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, dist, dt));
+  assert.ok(near(len(2000, 100), 2 * len(1000, 100), 1e-9), 'twice as far, twice the step');
+  assert.ok(near(len(1000, 200), 2 * len(1000, 100), 1e-9), 'held twice as long, twice the way');
+  // The stage seen straight above at `dist` is 2 dist tan(22.5 deg) high: a second held crosses half of it to a whole one.
+  const stage = 2 * 1000 * Math.tan((45 * Math.PI) / 360);
+  assert.ok(len(1000, 1000) > 0.5 * stage && len(1000, 1000) < stage, len(1000, 1000) / stage);
 });
