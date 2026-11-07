@@ -1,7 +1,7 @@
 'use strict';
 // Pure pill list for the search panel: the pills a board offers as one-click
 // queries, each with the number of cards it matches, and which of them are on.
-// No DOM, no storage, and no other module on purpose: the snapshot embeds this
+// No DOM, no storage, and no other module on purpose: a built page embeds this
 // file's source verbatim, where nothing else is loaded. Same dual-environment
 // pattern as slices.js.
 //

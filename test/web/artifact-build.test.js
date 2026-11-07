@@ -292,3 +292,15 @@ test('the page runs with code generation from text switched off: the runtime, th
   const saved = await context.kanbanSourceInUse.request('PATCH', '/api/cards/10', { title: 'Renamed under the policy' });
   assert.strictEqual(saved.status, 200);
 });
+
+test('the launcher\'s own files in the board folder (.cmd, .pid, .lock and its temp files) change neither the cards nor the files the page carries', async () => {
+  const cards = { '.kanban/config.yaml': 'name: Fixture Board\n', '.kanban/0001.first.card.md': card(1, 'First'), '.kanban/0002.second.card.md': card(2, 'Second') };
+  const launcher = { '.kanban/kanban_web.cmd': '@echo off\r\n', '.kanban/kanban_web.pid': '123\n7777\n', '.kanban/kanban_web.lock': '123 sometoken', '.kanban/kanban_web.lock.123.abcd.tmp': '' };
+  const ids = async (files) => {
+    const { html } = buildPage({ boardDir: path.join(tmpTree(files), '.kanban') });
+    const load = (await boot(dataOf(html), { storage: memoryStorage(), device: 'd1' }).request('GET', '/api/board')).json;
+    return load.active.map((c) => String(c.id)).sort();
+  };
+  assert.deepStrictEqual(await ids({ ...cards, ...launcher }), ['1', '2']);
+  assert.deepStrictEqual(await ids(cards), ['1', '2']);
+});

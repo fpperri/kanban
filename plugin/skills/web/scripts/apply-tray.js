@@ -37,7 +37,7 @@ const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // Tray records from text: a JSON array, one JSON record per line, or a payload whose first line is a
 // header. A fence around the records is dropped. An item that is an op of the old Snapshot page's
-// payload (`{op: 'move', ...}`) becomes the record that op means (old-payload.js).
+// payload (`{op: 'move', ...}`) becomes the record that op means (old-payload.js; it goes in the next release, with the retired Snapshot page it reads).
 function parseTray(text) {
   const base = oldPayload.baseOf(text);
   const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter((l) => !/^\s*```/.test(l));

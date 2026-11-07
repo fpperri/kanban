@@ -32,8 +32,8 @@ const EXAMPLES = [
 
 const KNOWN_TO_THE_READER = new Set(Object.keys(parseConfig('')));
 // Keys the example shows that no module reads: the Board artifact URL is read by the session that
-// publishes the snapshot (plugin/skills/snapshot/references/board-artifact.md), not by code.
-const NOT_READ_BY_CODE = { artifact: 'the snapshot skill reads it, in prose' };
+// publishes the Board artifact (plugin/skills/artifact/references/board-artifact.md), not by code.
+const NOT_READ_BY_CODE = { artifact: 'the artifact skill reads it, in prose' };
 
 const topKeys = (yaml) => [...yaml.matchAll(/^([A-Za-z]\w*):/gm)].map((m) => m[1]);
 

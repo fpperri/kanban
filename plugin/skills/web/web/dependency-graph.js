@@ -5,8 +5,8 @@
 // globals) AND required directly by node --test.
 //
 // Edge convention: an edge A -> B means "B waits for A" (B has A in its
-// waiting_for). The snapshot's embedded map (build_editor.py) mirrors this
-// same direction, so the two views read the same graph the same way.
+// waiting_for). The map and the Graph read
+// the same direction, so the two views read the same graph the same way.
 //
 // The waiting/blocked predicates come from waiting-blocked.js (the
 // one shared home) — in Node via require, in the browser off window, where
@@ -286,9 +286,7 @@ function pathIds(cardList, rawId, ctx) {
 // map-relations.js decides which become lines and how they place cards. A pair is
 // made only between cards the filters show: a hidden card, or an id with no card,
 // takes no pair. `ghosts` holds the one stub left, a parent on another board: one
-// per mention, with an id that is no id and no card can have (`ext:board#id`). The
-// shaper also serves the Snapshot, whose own builder still fills `ghosts` with the
-// cards its filters hide. `ends` (see mapParentLineEnds) is read on the whole board,
+// per mention, with an id that is no id and no card can have (`ext:board#id`). `ends` (see mapParentLineEnds) is read on the whole board,
 // so a filter never moves a line; a pair into a stub has none.
 function buildRelationsGraph(cardList, visibleList, ctx) {
   const cards = depCards(cardList);

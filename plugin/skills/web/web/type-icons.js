@@ -3,7 +3,7 @@
 // of six names. This module is the closed table behind that name: the glyph a
 // type chip wears and the outline a Graph dot is drawn in. It has no
 // dependencies, so the page loads it before the type chip and the Graph and the
-// snapshot can embed it on its own.
+// built page can embed it on its own.
 //
 // An icon name is human text. It is only ever looked up in the table below;
 // it never becomes markup, a class name or a path. A name the table does not

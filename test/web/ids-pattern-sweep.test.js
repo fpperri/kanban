@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ids = require('../../plugin/skills/web/web/ids');
 
-// The id pattern lives in the id module (docs/adr/0014): the page, the server and the
-// snapshot take it from ids.js / ids.py rather than writing `_?[A-Z]*` again.
+// The id pattern lives in the id module (docs/adr/0014): the page and the
+// server take it from ids.js rather than writing `_?[A-Z]*` again.
 
 const SKILLS = path.join(__dirname, '..', '..', 'plugin', 'skills');
 const read = (...parts) => fs.readFileSync(path.join(SKILLS, ...parts), 'utf8');
@@ -14,7 +14,6 @@ const PREFIX_PATTERN = /_\?\[A-Z\]\*/;
 const sources = [
   ...fs.readdirSync(path.join(SKILLS, 'web', 'scripts')).filter((f) => f.endsWith('.js')).map((f) => ['web', 'scripts', f]),
   ...fs.readdirSync(path.join(SKILLS, 'web', 'web')).filter((f) => f.endsWith('.js') && f !== 'ids.js').map((f) => ['web', 'web', f]),
-  ['snapshot', 'scripts', 'build_editor.py'],
 ];
 
 for (const parts of sources) {
