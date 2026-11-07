@@ -17,6 +17,9 @@
 //                 scope (`tags:"grill"`) the whole value, ignoring case, or any one
 //                 element of a list, and for title:/body: the whole field. A scoped
 //                 quoted term carries `exact: true`.
+//   archived:no   live cards only; `archived:yes` or a bare `archived:` the archived cards only.
+//                 Without the term a query matches live and archived cards together. It only
+//                 narrows the result: tree:/path: still walk the whole board.
 //   waiting:      bare only: the card waits for at least one card that is not done.
 //                 A value (`waiting:3`) is literal text.
 // `|` and brackets count only at a token's edge, so `a|b` and `fix(auth)` stay
@@ -224,6 +227,12 @@ function parseTerm(token, board) {
     if (KNOWN_FIELDS.includes(key)) {
       const value = prefixed[2].trim().toLowerCase();
       return value ? { field: key, value } : null;
+    }
+    // archived: is a complete term, bare included: `no` is the live cards, `yes` or nothing the
+    // archived ones. Any other value falls through to bare text below.
+    if (key === 'archived') {
+      const value = prefixed[2].trim().toLowerCase();
+      if (value === '' || value === 'yes' || value === 'no') return { field: 'archived', value };
     }
     // waiting: is a complete term of its own, like review:/blocked:, and takes
     // no value: `waiting:3` falls through to bare text below.
@@ -762,6 +771,7 @@ function termMatchesCard(term, card) {
     // graph to resolve against here (a single (term, card) pair isn't enough), so it matches
     // nothing rather than throwing. Always goes through filterCards in practice.
     case 'waiting': case 'slice': case 'group': return false;
+    case 'archived': return term.value === 'no' ? !card.archived : !!card.archived;
     case 'ids': return term.ids.has(searchKey(card.id));
     case 'or': return term.alts.some((alt) => alt.length > 0 && alt.every((t) => termMatchesCard(t, card)));
     default: { // bare term: title + body + tags; a phrase reads across a line break
