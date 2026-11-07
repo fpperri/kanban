@@ -64,7 +64,7 @@ module.exports = {
       const built = {};
       for (const key of ['fixture', 'plan', 'todos', 'notes']) {
         const dir = materialize(key, path.join(root, `board-${key}`, '.kanban'));
-        const { html, board } = buildPage({ boardDir: dir });
+        const { html, board } = buildPage({ boardDir: dir, stamp: { plugin: 'a1b2c3d', board: 'e4f5a6b' } });
         const file = path.join(root, `${key}.html`);
         fs.writeFileSync(file, html);
         built[key] = { dir, file, board, url: fileUrl(file) };
@@ -284,6 +284,7 @@ module.exports = {
       await drop('7', 'doing');
       check('a move is queued', await waitFor(`${PILL}==='1 queued'`, 6000));
       check('Refresh reads "Board as of <time>"', /^Board as of (\d\d:\d\d|\d{4}-\d\d-\d\d \d\d:\d\d)$/.test(await ev(REFRESH)), await ev(REFRESH));
+      check('the header shows the plugin and board commits beside it', (await ev(`(()=>{const e=document.getElementById('build-stamp');return e.classList.contains('hidden')?'hidden':e.textContent})()`)) === 'plugin a1b2c3d \u00b7 board e4f5a6b', await ev(`document.getElementById('build-stamp').textContent`));
       check('the phone menu says the same', (await ev(`document.getElementById('more-refresh').textContent`)) === (await ev(REFRESH)));
       await ev(`document.getElementById('refresh-btn').click()`);
       check('tapping it says to ask Claude to apply and rebuild', await waitFor(`/ask claude to apply/i.test(${TOAST})&&/rebuild/i.test(${TOAST})`, 4000), await ev(TOAST));

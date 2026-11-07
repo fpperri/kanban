@@ -196,3 +196,14 @@ test('the flags the skill names for one build are the ones the build command acc
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('the check command in the skill runs where the doc puts it, and its exit codes are the ones the table gives', () => {
+  const command = fenced(DOC, 'bash').map((b) => b.trim()).find((b) => b.includes('artifact-check.js') && !b.includes('--record'));
+  const m = /^node <skill dir>\/(\.\.\/web\/scripts\/artifact-check\.js) <board dir>$/.exec(command);
+  assert.ok(m, command);
+  assert.ok(fs.existsSync(path.join(SKILL_DIR, m[1])));
+  const { EXIT } = require('../../plugin/skills/web/scripts/build-stamp');
+  for (const [verdict, code] of Object.entries(EXIT)) assert.ok(new RegExp(`\| ${code} \|`).test(DOC), `${verdict}: exit ${code} is in the table`);
+  assert.ok(DOC.includes('artifact-check.js <board dir> --record'));
+  assert.ok(DOC.includes(require('../../plugin/skills/web/scripts/build-stamp').STAMP_FILE));
+});

@@ -282,7 +282,7 @@ const pageSourceModule = (() => {
     function sourceInfo() {
       const records = tray.records();
       const refused = records.filter((r) => r.refused).map((r) => ({ id: r.id, reason: r.refused }));
-      return { kind: tray.kind, queued: records.length, pictures: false, ...(refused.length ? { refused } : {}), base: board.base };
+      return { kind: tray.kind, queued: records.length, pictures: false, ...(refused.length ? { refused } : {}), base: board.base, ...(board.stamp ? { stamp: board.stamp } : {}) };
     }
 
     function queueSave(method, path, sent, result) {

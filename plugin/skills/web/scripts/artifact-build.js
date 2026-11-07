@@ -42,6 +42,7 @@ const { parseSearchQuery, filterCards, searchQueryProblem } = require('../web/se
 const { makeRoute } = require('./route');
 const { routeSources, configFolders, folderBefore } = require('./route-sources');
 const { readApplied, takenBy } = require('./applied-ids');
+const buildStamp = require('./build-stamp');
 
 const WEB_ROOT = path.join(__dirname, '..');
 const MODULE_PARAMS = 'exports, require, module, __filename, __dirname, process, Buffer';
@@ -220,7 +221,8 @@ const megabytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 // `query` and `archive` left out (undefined) are what the board keeps in config.yaml (snapshotQuery,
 // snapshotArchive); given, they win for this build, an empty query included.
-function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query, archive, maxBytes = MAX_BYTES }) {
+// `stamp` ({plugin, board}: short commit ids, build-stamp.js) is what the page was built from; the page shows it.
+function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query, archive, maxBytes = MAX_BYTES, stamp }) {
   if (!boardDir || !fs.existsSync(boardDir) || !fs.statSync(boardDir).isDirectory()) throw new Error(`Board dir not found: ${boardDir}`);
   const dir = fs.realpathSync(path.resolve(boardDir));
   const name = makeRoute(dir)('GET', '/api/board').body.projectName;
@@ -236,6 +238,7 @@ function buildPage({ boardDir, webRoot = WEB_ROOT, now = () => new Date(), query
     base: now().toISOString(),
     snapshot: { query: asked, archive: !!archive, label: snapshotLabel(asked, !!archive) },
   };
+  if (stamp && (stamp.plugin || stamp.board)) board.stamp = { plugin: stamp.plugin || null, board: stamp.board || null };
   const taken = takenBy(readApplied(dir));
   if (Object.keys(taken).length) board.taken = taken;
   const picked = pickCards(dir, name, { query: asked, archive: !!archive });
@@ -311,16 +314,19 @@ function main(argv) {
   }
   if (!boardDir || !out) return usage();
   try {
-    const { html, board, bytes, carried } = buildPage({ boardDir, query, archive });
+    const stamp = buildStamp.stampNow({ boardDir, pluginDir: path.join(WEB_ROOT, '..', '..') });
+    const { html, board, bytes, carried } = buildPage({ boardDir, query, archive, stamp });
     fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
     fs.writeFileSync(out, html);
-    console.log(`${out}: ${(bytes / 1024).toFixed(0)} KB, board "${board.name}", ${board.snapshot.label}, ${carried} card${carried === 1 ? '' : 's'}, base ${board.base}`);
+    console.log(`${out}: ${(bytes / 1024).toFixed(0)} KB, board "${board.name}", ${board.snapshot.label}, ${carried} card${carried === 1 ? '' : 's'}, base ${board.base}, built from ${stampWords(stamp)}`);
     return 0;
   } catch (e) {
     console.error(e.message);
     return 2;
   }
 }
+
+const stampWords = (s) => (s.plugin || s.board ? `plugin ${s.plugin || 'unknown'}, board ${s.board || 'unknown'}` : 'no git checkout (the check cannot tell)');
 
 function usage(message) {
   if (message) console.error(message);
