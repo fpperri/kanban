@@ -8,7 +8,7 @@ const {
   graph3dPick, graph3dTopDown, graph3dKeep, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKin, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
-  graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -451,4 +451,19 @@ test("a far side's label, painted under the near side, keeps off every near dot 
     { key: 'far-deep', far: true, z: 300, box: box(205) },
   ]);
   assert.deepStrictEqual([...shown.keys()], ['on-far-deep']);
+});
+
+test("the compass's dial turns with the camera and is squashed by its tilt, its north the 2D Hierarchy's top", () => {
+  assert.deepStrictEqual(graph3dCompass(0, 0), { dial: 'scale(1 1) rotate(0)', north: [0, -1] }, 'straight above, north up: the 2D picture');
+  assert.deepStrictEqual(graph3dCompass(Math.PI / 2, 0).north, [1, 0], 'a quarter turn: north to the right');
+  assert.deepStrictEqual(graph3dCompass(0, Math.PI / 3), { dial: 'scale(1 0.5) rotate(0)', north: [0, -0.5] }, 'tilted, the dial is seen shorter');
+  assert.deepStrictEqual(graph3dCompass(0, Math.PI / 2).north, [0, -0.08], 'edge-on, a sliver still shows');
+  assert.deepStrictEqual(graph3dCompass(0, Math.PI), { dial: 'scale(1 -1) rotate(0)', north: [0, 1] }, 'from under the sphere, seen mirrored');
+});
+
+test('the compass turns the camera back to north up the short way round, whole turns kept', () => {
+  assert.strictEqual(graph3dNorthUp(0.4), 0);
+  assert.strictEqual(graph3dNorthUp(-0.4), 0);
+  assert.ok(near(graph3dNorthUp(5.9), 2 * Math.PI), 'nearly a whole turn: on to the next north');
+  assert.ok(near(graph3dNorthUp(-7), -2 * Math.PI));
 });

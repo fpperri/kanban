@@ -496,6 +496,26 @@ function graph3dShare(keep, unlit) {
   return unlit ? Math.max(unlit.floor, keep * unlit.dim) : keep;
 }
 
+// The compass: a dial lying on the plan, seen as the camera sees the plan. Its north is the plan's up
+// (the top of the 2D Hierarchy), turned with the camera's turn `theta` and squashed by its tilt `phi`
+// (seen from under past a right angle, and never thinner than a sliver, so edge-on it still shows). The
+// answer is the dial's SVG transform and where its north tip stands on the screen at radius 1 (x right, y down).
+function graph3dCompass(theta, phi) {
+  const r = (v) => Math.round(v * 1000) / 1000 + 0;
+  const c = Math.cos(phi);
+  const squash = (c < 0 ? -1 : 1) * Math.max(0.08, Math.abs(c));
+  return {
+    dial: `scale(1 ${r(squash)}) rotate(${r((theta * 180) / Math.PI)})`,
+    north: [r(Math.sin(theta)), r(-Math.cos(theta) * squash)],
+  };
+}
+
+// The turn the compass eases the camera back to: north up, the whole turn nearest `theta`, so it goes
+// the short way round.
+function graph3dNorthUp(theta) {
+  return Math.round(theta / (2 * Math.PI)) * 2 * Math.PI + 0;
+}
+
 // --- the browser -------------------------------------------------------------------------------
 
 const GRAPH3D_FOV = 45;
@@ -543,6 +563,7 @@ const GRAPH3D_SHADOW = 0.8;
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
 const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything.';
+const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
 const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
@@ -586,6 +607,32 @@ function graph3dCreate() {
   label.title = GRAPH3D_HELP;
   label.setAttribute('aria-live', 'polite');
   root.appendChild(label);
+  // The compass in the stage's corner: a dial that turns and tilts with the camera (applyCamera); a press
+  // eases the camera back to north up, seen from straight above (the 2D Hierarchy's picture).
+  const NS = 'http://www.w3.org/2000/svg';
+  const svgEl = (tag, cls, attrs) => {
+    const el = document.createElementNS(NS, tag);
+    if (cls) el.setAttribute('class', cls);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    return el;
+  };
+  const compass = document.createElement('button');
+  compass.type = 'button';
+  compass.className = 'graph-3d-compass';
+  compass.title = GRAPH3D_COMPASS_TIP;
+  compass.setAttribute('aria-label', GRAPH3D_COMPASS_TIP);
+  const face = svgEl('svg', '', { viewBox: '-22 -22 44 44', 'aria-hidden': 'true' });
+  const dial = svgEl('g', 'graph-3d-compass-dial');
+  dial.append(
+    svgEl('circle', 'graph-3d-compass-ring', { r: 13 }),
+    svgEl('polygon', 'graph-3d-compass-south', { points: '0,11 3.5,0 -3.5,0' }),
+    svgEl('polygon', 'graph-3d-compass-north', { points: '0,-11 3.5,0 -3.5,0' }),
+  );
+  const north = svgEl('text', 'graph-3d-compass-n', { 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  north.textContent = 'N';
+  face.append(dial, north);
+  compass.appendChild(face);
+  root.appendChild(compass);
   const st = {
     gone: false, T: null, renderer: null, scene: null, camera: null,
     ground: [], groundKey: '', groundAt: '', view: null, overlay: null, links: [], farLinks: [], captions: [], rim: 100, outer: 0,
@@ -596,6 +643,7 @@ function graph3dCreate() {
     zoom: null, spin: null, tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
     fitted: false, fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),
+    bg: null, scheme: null, themeWatch: null, compassAt: '',
   };
 
   // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
@@ -656,6 +704,13 @@ function graph3dCreate() {
     st.camera.updateProjectionMatrix();
     st.camera.updateMatrixWorld(true);
     root.dataset.cam = `${graph3dR(c.theta)},${graph3dR(c.phi)},${graph3dR(c.dist)},${graph3dR(c.tx)},${graph3dR(c.ty)},${graph3dR(c.tz)}`;
+    const k = graph3dCompass(c.theta, c.phi);
+    if (k.dial !== st.compassAt) {
+      st.compassAt = k.dial;
+      dial.setAttribute('transform', k.dial);
+      north.setAttribute('x', graph3dR(17.5 * k.north[0]));
+      north.setAttribute('y', graph3dR(17.5 * k.north[1]));
+    }
   };
 
   // --- the ground: washes, guides, dividers and the block's frame, on the shape ------------------
@@ -1342,12 +1397,6 @@ function graph3dCreate() {
 
   // --- the camera ------------------------------------------------------------------------------
 
-  const fovMin = () => {
-    const v = (GRAPH3D_FOV * Math.PI) / 180;
-    const hfov = 2 * Math.atan(Math.tan(v / 2) * (st.w / st.h));
-    return Math.min(v, hfov);
-  };
-
   // The camera on the move (a drag, a coast, a flight, a zoom, a morph) lights nothing under the pointer and
   // shows no tip: the pointer's light and its tip go out when it starts (a card the focus is on keeps its
   // light), and come back on the next move of the pointer once the camera has stopped (rearm).
@@ -1642,9 +1691,10 @@ function graph3dCreate() {
   };
 
   root.addEventListener('pointerdown', (e) => {
-    // The 2D Graph's own pan and pinch (wireGraphView) stay out of the 3D view.
+    // The 2D Graph's own pan and pinch (wireGraphView) stay out of the 3D view, and a press on the compass
+    // is the compass's.
     e.stopPropagation();
-    if (!st.renderer) return;
+    if (!st.renderer || compass.contains(e.target)) return;
     st.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     st.spin = null;
     // A press with the camera still (a tap, a click) lets the pointer light again.
@@ -1736,7 +1786,7 @@ function graph3dCreate() {
   // everything. Told by the second click's count rather than by dblclick: the first click may redraw the
   // marks (a selection's light going out), and the browser fires no dblclick across two elements.
   const nearDot = (e) => {
-    if (e.target.closest && e.target.closest('.graph-node, .graph-caption, .graph-block-title, .graph-block-caption, .graph-3d-label')) return null;
+    if (e.target.closest && e.target.closest('.graph-node, .graph-caption, .graph-block-title, .graph-block-caption, .graph-3d-label, .graph-3d-compass')) return null;
     const rect = root.getBoundingClientRect();
     return graph3dNearest(st.vis, e.clientX - rect.left, e.clientY - rect.top, GRAPH3D_PICK_TOL);
   };
@@ -1778,6 +1828,13 @@ function graph3dCreate() {
     }
     e.preventDefault();
     e.stopPropagation();
+  });
+  compass.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!st.renderer || !st.view) return;
+    endHint();
+    st.zoom = null;
+    flyTo({ phi: 0, theta: graph3dNorthUp(st.cam.theta) }, false);
   });
   root.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -1856,7 +1913,6 @@ function graph3dCreate() {
     // pointer resting on a moving mark finds more readily than the browser's.
     // Each mark gets its contact shadow under it (placeMarks shapes it), filled with a soft round gradient
     // of its own, so each can be as dark as its mark is kept (--graph-3d-shadow, app.css).
-    const NS = 'http://www.w3.org/2000/svg';
     let defs = drawn.svg.querySelector('defs.graph-3d-shadows');
     if (!defs) {
       defs = document.createElementNS(NS, 'defs');
@@ -2020,7 +2076,7 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dPick, graph3dTopDown, graph3dKeep, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
     graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
     graph3dFit, graph3dFacing, graph3dKin, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
-    graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 } else {
   window.graph3dWanted = graph3dWanted;
