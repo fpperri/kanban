@@ -111,3 +111,12 @@ test('a card id present twice is one node, the copy the card lookup resolves (th
   assert.deepStrictEqual(dep.nodes.map((n) => n.id), ['5', '6', '7']);
   assert.strictEqual(dep.nodes[0].archived, true);
 });
+
+test('a card id present twice (live and archived) is one node and one No relations entry', () => {
+  const { buildRelationsGraph } = require('../../plugin/skills/web/web/dependency-graph');
+  const { MAP_OPTION_DEFAULTS, mapShapeRelations } = require('../../plugin/skills/web/web/map-relations');
+  const c = (id, status, title, extra) => ({ id: String(id), status, title, waiting_for: [], ...extra });
+  const cards = [c(5, 'todo', 'Twice'), c(6, 'todo', 'Dep'), c(7, 'todo', 'Waits', { waiting_for: ['6'] }), c(5, 'done', 'Twice')];
+  const shaped = mapShapeRelations(buildRelationsGraph(cards, null, { board: 'dup', priorities: ['High', 'Normal', 'Low'] }), MAP_OPTION_DEFAULTS);
+  assert.deepStrictEqual(shaped.noRelations, ['5']);
+});

@@ -143,7 +143,6 @@ error), and a card with no edges resolves to a component/cone of one — itself.
 Focusing hides everything outside the result and re-lays-out, exactly like a typed
 search — a card outside the cone is not drawn, nor a line to it. The right-click menu does not offer these two: its Path and Tree write the
 narrower `hpath:`, `htree:`, `dpath:` and `dtree:` terms into the box — see Multi-select.
-Mirrored in the snapshot: it reads the same `tree:` and `path:` terms, and its card sheet writes the four narrower `hpath:`, `htree:`, `dpath:` and `dtree:` terms, as the right-click menu does — see GLOSSARY.md's parity table.
 **Pan & zoom** — press-and-drag anywhere in the graph (background or a node) scrolls
 the `.map-view` panel with the pointer, grab/grabbing cursor, primary button only. A
 drag starting on a node still pans once the pointer clears a small threshold; that

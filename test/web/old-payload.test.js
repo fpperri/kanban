@@ -7,7 +7,7 @@ const { spawnSync } = require('node:child_process');
 const { applyTray, parseTray, APPLIED_FILE } = require('../../plugin/skills/web/scripts/apply-tray');
 const { read } = require('./helpers/doc-text');
 
-// The old Snapshot page's payload (the snapshot skill's apply-protocol.md) applied to a board folder:
+// The old Snapshot page's payload (the retired snapshot skill's apply protocol) applied to a board folder:
 // each op lands as the protocol describes, through the same dry run and replay as a tray.
 
 const SCRIPT = path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'apply-tray.js');
@@ -171,15 +171,13 @@ test('the command applies an old payload from a file or stdin and reports it', (
   assert.match(piped.stdout, /applied 1/);
 });
 
-test('the code carries the dated note that the old payload goes one release after the switch', () => {
+test('the code carries the dated note that the old payload goes in the next release', () => {
   const src = fs.readFileSync(path.join(path.dirname(SCRIPT), 'old-payload.js'), 'utf8');
-  assert.match(src, /Dated 2026-10-31: this goes one release after\s*\/\/ the switch/);
+  assert.match(src, /Dated 2026-11-06: the page \(the retired\s*\/\/ kanban-snapshot skill\) is gone, and this goes in the next release/);
 });
 
-test('the artifact skill names the header the old Snapshot page writes, and the header is the page\'s own', () => {
+test('the artifact skill names the header the old Snapshot page wrote, and the reader takes it', () => {
   const skill = read('plugin', 'skills', 'artifact', 'SKILL.md');
-  const page = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'snapshot', 'scripts', 'build_editor.py'), 'utf8');
-  assert.ok(page.includes('"Apply kanban changes ("+clean.length+" ops, base "+BASE+"):'));
   assert.ok(skill.includes('Apply kanban changes (N ops, base <ISO>):'));
   assert.strictEqual(parseTray('Apply kanban changes (1 ops, base 2026-10-31T08:00:00):\n[{"op":"archive","id":"3"}]').length, 1);
 });

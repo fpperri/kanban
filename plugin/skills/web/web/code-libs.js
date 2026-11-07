@@ -3,9 +3,9 @@
 // language it knows, mermaid draws a ```mermaid fence, and every other fence stays the plain labelled
 // block markdown.js drew. Nothing loads unless a rendered body holds a block that needs it. This module
 // is the decision and what it rests on, the language names and the pinned versions; it loads nothing
-// itself. code-blocks.js is the loader, and the page and the snapshot each hand it their own addresses
-// for these versions: the page its vendored files in web/vendor, the snapshot the CDNs. No DOM here: loaded as a plain <script> (one global, window.kanbanCodeLibs),
-// embedded in the snapshot, and required directly by node --test.
+// itself. code-blocks.js is the loader, and the page hands it its own addresses
+// for these versions, its vendored files in web/vendor. No DOM here: loaded as a plain <script> (one global, window.kanbanCodeLibs),
+// embedded in the built page, and required directly by node --test.
 
 const codeLibsModule = (() => {
   const MERMAID_VERSION = '12.2.0';

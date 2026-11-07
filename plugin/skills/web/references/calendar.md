@@ -115,8 +115,7 @@ grid the drag/resize uses. Only `start_date` is pre-filled — never `due_date`
 (ADR 0007: start is the working range's "from") — and status is left at the modal's
 own default, unlike the column "+", since a calendar cell doesn't imply one. A
 double-click landing on a chip is the chip's own affair (the shared card grammar),
-excluded before the cell/column lookup ever runs. The snapshot's own calendar has no
-click-to-create — a deliberate, unbuilt gap.
+excluded before the cell/column lookup ever runs.
 **Notes on the Calendar** — on a board with a logbook the week, 3-day and day views draw its
 notes: a day with timed notes keeps a strip at the right of its column (`--cal-note-strip`),
 with a chip for one note in a half hour and a count bubble for more, and the day's untimed

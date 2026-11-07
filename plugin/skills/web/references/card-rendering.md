@@ -104,8 +104,7 @@ blocked; CSSOM assignment is the compliant path). Renders wherever `assigneeBadg
 reaches: board tiles (live and archived) and the map's No relations tiles. The
 edit/create modal tints the assignee input's own text directly (`syncAssigneeColor()`,
 always CSSOM) — synced on open and on every keystroke/combobox pick, the same
-"reflect the live typed value" pattern as the blocked input's red border. The snapshot
-carries the same rule in its own reimplementation — see that skill's write-up.
+"reflect the live typed value" pattern as the blocked input's red border.
 
 **Frontmatter marks** — the detail popup's frontmatter table prints every field as
 written, except the few the board itself understands: `status` gets its status dot and

@@ -1,6 +1,6 @@
 ---
 name: kanban-web
-description: Stand up a local web app (Node server + browser SPA) to edit a Markdown kanban board live — drag-drop cards between columns and full CRUD (create, edit, archive, delete), writing straight back to the *.card.md files. Use when the user wants an interactive, editable board in a browser (incl. VSCode's Simple Browser). The server listens on 127.0.0.1 only; a phone reaches it through a VS Code tunnel. Where no server can run or be reached, use kanban-snapshot; for AI-driven card management use kanban.
+description: Stand up a local web app (Node server + browser SPA) to edit a Markdown kanban board live — drag-drop cards between columns and full CRUD (create, edit, archive, delete), writing straight back to the *.card.md files. Use when the user wants an interactive, editable board in a browser (incl. VSCode's Simple Browser). The server listens on 127.0.0.1 only; a phone reaches it through a VS Code tunnel. Where no server can run or be reached, use kanban-artifact; for AI-driven card management use kanban.
 ---
 
 # Kanban Web (live editor)
@@ -40,7 +40,7 @@ node <SCRIPTS_DIR>/server.js <kanban-dir> [port]
 - Pass `<kanban-dir>` explicitly (the path resolved above) — omitting it makes the
   server apply the same discovery itself, relative to *its own* working directory:
   `.kanban/` first, then `kanban/`.
-- **Port precedence: CLI argument > `config.yaml`'s `port:` > default `7777`.** The `kanban-snapshot` skill ignores `port:` entirely — it's a serving fact for this app, not board content it renders.
+- **Port precedence: CLI argument > `config.yaml`'s `port:` > default `7777`.** The artifact build (`kanban-artifact`) ignores `port:` entirely — it's a serving fact for this app, not board content it renders.
   A board's `config.yaml` may carry a top-level `port:` key (same top-level-only
   rule as `name:` — an indented `port:` inside an assignee entry is not it; see
   `plugin/skills/kanban/references/config.md` for the full key contract) to **pin**

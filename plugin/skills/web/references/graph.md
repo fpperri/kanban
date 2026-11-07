@@ -178,6 +178,5 @@ Per board in `localStorage`: the graph choice under `graph.layout` and the statu
 `graph.statusFilter` (same defensive merge as the Gantt's: a saved value with no
 `archive` key merges in OFF), and in Tiers the option row's choices under `graph.options`.
 The 5-second poll rebuilds the view and keeps the
-layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
-Graph view. The Graph draws one of two graphs, chosen by the Hierarchy and Flow buttons in the toolbar at the top right of the drawing, whether the option panel is open or shut:
+layout, pills, pan and zoom. `?view=graph` is a deep link to it. The Graph draws one of two graphs, chosen by the Hierarchy and Flow buttons in the toolbar at the top right of the drawing, whether the option panel is open or shut:
 **Hierarchy**, which is all of the above, and **Flow** (see `plugin/skills/web/references/graph-flow.md`).

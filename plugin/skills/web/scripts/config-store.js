@@ -43,7 +43,7 @@
 //                         # an iteration (docs/adr/0019, iteration-folders.js); read as text
 //   groups: .groups       # the folder of the board's groups (docs/adr/0015), the same
 //                         # way; absent = no groups and nothing of them shows
-//   typesOn: false        # Types off: the web and the snapshot ignore `types:`, the
+//   typesOn: false        # Types off: the web and the Board artifact ignore `types:`, the
 //                         # hierarchy and the chips, colors, icons and tiers they give;
 //                         # absent = on. Display only; the lists and the cards stay as written.
 //   snapshotQuery: tags:ui   # the Snapshot query the built page carries, in the search box's
@@ -121,7 +121,7 @@ function counterValue(text) {
 }
 
 // A list key whose value is blank or only a comment (`types:   # note`) starts
-// a block list; the snapshot's readers open it the same way.
+// a block list.
 function opensBlock(tail) {
   const t = String(tail).trim();
   return t === '' || t[0] === '#';

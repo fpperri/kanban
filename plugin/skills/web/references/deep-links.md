@@ -109,7 +109,7 @@ from a link is the first entry of the page's history, with nothing of the page's
 stands behind its details, and leaves the page after them.
 
 **Tab icon** — the plugin's official icon (canonical file `assets/icon.svg`, also shown in
-the README and inlined in the snapshot page), served here as `favicon.svg` at
+the README), served here as `favicon.svg` at
 `/favicon.svg` and linked from `app.html`: a pink brain with four streams falling out of
 it, fading into the backlog, todo, doing and done colors. `favicon.test.js` keeps this
 copy identical to `assets/icon.svg` and the stream colors equal to `status-colors.js`. It is a served file rather than an inline `data:`

@@ -1,6 +1,6 @@
 {
   "name": "kanban",
-  "description": "Markdown-based kanban boards - three surfaces over one board of *.card.md files: kanban (AI card management), web (human live editor, a local server), snapshot (generated single-file HTML board for phone/tablet)",
+  "description": "Markdown-based kanban boards - three surfaces over one board of *.card.md files: kanban (AI card management), web (human live editor, a local server), artifact (the web built with the board inside, as a hosted Board artifact or a single file, for phone/tablet/Cowork)",
   "version": "0.10.0",
   "author": {
     "name": "Francisco Pablo Perri"
