@@ -7,7 +7,7 @@ const {
   graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
   graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
+  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
   graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
@@ -472,6 +472,14 @@ test('marks are painted back to front, the far side under every near mark howeve
     { id: 'back', z: 500, far: true, lit: false },
   ]).map((o) => o.id);
   assert.deepStrictEqual(order, ['back', 'glass', 'near-back', 'near-front', 'lit']);
+});
+
+test('the marks are put in paint order around a pressed one, which stays where it is', () => {
+  assert.deepStrictEqual(graph3dRestack(['a', 'b', 'p', 'c'], 'p'), { before: ['a', 'b'], after: ['c'] });
+  assert.deepStrictEqual(graph3dRestack(['p', 'a', 'b'], 'p'), { before: [], after: ['a', 'b'] }, 'pressed first');
+  assert.deepStrictEqual(graph3dRestack(['a', 'b', 'p'], 'p'), { before: ['a', 'b'], after: [] }, 'pressed and lit, so last');
+  assert.deepStrictEqual(graph3dRestack(['a', 'b'], null), { before: [], after: ['a', 'b'] }, 'nothing pressed: every mark is put at the end');
+  assert.deepStrictEqual(graph3dRestack(['a', 'b'], 'q'), { before: [], after: ['a', 'b'] }, 'a pressed mark that is not drawn');
 });
 
 test("a far side's label, painted under the near side, keeps off every near dot and off a far dot as near as its own", () => {

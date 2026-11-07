@@ -23,11 +23,13 @@
 // (the runner's flags allow it).
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
-// selectedIds, isDragging, hideContextMenu, currentDetailId, closeCard, setView.
+// selectedIds, isDragging, hideContextMenu, currentDetailId, closeCard, setView, graph3dCur, graph3dRequest.
 
 const ROOT = `document.querySelector('#graph-view .graph-3d')`;
 // A dot's middle on the screen, for every dot drawn, by card id.
 const DOTS = `(()=>{const o={};for(const g of document.querySelectorAll('#graph-view .graph-node')){const d=g.querySelector('.graph-dot');if(!d||getComputedStyle(g).display==='none')continue;const r=d.getBoundingClientRect();o[g.dataset.id]={x:r.left+r.width/2,y:r.top+r.height/2}}return o})()`;
+// The dot drawn nearest the middle of the stage, on the near side and large enough to press, leaving out `skip`.
+const MIDDLE_DOT = (skip) => `(()=>{const s=${ROOT}.getBoundingClientRect();let best=null;for(const g of ${ROOT}.querySelectorAll('.graph-node')){if(g.dataset.id===${JSON.stringify(skip)}||g.classList.contains('graph-3d-off')||g.classList.contains('graph-3d-far'))continue;const r=g.querySelector('.graph-dot').getBoundingClientRect();const p={id:g.dataset.id,x:r.left+r.width/2,y:r.top+r.height/2};const d=Math.hypot(p.x-(s.left+s.right)/2,p.y-(s.top+s.bottom)/2);if(r.width>4&&(!best||d<best.d))best={...p,d}}return best})()`;
 const COMPASS = `${ROOT}.querySelector('.graph-3d-compass-dial').getAttribute('transform')`;
 // A contextmenu event at a point, as Linux and the Mac send one when the right button goes down.
 const MENU_AT = (x, y) => `document.elementFromPoint(${x},${y}).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:${x},clientY:${y},view:window}))`;
@@ -152,7 +154,7 @@ module.exports = {
     // H frames everything again; a left click on a dot selects its card, a right click on it opens the menu.
     await key('h');
     await settled();
-    const target = await ev(`(()=>{const s=${ROOT}.getBoundingClientRect();let best=null;for(const g of ${ROOT}.querySelectorAll('.graph-node')){if(g.classList.contains('graph-3d-off')||g.classList.contains('graph-3d-far'))continue;const r=g.querySelector('.graph-dot').getBoundingClientRect();const p={id:g.dataset.id,x:r.left+r.width/2,y:r.top+r.height/2};const d=Math.hypot(p.x-(s.left+s.right)/2,p.y-(s.top+s.bottom)/2);if(r.width>4&&(!best||d<best.d))best={...p,d}}return best})()`);
+    const target = await ev(MIDDLE_DOT(null));
     check('a dot is drawn near the middle of the stage', !!target, target);
     await ev(`selectedIds.clear()`);
     await mouse('mouseMoved', target.x, target.y, { button: 'none' });
@@ -160,6 +162,17 @@ module.exports = {
     check('a left click on a dot selects its card', await waitFor(`selectedIds.size===1&&selectedIds.has(${JSON.stringify(target.id)})`, 3000), await ev(`[...selectedIds]`));
     await settled();
     await shot('3d-selected');
+    // A click while frames are drawn (the camera flying after H, or coasting after an orbit): the press
+    // gives the dot the focus, which lights it, and the frame drawn before the button comes up puts it
+    // last in the paint order. The browser sends no click to a mark taken off the page between the press
+    // and the release, so the pressed dot is never the one moved, and the click selects its card.
+    await key('h');
+    const other = await ev(MIDDLE_DOT(target.id));
+    await mouse('mousePressed', other.x, other.y, { button: 'left' });
+    await ev(`(graph3dRequest(graph3dCur),new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r))))`);
+    await mouse('mouseReleased', other.x, other.y, { button: 'left' });
+    check('a left click on a dot while the camera flies selects its card', await waitFor(`selectedIds.size===1&&selectedIds.has(${JSON.stringify(other.id)})`, 3000), await ev(`[...selectedIds]`));
+    await settled();
     await ev(`hideContextMenu()`);
     const dotOf = (id) => ev(`(()=>{const g=${ROOT}.querySelector('.graph-node[data-id="${id}"] .graph-dot');const r=g.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     let dot = await dotOf(target.id);

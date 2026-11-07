@@ -63,6 +63,8 @@ function graph3dOnPointerDown(hier, e) {
   e.stopPropagation();
   if (!hier.renderer || hier.compass.contains(e.target)) return;
   hier.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  // The card the button is down on keeps its place in the page until the button is up (graph3dOrderDots).
+  hier.pressed = e.target.closest ? e.target.closest('.graph-node') : null;
   hier.spin = null;
   // A press with the camera still (a tap, a click) lets the pointer light again.
   if (!hier.armed && !graph3dMoving(hier)) hier.armed = true;
@@ -120,6 +122,7 @@ function graph3dOnPointerMove(hier, e) {
 
 function graph3dOnPointerEnd(hier, e) {
   hier.pointers.delete(e.pointerId);
+  if (!hier.pointers.size) hier.pressed = null;
   if (hier.pinch) {
     if (hier.pointers.size < 2) {
       hier.pinch = null;

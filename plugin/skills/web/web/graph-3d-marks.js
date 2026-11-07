@@ -212,7 +212,10 @@ function graph3dOrderDots(hier, f, vis) {
   hier.order = key;
   // Moving a mark in the page takes its focus away (the card the search box's Enter went to), so it is given back.
   const had = f.focus && drawn.world.contains(f.focus) ? f.focus : null;
-  for (const o of order) drawn.world.appendChild(o.g);
+  const pressed = hier.pressed && hier.pressed.parentNode === drawn.world ? hier.pressed : null;
+  const { before, after } = graph3dRestack(order.map((o) => o.g), pressed);
+  for (const g of before) drawn.world.insertBefore(g, pressed);
+  for (const g of after) drawn.world.appendChild(g);
   if (had && document.activeElement !== had) had.focus({ preventScroll: true });
 }
 

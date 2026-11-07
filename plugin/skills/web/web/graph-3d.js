@@ -255,6 +255,14 @@ function graph3dPaintOrder(vis) {
   return vis.slice().sort((a, b) => (a.lit - b.lit) || (b.far - a.far) || b.z - a.z);
 }
 
+// The marks `order` (in paint order) put in that order without moving `pressed`, the mark a button is down
+// on: the browser sends no click to a mark taken off the page between the press and the release, and a
+// mark is taken off to be moved. The ones before it go in front of it, the rest after the last mark.
+function graph3dRestack(order, pressed) {
+  const at = pressed == null ? -1 : order.indexOf(pressed);
+  return { before: order.slice(0, Math.max(at, 0)), after: order.slice(at + 1) };
+}
+
 // Whether the camera looks straight down on the plan with its x to the right: the picture the 2D view has.
 function graph3dTopDown(cam) {
   const turn = Math.abs(cam.theta) % (2 * Math.PI);
@@ -583,7 +591,7 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
     graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
-    graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
+    graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
     graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }

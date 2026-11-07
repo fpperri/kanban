@@ -50,7 +50,7 @@ function graph3dCreate() {
     shape: 'disc', morph: null,
     cam: { theta: 0, phi: 0, dist: 1000, tx: 0, ty: 0, tz: 0 }, framed: false, fly: null,
     raf: 0, w: 1, h: 1, cw: 1, ch: 1, ox: 0, oy: 0, order: '',
-    drag: null, pointers: new Map(), pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
+    drag: null, pointers: new Map(), pressed: null, pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
     zoom: null, spin: null, tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
     fitted: false, fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),

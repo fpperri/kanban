@@ -21,6 +21,8 @@ const PAGE_GLOBALS = [
   'closeCard',
   'currentDetailId',
   'DOUBLE_CLICK_MS',
+  'graph3dCur',
+  'graph3dRequest',
   'graphCur',
   'graphFanLines',
   'graphFanNames',
