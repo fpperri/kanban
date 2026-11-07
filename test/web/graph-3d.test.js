@@ -4,11 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   graph3dPathPoints, graph3dPlace, graph3dMorph, graph3dNextShape, graph3dShapeName,
-  graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplit,
-  graph3dPick, graph3dTopDown, graph3dKeep, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
+  graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
+  graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-  graph3dFit, graph3dFacing, graph3dKin, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
-  graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
+  graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -135,10 +136,10 @@ test('on the sphere a point is on the far side when the camera sees the back of 
 test('a line splits into its near runs and its far runs, each run sharing its end with the next so nothing gaps', () => {
   const pts = [[0], [1], [2], [3], [4], [5]];
   const farOf = (p) => p[0] >= 2 && p[0] <= 3;
-  const { near: n, far } = graph3dSplit([pts], farOf);
+  const { near: n, far } = graph3dSplitFar([pts], farOf);
   assert.deepStrictEqual(n, [[[0], [1], [2]], [[3], [4], [5]]]);
   assert.deepStrictEqual(far, [[[1], [2], [3], [4]]]);
-  const all = graph3dSplit([[[0], [1]]], () => false);
+  const all = graph3dSplitFar([[[0], [1]]], () => false);
   assert.deepStrictEqual(all, { near: [[[0], [1]]], far: [] });
 });
 
@@ -185,10 +186,14 @@ test('the camera looks straight down only with no tilt and no turn, whole turns 
   assert.strictEqual(graph3dTopDown({ phi: 0, theta: 0.5 }), false);
 });
 
-test('the page serves the file before the Graph, and the Graph draws in 3D only its Hierarchy under in3d=1', () => {
+test('the page serves every 3D Hierarchy file before the Graph, and the Graph draws in 3D only its Hierarchy under in3d=1', () => {
   const served = pageFiles(read('app.html'));
-  assert.ok(served.includes('graph-3d.js'));
-  assert.ok(served.indexOf('graph-3d.js') < served.indexOf('graph-view.js'));
+  const files = fs.readdirSync(WEB).filter((f) => /^graph-3d(-[a-z]+)?\.js$/.test(f));
+  assert.deepStrictEqual(files.sort(), ['graph-3d-camera.js', 'graph-3d-compass.js', 'graph-3d-ground.js', 'graph-3d-input.js', 'graph-3d-marks.js', 'graph-3d-view.js', 'graph-3d.js']);
+  for (const f of files) {
+    assert.ok(served.includes(f), f);
+    assert.ok(served.indexOf(f) < served.indexOf('graph-view.js'), f);
+  }
   const src = read('graph-view.js');
   assert.match(src, /const in3d = kind === 'hierarchy' && graph3dWanted\(\) && plan\.nodes\.length > 0;/);
   assert.match(src, /if \(kind === 'hierarchy'\) \{\s+const b = graphButton\('graph-3d-btn'/, 'the 3D button stands by the Hierarchy alone');
@@ -213,6 +218,36 @@ test('a left drag pans and a right drag orbits; Shift+left and a finger orbit; t
   assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'touch' }), 'orbit', 'one finger orbits');
   assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'pen' }), 'pan', 'a pen is a mouse');
   assert.strictEqual(graph3dDragMode({ button: 3, shiftKey: false, pointerType: 'mouse' }), null);
+});
+
+test('a right press holds back the menu the browser asks for on the press, and lets it through once the button is up with no drag', () => {
+  const press = { down: true, moved: false, held: null };
+  assert.strictEqual(graph3dMenuVerdict(press, false), 'hold', 'Linux and the Mac ask on the press');
+  assert.strictEqual(graph3dMenuVerdict({ down: true, moved: false, held: { x: 1, y: 1 } }, false), 'swallow', 'a second while one is held');
+  assert.strictEqual(graph3dMenuVerdict({ down: false, moved: false, held: null }, false), 'pass', 'Windows asks on the release');
+  assert.strictEqual(graph3dMenuVerdict(null, false), 'pass', 'the keyboard\'s Menu key');
+});
+
+test('a right drag never opens the card menu, on the press, on the release or after it', () => {
+  assert.strictEqual(graph3dMenuVerdict({ down: true, moved: true, held: null }, false), 'swallow');
+  assert.strictEqual(graph3dMenuVerdict({ down: false, moved: true, held: null }, false), 'swallow');
+});
+
+test('a menu asked for by a right button pressed during a left pan or a pinch is swallowed', () => {
+  assert.strictEqual(graph3dMenuVerdict(null, true), 'swallow');
+});
+
+test('a morph or a flight eases out and in, from 0 to 1 through the middle', () => {
+  assert.strictEqual(graph3dEase(0), 0);
+  assert.strictEqual(graph3dEase(0.5), 0.5);
+  assert.strictEqual(graph3dEase(1), 1);
+  assert.ok(graph3dEase(0.1) < 0.1 && graph3dEase(0.9) > 0.9);
+});
+
+test('coordinates are written to two decimals', () => {
+  assert.strictEqual(graph3dRound2(1.23456), 1.23);
+  assert.strictEqual(graph3dRound2(-7.891), -7.89);
+  assert.strictEqual(String(graph3dRound2(12)), '12');
 });
 
 test('a colour is read as the stylesheet writes it: #rgb, #rrggbb, rgb() and rgba()', () => {
@@ -243,12 +278,12 @@ test('a mark the lighting leaves unlit keeps less of its colour, but never less 
 });
 
 test('a mark fades into the ground as the camera comes close and is gone only past that, never popping', () => {
-  assert.strictEqual(graph3dKeep(1), 1, 'at an ordinary distance it keeps its colour');
-  assert.strictEqual(graph3dKeep(12), 1);
-  const mid = graph3dKeep(21);
+  assert.strictEqual(graph3dCloseFade(1), 1, 'at an ordinary distance it keeps its colour');
+  assert.strictEqual(graph3dCloseFade(12), 1);
+  const mid = graph3dCloseFade(21);
   assert.ok(mid > 0.4 && mid < 0.6, `half way through the fade: ${mid}`);
-  assert.ok(graph3dKeep(29) > 0 && graph3dKeep(29) < 0.1);
-  assert.strictEqual(graph3dKeep(31), 0, 'nearer than that it is not drawn');
+  assert.ok(graph3dCloseFade(29) > 0 && graph3dCloseFade(29) < 0.1);
+  assert.strictEqual(graph3dCloseFade(31), 0, 'nearer than that it is not drawn');
 });
 
 test('a mark is drawn at its perspective size up to a cap, and smaller as the disc tilts, unchanged from straight above', () => {
@@ -338,8 +373,8 @@ test('the camera faces a point of the sphere along its outward normal, turning t
 
 test('a card and the cards its lines join it to: its parent, its children, the cards it waits on', () => {
   const links = [{ from: 1, to: 2, kids: [2, 3] }, { from: 5, to: 1 }, { from: 2, to: 9 }];
-  assert.deepStrictEqual([...graph3dKin(links, 1)].sort(), ['1', '2', '3', '5']);
-  assert.deepStrictEqual([...graph3dKin(links, 3)].sort(), ['1', '3']);
+  assert.deepStrictEqual([...graph3dKinOf(links, 1)].sort(), ['1', '2', '3', '5']);
+  assert.deepStrictEqual([...graph3dKinOf(links, 3)].sort(), ['1', '3']);
 });
 
 test('the disc and the half sphere tilt no further than nearly edge-on; the sphere turns all the way under', () => {

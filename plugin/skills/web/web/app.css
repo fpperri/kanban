@@ -1693,7 +1693,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-dim .graph-link.graph-near { opacity: 0.85; }
 .graph-dim .graph-link:not(.graph-near) + .graph-link-count { opacity: 0.15; }
 
-/* The Hierarchy in 3D (graph-3d.js): the 2D drawing's own marks, moved each frame to where the camera sees
+/* The 3D Hierarchy (graph-3d-*.js): the 2D drawing's own marks, moved each frame to where the camera sees
    them, over a canvas where three.js draws the washes, guides, dividers and the block's frame on the shape. */
 .graph-3d { position: relative; flex: 1; min-height: 0; }
 /* The ground runs to the Graph's frame, over .graph-main's side and bottom padding (14px); the marks keep the
@@ -1706,20 +1706,27 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-3d .graph-3d-off { display: none; }
 .graph-3d.graph-3d-dragging .graph-canvas { cursor: grabbing; }
 /* A mark's colour in 3D: its ink (--graph-3d-ink, the colour its 2D rule gives it; a dot's is its card's
-   colour) mixed into the ground by depth, the sphere's far side and the lighting, which graph-3d.js writes
-   as --graph-3d-paint. Never see-through: in 3D near and far marks overlap, and see-through ones would show
+   colour) mixed into the ground by depth, the sphere's far side and the lighting, which graph-3d-marks.js
+   writes as --graph-3d-paint. Never see-through: in 3D near and far marks overlap, and see-through ones would show
    each other through, so the 2D Graph's dimming by opacity is undone here. A line is as wide as its ends
    are near (--graph-3d-w). */
 .graph-3d .graph-node > .graph-dot { color: var(--graph-3d-paint, currentColor); }
-.graph-3d .graph-node.has-kids .graph-kids-ring { --graph-3d-ink: var(--mut); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); }
-.graph-3d .graph-node.is-review .graph-flag-ring { --graph-3d-ink: var(--id-review); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); }
-.graph-3d .graph-node.is-waiting .graph-flag-ring { --graph-3d-ink: var(--id-waiting); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); }
-.graph-3d .graph-node.is-blocked .graph-flag-ring { --graph-3d-ink: var(--blocked-ink); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); }
-.graph-3d .graph-node .graph-node-id, .graph-3d .graph-node .graph-node-name, .graph-3d .graph-block-title, .graph-3d .graph-caption-name { --graph-3d-ink: var(--ink); fill: var(--graph-3d-paint, var(--graph-3d-ink)); }
-.graph-3d .graph-caption, .graph-3d .graph-block-caption, .graph-3d .graph-link-count { --graph-3d-ink: var(--mut); fill: var(--graph-3d-paint, var(--graph-3d-ink)); }
-.graph-3d .graph-link-parent { --graph-3d-ink: var(--mut); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); stroke-width: calc(1.4px * var(--graph-3d-w, 1)); }
-.graph-3d .graph-link-wait { --graph-3d-ink: var(--id-waiting); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); stroke-width: calc(1.4px * var(--graph-3d-w, 1)); }
-.graph-3d .graph-link-counted { --graph-3d-ink: var(--graph-bracket); stroke: var(--graph-3d-paint, var(--graph-3d-ink)); stroke-width: calc(2px * var(--graph-3d-w, 1)); }
+.graph-3d .graph-node.has-kids .graph-kids-ring { --graph-3d-ink: var(--mut); }
+.graph-3d .graph-node.is-review .graph-flag-ring { --graph-3d-ink: var(--id-review); }
+.graph-3d .graph-node.is-waiting .graph-flag-ring { --graph-3d-ink: var(--id-waiting); }
+.graph-3d .graph-node.is-blocked .graph-flag-ring { --graph-3d-ink: var(--blocked-ink); }
+.graph-3d .graph-node .graph-node-id, .graph-3d .graph-node .graph-node-name, .graph-3d .graph-block-title, .graph-3d .graph-caption-name { --graph-3d-ink: var(--ink); }
+.graph-3d .graph-caption, .graph-3d .graph-block-caption, .graph-3d .graph-link-count { --graph-3d-ink: var(--mut); }
+.graph-3d .graph-link-parent { --graph-3d-ink: var(--mut); }
+.graph-3d .graph-link-wait { --graph-3d-ink: var(--id-waiting); }
+.graph-3d .graph-link-counted { --graph-3d-ink: var(--graph-bracket); }
+/* The paint, each selector as specific as its mark's ink rule above (:is() counts as its most specific
+   argument), so it overrides the same 2D colour rules. */
+.graph-3d .graph-node.has-kids .graph-kids-ring, .graph-3d .graph-node:is(.is-review, .is-waiting, .is-blocked) .graph-flag-ring,
+.graph-3d :is(.graph-link-parent, .graph-link-wait, .graph-link-counted) { stroke: var(--graph-3d-paint, var(--graph-3d-ink)); }
+.graph-3d .graph-node :is(.graph-node-id, .graph-node-name), .graph-3d :is(.graph-block-title, .graph-caption-name, .graph-caption, .graph-block-caption, .graph-link-count) { fill: var(--graph-3d-paint, var(--graph-3d-ink)); }
+.graph-3d :is(.graph-link-parent, .graph-link-wait) { stroke-width: calc(1.4px * var(--graph-3d-w, 1)); }
+.graph-3d .graph-link-counted { stroke-width: calc(2px * var(--graph-3d-w, 1)); }
 .graph-3d .graph-dim .graph-node:not(.graph-near), .graph-3d .graph-dim .graph-link:not(.graph-near), .graph-3d .graph-dim .graph-link:not(.graph-near) + .graph-link-count { opacity: 1; }
 /* A card's id and name and a line's count are as large as their dot is near (--graph-3d-s, 0.8 to 1.5 times,
    exactly 1 from straight above), so the words keep the depth the marks have. */
@@ -1728,7 +1735,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* The focused card is told by its dot (.graph-node:focus-visible .graph-dot), never a box round its label. */
 .graph-3d .graph-node:focus-visible { outline: none; }
 /* A mark's contact shadow when tilted: its own soft round gradient, the ground darkened (--graph-3d-shadow-ink),
-   as strong at its middle as graph-3d.js says (--graph-3d-shadow) and gone at its edge. */
+   as strong at its middle as graph-3d-marks.js says (--graph-3d-shadow) and gone at its edge. */
 .graph-3d .graph-3d-shadow { pointer-events: none; }
 .graph-3d-shadow-core { stop-color: var(--graph-3d-shadow-ink); stop-opacity: var(--graph-3d-shadow, 0); }
 .graph-3d-shadow-mid { stop-color: var(--graph-3d-shadow-ink); stop-opacity: calc(0.7 * var(--graph-3d-shadow, 0)); }
@@ -1736,7 +1743,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* The quiet hint in the corner: the gestures for the first seconds, then the shape and its keys. */
 .graph-3d-label { position: absolute; left: 4px; bottom: 2px; margin: 0; color: var(--mut); font-size: 0.78em; user-select: none; }
 /* The compass in the stage's bottom-right corner: a dial on the plan, turned and tilted as the camera sees the
-   plan (graph-3d.js), its north the 2D Hierarchy's top; a press turns the view north up from straight above. */
+   plan (graph-3d-compass.js), its north the 2D Hierarchy's top; a press turns the view north up from straight above. */
 .graph-3d-compass { position: absolute; right: 6px; bottom: 6px; width: 44px; height: 44px; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; }
 .graph-3d-compass svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .graph-3d-compass-ring { fill: none; stroke: var(--line-strong); stroke-width: 1.4px; }

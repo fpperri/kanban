@@ -13,12 +13,12 @@
 // compass in the corner turns with the camera, and a press on it turns the view back north up from
 // straight above, where it looks and how near kept. The Flow and the Board take the scene down and
 // the Hierarchy brings 3D back (the address still says in3d=1). Turning 3D off takes the scene down:
-// the 2D drawing is back, the address drops in3d, and no animation frame of the 3D view is left waiting.
+// the 2D drawing is back, the address drops in3d, and no animation frame of the 3D Hierarchy is left waiting.
 //
 // Every gesture is a real input event (Input.dispatchMouseEvent, Input.dispatchKeyEvent). The
 // camera is read off the view's root (data-cam: turn, tilt, distance, then the target's x, y, z)
-// and the shape off data-shape. The frames the 3D view asks for are counted by wrapping
-// requestAnimationFrame before 3D is turned on: a request whose stack names graph-3d.js counts,
+// and the shape off data-shape. The frames the 3D Hierarchy asks for are counted by wrapping
+// requestAnimationFrame before 3D is turned on: a request whose stack names a graph-3d file counts,
 // and one that ran or was cancelled no longer waits. WebGL runs on SwiftShader in headless Chrome
 // (the runner's flags allow it).
 //
@@ -33,7 +33,7 @@ const COMPASS = `${ROOT}.querySelector('.graph-3d-compass-dial').getAttribute('t
 const MENU_AT = (x, y) => `document.elementFromPoint(${x},${y}).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:${x},clientY:${y},view:window}))`;
 const CAM = `(()=>{const r=${ROOT};if(!r||!r.dataset.cam)return null;const [theta,phi,dist,tx,ty,tz]=r.dataset.cam.split(',').map(Number);return {theta,phi,dist,tx,ty,tz}})()`;
 const FRAMES = `(()=>{const raf=window.requestAnimationFrame.bind(window),caf=window.cancelAnimationFrame.bind(window);const f=window.__graph3dFrames={pending:new Set(),asked:0};`
-  + `window.requestAnimationFrame=(cb)=>{const mine=/graph-3d\\.js/.test(new Error().stack||'');let id=0;id=raf((t)=>{f.pending.delete(id);cb(t)});if(mine){f.pending.add(id);f.asked++}return id};`
+  + `window.requestAnimationFrame=(cb)=>{const mine=/graph-3d(-[a-z]+)?\\.js/.test(new Error().stack||'');let id=0;id=raf((t)=>{f.pending.delete(id);cb(t)});if(mine){f.pending.add(id);f.asked++}return id};`
   + `window.cancelAnimationFrame=(id)=>{f.pending.delete(id);caf(id)};return true})()`;
 
 module.exports = {
@@ -114,6 +114,18 @@ module.exports = {
     await page.sleep(400);
     check('a right drag opens no menu when the browser asks for it as the button goes down', await ev(`${menu}.classList.contains('hidden')`));
 
+    // The right button pressed in the middle of a left pan: the browser fires no pointerdown for it, only the
+    // contextmenu, which is swallowed (dispatchEvent answers false), so neither the card menu nor the
+    // browser's own opens.
+    await mouse('mouseMoved', spot.x, spot.y, { button: 'none' });
+    await mouse('mousePressed', spot.x, spot.y, { button: 'left' });
+    for (let k = 1; k <= 4; k++) await mouse('mouseMoved', spot.x + 10 * k, spot.y, { button: 'left', buttons: 1 });
+    const chordPassed = await ev(MENU_AT(spot.x + 40, spot.y));
+    await mouse('mouseReleased', spot.x + 40, spot.y, { button: 'left' });
+    await settled();
+    await page.sleep(400);
+    check('a right press in the middle of a left pan opens no menu, the browser\'s own included', chordPassed === false && await ev(`${menu}.classList.contains('hidden')`), { chordPassed });
+
     // The compass: north up, from straight above, the target and the distance kept.
     const before = await settled();
     const needle = await centre('#graph-view .graph-3d-compass');
@@ -186,7 +198,7 @@ module.exports = {
     await ev(`setView('graph')`);
     check('back in the Graph, 3D is drawn again', await waitFor(drawn3d, 10000));
 
-    // 3D off: the 2D drawing is back and the 3D view leaves no frame waiting.
+    // 3D off: the 2D drawing is back and the 3D Hierarchy leaves no frame waiting.
     const back = await centre('.graph-kinds .graph-3d-btn');
     await click(back.x, back.y);
     check('the 3D button turns 3D off: the 2D drawing is back and the address drops in3d', await waitFor(`!${ROOT}&&!!document.querySelector('#graph-view .graph-stage > svg.graph-canvas')&&new URLSearchParams(location.search).get('in3d')===null`, 5000));

@@ -25,7 +25,7 @@ const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
 // Three libraries ride with the plugin, vendored under web/vendor and loaded lazily (never named in
 // app.html): the page script code-blocks.js asks for the first two when a rendered body holds a block
 // that needs one (highlight.js colours a typed code block, mermaid draws a ```mermaid block), and
-// graph-3d.js asks for three.js (r160, its classic build) the first time the Graph's Hierarchy is drawn
+// graph-3d-view.js asks for three.js (r160, its classic build) the first time the Graph's Hierarchy is drawn
 // in 3D. They are served by exact name and nothing else under vendor is (the licence files sit beside
 // them unserved).
 const VENDORED = [

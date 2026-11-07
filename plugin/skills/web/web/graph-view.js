@@ -513,7 +513,7 @@ function graphBuildHoverRow() {
 
 // The Hierarchy | Flow choice: two buttons, the one drawn pressed. They stand in the top-right toolbar of the
 // drawing, left of the (i) and the panel's button, so they show whether the option panel is open or shut.
-// While the Hierarchy shows, a 3D button follows them, pressed while the address says in3d=1 (graph-3d.js).
+// While the Hierarchy shows, a 3D button follows them, pressed while the address says in3d=1 (graph-3d-view.js).
 function graphBuildKinds(kind) {
   const kinds = document.createElement('div');
   kinds.className = 'graph-kinds';
@@ -1116,7 +1116,7 @@ function renderGraphView() {
 
   const drawn = graphDrawPlan(plan);
   if (in3d) {
-    // The 3D Hierarchy (graph-3d.js) moves these same marks to where its camera sees them.
+    // The 3D Hierarchy (graph-3d-marks.js) moves these same marks to where its camera sees them.
     paintTypeColors(drawn.svg);
     drawn.svg.classList.add(`graph-kind-${kind}`);
     graphCur = {
