@@ -46,6 +46,7 @@ The docs tests, and what each holds to the code:
 
 - `test/web/kanban-skill-contract.test.js`: the `config.yaml` examples of the kanban skill, `docs/web.md` and the README (read by `parseConfig`), the card fields, the card and notification examples, the forms of a parent, the starter against its file, and the commands against the scripts and flags they run.
 - `test/web/notes-kit-contract.test.js`: the logbook, scratchpad, todo and group examples of the kanban skill, read by their stores, the file names the skill gives, and the placeholders `path-vars.js` fills.
+- `test/web/workspace-evidence-contract.test.js`: the `workspace` and `evidence` keys of the kanban skill, and that every write path (the web form's payload, a PATCH, archive and restore, a rank write, the tray apply) keeps them verbatim.
 - `test/web/doc-examples.test.js`: the search terms and the address the docs show, run through the search module.
 - `test/web/artifact-skill-docs.test.js`: the artifact skill's `SKILL.md` against the build and the apply: the build command and its flags (run), the change payload and the record keys it shows (taken from what the page copies), the temp map and the device labels the apply reports, the capabilities it publishes with, the apply command and its report keys, and the file the apply leaves for a commit.
 - `test/snapshot/snapshot-contract.test.js`: the ops and `fm` shapes of `apply-protocol.md` against the payload the editor makes, and the web modules `docs/cross-harness.md` names against the generator's embed table.
