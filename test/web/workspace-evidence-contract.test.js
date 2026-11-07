@@ -121,3 +121,11 @@ test('SKILL.md names both keys and the named-root form the path rule leans on', 
   const vars = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'scripts', 'path-vars.js'), 'utf8');
   assert.match(vars, /`vars:`/);
 });
+
+test('the web form names neither pointer in its save payload, so a save leaves them to the store', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', 'plugin', 'skills', 'web', 'web', 'app.js'), 'utf8');
+  const start = src.indexOf('async function submitModal');
+  const payload = src.slice(start, src.indexOf('try {', start));
+  assert.ok(payload.includes('title:'), 'found the payload');
+  assert.ok(!/workspace|evidence/.test(payload));
+});
