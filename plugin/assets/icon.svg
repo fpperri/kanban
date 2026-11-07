@@ -2,7 +2,7 @@
   <!-- The kanban plugin's icon: a pink brain with four streams falling out of
        it, fading from the brain's pink into the backlog, todo, doing and done
        colors of status-colors.js. The canonical file is assets/icon.svg; the web
-       tab icon and the snapshot's inline copy are identical to it, and tests
+       tab icon is identical to it, and tests
        keep them so. -->
   <defs>
     <radialGradient id="pink" gradientUnits="userSpaceOnUse" cx="13" cy="5" r="14"><stop offset="0" stop-color="#ffd0de"/><stop offset=".6" stop-color="#f2a7bd"/><stop offset="1" stop-color="#d9809d"/></radialGradient>

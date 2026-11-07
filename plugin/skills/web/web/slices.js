@@ -2,7 +2,7 @@
 // Pure slicing: which slice each card is in, on one top-to-bottom axis. A slice
 // is a tier of the board's hierarchy, or, for a card whose type is not in it, a
 // depth. No DOM, no storage, and two other modules, the id and nesting modules:
-// the snapshot embeds this file's source verbatim, ids.js and nesting.js ahead of
+// a built page embeds this file's source verbatim, ids.js and nesting.js ahead of
 // it. Same dual-environment pattern as nesting.js.
 //
 // A card here is { id, type }. `hierarchy` is the names as the board wrote them,
@@ -15,7 +15,7 @@ const SLICES_IDS = (typeof module !== 'undefined' && module.exports) ? require('
 const SLICES_NEST = (typeof module !== 'undefined' && module.exports) ? require('./nesting') : window;
 
 // A card's key in the depth map and in byId: its whole-id string. A value that is no id
-// (the snapshot's queued cards are `n1`, `n2`) keys as its own text.
+// (a queued card's temporary id is `n1`, `n2`) keys as its own text.
 function sliceKey(id) {
   const key = SLICES_IDS.idKey(id);
   return key === null ? String(id) : key;

@@ -117,8 +117,8 @@ const NSM = (typeof module !== 'undefined' && module.exports) ? require('./nesti
 // Ids are read and compared through the id module (a card is `#7` or `#G7`, never a number).
 const SEARCH_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;
 
-// The key of a card in an id set: its whole-id string. A value that is no id (the
-// snapshot's queued cards are `n1`, `n2`) keys as its own text, so two of them never meet.
+// The key of a card in an id set: its whole-id string. A value that is no id (a
+// queued card's temporary id is `n1`, `n2`) keys as its own text, so two of them never meet.
 function searchKey(id) {
   const key = SEARCH_IDS.idKey(id);
   return key === null ? String(id) : key;
@@ -787,7 +787,7 @@ function cardMatchesQuery(card, terms) {
 // (waiting_for + parent edges) the map's graph is built from (parent edges
 // shape layout but draw no line). A context with `graph: { treeIds, pathIds, hpathIds,
 // htreeIds, dpathIds, dtreeIds, dlinksIds, hlinksIds }` hands in its own functions instead, each called as
-// (cards, id, ctx), so the snapshot can resolve over the graph it already holds; one it
+// (cards, id, ctx), so a page can resolve over the graph it already holds; one it
 // leaves out is the dependency graph's.
 //
 // Contract note: `cards` here doubles as "the cards to filter down" AND (only

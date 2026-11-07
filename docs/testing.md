@@ -1,14 +1,14 @@
 # Testing
 
-The plugin has no package dependencies (two libraries are vendored under `plugin/skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later (the snapshot's also need Python 3.11 as `python`). Run these from the repo root.
+The plugin has no package dependencies (two libraries are vendored under `plugin/skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later. Run these from the repo root.
 
-The plugin ships from `plugin/` (the four skills and the icon); the tests live outside it, in `test/web/` and `test/snapshot/`, so an install carries none of them. `.claude-plugin/marketplace.json` stays at the repo root and points its one plugin at `./plugin`.
+The plugin ships from `plugin/` (the three skills and the icon); the tests live outside it, in `test/web/`, so an install carries none of them. `.claude-plugin/marketplace.json` stays at the repo root and points its one plugin at `./plugin`.
 
 ## The scripts
 
 | Script | Runs | Use it |
 | --- | --- | --- |
-| `npm run test:unit` | every `test/web/*.test.js` except `launcher.test.js`, and every `test/snapshot/*.test.js` | while working; skips the launcher test |
+| `npm run test:unit` | every `test/web/*.test.js` except `launcher.test.js` | while working; skips the launcher test |
 | `npm run test:launcher` | `test/web/launcher.test.js` alone | at the desk only: it starts real servers on temp boards |
 | `npm test` | all of the unit files, the launcher test included | what the `tests` workflow's unit job runs |
 | `npm run test:browser` | the browser runner over every scenario | after a change to a page, a style or a scenario; needs Chrome, Edge or Chromium |
@@ -40,7 +40,7 @@ Scenarios drive the real page in headless Chrome over the DevTools Protocol, eac
 
 A doc gets a pinning test only for what a person, a tool or an agent copies, runs or parses: a command, a flag, a path, a file name or format, a port, a route or a payload shape. The test takes its expectation from the code, or runs the doc's own example through the real module; it never quotes a sentence. `test/web/hotkeys-coverage.test.js` is the model: the keys the page reads are found in its own source, and the list is held to them.
 
-Prose about what the app does gets no docs test. The behaviour tests and the browser scenarios pin the behaviour, so changing a sentence of `docs/web.md`, of a web or snapshot `SKILL.md` or of `GLOSSARY.md` costs no test, and a behaviour with no test of its own is a gap to fill in the behaviour tests, not with a regex on a doc.
+Prose about what the app does gets no docs test. The behaviour tests and the browser scenarios pin the behaviour, so changing a sentence of `docs/web.md`, of a web or artifact `SKILL.md` or of `GLOSSARY.md` costs no test, and a behaviour with no test of its own is a gap to fill in the behaviour tests, not with a regex on a doc.
 
 The docs tests, and what each holds to the code:
 
@@ -48,13 +48,12 @@ The docs tests, and what each holds to the code:
 - `test/web/notes-kit-contract.test.js`: the logbook, scratchpad, todo and group examples of the kanban skill, read by their stores, the file names the skill gives, and the placeholders `path-vars.js` fills.
 - `test/web/doc-examples.test.js`: the search terms and the address the docs show, run through the search module.
 - `test/web/artifact-skill-docs.test.js`: the artifact skill's `SKILL.md` against the build and the apply: the build command and its flags (run), the change payload and the record keys it shows (taken from what the page copies), the temp map and the device labels the apply reports, the capabilities it publishes with, the apply command and its report keys, and the file the apply leaves for a commit.
-- `test/snapshot/snapshot-contract.test.js`: the ops and `fm` shapes of `apply-protocol.md` against the payload the editor makes, and the web modules `docs/cross-harness.md` names against the generator's embed table.
 - `test/web/doc-paths.test.js`: every repository path a doc names exists.
 - `test/web/handles-in-skill-docs.test.js`: no `SKILL.md` carries a bare `@handle`, which the harness would read as an import.
 - `test/web/docs-utf8.test.js`: every doc decodes as strict UTF-8.
 - `test/web/testing-docs.test.js`: this file's scripts, flags, variables and paths.
 
-The contract docs are the kanban skill's `SKILL.md` and the `references/*.md` beside it, the snapshot's `plugin/skills/snapshot/references/apply-protocol.md`, `docs/cross-harness.md` and the README's `config.yaml` and `Starter config` sections. The `tests` workflow's unit job checks out the whole history and, after `npm test`, runs `test/web/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches a contract doc and touches no docs test (`test/**/*-contract.test.js`, `test/**/*-docs.test.js`, `test/web/doc-examples.test.js` or `test/web/doc-paths.test.js`), the step fails and names the doc. For the README it reads the diff of the file and counts only the hunks that land in those two sections. On a push to `main` there is no pull request base and it does nothing.
+The contract docs are the kanban skill's `SKILL.md` and the `references/*.md` beside it, `docs/cross-harness.md` and the README's `config.yaml` and `Starter config` sections. The `tests` workflow's unit job checks out the whole history and, after `npm test`, runs `test/web/docs-pinned-check.js`. On a pull request the script reads `git diff --name-only <base>...HEAD`; if the change touches a contract doc and touches no docs test (`test/**/*-contract.test.js`, `test/**/*-docs.test.js`, `test/web/doc-examples.test.js` or `test/web/doc-paths.test.js`), the step fails and names the doc. For the README it reads the diff of the file and counts only the hunks that land in those two sections. On a push to `main` there is no pull request base and it does nothing.
 
 For a change the tests cannot say anything about (a typo, a reworded sentence no test reads), a line in any commit message of the pull request lets it through:
 
@@ -63,7 +62,3 @@ Docs-test: none, <reason>
 ```
 
 The reason is required and the line stands alone; the placeholder `<reason>` left as it is does not count. The script's decision is unit-tested with fixtures in `test/web/docs-pinned-check.test.js`; run it by hand with `node test/web/docs-pinned-check.js --base origin/main`.
-
-## Snapshot tests
-
-The snapshot editor is built by a Python script, `plugin/skills/snapshot/scripts/build_editor.py`. Its tests (`test/snapshot/`) run it in two ways: by reading the script as text and pulling out a marked block, or by running it with `execFileSync('python', [buildScript, board, '--out', file])` on a temp board and reading the HTML it wrote, which `page-harness.js` then loads in a vm. A `*-parity.test.js` file runs the same input through the Python and the web's JavaScript and compares the answers. Python's `__pycache__/` is ignored; do not commit it.

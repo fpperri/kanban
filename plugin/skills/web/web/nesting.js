@@ -1,7 +1,7 @@
 'use strict';
 // Pure nesting rules: which card sits under which, and in what order a board
 // reads as an outline. No DOM, no storage, and one other module, the id module:
-// the snapshot embeds this file's source verbatim, ids.js ahead of it.
+// a built page embeds this file's source verbatim, ids.js ahead of it.
 // Same dual-environment pattern as search.js / column-sort.js.
 //
 // A card here is { id, parent, rank, priority, board? }. `parent` and `rank`

@@ -1,7 +1,7 @@
 'use strict';
 // Pure run of slices for the search panel's slice section: which slices the section
 // lists, which of them are in the run, and what a click or a key does to the run.
-// No DOM, no storage, and one other module, the id module: the snapshot embeds this
+// No DOM, no storage, and one other module, the id module: a built page embeds this
 // file's source verbatim, ids.js ahead of it. Same dual-environment
 // pattern as slices.js and pills.js.
 //

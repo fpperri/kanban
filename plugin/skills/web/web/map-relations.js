@@ -2,7 +2,7 @@
 // Pure rules for what the map draws from a board's relations: which parent
 // lines, which cards share a graph, in what order a row reads, where cards and
 // lines fall, and the words over a graph. No DOM, no storage and one other
-// module, the id module: the snapshot embeds this file's source verbatim, ids.js
+// module, the id module: a page can embed this file's source verbatim, ids.js
 // ahead of it. Same dual-environment pattern as nesting.js / search.js.
 
 const MR_IDS = (typeof module !== 'undefined' && module.exports) ? require('./ids') : window.kanbanIds;

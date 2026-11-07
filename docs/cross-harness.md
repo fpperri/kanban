@@ -11,23 +11,13 @@ that tag into the installer's selection menu.
 - **`kanban-web`** — portable. A Node-stdlib-only local server + vanilla-JS
   SPA (`node skills/web/scripts/server.js <board-dir>`); works from any
   harness that can run a shell command and open a browser.
-- **`kanban-snapshot`** — **partially portable.** The generator
-  (`build_editor.py`) and the static HTML it produces are plain Python +
-  browser code with no Claude dependency, though the generator reads the web
-  skill's nesting, slices, map and search modules (`skills/web/web/nesting.js`,
-  `skills/web/web/slices.js`, `skills/web/web/map-relations.js`,
-  `skills/web/web/search.js`), the Explore sets the search's `hpath:`, `htree:`, `dpath:` and `dtree:`
-  terms read, and its `dlinks:` and `hlinks:` terms (`skills/web/web/explore-sets.js`), the type icons
-  module (`skills/web/web/type-icons.js`), the search panel's pill list and run of slices
-  (`skills/web/web/pills.js`, `skills/web/web/slice-run.js`), the key guard and the combobox rules
-  the panel's keys and suggestion list read (`skills/web/web/key-guard.js`,
-  `skills/web/web/combobox.js`) and the waiting rules the search reads
-  (`skills/web/web/waiting-blocked.js`), the id module they read ids through
-  (`skills/web/web/ids.js`) and the Markdown renderer and the code-block modules
-  a card's body is drawn with (`skills/web/web/markdown.js`,
-  `skills/web/web/code-libs.js`, `skills/web/web/code-blocks.js`) and exits
-  without them, so install it beside `kanban-web`. But the SKILL.md's delivery/apply
-  loop names Claude-specific tools and surfaces (`SendUserFile`, "Cowork",
-  the Claude mobile app) — another harness can reuse the underlying idea (run
-  the script, hand back the HTML, read a pasted payload back into the chat)
-  but not those exact tool calls.
+- **`kanban-artifact`** — **partially portable.** The build
+  (`skills/web/scripts/artifact-build.js`) and the apply
+  (`skills/web/scripts/apply-tray.js`) are Node scripts with no Claude
+  dependency, and the HTML file the build makes opens in any browser. They
+  read the web skill's own files, so install it beside `kanban-web`. But the
+  SKILL.md's publish and tray loop names Claude-specific tools and surfaces
+  (the Artifact tool, `ArtifactData`, "Cowork", the Claude mobile app)
+  — another harness can reuse the underlying idea (build the file, hand it
+  back, read the saved changes back into the chat) but not those exact tool
+  calls.

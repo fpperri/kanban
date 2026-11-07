@@ -1,6 +1,6 @@
 'use strict';
 // The one Markdown renderer: card bodies and scratchpad previews draw through it (the notes list
-// will), and the snapshot embeds this same file and builds DOM nodes from its parse. Hand-rolled, no
+// will), and the built page embeds this same file. Hand-rolled, no
 // dependency. Headings, ordered and unordered lists (nested, mixed, loose, with `- [x]` task items
 // and lazy continuation lines), block quotes, fenced code (``` or ~~~, any longer run, a language
 // label and a Copy button when typed), pipe tables, rules, collapsible <details> sections, bold,
@@ -514,7 +514,7 @@ const markdownModule = (() => {
 
   // A picture is drawn only where the caller hands in opts.imageSrc, which turns the body's path into
   // the address of a route that sends the file (the web's, by card): the src is never the body's own
-  // text. Without it (the snapshot, which has no server, or a preview with no card) the alt text, or
+  // text. Without it (the Board artifact, which has no server, or a preview with no card) the alt text, or
   // the path when there is none, is a plain label; the page swaps a picture the server refused or could
   // not find for the same label.
   function imgHtml(t, ctx) {

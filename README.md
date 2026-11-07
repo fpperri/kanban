@@ -30,8 +30,8 @@ guide for each editing surface:
 
 - **[Web editor](docs/web.md)** — the live browser app: board,
   dependency map, gantt, calendar, graph, and full drag-drop CRUD.
-- **[Mobile snapshot](docs/snapshot.md)** — a tap-through board for your phone that
-  queues its edits back to Claude to apply.
+- **Board artifact** (skill `kanban-artifact`) — the web editor built with the board
+  inside, for your phone, a tablet or Cowork; it queues its edits back to Claude to apply.
 
 ## Install
 
@@ -90,14 +90,13 @@ is a self-contained sample board; point the same command at any directory of
 | --- | --- | --- |
 | `kanban` | the AI | AI-driven card management — every file contract (card frontmatter, `config.yaml`, `notifications.md`) and when the AI must notify the human lives here. |
 | `kanban-web` | the human, at a browser | A live browser editor: a localhost Node server (stdlib-only) + vanilla-JS SPA with drag-drop board, full CRUD, bulk actions, a search panel of slices and pills, a selection you can isolate, a preferences sheet, a notifications inbox, and five views (board, dependency map, gantt, calendar, graph). Bound to `127.0.0.1` only. |
-| `kanban-snapshot` | the human, phone/tablet/Cowork | Generates a self-contained single-file HTML board — a tap UI (move, edit, archive, delete, create, and the web editor's search grammar and panel of slices and pills) whose edits queue in a tray, nothing touching disk until you paste its "Apply kanban changes" payload back into chat — Claude is the write path. |
+| `kanban-artifact` | the human, phone/tablet/Cowork | The web editor built with the board inside: a hosted Board artifact or a single downloadable file that needs no server. Its edits queue in a tray, nothing touching disk until Claude applies them — Claude is the write path. |
 
-The web editor and the snapshot write under the same board contracts (the
-`doing` entry gate, archive-as-location, id allocation) — the snapshot
-indirectly, through a payload Claude applies. Its own deliberate gaps are
-listed in its skill. See `GLOSSARY.md` for the full parity table.
+The web editor and the Board artifact write under the same board contracts (the
+`doing` entry gate, archive-as-location, id allocation) — the artifact
+indirectly, through a tray Claude applies. See `GLOSSARY.md` for the full parity table.
 
-Card bodies, the scratchpad's preview and the snapshot's card sheet render rich Markdown the same
+Card bodies, the scratchpad's preview and the Board artifact's card sheet render rich Markdown the same
 way: headings, nested lists, quotes, tables, strike, underline, collapsible `<details>`, and fenced
 code that shows its language (` ```c# `) with a Copy button. Two libraries are vendored under
 `plugin/skills/web/web/vendor` and load only when a body needs one: highlight.js (BSD-3) colours the

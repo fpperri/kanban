@@ -1,7 +1,7 @@
 'use strict';
-// The old Snapshot page's change payload as tray records. Dated 2026-10-31: this goes one release after
-// the switch to kanban:artifact, with its call in apply-tray.js and its test; until then a change queued
-// on an old page is applied like any tray.
+// The old Snapshot page's change payload as tray records. Dated 2026-11-06: the page (the retired
+// kanban-snapshot skill) is gone, and this goes in the next release, with its call in apply-tray.js and its
+// test; until then a change queued on an old page is applied like any tray.
 //
 // The old page records ops, not saves:
 //   Apply kanban changes (N ops, base <ISO>):
