@@ -136,7 +136,7 @@ here but a `slice:` cut (see **Lighting**), and it spans live and archived cards
 and relations sits in the header; a board with nothing to draw says "No cards to show".
 **Lighting.** The Graph dims everything but what is lit, and one dimming serves the
 pointer, a lone card, a selection and a search typed in the box. **Hover or keyboard
-focus** on a dot lights the sets *On hover show* ticks for that card (by default the card and the cards it has a
+focus** on a dot lights the sets *On hover show* ticks for that card, cut to the sides its Hierarchy and Dependencies buttons say (by default the card and the cards it has a
 relation with), with the lines between them, until the pointer leaves. **Click** a dot to select it (painted in place,
 so a double click is not interrupted by a rebuild): a **lone card** picked by a click
 stays lit with its one-hop relations after the pointer leaves, and the relations light

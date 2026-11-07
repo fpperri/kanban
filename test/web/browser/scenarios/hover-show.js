@@ -2,8 +2,8 @@
 // "On hover show", on the plan board. The search panel has six checkboxes, one per set (dtree, htree, dpath, hpath,
 // dlinks, hlinks), and hovering or focusing a card lights the union of the ticked sets for it in every view: the
 // Board gives each card of the union the hover look, the Graph lights them with the rest dimmed and keeps the hover
-// ring on the hovered card alone. The choice is kept per board and per graph kind: the Hierarchy ticks dlinks and
-// hlinks at first, the Flow the same, and every view that is not the Flow reads the Hierarchy's. Each step
+// ring on the hovered card alone. The choice is kept per board and is one for every view, the Flow included: dlinks
+// and hlinks are ticked at first, with the Hierarchy and Dependencies toggles on their & states. Each step
 // waits on the page, never on a fixed sleep, and the pointer is a mouseover or mouseout on the card or its dot
 // and the focus a focus() on it, which are the events the page's hover listens to; a checkbox is pressed with
 // click(), which toggles it and fires the change the page listens to.
@@ -18,9 +18,12 @@
 // Flow draws as dependencies and not as parent lines.
 //
 // The Graph's side panel has the same six as toggles under On hover (graph-view.js), in the Hierarchy and the Flow,
-// editing the one choice the search panel edits. The last steps press them on the plan board's card 7: the toggles
-// show the kept choice, three presses while the dot is hovered light the union of dtree and hpath at once, the search
-// panel's boxes show the same two, and Space writes them in the panel's order; the Flow's toggles show the Flow's own.
+// editing the one choice the search panel edits. The steps after the Flow press them on the plan board's card 7: the
+// toggles show the kept choice, three presses while the dot is hovered light the union of dtree and hpath at once, the
+// search panel's boxes show the same two, and Space writes them in the panel's order; the Flow's toggles show the same.
+// The last steps work the Hierarchy and Dependencies toggles: one clicked in the search panel shows in the Graph's
+// panel and the other way round, a hover lights the cut set, Space writes the sides into the terms, and Isolate on the
+// Board hides every card the hover did not light.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // hoveredId, graphCur.
@@ -29,7 +32,9 @@ const CASES = {
   kinds: ['dtree', 'htree', 'dpath', 'hpath', 'dlinks', 'hlinks'],
   // How the six stand in both places: two columns by three rows read across, the h sets left, the d sets right.
   grid: ['hlinks', 'dlinks', 'hpath', 'dpath', 'htree', 'dtree'],
-  hierarchy: ['dlinks', 'hlinks'],
+  start: ['dlinks', 'hlinks'],
+  // Both toggles on their & states at first.
+  startSides: ['above&below', 'before&after'],
   // On the Board, card 7, with what each choice of the Hierarchy lights among the cards the Board draws.
   board: {
     card: 7,
@@ -41,12 +46,25 @@ const CASES = {
   },
   // In the Hierarchy, with nothing chosen yet: card 2 lights with what it lit before the choice existed.
   graph: { card: 2, defaults: [1, 2, 6, 7, 8] },
-  // In the Flow, card 3: the dependencies and the parent at first, then the dependencies alone when hlinks is unticked
-  // there; the Hierarchy's own choice (hlinks alone, from the Board's steps) lights the parent and the card.
-  flow: { card: 3, kinds: ['dlinks', 'hlinks'], defaults: [1, 3, 4, 6], noHlinks: { kinds: ['dlinks'], lit: [3, 4, 6] }, hierarchy: [1, 3] },
+  // In the Flow, card 3, with the choice the Board's steps left (hlinks alone): the parent and the card. Ticking dlinks
+  // there lights the dependencies and the parent, unticking hlinks leaves the dependencies alone; the Hierarchy then reads
+  // that same choice, and ticking hlinks and unticking dlinks there puts hlinks alone back for the Flow to read.
+  flow: { card: 3, kept: { kinds: ['hlinks'], lit: [1, 3] }, plusDlinks: { kinds: ['dlinks', 'hlinks'], lit: [1, 3, 4, 6] }, dlinksAlone: { kinds: ['dlinks'], lit: [3, 4, 6] } },
   // In the Hierarchy's side panel, card 7: the choice kept so far (hlinks alone) lights its parent and child; pressing
   // hlinks off and hpath and dtree on lights the union of the two, and Space writes their terms.
   sidebar: { card: 7, before: { kinds: ['hlinks'], lit: [2, 7, 22] }, press: ['hlinks', 'hpath', 'dtree'], after: { kinds: ['dtree', 'hpath'], lit: [1, 2, 7, 8, 22, 23, 24, 25] }, text: 'dtree:7 | hpath:7' },
+  // The toggles, card 7, with dtree and hpath ticked: the search panel's Hierarchy toggle clicked once reads above in
+  // both panels, the Graph's clicked once more reads below in both, and its Dependencies toggle clicked once reads before
+  // in both. Below and before light the card and what is nested under it, minus what waits behind it (card 8).
+  sides: {
+    card: 7,
+    kinds: ['dtree', 'hpath'],
+    searchHierarchy: 'above',
+    graphHierarchy: 'below',
+    graphDependencies: 'before',
+    lit: [7, 22, 23, 24, 25],
+    text: 'dtree:7:before | hpath:7:below',
+  },
 };
 
 const { openPanel: openSidePanel, unfoldSearchSection } = require('../panel');
@@ -71,7 +89,8 @@ module.exports = {
     const GRID_SHAPE = (els) => `(()=>{const r=${els}.map((e)=>e.getBoundingClientRect());return r.length===6&&[0,1,2].every((i)=>Math.abs(r[2*i].top-r[2*i+1].top)<2&&r[2*i].left<r[2*i+1].left&&(i===0||(r[2*i].top>r[2*i-2].top+2&&Math.abs(r[2*i].left-r[0].left)<2)))})()`;
     const SIDE = `[...document.querySelectorAll('#graph-view .graph-option-btn[data-key="hover"]')]`;
     const SIDE_TICKED = byKindOrder(`${SIDE}.filter((b)=>b.getAttribute('aria-pressed')==='true').map((b)=>b.dataset.val)`);
-    const NOTE = `document.getElementById('search-hover-for').textContent`;
+    const SEARCH_SIDE = (toggle) => `document.querySelector('#search-hover [data-hover-side="${toggle}"]')`;
+    const GRAPH_SIDE = (toggle) => `document.querySelector('#graph-view .graph-option-btn[data-key="hover-side"][data-val="${toggle}"]')`;
     const PANEL_OPEN = `!document.getElementById('search-panel').classList.contains('hidden')&&document.getElementById('search-panel').getBoundingClientRect().height>0`;
     const CARD = (id) => `#board .card-el[data-id="${id}"]`;
     const DOT = (id) => `.graph-node:not(.graph-flow-lane-head)[data-id="${id}"]`;
@@ -79,12 +98,16 @@ module.exports = {
     const over = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);
     const out = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))`);
     const tilesAre = (ids) => listIs(TILES, ids);
+    const tilesShown = (ids) => listIs(`[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>Number(e.dataset.id)))].sort((a,b)=>a-b)`, ids);
     const nodesAre = (ids) => listIs(NODES, ids);
     const tickedAre = (kinds) => listIs(TICKED, kinds);
     const tick = (kind) => ev(`document.querySelector('#search-hover [data-hover-kind="${kind}"]').click()`);
     const sideAre = (kinds) => listIs(SIDE_TICKED, kinds);
     const sidePress = (kind) => ev(`${SIDE}.find((b)=>b.dataset.val==='${kind}').click()`);
-    const noteIs = (text) => waitFor(`${NOTE}===${JSON.stringify(text)}`);
+    const searchSideIs = (toggle, label) => waitFor(`${SEARCH_SIDE(toggle)}.textContent===${JSON.stringify(label)}`);
+    const graphSideIs = (toggle, label) => waitFor(`${GRAPH_SIDE(toggle)}.textContent===${JSON.stringify(label)}`);
+    const searchSideClick = (toggle) => ev(`${SEARCH_SIDE(toggle)}.click()`);
+    const graphSideClick = (toggle) => ev(`${GRAPH_SIDE(toggle)}.click()`);
     const openPanel = async () => {
       await ev(`document.getElementById('search-input').focus()`);
       await waitFor(PANEL_OPEN);
@@ -115,9 +138,9 @@ module.exports = {
     // --- the Board: the hover look on every card of the union -----------------------------------------------------------
     check('the Board draws the plan board', await onBoard());
     check('the panel opens with the box focused', await openPanel());
-    check('the panel has the six sets, dlinks and hlinks ticked, and says the choice is the Hierarchy\'s and the other views\'',
+    check('the panel has the six sets, dlinks and hlinks ticked, and the Hierarchy and Dependencies toggles on their & states',
       await waitFor(`document.querySelectorAll('#search-hover [data-hover-kind]').length===${CASES.kinds.length}`)
-        && await tickedAre(CASES.hierarchy) && await noteIs('Hierarchy and the other views'));
+        && await tickedAre(CASES.start) && await searchSideIs('hierarchy', CASES.startSides[0]) && await searchSideIs('dependencies', CASES.startSides[1]));
     check('the six boxes stand in two columns by three rows, the h sets left and the d sets right, links then path then tree',
       await listIs(BOXES + '.map((b)=>b.dataset.hoverKind)', CASES.grid) && await waitFor(GRID_SHAPE(BOXES + '.map((b)=>b.closest("label"))')));
     const card = CASES.board.card;
@@ -147,37 +170,45 @@ module.exports = {
     await ev(`document.activeElement.blur()`);
     check('and leaving it clears the set', await waitFor(`hoveredId===null`) && await tilesAre([]));
 
-    // --- the choice is kept for the board, and the Flow keeps its own ----------------------------------------------------
+    // --- the choice is kept for the board and is the same in the Flow ----------------------------------------------------------
     check('the Board draws the plan board again after a reload', await onBoard());
     check('the choice is still there after a reload', await openPanel() && await tickedAre(CASES.board.hlinksAlone.kinds));
     await over(CARD(card));
     check('and it lights what it did', await tilesAre(CASES.board.hlinksAlone.lit));
     await out(CARD(card));
 
+    const f = CASES.flow;
     check('the Flow draws the plan board', await inFlow());
-    check('the Flow has its own choice, dlinks and hlinks, whatever the Hierarchy ticks, and the panel says so',
-      await openPanel() && await tickedAre(CASES.flow.kinds) && await noteIs('Flow'));
-    await over(DOT(CASES.flow.card));
-    check('in the Flow, hovering a dot lights it, the cards its dependencies join to it and its parent',
-      await nodesAre(CASES.flow.defaults) && await waitFor(DIMMED));
+    check('the Flow has the choice the Board kept, hlinks alone, and the panel does not say whose it is',
+      await openPanel() && await tickedAre(f.kept.kinds) && await waitFor(`document.getElementById('search-hover-for')===null`));
+    await over(DOT(f.card));
+    check('in the Flow, hovering a dot lights it and its parent, as the kept choice says',
+      await nodesAre(f.kept.lit) && await waitFor(DIMMED));
+    await tick('dlinks');
+    check('ticking dlinks in the Flow lights the dependencies and the parent, with the dot still hovered',
+      await tickedAre(f.plusDlinks.kinds) && await nodesAre(f.plusDlinks.lit));
     await tick('hlinks');
-    check('unticking hlinks in the Flow lights the dependencies alone, with the dot still hovered',
-      await tickedAre(CASES.flow.noHlinks.kinds) && await nodesAre(CASES.flow.noHlinks.lit));
-    await out(DOT(CASES.flow.card));
+    check('unticking hlinks in the Flow lights the dependencies alone',
+      await tickedAre(f.dlinksAlone.kinds) && await nodesAre(f.dlinksAlone.lit));
+    await out(DOT(f.card));
     await waitFor(`hoveredId===null`);
 
-    check('the Hierarchy draws again', await inGraph('&graph=hierarchy'));
-    check('the Hierarchy still holds its own choice, and the panel says so', await openPanel() && await tickedAre(CASES.board.hlinksAlone.kinds) && await noteIs('Hierarchy and the other views'));
-    await over(DOT(CASES.flow.card));
-    check('and its hover lights the parent and the card, not the dependencies', await nodesAre(CASES.flow.hierarchy));
-    await out(DOT(CASES.flow.card));
+    check('the Hierarchy draws', await inGraph('&graph=hierarchy'));
+    check('the Hierarchy reads the choice made in the Flow', await openPanel() && await tickedAre(f.dlinksAlone.kinds));
+    await over(DOT(f.card));
+    check('and its hover lights the dependencies alone', await nodesAre(f.dlinksAlone.lit));
+    await tick('hlinks');
+    await tick('dlinks');
+    check('ticking hlinks and unticking dlinks in the Hierarchy puts hlinks alone back, lighting the parent and the card',
+      await tickedAre(f.kept.kinds) && await nodesAre(f.kept.lit));
+    await out(DOT(f.card));
     await waitFor(`hoveredId===null`);
 
     check('the Flow draws once more after a reload', await inFlow());
-    check('the Flow keeps the choice made there', await openPanel() && await tickedAre(CASES.flow.noHlinks.kinds));
+    check('the Flow keeps the choice made in the Hierarchy', await openPanel() && await tickedAre(f.kept.kinds));
 
     check('the Board draws after the Graph last showed the Flow', await onBoard());
-    check('and still reads the Hierarchy\'s choice, not the Flow\'s', await openPanel() && await tickedAre(CASES.board.hlinksAlone.kinds));
+    check('and reads the same choice', await openPanel() && await tickedAre(CASES.board.hlinksAlone.kinds));
 
     // --- the Graph's side panel edits the same choice ---------------------------------------------------------------------
     const side = CASES.sidebar;
@@ -204,6 +235,38 @@ module.exports = {
     await waitFor(`hoveredId===null`);
 
     check('the Flow draws the plan board once more', await inFlow() && await openSidePanel(page));
-    check('its side panel shows the Flow\'s own choice', await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(CASES.flow.noHlinks.kinds));
+    check('its side panel shows the same choice, dtree and hpath', await waitFor(`${SIDE}.length===${CASES.kinds.length}`) && await sideAre(side.after.kinds));
+
+    // --- the Hierarchy and Dependencies toggles ------------------------------------------------------------------------------
+    const sd = CASES.sides;
+    check('the Hierarchy draws the plan board with its side panel open', await inGraph('&graph=hierarchy') && await openSidePanel(page));
+    check('both panels show the toggles on their & states, with the sets ticked',
+      await openPanel() && await searchSideIs('hierarchy', CASES.startSides[0]) && await graphSideIs('hierarchy', CASES.startSides[0])
+        && await searchSideIs('dependencies', CASES.startSides[1]) && await graphSideIs('dependencies', CASES.startSides[1]) && await tickedAre(sd.kinds));
+    check('the toggles are buttons with their state in their accessible name',
+      await waitFor(`${GRAPH_SIDE('hierarchy')}.getAttribute('aria-label')==='Hierarchy: ${CASES.startSides[0]}'&&${SEARCH_SIDE('dependencies')}.getAttribute('aria-label')==='Dependencies: ${CASES.startSides[1]}'`));
+    await searchSideClick('hierarchy');
+    check('a click on the search panel\'s Hierarchy toggle reads above there and in the Graph\'s panel', await searchSideIs('hierarchy', sd.searchHierarchy) && await graphSideIs('hierarchy', sd.searchHierarchy));
+    await graphSideClick('hierarchy');
+    check('a click on the Graph\'s Hierarchy toggle reads below in both', await graphSideIs('hierarchy', sd.graphHierarchy) && await searchSideIs('hierarchy', sd.graphHierarchy));
+    await graphSideClick('dependencies');
+    check('a click on the Graph\'s Dependencies toggle reads before in both, and the Hierarchy\'s stays', await graphSideIs('dependencies', sd.graphDependencies) && await searchSideIs('dependencies', sd.graphDependencies) && await graphSideIs('hierarchy', sd.graphHierarchy));
+    await ev(`document.activeElement.blur()`);
+    await over(DOT(sd.card));
+    check('a hover lights the cut set: the card and what is nested under it, not what waits behind it', await nodesAre(sd.lit) && await waitFor(DIMMED));
+    await key(' ');
+    check('Space writes the sides into the terms', await waitFor(`document.getElementById('search-input').value===${JSON.stringify(sd.text)}`));
+    await out(DOT(sd.card));
+    await waitFor(`hoveredId===null`);
+
+    check('the Board draws the plan board after a reload', await onBoard());
+    check('the toggles kept their sides', await openPanel() && await searchSideIs('hierarchy', sd.graphHierarchy) && await searchSideIs('dependencies', sd.graphDependencies));
+    await ev(`document.activeElement.blur()`);
+    await over(CARD(sd.card));
+    check('on the Board the hover look is on the cut set', await tilesAre(sd.lit));
+    await key(' ');
+    check('Space writes the same terms there', await waitFor(`document.getElementById('search-input').value===${JSON.stringify(sd.text)}`));
+    await ev(`document.getElementById('isolate-switch').click()`);
+    check('Isolate hides every card the hover did not light', await tilesShown(sd.lit));
   },
 };

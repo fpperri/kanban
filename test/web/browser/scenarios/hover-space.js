@@ -39,8 +39,9 @@ const CASES = {
     ticked: 'hpath',
     tickedText: 'hpath:7 | dlinks:7 | hlinks:7',
   },
-  graph: { dot: 2, text: 'dlinks:2 | hlinks:2', lit: [1, 2, 6, 7, 8], focused: 7, focusedText: 'dlinks:7 | hlinks:7' },
-  // The Flow is given a choice unlike the Hierarchy's (dlinks and hlinks), kept for the board before the Flow loads.
+  graph: { dot: 2, text: 'dlinks:2 | hlinks:2', sharedText: 'dtree:2 | dlinks:2', lit: [1, 2, 6, 7, 8], focused: 7, focusedText: 'dlinks:7 | hlinks:7' },
+  // The choice is one for every view: the Flow is given one unlike the default (dlinks and hlinks), kept for the board before
+  // the Flow loads, and the Hierarchy writes it too.
   flow: { dot: 3, kinds: ['dtree', 'dlinks'], text: 'dtree:3 | dlinks:3' },
 };
 
@@ -179,14 +180,14 @@ module.exports = {
     await key(' ');
     check('and Space on it is the write again, with the focused card standing for the hover', await boxIs(g.focusedText), await boxText());
 
-    // --- the Flow reads its own choice -----------------------------------------------------------------------------------
+    // --- the Flow reads the one choice -----------------------------------------------------------------------------------
     await clearBox();
-    await ev(`localStorage.setItem(storageKey(state.projectName,'hover.show'),JSON.stringify({hierarchy:['dlinks','hlinks'],flow:${JSON.stringify(CASES.flow.kinds)}}))`);
+    await ev(`localStorage.setItem(storageKey(state.projectName,'hover.show'),JSON.stringify({kinds:${JSON.stringify(CASES.flow.kinds)},hierarchy:'above&below',dependencies:'before&after'}))`);
     check('the Flow draws the plan board', await goto('/?view=graph&graph=flow', flowReady));
     await over(DOT(CASES.flow.dot));
     await hoveredIs(CASES.flow.dot);
     await key(' ');
-    check('in the Flow Space writes its own choice, dtree and dlinks, not the Hierarchy\'s', await boxIs(CASES.flow.text), await boxText());
+    check('in the Flow Space writes the choice kept for the board, dtree and dlinks', await boxIs(CASES.flow.text), await boxText());
     await out(DOT(CASES.flow.dot));
     await hoveredIs(null);
     await clearBox();
@@ -194,6 +195,6 @@ module.exports = {
     await over(DOT(g.dot));
     await hoveredIs(g.dot);
     await key(' ');
-    check('and the Hierarchy still writes its own choice, unchanged by the Flow\'s', await boxIs(g.text), await boxText());
+    check('and the Hierarchy writes the same choice, the Flow\'s included', await boxIs(g.sharedText), await boxText());
   },
 };

@@ -31,7 +31,7 @@ const plan = () => {
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
 const sorted = (ids) => [...ids].map(Number).sort((a, b) => a - b);
-const lit = (b, kinds, id) => sorted([...hoverShowIds(kinds, b.all, id, b.ctx)].filter((x) => b.liveIds.has(x)));
+const lit = (b, kinds, id, sides) => sorted([...hoverShowIds(kinds, b.all, id, b.ctx, sides)].filter((x) => b.liveIds.has(x)));
 const tiles = (b, kinds, id) => sorted([...hoverShowTiles(kinds, b.all, id, b.ctx)].filter((x) => b.liveIds.has(x)));
 
 test('the scenario is in the runner, on the plan board, and its sets are the six in the panel\'s order with the two defaults', () => {
@@ -40,14 +40,14 @@ test('the scenario is in the runner, on the plan board, and its sets are the six
   assert.ok(hover.timeoutMs >= 60000, 'it opens the page a dozen times, each waiting on the page');
   assert.deepStrictEqual(hover.CASES.kinds, HOVER_SHOW_KINDS);
   assert.deepStrictEqual(hover.CASES.grid, HOVER_SHOW_GRID, 'the grid the scenario expects in both places');
-  assert.deepStrictEqual(hover.CASES.hierarchy, hoverShowDefaults().hierarchy);
-  assert.deepStrictEqual(hover.CASES.flow.kinds, hoverShowDefaults().flow);
+  assert.deepStrictEqual(hover.CASES.start, hoverShowDefaults().kinds);
+  assert.deepStrictEqual(hover.CASES.startSides, [hoverShowDefaults().hierarchy, hoverShowDefaults().dependencies]);
 });
 
 test('on the Board, each choice of the Hierarchy lights the cards the scenario says, among the cards the Board draws', () => {
   const b = plan();
   const { card, defaults, plusHpath, hpathAlone, none, hlinksAlone } = hover.CASES.board;
-  assert.deepStrictEqual(tiles(b, hover.CASES.hierarchy, card), defaults);
+  assert.deepStrictEqual(tiles(b, hover.CASES.start, card), defaults);
   assert.deepStrictEqual(tiles(b, plusHpath.kinds, card), plusHpath.lit);
   assert.deepStrictEqual(tiles(b, hpathAlone.kinds, card), hpathAlone.lit);
   assert.deepStrictEqual(tiles(b, [], card), none);
@@ -72,21 +72,23 @@ test('the Board draws every card the scenario expects lit: a live card, not an a
 test('in the Hierarchy with nothing chosen, the Graph lights card 2 with its one-hop relations, as the Graph model\'s own neighbours and the lights scenario say', () => {
   const b = plan();
   const { card, defaults } = hover.CASES.graph;
-  assert.deepStrictEqual(lit(b, hoverShowDefaults().hierarchy, card), defaults);
+  assert.deepStrictEqual(lit(b, hoverShowDefaults().kinds, card), defaults);
   const model = graphBuild(b.all, { ctx: b.ctx, visibleIds: b.liveIds });
   assert.deepStrictEqual(sorted(graphNeighbours(model, String(card))), defaults, 'what it lit before the choice existed');
   assert.deepStrictEqual(lights.LONE[card], defaults, 'and what the lights scenario expects of a lone card');
 });
 
-test('in the Flow, card 3 lights the dependencies and the parent; unticking hlinks leaves the dependencies; the Hierarchy\'s own hlinks lights the parent and the card', () => {
+test('in the Flow, card 3 lights what the kept choice says: hlinks alone the parent, plus dlinks the dependencies too, dlinks alone the dependencies', () => {
   const b = plan();
-  const { card, defaults, noHlinks, hierarchy, kinds } = hover.CASES.flow;
-  assert.deepStrictEqual(lit(b, kinds, card), defaults);
+  const { card, kept, plusDlinks, dlinksAlone } = hover.CASES.flow;
+  assert.deepStrictEqual(lit(b, kept.kinds, card), kept.lit);
+  assert.deepStrictEqual(kept.kinds, hover.CASES.board.hlinksAlone.kinds, 'what the Board steps leave kept');
+  assert.deepStrictEqual(lit(b, plusDlinks.kinds, card), plusDlinks.lit);
   const model = graphBuild(b.all, { ctx: b.ctx, visibleIds: b.liveIds });
-  assert.deepStrictEqual(sorted(graphNeighbours(model, String(card), 'wait')), noHlinks.lit, 'what the Flow lit before the choice existed');
-  assert.deepStrictEqual(lit(b, noHlinks.kinds, card), noHlinks.lit);
-  assert.ok(defaults.includes(1) && !noHlinks.lit.includes(1), 'card 1 is the parent, which the dependencies do not reach');
-  assert.deepStrictEqual(lit(b, hover.CASES.board.hlinksAlone.kinds, card), hierarchy);
+  assert.deepStrictEqual(sorted(graphNeighbours(model, String(card), 'wait')), dlinksAlone.lit, 'what the Flow lit before the choice existed');
+  assert.deepStrictEqual(lit(b, dlinksAlone.kinds, card), dlinksAlone.lit);
+  assert.ok(plusDlinks.lit.includes(1) && !dlinksAlone.lit.includes(1), 'card 1 is the parent, which the dependencies do not reach');
+  assert.strictEqual(new Set([kept.lit, plusDlinks.lit, dlinksAlone.lit].map((l) => JSON.stringify(l))).size, 3, 'each step is told from the others');
 });
 
 test('in the Graph\'s side panel, the choice kept before is the Board\'s last, three presses make the union the scenario lights, and Space writes its terms in the panel\'s order', () => {
@@ -102,6 +104,20 @@ test('in the Graph\'s side panel, the choice kept before is the Board\'s last, t
   assert.strictEqual(text, hoverShowTerms(after.kinds, card));
   assert.strictEqual(text, 'dtree:7 | hpath:7');
   for (const id of after.lit) assert.ok(b.liveIds.has(String(id)), `card ${id} is drawn`);
+});
+
+test('the toggles: below and before light the card and what is nested under it, minus what waits behind it, and Space writes those sides', () => {
+  const b = plan();
+  const { card, kinds, lit: expected, text } = hover.CASES.sides;
+  const sides = { hierarchy: hover.CASES.sides.graphHierarchy, dependencies: hover.CASES.sides.graphDependencies };
+  assert.deepStrictEqual(lit(b, kinds, card, sides), expected);
+  assert.deepStrictEqual(tiles(b, kinds, card), hover.CASES.sidebar.after.lit, 'the same sets with both sides on & light more');
+  assert.ok(expected.length < hover.CASES.sidebar.after.lit.length);
+  assert.ok(!expected.includes(8) && hover.CASES.sidebar.after.lit.includes(8), 'card 8 waits for card 7, so before drops it');
+  assert.strictEqual(hoverShowTerms(kinds, card, sides), text);
+  assert.deepStrictEqual(kinds, hover.CASES.sidebar.after.kinds, 'the sets the earlier steps leave ticked');
+  assert.notStrictEqual(hover.CASES.sides.searchHierarchy, hover.CASES.sides.graphHierarchy, 'the two clicks read two states');
+  for (const id of expected) assert.ok(b.liveIds.has(String(id)), `card ${id} is drawn`);
 });
 
 test('the scenario waits on the page and never on a fixed sleep, and presses nothing by position', () => {
@@ -127,8 +143,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
   const { page, log } = standIn();
   await hover.run(page);
   assert.deepStrictEqual(log.opened, [
-    '/?view=graph', '/?view=board', '/?view=board', '/?view=graph&graph=flow', '/?view=graph&graph=hierarchy', '/?view=graph&graph=flow', '/?view=board',
-    '/?view=graph&graph=hierarchy', '/?view=graph&graph=flow',
+    '/?view=graph', '/?view=board', '/?view=board', '/?view=graph&graph=flow', '/?view=graph&graph=hierarchy', '/?view=graph&graph=flow', '/?view=board', '/?view=graph&graph=hierarchy', '/?view=graph&graph=flow', '/?view=graph&graph=hierarchy', '/?view=board',
   ]);
   assert.ok(log.checks.every(([, ok]) => ok === true), 'every check is made on a boolean the page answers');
   assert.deepStrictEqual(log.checks.map(([name]) => name), [
@@ -138,7 +153,7 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'moving off clears the dimming',
     'the Board draws the plan board',
     'the panel opens with the box focused',
-    'the panel has the six sets, dlinks and hlinks ticked, and says the choice is the Hierarchy\'s and the other views\'',
+    'the panel has the six sets, dlinks and hlinks ticked, and the Hierarchy and Dependencies toggles on their & states',
     'the six boxes stand in two columns by three rows, the h sets left and the d sets right, links then path then tree',
     'on the Board, with nothing chosen, hovering a card gives it and its one-hop relations the hover look',
     'leaving the card clears the hover look',
@@ -152,16 +167,18 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'the choice is still there after a reload',
     'and it lights what it did',
     'the Flow draws the plan board',
-    'the Flow has its own choice, dlinks and hlinks, whatever the Hierarchy ticks, and the panel says so',
-    'in the Flow, hovering a dot lights it, the cards its dependencies join to it and its parent',
-    'unticking hlinks in the Flow lights the dependencies alone, with the dot still hovered',
-    'the Hierarchy draws again',
-    'the Hierarchy still holds its own choice, and the panel says so',
-    'and its hover lights the parent and the card, not the dependencies',
+    'the Flow has the choice the Board kept, hlinks alone, and the panel does not say whose it is',
+    'in the Flow, hovering a dot lights it and its parent, as the kept choice says',
+    'ticking dlinks in the Flow lights the dependencies and the parent, with the dot still hovered',
+    'unticking hlinks in the Flow lights the dependencies alone',
+    'the Hierarchy draws',
+    'the Hierarchy reads the choice made in the Flow',
+    'and its hover lights the dependencies alone',
+    'ticking hlinks and unticking dlinks in the Hierarchy puts hlinks alone back, lighting the parent and the card',
     'the Flow draws once more after a reload',
-    'the Flow keeps the choice made there',
+    'the Flow keeps the choice made in the Hierarchy',
     'the Board draws after the Graph last showed the Flow',
-    'and still reads the Hierarchy\'s choice, not the Flow\'s',
+    'and reads the same choice',
     'the Hierarchy draws the plan board',
     'the side panel starts closed and the toggle opens it',
     'its side panel has the six sets under On hover, and shows the choice kept for the Hierarchy',
@@ -170,26 +187,48 @@ test('run against a stand-in page, the scenario opens the Graph, the Board and t
     'three presses in the side panel make the choice dtree and hpath, and light their union with the dot still hovered, no reload and no new hover',
     'the search panel shows the same two sets ticked',
     'a new hover lights the union',
-    'Space writes the ticked terms in the panel\'s order',
+    "Space writes the ticked terms in the panel's order",
     'the Flow draws the plan board once more',
-    'its side panel shows the Flow\'s own choice',
+    'its side panel shows the same choice, dtree and hpath',
+    'the Hierarchy draws the plan board with its side panel open',
+    'both panels show the toggles on their & states, with the sets ticked',
+    'the toggles are buttons with their state in their accessible name',
+    "a click on the search panel's Hierarchy toggle reads above there and in the Graph's panel",
+    "a click on the Graph's Hierarchy toggle reads below in both",
+    "a click on the Graph's Dependencies toggle reads before in both, and the Hierarchy's stays",
+    'a hover lights the cut set: the card and what is nested under it, not what waits behind it',
+    'Space writes the sides into the terms',
+    'the Board draws the plan board after a reload',
+    'the toggles kept their sides',
+    'on the Board the hover look is on the cut set',
+    'Space writes the same terms there',
+    'Isolate hides every card the hover did not light',
   ]);
   const ticks = log.evs.filter((e) => /data-hover-kind="[a-z]+"\]'\)\.click\(\)/.test(e)).map((e) => /data-hover-kind="([a-z]+)"/.exec(e)[1]);
-  assert.deepStrictEqual(ticks, ['hpath', 'dlinks', 'hlinks', 'hpath', 'hlinks', 'hlinks']);
+  assert.deepStrictEqual(ticks, ['hpath', 'dlinks', 'hlinks', 'hpath', 'hlinks', 'dlinks', 'hlinks', 'hlinks', 'dlinks']);
   const sidePresses = log.evs.filter((e) => /data-key="hover"/.test(e) && /\.click\(\)/.test(e)).map((e) => /dataset\.val==='([a-z]+)'/.exec(e)[1]);
   assert.deepStrictEqual(sidePresses, hover.CASES.sidebar.press, 'the side panel toggles are pressed with the element own click');
-  assert.strictEqual(log.keys.length, 1, 'one real key press: Space');
+  assert.strictEqual(log.keys.length, 3, 'three real key presses, all Space');
+  const clicks = (key) => log.evs.filter((e) => e.includes(key) && /\.click\(\)/.test(e)).length;
+  assert.strictEqual(clicks('[data-hover-side="hierarchy"]'), 1, 'the search panel toggle is pressed with the element own click');
+  assert.strictEqual(clicks('data-key="hover-side"][data-val="hierarchy"]'), 1);
+  assert.strictEqual(clicks('data-key="hover-side"][data-val="dependencies"]'), 1);
 });
 
 test('every acceptance line of the ticket has a check of its own in the scenario', () => {
   const src = fs.readFileSync(path.join(__dirname, 'browser', 'scenarios', 'hover-show.js'), 'utf8');
   for (const text of [
-    'the Flow has its own choice, dlinks and hlinks',
+    'the Flow has the choice the Board kept',
     'hovering a card gives it and its one-hop relations the hover look',
     'hovering a dot lights it and its one-hop relations and dims the rest',
     'the hover ring stays on the hovered dot alone',
     'the choice is still there after a reload',
-    'and still reads the Hierarchy\\\'s choice, not the Flow\\\'s',
+    'and reads the same choice',
     'leaving the card clears the hover look',
+    'a click on the search panel',
+    'a click on the Graph',
+    'a hover lights the cut set',
+    'Space writes the sides into the terms',
+    'Isolate hides every card the hover did not light',
   ]) assert.ok(src.includes(text), text);
 });

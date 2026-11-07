@@ -46,11 +46,12 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
   elements['#graph-view'] = control();
   const tiles = ['1', '2', '3', '4', '5'].map(tile);
   const boxes = KINDS.map((kind) => ({ dataset: { hoverKind: kind }, checked: false }));
+  const sideBtns = ['hierarchy', 'dependencies'].map((toggle) => ({
+    dataset: { hoverSide: toggle }, textContent: '', attrs: {}, title: '', setAttribute(k, v) { this.attrs[k] = v; },
+  }));
   const host = control();
-  host.querySelectorAll = () => boxes;
+  host.querySelectorAll = (sel) => (sel === '[data-hover-side]' ? sideBtns : boxes);
   elements['#search-hover'] = host;
-  const note = { textContent: '' };
-  elements['#search-hover-for'] = note;
   const documentExtras = {
     querySelectorAll: (sel) => (sel === '.card-el' ? tiles : sel === '.hover-highlight' ? tiles.filter((t) => t.names.has('hover-highlight')) : []),
   };
@@ -61,7 +62,7 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
   const ids = (set) => [...set].map(Number).sort((a, b) => a - b);
   page.ctx.graphLightCards = (lit) => { calls.push(lit ? ids(lit.nodes) : null); };
   const s = {
-    page, boxes, host, note, tiles, calls, stored: store,
+    page, boxes, host, sideBtns, tiles, calls, stored: store,
     over(id) { page.fireDocument('mouseover', { target: { closest: (sel) => (sel === '.card-el' ? tile(id) : null) } }); },
     out(id) { page.fireDocument('mouseout', { target: { closest: (sel) => (sel === '.card-el' ? tile(id) : null) }, relatedTarget: null }); },
     lit: () => tiles.filter((t) => t.names.has('hover-highlight')).map((t) => Number(t.dataset.id)),
@@ -71,6 +72,11 @@ async function open({ view = 'board', stored = {}, board = makeBoard() } = {}) {
       box.checked = on;
       host.fire('change', { target: { closest: (sel) => (sel === '[data-hover-kind]' ? box : null) } });
     },
+    step(toggle) {
+      const btn = sideBtns.find((b) => b.dataset.hoverSide === toggle);
+      host.fire('click', { target: { closest: (sel) => (sel === '[data-hover-side]' ? btn : null) } });
+    },
+    sides: () => sideBtns.map((b) => b.textContent),
     sync: () => page.run('syncHoverShowPanel()'),
     plain: (code) => JSON.parse(JSON.stringify(page.run(code))),
     fakeGraph() {
@@ -120,10 +126,32 @@ test('ticking a set while a card is hovered paints again at once, and unticking 
   assert.deepStrictEqual(s.lit(), [1, 3], 'the whole parent tree from the root down');
 });
 
-test('the Hierarchy\'s choice is the one the Board reads, even when the Graph last showed the Flow', async () => {
+test('an old record, a list for the Hierarchy and one for the Flow, is read as the Hierarchy\'s list with both sides on &', async () => {
   const s = await open({ stored: { 'kanban.kanban.graph.layout': 'flow', [KEY]: JSON.stringify({ hierarchy: ['hlinks'], flow: ['dtree'] }) } });
   s.over(1);
-  assert.deepStrictEqual(s.lit(), [1, 3], 'hlinks alone');
+  assert.deepStrictEqual(s.lit(), [1, 3], 'hlinks alone, whatever layout the Graph last showed');
+});
+
+test('a side on a toggle cuts the hover: below on the Hierarchy lights the card and its children, above its parent, and the wait stays whole', async () => {
+  const s = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['dlinks', 'hlinks'], hierarchy: 'below', dependencies: 'before&after' }) } });
+  s.over(3);
+  assert.deepStrictEqual(s.lit(), [3], 'no child, and the parent is above');
+  s.over(1);
+  assert.deepStrictEqual(s.lit(), [1, 2, 3], 'the child 3, and card 2 waits for it');
+  const above = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['hlinks'], hierarchy: 'above', dependencies: 'before&after' }) } });
+  above.over(3);
+  assert.deepStrictEqual(above.lit(), [1, 3]);
+  above.over(1);
+  assert.deepStrictEqual(above.lit(), [1]);
+});
+
+test('a side on the Dependencies toggle cuts the d sets: after lights what waits for the card, before what the card waits for', async () => {
+  const after = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['dlinks'], hierarchy: 'above&below', dependencies: 'after' }) } });
+  after.over(2);
+  assert.deepStrictEqual(after.lit(), [2, 5]);
+  const before = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['dlinks'], hierarchy: 'above&below', dependencies: 'before' }) } });
+  before.over(2);
+  assert.deepStrictEqual(before.lit(), [1, 2]);
 });
 
 test('a poll\'s rebuild keeps the lit set: the renderers read it for the card they draw', async () => {
@@ -152,15 +180,17 @@ test('in the Flow a hovered dot lights itself, the cards its dependencies join t
   assert.deepStrictEqual(s.focusDot(3), [1, 3], 'its parent');
 });
 
-test('the Graph lights the union of the sets ticked for its kind: the Flow\'s choice and the Hierarchy\'s are two', async () => {
-  const stored = { [KEY]: JSON.stringify({ hierarchy: ['hlinks'], flow: ['dpath', 'hlinks'] }) };
-  const hierarchy = await open({ view: 'graph', stored: { ...stored } });
-  hierarchy.fakeGraph();
-  assert.deepStrictEqual(hierarchy.focusDot(1), [1, 3], 'hlinks alone');
-  const flow = await open({ view: 'graph', stored: { ...stored, 'kanban.kanban.graph.layout': 'flow' } });
-  flow.fakeGraph();
-  assert.deepStrictEqual(flow.focusDot(2), [1, 2, 5], 'dpath through card 2, both ways, and hlinks beside it');
-  assert.deepStrictEqual(flow.focusDot(3), [1, 3], 'dpath is itself, hlinks adds the parent');
+test('the Graph lights the union of the sets ticked, cut by the sides, and the Hierarchy and the Flow light the same', async () => {
+  const stored = { [KEY]: JSON.stringify({ kinds: ['dpath', 'hlinks'], hierarchy: 'above&below', dependencies: 'before&after' }) };
+  for (const layout of ['hierarchy', 'flow']) {
+    const s = await open({ view: 'graph', stored: { ...stored, 'kanban.kanban.graph.layout': layout } });
+    s.fakeGraph();
+    assert.deepStrictEqual(s.focusDot(2), [1, 2, 5], `${layout}: dpath through card 2, both ways, and hlinks beside it`);
+    assert.deepStrictEqual(s.focusDot(3), [1, 3], `${layout}: dpath is itself, hlinks adds the parent`);
+  }
+  const cut = await open({ view: 'graph', stored: { [KEY]: JSON.stringify({ kinds: ['dpath'], hierarchy: 'above&below', dependencies: 'after' }) } });
+  cut.fakeGraph();
+  assert.deepStrictEqual(cut.focusDot(2), [2, 5], 'after: what waits on card 2');
 });
 
 test('the hover ring stays on the hovered dot alone: in the Graph the tiles that take the look are that card', async () => {
@@ -187,44 +217,75 @@ test('a card the Graph does not draw lights nothing', async () => {
 
 // --- the panel and the storage ----------------------------------------------------------------------------------------
 
-test('the boxes show the Hierarchy\'s defaults, and the note says it is the Hierarchy\'s and the other views\'', async () => {
+test('the boxes show the defaults, dlinks and hlinks, and both toggles read their & state', async () => {
   const s = await open();
   s.sync();
   assert.deepStrictEqual(s.ticked(), ['dlinks', 'hlinks']);
-  assert.strictEqual(s.note.textContent, 'Hierarchy and the other views');
+  assert.deepStrictEqual(s.sides(), ['above&below', 'before&after']);
+  assert.deepStrictEqual(s.sideBtns.map((b) => b.attrs['aria-label']), ['Hierarchy: above&below', 'Dependencies: before&after'], 'announced with their state');
 });
 
-test('in the Graph\'s Flow the boxes show the Flow\'s defaults and the note says Flow', async () => {
+test('in the Graph\'s Flow the panel shows the same choice as everywhere', async () => {
   const s = await open({ view: 'graph', stored: { 'kanban.kanban.graph.layout': 'flow' } });
   s.sync();
   assert.deepStrictEqual(s.ticked(), ['dlinks', 'hlinks']);
-  assert.strictEqual(s.note.textContent, 'Flow');
 });
 
-test('a tick is kept for the board under hover.show, for the kind of Graph that is on, and the other kind is left alone', async () => {
+test('a click on a toggle steps it above&below, above, below and round, keeps the record, and the other toggle stays', async () => {
+  const s = await open();
+  s.step('hierarchy');
+  assert.deepStrictEqual(s.sides(), ['above', 'before&after']);
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { kinds: ['dlinks', 'hlinks'], hierarchy: 'above', dependencies: 'before&after' });
+  s.step('hierarchy');
+  assert.deepStrictEqual(s.sides(), ['below', 'before&after']);
+  s.step('hierarchy');
+  assert.deepStrictEqual(s.sides(), ['above&below', 'before&after']);
+  s.step('dependencies');
+  s.step('dependencies');
+  assert.deepStrictEqual(s.sides(), ['above&below', 'after']);
+  assert.strictEqual(JSON.parse(s.stored[KEY]).dependencies, 'after');
+});
+
+test('a click on a toggle while a card is hovered lights the cut set at once', async () => {
+  const s = await open();
+  s.over(1);
+  assert.deepStrictEqual(s.lit(), [1, 2, 3]);
+  s.step('hierarchy');
+  s.step('hierarchy');
+  assert.deepStrictEqual(s.sides()[0], 'below');
+  assert.deepStrictEqual(s.lit(), [1, 2, 3], 'below the parent: the child, and the wait');
+  s.step('dependencies');
+  assert.deepStrictEqual(s.sides()[1], 'before');
+  assert.deepStrictEqual(s.lit(), [1, 3], 'before: card 1 waits for nothing, so card 2 goes');
+});
+
+test('a tick is kept for the board under hover.show as one record', async () => {
   const s = await open();
   s.tick('dtree', true);
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'dlinks', 'hlinks'], flow: ['dlinks', 'hlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { kinds: ['dtree', 'dlinks', 'hlinks'], hierarchy: 'above&below', dependencies: 'before&after' });
   s.tick('dlinks', false);
-  assert.deepStrictEqual(JSON.parse(s.stored[KEY]), { hierarchy: ['dtree', 'hlinks'], flow: ['dlinks', 'hlinks'] });
-  const flow = await open({ view: 'graph', stored: { 'kanban.kanban.graph.layout': 'flow' } });
-  flow.tick('hlinks', false);
-  assert.deepStrictEqual(JSON.parse(flow.stored[KEY]), { hierarchy: ['dlinks', 'hlinks'], flow: ['dlinks'] });
+  assert.deepStrictEqual(JSON.parse(s.stored[KEY]).kinds, ['dtree', 'hlinks']);
 });
 
-test('a reload reads the kept choice, and a corrupt or unreadable one reads as the defaults', async () => {
-  const kept = await open({ stored: { [KEY]: JSON.stringify({ hierarchy: ['hpath'], flow: [] }) } });
+test('a reload reads the kept choice, the old record as its Hierarchy list, and a corrupt or unreadable one as the defaults', async () => {
+  const kept = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['hpath'], hierarchy: 'below', dependencies: 'after' }) } });
   kept.sync();
   assert.deepStrictEqual(kept.ticked(), ['hpath']);
+  assert.deepStrictEqual(kept.sides(), ['below', 'after']);
+  const old = await open({ stored: { [KEY]: JSON.stringify({ hierarchy: ['hpath'], flow: [] }) } });
+  old.sync();
+  assert.deepStrictEqual(old.ticked(), ['hpath']);
+  assert.deepStrictEqual(old.sides(), ['above&below', 'before&after']);
   for (const bad of ['not json', '[]', '{"hierarchy": "dtree"}', 'null']) {
     const s = await open({ stored: { [KEY]: bad } });
     s.sync();
     assert.deepStrictEqual(s.ticked(), ['dlinks', 'hlinks'], bad);
+    assert.deepStrictEqual(s.sides(), ['above&below', 'before&after'], bad);
   }
 });
 
 test('the choice of one board is not another board\'s: a rename of the board reads the new board\'s key', async () => {
-  const s = await open({ stored: { [KEY]: JSON.stringify({ hierarchy: ['hpath'], flow: [] }), 'kanban.other.hover.show': JSON.stringify({ hierarchy: ['dtree'], flow: [] }) } });
+  const s = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['hpath'] }), 'kanban.other.hover.show': JSON.stringify({ kinds: ['dtree'] }) } });
   s.sync();
   assert.deepStrictEqual(s.ticked(), ['hpath']);
   s.page.run("applyProjectName('other')");

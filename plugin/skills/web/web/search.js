@@ -130,6 +130,16 @@ const KNOWN_FIELDS = ['title', 'body', 'status', 'priority', 'tags', 'file', 'as
 // names the graph function that resolves it (resolveTerms).
 const GRAPH_FIELDS = ['tree', 'path'].concat(EXS.EXPLORE_KINDS, EXS.LINK_KINDS);
 const graphFunctionName = (field) => `${field}Ids`;
+// The six sets that take a side after the id (`htree:467:below`); tree: and path: take none.
+const SIDED_FIELDS = EXS.EXPLORE_KINDS.concat(EXS.LINK_KINDS);
+const SIDE_SUFFIX = new RegExp('^(.*):(' + EXS.SIDE_WORDS.join('|') + ')$', 'i');
+// A graph term from its field and the text after the colon: the card id, and the side when one follows it.
+function graphTerm(field, raw) {
+  const text = raw.trim().replace(/^#/, '');
+  const cut = SIDED_FIELDS.includes(field) ? SIDE_SUFFIX.exec(text) : null;
+  if (cut && cut[1]) return { field, value: cut[1].replace(/^#/, ''), side: cut[2].toLowerCase() };
+  return text ? { field, value: text } : null;
+}
 // ADR 0009: review:/blocked: are their own field family — a
 // bare value is a valid presence term (unlike KNOWN_FIELDS, where a bare
 // scope is dropped as mid-typing), so they're parsed separately below.
@@ -159,7 +169,7 @@ function parseQuotedTerm(scope, rest) {
   if (!scope) return { field: null, value: inner.toLowerCase() };
   if (scope === 'id' || scope === 'slice') return { field: scope, value: inner };
   if (scope === 'group') return { field: 'group', value: inner.replace(/^#/, '') };
-  if (GRAPH_FIELDS.includes(scope)) return { field: scope, value: inner.replace(/^#/, '') };
+  if (GRAPH_FIELDS.includes(scope)) return graphTerm(scope, inner);
   return { field: scope, value: inner.toLowerCase(), exact: true };
 }
 
@@ -205,8 +215,7 @@ function parseTerm(token, board) {
     if (GRAPH_FIELDS.includes(key)) {
       // id accepts an optional leading '#' (tree:74 and tree:#74
       // are the same term) — kept case-verbatim like id:, no lowercasing.
-      const value = prefixed[2].trim().replace(/^#/, '');
-      return value ? { field: key, value } : null;
+      return graphTerm(key, prefixed[2]);
     }
     if (key === 'slice') {
       const value = prefixed[2].trim();
@@ -808,7 +817,7 @@ function resolveTerms(cards, terms, ctx, memo = {}) {
     let next = term;
     if (GRAPH_FIELDS.includes(term.field)) {
       const name = graphFunctionName(term.field);
-      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) || EXS.LINK_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx) };
+      next = { field: 'ids', value: term.value, ids: (graph[name] || (EXS.EXPLORE_KINDS.includes(term.field) || EXS.LINK_KINDS.includes(term.field) ? EXS : DG)[name])(cards, term.value, ctx, term.side) };
     } else if (term.field === 'slice') next = { field: 'ids', value: term.value, ids: sliceIds(cards, term.value, ctx, memo) };
     else if (term.field === 'group') next = { field: 'ids', value: term.value, ids: groupIds(cards, term, ctx) };
     else if (term.field === 'waiting') {
