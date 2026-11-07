@@ -71,6 +71,7 @@ const GRAPH_KIND_TITLES = {
   hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier that holds a drawn card, with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier (a tier or a depth with no drawn card has no ring); a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
   flow: 'Flow: the cards in columns by their dependencies, left to right; an arrow runs from the card waited for to the card that waits',
 };
+const GRAPH_3D_TITLE = 'The Hierarchy in 3D: the same graph on a disc, a half sphere or a sphere (g steps the shape). Left drag pans, right drag orbits, the wheel zooms; f frames the selection, h everything';
 const GRAPH_FLOW_DEPS_LABEL = {
   label: 'Dependencies',
   hint: 'Frontier: columns by the steps until a card is ready, counting only the dependencies not done; done cards stand faded in the first column and a dependency loop in the last. All: columns by the longest chain of dependencies behind a card, done ones included.',
@@ -339,6 +340,7 @@ function resetGraphViewState() {
   graphFanOptions = null;
   graphRefitNext = false;
   graphViews.clear();
+  graph3dRelease();
   graphCur = null;
   if (graphPan && graphPan.moved) isDragging = false;
   graphPan = null;
@@ -511,12 +513,18 @@ function graphBuildHoverRow() {
 
 // The Hierarchy | Flow choice: two buttons, the one drawn pressed. They stand in the top-right toolbar of the
 // drawing, left of the (i) and the panel's button, so they show whether the option panel is open or shut.
+// While the Hierarchy shows, a 3D button follows them, pressed while the address says in3d=1 (graph-3d.js).
 function graphBuildKinds(kind) {
   const kinds = document.createElement('div');
   kinds.className = 'graph-kinds';
   for (const k of GRAPH_KINDS) {
     const b = graphButton('graph-kind-btn', k === 'flow' ? 'Flow' : 'Hierarchy', GRAPH_KIND_TITLES[k], { graphKind: k });
     b.setAttribute('aria-pressed', String(k === kind));
+    kinds.appendChild(b);
+  }
+  if (kind === 'hierarchy') {
+    const b = graphButton('graph-3d-btn', '3D', GRAPH_3D_TITLE, { graph3d: '' });
+    b.setAttribute('aria-pressed', String(graph3dWanted()));
     kinds.appendChild(b);
   }
   return kinds;
@@ -577,7 +585,7 @@ function graphBuildControls(kind, cardCount, relationCount, fan, panelOpen) {
 // --- transform -----------------------------------------------------------------
 
 function graphApplyTransform() {
-  if (!graphCur) return;
+  if (!graphCur || graphCur.in3d) return;
   graphHideTip();
   const { svg, world, view, arrow } = graphCur;
   const k = view.k;
@@ -690,6 +698,7 @@ function graphHideTip() {
 
 function graphClearFocus() {
   if (!graphCur) return;
+  if (graphCur.in3d) graph3dRepaint(); // the 3D Hierarchy mixes the lighting into its marks' colours each frame
   graphCur.svg.classList.remove('graph-dim');
   for (const el of graphCur.svg.querySelectorAll('.graph-near')) el.classList.remove('graph-near');
   graphCur.hoverLine = null;
@@ -840,6 +849,7 @@ function graphNamesFont() {
 function graphPaintNames() {
   clearTimeout(graphNamesTimer);
   graphNamesTimer = 0;
+  if (graphCur && graphCur.in3d) { graph3dRepaint(); return; } // the 3D Hierarchy places its names each frame
   if (!graphCur || graphCur.kind !== 'hierarchy' || !graphCur.nameEls.size) {
     if (graphCur) graphCur.names = null;
     return;
@@ -1094,6 +1104,8 @@ function renderGraphView() {
   host.appendChild(main);
   if (panelOpen) host.appendChild(graphBuildPanel(kind, fan, deps, lanes));
   main.appendChild(graphBuildControls(kind, model.nodes.length, model.links.length, fan, panelOpen));
+  const in3d = kind === 'hierarchy' && graph3dWanted() && plan.nodes.length > 0;
+  if (!in3d) graph3dRelease();
   if (!plan.nodes.length) {
     const p = document.createElement('p');
     p.className = 'graph-empty';
@@ -1103,6 +1115,18 @@ function renderGraphView() {
   }
 
   const drawn = graphDrawPlan(plan);
+  if (in3d) {
+    // The 3D Hierarchy (graph-3d.js) moves these same marks to where its camera sees them.
+    paintTypeColors(drawn.svg);
+    drawn.svg.classList.add(`graph-kind-${kind}`);
+    graphCur = {
+      kind, in3d: true, sig, model, layout, plan, view: { x: 0, y: 0, k: 1, sig, touched: true }, w: 0, h: 0, nodeCount: plan.nodes.length, lines: plan.links,
+      svg: drawn.svg, world: drawn.world, arrow: drawn.arrow, linkEls: drawn.linkEls, countEls: drawn.countEls, hitEls: drawn.hitEls, raised: null, hoverLine: null, nodeEls: drawn.nodeEls, headEls: drawn.headEls, nameEls: drawn.nameEls, names: null, tip: drawn.tip, tipFor: null,
+    };
+    graph3dShow(main, { drawn, plan, layout, model });
+    graphSettleFocus();
+    return;
+  }
   main.appendChild(drawn.stage);
   paintTypeColors(drawn.svg);
   const w = drawn.stage.clientWidth || 800;
@@ -1233,10 +1257,13 @@ function wireGraphView(host) {
     }
     const kindBtn = e.target.closest('.graph-kind-btn[data-graph-kind]');
     if (kindBtn) { graphSetLayoutKind(kindBtn.dataset.graphKind); return; }
+    const in3dBtn = e.target.closest('.graph-3d-btn');
+    if (in3dBtn) { keepControlFocus(in3dBtn, () => { graph3dSetWanted(!graph3dWanted()); renderGraphView(); }); return; }
     const zoomBtn = e.target.closest('.graph-zoom-btn[data-graph-action]');
     if (!zoomBtn || !graphCur) return;
     const action = zoomBtn.dataset.graphAction;
-    if (action === 'fit') graphFitNow();
+    if (graphCur.in3d) graph3dZoomButton(action);
+    else if (action === 'fit') graphFitNow();
     else graphZoomBy(action === 'in' ? GRAPH_BUTTON_ZOOM : 1 / GRAPH_BUTTON_ZOOM, graphCur.w / 2, graphCur.h / 2);
     zoomBtn.blur();
   });

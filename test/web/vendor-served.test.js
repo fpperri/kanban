@@ -40,6 +40,7 @@ test('each vendored file is served with its own content type', async () => {
       '/vendor/highlight.js/highlight.min.js': /text\/javascript/,
       '/vendor/highlight.js/github.min.css': /text\/css/,
       '/vendor/highlight.js/github-dark.min.css': /text\/css/,
+      '/vendor/three/three.min.js': /text\/javascript/,
     };
     for (const [url, type] of Object.entries(want)) {
       const res = await fetch(`${base}${url}`);
@@ -52,7 +53,7 @@ test('each vendored file is served with its own content type', async () => {
 
 test('the licence files, other files in vendor and a way out of it are not served', async () => {
   await serve(async (base) => {
-    for (const url of ['/vendor/mermaid/LICENSE', '/vendor/highlight.js/LICENSE', '/vendor/nothing.js', '/vendor/', '/vendor',
+    for (const url of ['/vendor/mermaid/LICENSE', '/vendor/highlight.js/LICENSE', '/vendor/three/LICENSE', '/vendor/nothing.js', '/vendor/', '/vendor',
       '/vendor/mermaid/../../app.html', '/vendor/..%2Fapp.js', '/vendor/mermaid/mermaid.min.js.map']) {
       const res = await fetch(`${base}${url}`);
       assert.strictEqual(res.status, 404, url);

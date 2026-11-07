@@ -129,6 +129,11 @@ test('the graph block keeps a CSP-safe, token-only palette', () => {
   const block = css.slice(start, end);
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'no literal hex colours');
   const defined = new Set([...css.slice(0, css.indexOf('}')).matchAll(/(--[a-z0-9-]+):/g)].map((m) => m[1]));
+  // Besides the theme's tokens, a rule reads the zoom the view writes (--graph-k), and in 3D what a rule of the
+  // block declares from a token (--graph-3d-ink) and what graph-3d.js writes per mark from those (its paint, a
+  // scale, a shadow's strength): none of them a colour of its own.
+  for (const m of block.matchAll(/(--graph-3d-[a-z0-9-]+):/g)) defined.add(m[1]);
+  for (const m of read('graph-3d.js').matchAll(/setProperty\('(--graph-3d-[a-z0-9-]+)'/g)) defined.add(m[1]);
   for (const m of block.matchAll(/var\((--[a-z0-9-]+)/g)) assert.ok(m[1] === '--graph-k' || defined.has(m[1]), m[1]);
 });
 

@@ -22,15 +22,18 @@ const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
   "img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; " +
   "base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 
-// Two libraries ride with the plugin, vendored under web/vendor and loaded lazily (never named in
-// app.html) by the page script code-blocks.js when a rendered body holds a block that needs one:
-// highlight.js colours a typed code block, mermaid draws a ```mermaid block. They are served by exact
-// name and nothing else under vendor is (the licence files sit beside them unserved).
+// Three libraries ride with the plugin, vendored under web/vendor and loaded lazily (never named in
+// app.html): the page script code-blocks.js asks for the first two when a rendered body holds a block
+// that needs one (highlight.js colours a typed code block, mermaid draws a ```mermaid block), and
+// graph-3d.js asks for three.js (r160, its classic build) the first time the Graph's Hierarchy is drawn
+// in 3D. They are served by exact name and nothing else under vendor is (the licence files sit beside
+// them unserved).
 const VENDORED = [
   'mermaid/mermaid.min.js',
   'highlight.js/highlight.min.js',
   'highlight.js/github.min.css',
   'highlight.js/github-dark.min.css',
+  'three/three.min.js',
 ];
 
 // Mermaid writes inline styles, which the page's CSP above refuses, and the page does not loosen it.
