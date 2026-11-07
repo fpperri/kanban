@@ -38,9 +38,27 @@ The same build is the page. There is one Board artifact per board, its URL in `c
 1. Read the tray (below). While it holds a record that has no `refused` field, stop and say "apply first": a refresh would strand changes nobody has tried. Records the apply refused do not stop a build; they ride into the refreshed page with their reason.
 2. Build the file into a session scratchpad directory, never the repo root.
 3. First publish, with no `artifact:` line: publish with the Artifact tool, passing the `capabilities` below (the database rule that makes `tray` owner-only, plus `user`). Record the URL as `artifact:` in `config.yaml` on the line after `name:`, and file the notification the `kanban` skill's contract asks for.
-4. Refresh, with an `artifact:` line: read the artifact by that URL, then publish by that URL with `capabilities` omitted. The rule and the documents carry forward. Never send `db` without its rules: that replaces the stored rules and opens the tray to everyone who can open the page.
+4. Refresh, with an `artifact:` line: run the check first (below) and skip an unchanged page. Otherwise read the artifact by that URL, then publish by that URL with `capabilities` omitted. The rule and the documents carry forward. Never send `db` without its rules: that replaces the stored rules and opens the tray to everyone who can open the page.
    If the build exits 2 because the saved `snapshotQuery` holds no search term or now matches no card (an apply can move every card a query such as `status:doing` named), leave the published page as it is, tell the person which saved query it was and why, and say how to change it: the gear's Snapshot page (This board) or the `snapshotQuery:` line of `config.yaml`, or a one-off `--query`.
 5. Refresh after every apply, and whenever the person asks, and never on your own otherwise.
+6. After a publish lands, record what the page was built from: `node <skill dir>/../web/scripts/artifact-check.js <board dir> --record` writes `.artifact-stamp` in the board folder. Commit it with the board when the board is in a repository (it is not a card, and the check does not count it as a board change).
+
+### The check before a refresh
+
+```bash
+node <skill dir>/../web/scripts/artifact-check.js <board dir>
+```
+
+It builds nothing and downloads nothing: it reads `.artifact-stamp` and local git, and takes well under a second. The stamp holds the short ids of the plugin commit the page's code came from (the last commit that touched the plugin folder) and of the board commit (the last that touched the board folder, not counting the stamp file); the page shows both in its header beside "Board as of". The exit code is the verdict, and the line it prints says the same, with `--json` for the counts:
+
+| Exit | Verdict | Do |
+| --- | --- | --- |
+| 0 | current: nothing moved | no build, no publish; tell the person the page is current |
+| 10 | only the board moved | a plain refresh |
+| 11 | the plugin moved | a refresh that brings new page code; say so, with the merged PR titles the check prints |
+| 12 | cannot tell | build and publish as usual |
+
+It cannot tell when no stamp was recorded yet, when the board or the plugin is not a git checkout (an installed plugin copy, a downloaded board), or when a recorded commit is not in this checkout (a shallow clone). Uncommitted changes in the board folder count as the board having moved. A cloud session has the plugin as a read-only clone: pull it before the check, or the plugin looks unmoved.
 
 ```json
 { "db": { "rules": [ { "path": "tray", "read": "owner", "write": "owner" } ] }, "user": {} }

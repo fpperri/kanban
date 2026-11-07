@@ -292,3 +292,30 @@ test('the page runs with code generation from text switched off: the runtime, th
   const saved = await context.kanbanSourceInUse.request('PATCH', '/api/cards/10', { title: 'Renamed under the policy' });
   assert.strictEqual(saved.status, 200);
 });
+
+test('the stamp the build is given rides in the page and in the board load, and is absent when there is none', async () => {
+  const stamp = { plugin: 'a1b2c3d', board: 'e4f5a6b' };
+  const { html, board } = buildPage({ boardDir: FIXTURE, stamp });
+  assert.deepStrictEqual(board.stamp, stamp);
+  const data = dataOf(html);
+  assert.deepStrictEqual(data.board.stamp, stamp);
+  const load = (await boot(data, { storage: memoryStorage(), device: 'd' }).request('GET', '/api/board')).json;
+  assert.deepStrictEqual(load.source.stamp, stamp);
+  assert.ok(!('stamp' in buildPage({ boardDir: FIXTURE }).board));
+  assert.ok(!('stamp' in buildPage({ boardDir: FIXTURE, stamp: { plugin: null, board: null } }).board));
+});
+
+test('the command prints what the page was built from, or says the check cannot tell', () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kanban-artifact-stamp-')), 'board.html');
+  const bare = path.join(tmpTree({ '.kanban/0001.a.card.md': card(1, 'a') }), '.kanban');
+  try {
+    const here = spawnSync(process.execPath, [SCRIPT, FIXTURE, '--out', out], { encoding: 'utf8' });
+    assert.strictEqual(here.status, 0, here.stderr);
+    assert.match(here.stdout, /built from plugin [0-9a-f]{7}\+?, board [0-9a-f]{7}\+?/);
+    assert.deepStrictEqual(Object.keys(dataOf(fs.readFileSync(out, 'utf8')).board.stamp), ['plugin', 'board']);
+    const loose = spawnSync(process.execPath, [SCRIPT, bare, '--out', out], { encoding: 'utf8' });
+    assert.strictEqual(loose.status, 0, loose.stderr);
+    assert.match(loose.stdout, /board unknown/);
+    assert.ok(!('stamp' in dataOf(fs.readFileSync(out, 'utf8')).board) || dataOf(fs.readFileSync(out, 'utf8')).board.stamp.board === null);
+  } finally { fs.rmSync(path.dirname(out), { recursive: true, force: true }); }
+});

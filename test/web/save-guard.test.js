@@ -101,3 +101,11 @@ test('the page asks before it goes: askBeforeLeaving is the beforeunload listene
   assert.ok(/addEventListener\('beforeunload', askBeforeLeaving\)/.test(fs.readFileSync(path.join(web, 'app.js'), 'utf8')));
   assert.ok(fs.readFileSync(path.join(web, 'app.html'), 'utf8').includes('<script src="/save-guard.js"></script>'));
 });
+
+test('the commits a page was built from are worded "plugin <id> · board <id>", and a page with none says nothing', () => {
+  const { stampLabel } = require('../../plugin/skills/web/web/save-guard');
+  assert.strictEqual(stampLabel({ plugin: 'a1b2c3d', board: 'e4f5a6b' }), 'plugin a1b2c3d · board e4f5a6b');
+  assert.strictEqual(stampLabel({ plugin: null, board: 'e4f5a6b' }), 'plugin ? · board e4f5a6b');
+  assert.strictEqual(stampLabel(undefined), null);
+  assert.strictEqual(stampLabel({ plugin: null, board: null }), null);
+});

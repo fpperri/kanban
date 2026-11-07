@@ -47,7 +47,13 @@ const saveGuardModule = (() => {
     return sameDay ? `Board as of ${time}` : `Board as of ${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${time}`;
   }
 
-  return { makeSaveGuard, asOfLabel };
+  // "plugin a1b2c3d · board e4f5a6b": the commits a page was built from, beside "Board as of"; null when it has none.
+  function stampLabel(stamp) {
+    if (!stamp || (!stamp.plugin && !stamp.board)) return null;
+    return `plugin ${stamp.plugin || '?'} · board ${stamp.board || '?'}`;
+  }
+
+  return { makeSaveGuard, asOfLabel, stampLabel };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

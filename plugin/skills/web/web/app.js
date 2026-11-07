@@ -2222,6 +2222,10 @@ function applyQueued(source) {
     $('#more-refresh').textContent = label;
     $('#refresh-btn').title = `${label}. Tap to see how to bring it up to date.`;
   }
+  const stampWords = source && source.kind !== 'server' ? window.kanbanSaveGuard.stampLabel(source.stamp) : null;
+  $('#build-stamp').textContent = stampWords || '';
+  $('#build-stamp').title = stampWords ? 'The plugin and board commits this page was built from' : '';
+  $('#build-stamp').classList.toggle('hidden', !stampWords);
   const n = source && source.kind !== 'server' ? source.queued : 0;
   const refused = source && Array.isArray(source.refused) ? source.refused : [];
   $('#queued-pill').textContent = refused.length ? `${n} queued, ${refused.length} refused` : `${n} queued`;
