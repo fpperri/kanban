@@ -100,9 +100,9 @@ Card bodies, the scratchpad's preview and the Board artifact's card sheet render
 way: headings, nested lists, quotes, tables, strike, underline, collapsible `<details>`, and fenced
 code that shows its language (` ```c# `) with a Copy button. Two libraries are vendored under
 `plugin/skills/web/web/vendor` and load only when a body needs one: highlight.js (BSD-3) colours the
-languages it knows, and mermaid (MIT) draws ` ```mermaid ` blocks as diagrams, in a sandboxed frame. A
-third, three.js (MIT), draws the Graph's Hierarchy in 3D and loads the first time 3D is on. The plugin still
-has no package dependencies. See `docs/web.md` and ADR 0020.
+languages it knows, and mermaid (MIT) draws ` ```mermaid ` blocks as diagrams, in a sandboxed frame (ADR
+0020). A third, three.js (MIT), draws the Graph's Hierarchy in 3D and loads the first time 3D is on. The
+plugin still has no package dependencies. See `docs/web.md`.
 
 ## The board data model
 

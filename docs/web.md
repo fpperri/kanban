@@ -803,9 +803,9 @@ theme; an unknown language, plain text and an untyped fence stay plain, with no 
 labelled code block with one line of error under it and never breaks the rest of the body. Both redraw
 when the page's theme changes, and neither is requested by a page that has no block for it. The files
 sit in `plugin/skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
-highlight.js 11.12.0, and nothing loads from the network. A third library, **three.js** (MIT, r160's classic
-build, `three/three.min.js`), sits beside them for the Graph's Hierarchy in 3D and is asked for the first time
-3D is on (see **Graph**). See ADR 0020. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
+highlight.js 11.12.0, and nothing loads from the network. See ADR 0020. A third library, **three.js** (MIT,
+r160's classic build, `three/three.min.js`), sits beside them for the Graph's Hierarchy in 3D and is asked for
+the first time 3D is on (see **Graph**). A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
 line of its own, make a collapsible section whose body is more Markdown (sections nest; `<details open>`
 starts open; with no summary the title is `[...]`). Every piece of text is escaped as it is written, so
 a body holds no live tag: the only tags let through are `<u>…</u>` as a pair on one line and those

@@ -115,8 +115,9 @@ with the board inside, and none of the server's defences above apply to them: th
 - **`npm audit` / dependency scanning** — the server is Node **standard
   library only**: no `node_modules`, nothing installed, no package dependency in
   `package.json`. The plugin does ship three third-party browser libraries,
-  vendored under `plugin/skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT),
-  **highlight.js** 11.12.0 (BSD-3) and **three.js** r160 (MIT). They were checked to be
+  vendored under `plugin/skills/web/web/vendor`: **mermaid** 12.2.0 (MIT) and
+  **highlight.js** 11.12.0 (BSD-3), the two ADR 0020 decided on, and **three.js** r160
+  (MIT), vendored the same way for the Graph's Hierarchy in 3D. They were checked to be
   byte for byte the files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
   `@highlightjs/cdn-assets@11.12.0`, `three@0.160.0`'s `build/three.min.js`) and the
   copies cdnjs and jsDelivr serve.
