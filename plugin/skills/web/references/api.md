@@ -2,7 +2,7 @@ The server's HTTP routes, their request and response bodies, and the keys of the
 
 ### GET /vendor/<library>/<file>, GET /mermaid-frame.html and GET /mermaid-frame.js
 
-The server serves `/vendor/<library>/<file>` for the four files it names (`VENDORED` in `server.js`, the licences beside them are not served) and the two frame files, and answers a request with the origin `null` (a sandboxed frame's) for those only. A vendored file is served with `Cache-Control: public, max-age=31536000, immutable` (the version is in the address); everything else stays `no-store`.
+The server serves `/vendor/<library>/<file>` for the five files it names (`VENDORED` in `server.js`, the licences beside them are not served) and the two frame files, and answers a request with the origin `null` (a sandboxed frame's) for those only. A vendored file is served with `Cache-Control: public, max-age=31536000, immutable` (the version is in the address); everything else stays `no-store`.
 
 ### POST /api/cards/<id>/archive
 
@@ -116,4 +116,4 @@ The server adds `iterations` (true only with the key and a groups folder) to the
 
 ### GET / and GET /<file>: the files the server serves
 
-**The page names the files the server serves.** The server serves `/` (`web/app.html`) and the files that page loads by a plain top-level name: its `<script src>` tags, the stylesheet and the tab icon. Anything else in `web/` is a 404 (apart from the four vendored library files, served by exact name under `/vendor/`: `mermaid/mermaid.min.js`, `highlight.js/highlight.min.js`, `highlight.js/github.min.css` and `highlight.js/github-dark.min.css`, and the mermaid frame's two files, `mermaid-frame.html` and `mermaid-frame.js`).
+**The page names the files the server serves.** The server serves `/` (`web/app.html`) and the files that page loads by a plain top-level name: its `<script src>` tags, the stylesheet and the tab icon. Anything else in `web/` is a 404 (apart from the five vendored library files, served by exact name under `/vendor/`: `mermaid/mermaid.min.js`, `highlight.js/highlight.min.js`, `highlight.js/github.min.css`, `highlight.js/github-dark.min.css` and `three/three.min.js`, and the mermaid frame's two files, `mermaid-frame.html` and `mermaid-frame.js`).

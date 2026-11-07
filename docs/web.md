@@ -231,6 +231,25 @@ Unnested says where the cards with no parent, no children and no tier are drawn:
 ring outside the fan by default, not at all, on the depth 0 ring, or in the block outside
 the rim. The row's choices are kept per board.
 
+**3D** — while the Hierarchy shows, a **3D** button follows Hierarchy | Flow in the toolbar. Pressed, it
+draws the same Hierarchy (the same plan: every filter, search, option, status, type mark, selection and
+lighting) on a shape you turn round, and writes `in3d=1` in the address, so a reload or a link opens it
+again; pressed again, the 2D drawing is back and the address drops it. It opens on the **disc**, seen from
+straight above, where every dot stands where the 2D Hierarchy draws it; **g** steps the shape to the **half
+sphere** (the disc's centre sunk into a bowl under its rim), the **sphere** (the same to the far pole) and
+back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits, the wheel zooms
+toward the pointer, and you can zoom in among the dots; on a touch screen one finger orbits and a pinch zooms.
+A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
+menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames
+everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons zoom and
+fit. A compass in the stage's bottom-right corner turns and tilts with the camera; a press on it turns the
+view north up from straight above (the 2D picture), keeping where it looks and how near. Farther marks, and
+those on the far side of the half sphere or the sphere, are drawn in their colour mixed into the ground, as
+dimmed cards are, never see-through. A quiet line in the bottom-left corner names the gestures at first,
+then the shape and its keys. three.js draws the shape's washes, rings and dividers; it is vendored (see
+**Markdown** below) and asked for only the first time 3D is on, and leaving 3D, switching to the Flow
+or to another view takes the scene down.
+
 **Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
 from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the
 choice, **all** by default or **frontier**, decides the columns. Frontier counts the steps until a card is
@@ -784,7 +803,9 @@ theme; an unknown language, plain text and an untyped fence stay plain, with no 
 labelled code block with one line of error under it and never breaks the rest of the body. Both redraw
 when the page's theme changes, and neither is requested by a page that has no block for it. The files
 sit in `plugin/skills/web/web/vendor`, each with its licence beside it, pinned to mermaid 12.2.0 and
-highlight.js 11.12.0, and nothing loads from the network. See ADR 0020. A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
+highlight.js 11.12.0, and nothing loads from the network. See ADR 0020. A third library, **three.js** (MIT,
+r160's classic build, `three/three.min.js`), sits beside them for the Graph's Hierarchy in 3D and is asked for
+the first time 3D is on (see **Graph**). A `<details>` line, an optional `<summary>…</summary>` line and a `</details>` line, each on a
 line of its own, make a collapsible section whose body is more Markdown (sections nest; `<details open>`
 starts open; with no summary the title is `[...]`). Every piece of text is escaped as it is written, so
 a body holds no live tag: the only tags let through are `<u>…</u>` as a pair on one line and those

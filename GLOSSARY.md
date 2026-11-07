@@ -197,6 +197,10 @@ _Avoid_: network, node-link diagram, the Map (that is a different view).
 The Graph view's second graph, beside the Hierarchy: the board laid out by its dependencies in columns, left to right, one column for each step of a plan, with an arrow from each card waited for to the card that waits, and no parent line. Its Dependencies switch is **all** (the default) or frontier, and its Lanes switch, on by default, groups the cards into **lanes**. A card with no dependency either way sits in a strip below the columns, with a count. A dependency loop never hangs it: the loop has a column of its own under frontier.
 _Avoid_: workflow, pipeline, timeline (that is the Gantt).
 
+**3D Hierarchy** (web only):
+The Hierarchy drawn on a **shape** the camera turns round: the same cards, marks, lines and captions as the 2D Hierarchy, laid on the **disc** (the 2D layout, flat), the **half sphere** (the disc's centre sunk into a bowl hanging under its rim, nothing above it) or the **sphere** (the same wrapped on round to the far pole). The 3D button beside Hierarchy | Flow turns it on and off and writes `in3d=1` in the address. Seen from straight above, the disc is the 2D picture. Its **compass** shows which way the view faces and how far it is tilted; a press on it turns the view back north up, seen from straight above, north being the top of the 2D Hierarchy.
+_Avoid_: 3D graph, globe, 3D view (only the Hierarchy is drawn in 3D; the Flow is not).
+
 **Frontier** (web only):
 One of the Flow's two readings of its columns (its Dependencies switch, the other being all, the default): the steps until a card is ready, counting only the dependencies that are not done, so a card whose every dependency is done is ready now. Done cards come first, faded; a card in or behind a dependency loop comes last. The default, all, counts the longest chain of dependencies behind a card instead, done ones included.
 _Avoid_: backlog, queue, critical path.

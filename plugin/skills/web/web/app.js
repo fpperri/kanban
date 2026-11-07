@@ -1297,6 +1297,7 @@ function applyViewMode() {
   if (mode === 'calendar') renderCalendarView();
   if (mode === 'gantt') renderGanttView();
   if (mode === 'graph') renderGraphView();
+  else graph3dRelease(); // the 3D Hierarchy's scene and its animation frame go with the Graph
 }
 
 function renderBoard() {
@@ -1593,7 +1594,7 @@ function renderMapView() {
   main.scrollTop = keepTop;
 }
 
-const REFOCUS_SELECTOR = '.column-toggle, .map-section-toggle, .graph-option-btn, .graph-info-toggle, .view-panel-toggle, .view-panel-close';
+const REFOCUS_SELECTOR = '.column-toggle, .map-section-toggle, .graph-option-btn, .graph-info-toggle, .graph-3d-btn, .view-panel-toggle, .view-panel-close';
 
 // What finds a rebuilt control again after a render: its class and what names it, a column
 // toggle's column, a fold toggle's section, a panel button its view, or for a button of the
@@ -1602,6 +1603,7 @@ function refocusSelector(el) {
   const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const named = (key) => `[data-${key}="${quote(el.dataset[key])}"]`;
   if (el.dataset.graphInfo !== undefined) return '.graph-info-toggle';
+  if (el.dataset.graph3d !== undefined) return '.graph-3d-btn';
   if (el.dataset.panel !== undefined) return `.${el.classList[0]}${named('panel')}`;
   if (el.dataset.key !== undefined) return `.${el.classList[0]}${named('key')}${named('val')}`;
   if (el.dataset.col !== undefined) return `.${el.classList[0]}${named('col')}`;
@@ -4290,7 +4292,8 @@ function goToSearchMatch() {
   if (mode === 'graph' && graphCur) {
     const nodeId = [...graphCur.nodeEls.keys()].find((k) => String(k) === id);
     const at = nodeId === undefined ? null : graphCur.layout.pos.get(nodeId);
-    if (at) {
+    if (at && graphCur.in3d) graph3dCenterOn(nodeId); // the 3D Hierarchy turns its camera to the card
+    else if (at) {
       const stage = graphCur.svg.getBoundingClientRect();
       Object.assign(graphCur.view, searchEnterPan(graphCur.view, at, stage.width || graphCur.w, stage.height || graphCur.h), { touched: true });
       graphApplyTransform();

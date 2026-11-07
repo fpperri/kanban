@@ -1,0 +1,597 @@
+'use strict';
+// The 3D Hierarchy's pure helpers and its tuning: the shapes, the camera's geometry, the paint and the
+// label picking. The browser part is graph-3d-view.js and the files it names; node --test requires this one.
+
+const GRAPH3D_SHAPE_LIST = ['disc', 'half', 'sphere'];
+const GRAPH3D_SHAPE_NAMES = { disc: 'disc', half: 'half sphere', sphere: 'sphere' };
+// On the sphere the rim stands a little short of the far pole, so the outermost ring stays a ring.
+const GRAPH3D_SPHERE_REACH = 1.08;
+
+// The points of an SVG path, as pieces (one for each M) of [x, y], no two points farther apart than
+// `step` along a line, an arc or a curve, so a line can bend with the shape it is drawn on. Reads the
+// commands the Graph's plan writes (M L H V A Q C Z, absolute or relative).
+function graph3dPathPoints(d, step) {
+  const gap = step > 0 ? step : 6;
+  const tokens = String(d || '').match(/[MmLlHhVvAaQqCcZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || [];
+  const pieces = [];
+  let cur = null;
+  let x = 0, y = 0, sx = 0, sy = 0, cmd = '', i = 0;
+  const isNum = () => i < tokens.length && !/^[A-Za-z]$/.test(tokens[i]);
+  const num = () => Number(tokens[i++]);
+  const start = (nx, ny) => {
+    cur = [[nx, ny]];
+    pieces.push(cur);
+    x = sx = nx;
+    y = sy = ny;
+  };
+  const lineTo = (nx, ny) => {
+    if (!cur) start(x, y);
+    if (nx === x && ny === y) return;
+    const n = Math.max(1, Math.ceil(Math.hypot(nx - x, ny - y) / gap));
+    for (let k = 1; k < n; k++) cur.push([x + ((nx - x) * k) / n, y + ((ny - y) * k) / n]);
+    cur.push([nx, ny]);
+    x = nx;
+    y = ny;
+  };
+  const curve = (at, length, nx, ny) => {
+    if (!cur) start(x, y);
+    const n = Math.max(2, Math.ceil(length / gap));
+    for (let k = 1; k < n; k++) cur.push(at(k / n));
+    cur.push([nx, ny]);
+    x = nx;
+    y = ny;
+  };
+  const arcTo = (rx0, ry0, rot, large, sweep, nx, ny) => {
+    let rx = Math.abs(rx0), ry = Math.abs(ry0);
+    if (!rx || !ry || (nx === x && ny === y)) { lineTo(nx, ny); return; }
+    const phi = (rot * Math.PI) / 180;
+    const cos = Math.cos(phi), sin = Math.sin(phi);
+    const dx = (x - nx) / 2, dy = (y - ny) / 2;
+    const x1 = cos * dx + sin * dy;
+    const y1 = -sin * dx + cos * dy;
+    const lambda = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry);
+    if (lambda > 1) { rx *= Math.sqrt(lambda); ry *= Math.sqrt(lambda); }
+    const top = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1;
+    const bottom = rx * rx * y1 * y1 + ry * ry * x1 * x1;
+    let coef = bottom ? Math.sqrt(Math.max(0, top / bottom)) : 0;
+    if (!!large === !!sweep) coef = -coef;
+    const cxp = (coef * rx * y1) / ry;
+    const cyp = (-coef * ry * x1) / rx;
+    const cx = cos * cxp - sin * cyp + (x + nx) / 2;
+    const cy = sin * cxp + cos * cyp + (y + ny) / 2;
+    const angle = (ux, uy, vx, vy) => Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+    const t1 = angle(1, 0, (x1 - cxp) / rx, (y1 - cyp) / ry);
+    let dt = angle((x1 - cxp) / rx, (y1 - cyp) / ry, (-x1 - cxp) / rx, (-y1 - cyp) / ry);
+    if (!sweep && dt > 0) dt -= 2 * Math.PI;
+    else if (sweep && dt < 0) dt += 2 * Math.PI;
+    curve((f) => {
+      const t = t1 + dt * f;
+      return [cx + rx * Math.cos(t) * cos - ry * Math.sin(t) * sin, cy + rx * Math.cos(t) * sin + ry * Math.sin(t) * cos];
+    }, Math.abs(dt) * Math.max(rx, ry), nx, ny);
+  };
+  while (i < tokens.length) {
+    if (!isNum()) cmd = tokens[i++];
+    else if (!cmd) { i++; continue; }
+    const rel = cmd === cmd.toLowerCase();
+    const ox = rel ? x : 0, oy = rel ? y : 0;
+    switch (cmd.toUpperCase()) {
+      case 'M':
+        start(num() + ox, num() + oy);
+        cmd = rel ? 'l' : 'L';
+        break;
+      case 'L': lineTo(num() + ox, num() + oy); break;
+      case 'H': lineTo(num() + ox, y); break;
+      case 'V': lineTo(x, num() + oy); break;
+      case 'A': {
+        const rx = num(), ry = num(), rot = num(), large = num(), sweep = num();
+        arcTo(rx, ry, rot, large, sweep, num() + ox, num() + oy);
+        break;
+      }
+      case 'Q': {
+        const qx = num() + ox, qy = num() + oy, nx = num() + ox, ny = num() + oy;
+        const x0 = x, y0 = y;
+        curve((t) => [(1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * qx + t * t * nx, (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * qy + t * t * ny],
+          Math.hypot(qx - x0, qy - y0) + Math.hypot(nx - qx, ny - qy), nx, ny);
+        break;
+      }
+      case 'C': {
+        const ax = num() + ox, ay = num() + oy, bx = num() + ox, by = num() + oy, nx = num() + ox, ny = num() + oy;
+        const x0 = x, y0 = y;
+        const bez = (p0, p1, p2, p3, t) => (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t * t * p2 + t ** 3 * p3;
+        curve((t) => [bez(x0, ax, bx, nx, t), bez(y0, ay, by, ny, t)],
+          Math.hypot(ax - x0, ay - y0) + Math.hypot(bx - ax, by - ay) + Math.hypot(nx - bx, ny - by), nx, ny);
+        break;
+      }
+      case 'Z':
+        lineTo(sx, sy);
+        cmd = '';
+        break;
+      default:
+        i++;
+    }
+  }
+  return pieces.filter((p) => p.length > 1);
+}
+
+// Where the 2D point (x, y) of the layout (its centre at 0 0) stands on a shape, as [x, y, z] with y
+// up: the disc keeps it on the plane; the half sphere and the sphere keep its bearing and turn its
+// distance from the centre into an angle from the bottom pole, to 90 degrees at the rim for the half
+// (whose sphere has the rim's radius, so the rim stays where the disc has it) and to 180 for the
+// sphere. Past the rim the half stays on the plane, so nothing stands above the disc. The sphere
+// reaches a little past `outer` (graph3dOuter), when given, so a card past the rim, as an Unnested
+// table's are, keeps a place of its own short of the far pole.
+function graph3dPlace(shape, x, y, rim, outer) {
+  if (shape !== 'half' && shape !== 'sphere') return [x, 0, y];
+  const r = Math.hypot(x, y);
+  const b = Math.atan2(y, x);
+  if (shape === 'half') {
+    if (r >= rim) return [Math.cos(b) * r, 0, Math.sin(b) * r];
+    const phi = (r / rim) * (Math.PI / 2);
+    const rho = rim * Math.sin(phi);
+    return [Math.cos(b) * rho, -rim * Math.cos(phi), Math.sin(b) * rho];
+  }
+  const reach = Math.max(rim, outer || 0) * GRAPH3D_SPHERE_REACH;
+  const radius = reach / 2;
+  const phi = Math.min(1, r / reach) * Math.PI;
+  const rho = radius * Math.sin(phi);
+  return [Math.cos(b) * rho, -radius * Math.cos(phi), Math.sin(b) * rho];
+}
+
+// A point on its way from one shape to the next, `t` from 0 to 1.
+function graph3dMorph(from, to, t, x, y, rim, outer) {
+  const a = graph3dPlace(from, x, y, rim, outer);
+  if (t <= 0) return a;
+  const b = graph3dPlace(to, x, y, rim, outer);
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+function graph3dNextShape(shape) {
+  const i = GRAPH3D_SHAPE_LIST.indexOf(shape);
+  return GRAPH3D_SHAPE_LIST[i < 0 ? 0 : (i + 1) % GRAPH3D_SHAPE_LIST.length];
+}
+
+function graph3dShapeName(shape) {
+  return GRAPH3D_SHAPE_NAMES[shape] || shape;
+}
+
+function graph3dWantedIn(search) {
+  try { return new URLSearchParams(search || '').get('in3d') === '1'; } catch (e) { return false; }
+}
+
+// The address once 3D is `on`: in3d=1 written in or taken out, the rest kept. The search string
+// ("?..." or "" when nothing is left), or null when the address already says it.
+function graph3dAddressFor(search, on) {
+  const params = new URLSearchParams(search || '');
+  if ((params.get('in3d') === '1') === !!on) return null;
+  if (on) params.set('in3d', '1');
+  else params.delete('in3d');
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+// The outermost ring the fan draws: its dots (with their marks), its washes and its guide rings. The
+// cards of the Unnested block stand outside the fan and are left out.
+function graph3dRim(plan) {
+  const out = new Set();
+  for (const col of (plan.block && plan.block.columns) || []) for (const id of col.ids || []) out.add(id);
+  let rim = 0;
+  for (const n of plan.nodes || []) if (!out.has(n.id)) rim = Math.max(rim, Math.hypot(n.x, n.y) + (n.reach || 0));
+  for (const mark of (plan.tints || []).concat(plan.guides || [])) {
+    for (const piece of graph3dPathPoints(mark.d, 40)) for (const [x, y] of piece) rim = Math.max(rim, Math.hypot(x, y));
+  }
+  return rim || 100;
+}
+
+// The farthest from the centre anything of the plan stands: every dot, the Unnested block's included,
+// and the block's corners.
+function graph3dOuter(plan) {
+  let out = 0;
+  for (const n of plan.nodes || []) out = Math.max(out, Math.hypot(n.x, n.y) + (n.reach || 0));
+  const b = plan.block;
+  if (b && Number.isFinite(b.w)) for (const [x, y] of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) out = Math.max(out, Math.hypot(x, y));
+  return out;
+}
+
+// Whether the camera at `eye` sees the point p of the sphere (centred at 0 0 0) from behind: the far side.
+function graph3dFar(p, eye) {
+  return p[0] * (eye[0] - p[0]) + p[1] * (eye[1] - p[1]) + p[2] * (eye[2] - p[2]) < 0;
+}
+
+// Whether the camera at `eye` sees the point p of the bowl (the half sphere's wall under a rim of radius
+// `rim`) from outside, through the wall: the bowl's own far side. The plane past the rim has none.
+function graph3dBowlBack(p, eye, rim) {
+  if (!(p[1] < -1e-6) || Math.hypot(p[0], p[2]) >= rim - 1e-6) return false;
+  return p[0] * (eye[0] - p[0]) + p[1] * (eye[1] - p[1]) + p[2] * (eye[2] - p[2]) > 0;
+}
+
+// A line's pieces cut into the runs on the near side and the runs on the far side (farOf), each run
+// keeping the next one's first point, so the two halves meet.
+function graph3dSplitFar(pieces, farOf) {
+  const out = { near: [], far: [] };
+  for (const piece of pieces) {
+    let run = null;
+    let side = null;
+    piece.forEach((p, i) => {
+      const s = farOf(p) ? 'far' : 'near';
+      if (s !== side) {
+        if (run) { run.push(p); if (run.length > 1) out[side].push(run); }
+        run = i > 0 ? [piece[i - 1], p] : [p];
+        side = s;
+      } else run.push(p);
+    });
+    if (run && run.length > 1) out[side].push(run);
+  }
+  return out;
+}
+
+// Which labels show, taken in turn (the first the most wanted). Each label tries its boxes in turn (a
+// name, then the id in its place) and takes the first that meets no label already shown and no blocker
+// but its own (`own`, the key of its dot), nor, unless it may lie over the far side (`overFar`), a blocker
+// marked `far`; a forced one takes its last box when none has room. A label with a depth (`z`) may lie
+// over a dot well behind its own (BEHIND times as far), as a nearer thing is seen in front of a farther;
+// a label painted under the near side (`under`, the far side's) only over a far dot well behind its own.
+// The answer maps each label shown to the index of the box it took.
+const GRAPH3D_BEHIND = 1.1;
+function graph3dPick(items, blockers) {
+  const meets = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const behind = (it, b) => it.z > 0 && b.z > it.z * GRAPH3D_BEHIND;
+  const fits = (it, box) => !kept.some((b) => meets(b, box)) && !(blockers || []).some((b) => b.key !== it.own && !(b.far && it.overFar) && !(behind(it, b) && (b.far || !it.under)) && meets(b.box, box));
+  const kept = [];
+  const shown = new Map();
+  for (const it of items) {
+    const boxes = it.boxes || [];
+    let k = boxes.findIndex((box) => fits(it, box));
+    if (k < 0 && it.force && boxes.length) k = boxes.length - 1;
+    if (k < 0) continue;
+    kept.push(boxes[k]);
+    shown.set(it.key, k);
+  }
+  return shown;
+}
+
+// The order the marks are painted in: back to front, the far side (the sphere's back, the bowl's wall seen
+// through) under every near mark however near it stands, and the lit cards last of all.
+function graph3dPaintOrder(vis) {
+  return vis.slice().sort((a, b) => (a.lit - b.lit) || (b.far - a.far) || b.z - a.z);
+}
+
+// The marks `order` (in paint order) put in that order without moving `pressed`, the mark a button is down
+// on: the browser sends no click to a mark taken off the page between the press and the release, and a
+// mark is taken off to be moved. The ones before it go in front of it, the rest after the last mark.
+function graph3dRestack(order, pressed) {
+  const at = pressed == null ? -1 : order.indexOf(pressed);
+  return { before: order.slice(0, Math.max(at, 0)), after: order.slice(at + 1) };
+}
+
+// Whether the camera looks straight down on the plan with its x to the right: the picture the 2D view has.
+function graph3dTopDown(cam) {
+  const turn = Math.abs(cam.theta) % (2 * Math.PI);
+  return Math.abs(cam.phi) < 0.01 && Math.min(turn, 2 * Math.PI - turn) < 0.01;
+}
+
+// A mark the camera comes close to (s, its perspective scale) fades into the ground, from FADE_FROM to
+// FADE_TO, and is gone nearer than that: the share of its colour it keeps, 0 when not drawn.
+const GRAPH3D_FADE_FROM = 12;
+const GRAPH3D_FADE_TO = 30;
+function graph3dCloseFade(s) {
+  if (s <= GRAPH3D_FADE_FROM) return 1;
+  if (s >= GRAPH3D_FADE_TO) return 0;
+  return 1 - (s - GRAPH3D_FADE_FROM) / (GRAPH3D_FADE_TO - GRAPH3D_FADE_FROM);
+}
+
+// v as it is up to `knee`, then bending toward `cap` without reaching it, so of two values past the knee
+// the larger stays larger however far past (a soft knee rather than a clamp): half way there at v = cap.
+function graph3dSoftCap(v, knee, cap) {
+  if (!(cap > knee)) return Math.min(v, cap);
+  if (v <= knee) return v;
+  const x = (v - knee) / (cap - knee);
+  return knee + (cap - knee) * (x / (1 + x));
+}
+
+// The scale a mark is drawn at: its perspective scale bending toward MARK_CAP, so a dot the camera flies
+// past does not fill the stage, and on the disc and the bowl a little smaller as they tilt, so rows seen
+// low do not stack. Straight above it is the perspective scale itself, the 2D view's zoom.
+// A mark nearer than what the camera looks at (`ref`, its scale) grows toward no more than NEAR_CAP times
+// that, so the front of the sphere or of a tilted disc does not balloon over its neighbours. The bend
+// starts at 0.6 of the cap, or at `ref` when that is short of the cap, so straight above a mark is drawn at
+// the 2D zoom, and a nearer mark is always drawn the larger.
+const GRAPH3D_MARK_CAP = 3;
+const GRAPH3D_NEAR_CAP = 1.6;
+function graph3dMarkScale(s, phi, shape, ref) {
+  const cap = Math.min(GRAPH3D_MARK_CAP, ref > 0 ? GRAPH3D_NEAR_CAP * ref : Infinity);
+  const k = graph3dSoftCap(s, ref > 0 && ref < cap ? Math.max(0.6 * cap, ref) : 0.6 * cap, cap);
+  if (shape === 'sphere') return k;
+  return k * (0.55 + 0.45 * Math.cos(Math.min(Math.abs(phi), Math.PI / 2)));
+}
+
+// How far the camera tilts from straight above: the disc and the bowl to nearly edge-on, the sphere
+// all the way round to under its far pole.
+function graph3dMaxTilt(shape) {
+  return shape === 'sphere' ? Math.PI : 1.3;
+}
+
+const graph3dSphereRadius = (shape, rim, outer) => (shape === 'half' ? rim : (Math.max(rim, outer || 0) * GRAPH3D_SPHERE_REACH) / 2);
+
+// Where the ray from `o` along `d` (a unit vector) first meets the shape, or null: the plane for the
+// disc and past the half's rim, the bowl under the rim, the near side of the sphere.
+function graph3dRayHit(shape, o, d, rim, outer) {
+  const at = (t) => [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
+  const hits = [];
+  const plane = Math.abs(d[1]) > 1e-9 ? -o[1] / d[1] : -1;
+  if (shape !== 'sphere' && plane > 0) {
+    const p = at(plane);
+    if (shape === 'disc' || Math.hypot(p[0], p[2]) >= rim) hits.push(plane);
+  }
+  if (shape === 'half' || shape === 'sphere') {
+    const r = graph3dSphereRadius(shape, rim, outer);
+    const b = o[0] * d[0] + o[1] * d[1] + o[2] * d[2];
+    const c = o[0] * o[0] + o[1] * o[1] + o[2] * o[2] - r * r;
+    const disc = b * b - c;
+    if (disc >= 0) {
+      for (const t of [-b - Math.sqrt(disc), -b + Math.sqrt(disc)]) {
+        if (t > 0 && (shape === 'sphere' || at(t)[1] <= 1e-6)) hits.push(t);
+      }
+    }
+  }
+  if (!hits.length) return null;
+  return at(Math.min(...hits));
+}
+
+// The point p put back on the shape: onto the plane, the bowl under the rim, or the sphere.
+function graph3dSnap(shape, p, rim, outer) {
+  if (shape === 'disc' || (shape === 'half' && Math.hypot(p[0], p[2]) >= rim)) return [p[0], 0, p[2]];
+  const r = graph3dSphereRadius(shape, rim, outer);
+  const q = shape === 'half' ? [p[0], Math.min(p[1], 0), p[2]] : p.slice();
+  const len = Math.hypot(q[0], q[1], q[2]);
+  if (len < 1e-9) return [0, -r, 0];
+  return [(q[0] * r) / len, (q[1] * r) / len, (q[2] * r) / len];
+}
+
+// The dot a pointer at (x, y) means: of the dots (screen centre x y, radius r, depth z) whose edge is
+// within `tol` px, the one nearest the camera, or null.
+function graph3dNearest(vis, x, y, tol) {
+  let best = null;
+  for (const o of vis) {
+    const off = Math.hypot(o.x - x, o.y - y) - o.r;
+    if (off > tol) continue;
+    if (!best || o.z < best.z || (o.z === best.z && off < best.off)) best = { id: o.id, z: o.z, off };
+  }
+  return best ? best.id : null;
+}
+
+// A released orbit's speed (px per ms) after another `dt` ms of coasting, or null once it has stopped.
+function graph3dCoast(v, dt) {
+  const k = 0.9 ** (dt / 16.7);
+  const vx = v.vx * k, vy = v.vy * k;
+  return Math.hypot(vx, vy) * 16.7 < 0.05 ? null : { vx, vy };
+}
+
+// A line is as wide as the dots at its ends are seen (sk, their mean scale) against the home zoom
+// (kHome), from 0.75 times its 2D width and bending toward 1.8 past 1.3: exactly that width straight above at home.
+function graph3dLineWidth(sk, kHome) {
+  if (!(kHome > 0) || !(sk > 0)) return 1;
+  return Math.max(0.75, graph3dSoftCap(sk / kHome, 1.3, 1.8));
+}
+
+// A label is as large as its dot is near (s, its perspective scale) against what the camera looks at
+// (ref), and as much again as the camera has come in past the fitted view (`grow`, from 1): 0.8 to 1.5
+// times its 2D size, bending toward 1.5 past 1.2, and exactly 1 from straight above.
+function graph3dLabelScale(s, ref, topDown, grow) {
+  if (topDown || !(ref > 0) || !(s > 0)) return 1;
+  return Math.max(0.8, graph3dSoftCap((s / ref) * Math.max(1, grow || 1), 1.2, 1.5));
+}
+
+// The camera's right, up and back (toward the camera) at tilt phi and turn theta, as applyCamera turns it.
+function graph3dBasis(phi, theta) {
+  const sp = Math.sin(phi), cp = Math.cos(phi), s = Math.sin(theta), c = Math.cos(theta);
+  return { right: [c, 0, -s], up: [-cp * s, sp, -cp * c], back: [sp * s, cp, sp * c] };
+}
+
+// How far back from `target` a camera turned as `b` stands to see every point within `fill` of the stage
+// each way (tanH, tanV: the tangents of half its field of view), and the move of the target (`shift`,
+// in the scene) that puts the points in the middle; with `held`, the target stays in the middle.
+function graph3dFit(points, target, b, tanH, tanV, fill, held) {
+  const f = fill > 0 ? fill : 0.85;
+  const dot = (d, v) => d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
+  const rel = points.map((p) => {
+    const d = [p[0] - target[0], p[1] - target[1], p[2] - target[2]];
+    return [dot(d, b.right), dot(d, b.up), dot(d, b.back)];
+  });
+  let sx = 0, sy = 0;
+  const need = () => {
+    let dist = 0;
+    for (const [x, y, z] of rel) dist = Math.max(dist, z + Math.abs(x - sx) / (f * tanH), z + Math.abs(y - sy) / (f * tanV));
+    return dist;
+  };
+  let dist = need();
+  for (let i = 0; i < 6 && rel.length && !held; i++) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const [x, y, z] of rel) {
+      const depth = Math.max(1e-6, dist - z);
+      x0 = Math.min(x0, (x - sx) / depth); x1 = Math.max(x1, (x - sx) / depth);
+      y0 = Math.min(y0, (y - sy) / depth); y1 = Math.max(y1, (y - sy) / depth);
+    }
+    sx += ((x0 + x1) / 2) * dist;
+    sy += ((y0 + y1) / 2) * dist;
+    dist = need();
+  }
+  return { dist, shift: [0, 1, 2].map((k) => b.right[k] * sx + b.up[k] * sy) };
+}
+
+// The tilt and turn from which the camera sees the point p of the sphere face on (along its outward
+// normal), the turn the one nearest `theta`, so the camera goes the short way round; at a pole the turn stays.
+function graph3dFacing(p, theta) {
+  const len = Math.hypot(p[0], p[1], p[2]);
+  if (len < 1e-9) return null;
+  const phi = Math.acos(Math.max(-1, Math.min(1, p[1] / len)));
+  if (Math.hypot(p[0], p[2]) < 1e-9 * len) return { phi, theta };
+  let t = Math.atan2(p[0], p[2]);
+  t += Math.round((theta - t) / (2 * Math.PI)) * 2 * Math.PI;
+  return { phi, theta: t };
+}
+
+// A card and the cards the plan's lines join it to (its parent, its children, what it waits on), as ids in text.
+function graph3dKinOf(links, id) {
+  const me = String(id);
+  const out = new Set([me]);
+  for (const l of links || []) {
+    const kids = (l.kids || [l.to]).map(String);
+    if (String(l.from) === me) kids.forEach((k) => out.add(k));
+    else if (kids.includes(me) || String(l.to) === me) out.add(String(l.from));
+  }
+  return out;
+}
+
+// What a press starts once it drags: 'pan' for the left button (and the middle one), 'orbit' for the
+// right one, a Shift+left press and a finger; null for any other button. A press that never drags is
+// a click: a left click selects, a right one opens the card menu.
+function graph3dDragMode({ button, shiftKey, pointerType }) {
+  if (pointerType === 'touch') return 'orbit';
+  if (button === 2 || (button === 0 && shiftKey)) return 'orbit';
+  if (button === 0 || button === 1) return 'pan';
+  return null;
+}
+
+// A colour as the stylesheet gives it (#rgb, #rrggbb, rgb() or rgba()), as { r, g, b, a }, or null.
+function graph3dRgb(text) {
+  const s = String(text || '').trim();
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+  if (hex) {
+    const h = hex[1].length === 3 ? hex[1].replace(/./g, '$&$&') : hex[1];
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16), a: 1 };
+  }
+  const m = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (!m) return null;
+  const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  if (p.length < 3 || p.slice(0, 3).some((v) => !Number.isFinite(v))) return null;
+  return { r: p[0], g: p[1], b: p[2], a: p.length > 3 && Number.isFinite(p[3]) ? p[3] : 1 };
+}
+
+// `ink` laid over `ground` keeping `share` of it (0 the ground, 1 the ink; an ink that is itself partly
+// see-through keeps that much less), as the rgb() the page paints: a mark dimmed by depth, the far side
+// or the lighting is a colour, never a see-through one, since near and far marks overlap in 3D.
+function graph3dMix(ink, ground, share) {
+  const a = Math.max(0, Math.min(1, share)) * (ink.a == null ? 1 : ink.a);
+  const ch = (k) => Math.round(ground[k] + (ink[k] - ground[k]) * a);
+  return `rgb(${ch('r')}, ${ch('g')}, ${ch('b')})`;
+}
+
+// The share of its colour a mark keeps: what depth and the far side leave it (`keep`), times what the
+// lighting leaves a mark it does not light (`dim`), but never under the lighting's `floor`, so the rest
+// of the graph stays legible round what is lit. `unlit` is null for a lit mark.
+const GRAPH3D_UNLIT = {
+  node: { dim: 0.4, floor: 0.28 },
+  link: { dim: 0.25, floor: 0.16 },
+  count: { dim: 0.4, floor: 0.28 },
+};
+function graph3dShare(keep, unlit) {
+  return unlit ? Math.max(unlit.floor, keep * unlit.dim) : keep;
+}
+
+// The compass: a dial lying on the plan, seen as the camera sees the plan. Its north is the plan's up
+// (the top of the 2D Hierarchy), turned with the camera's turn `theta` and squashed by its tilt `phi`
+// (seen from under past a right angle, and never thinner than a sliver, so edge-on it still shows). The
+// answer is the dial's SVG transform and where its north tip stands on the screen at radius 1 (x right, y down).
+function graph3dCompass(theta, phi) {
+  const r = (v) => Math.round(v * 1000) / 1000 + 0;
+  const c = Math.cos(phi);
+  const squash = (c < 0 ? -1 : 1) * Math.max(0.08, Math.abs(c));
+  return {
+    dial: `scale(1 ${r(squash)}) rotate(${r((theta * 180) / Math.PI)})`,
+    north: [r(Math.sin(theta)), r(-Math.cos(theta) * squash)],
+  };
+}
+
+// The turn the compass eases the camera back to: north up, the whole turn nearest `theta`, so it goes
+// the short way round.
+function graph3dNorthUp(theta) {
+  return Math.round(theta / (2 * Math.PI)) * 2 * Math.PI + 0;
+}
+
+// --- the tuning of the browser part ------------------------------------------------------------
+
+const GRAPH3D_FOV = 45;
+const GRAPH3D_MORPH_MS = 700;
+const GRAPH3D_FLY_MS = 450;
+const GRAPH3D_DRAG = 4;
+const GRAPH3D_WHEEL = 0.87;
+const GRAPH3D_BUTTON_ZOOM = 0.8;
+// The camera comes no nearer to what it looks at than where a dot there is seen this many times its 2D
+// size: just short of its fade (graph3dCloseFade), so the dot it heads for and its neighbours keep their
+// colour and the stage around them stays full.
+const GRAPH3D_CLOSEST_SCALE = 10;
+// At the closest, each further step in leans the camera toward the horizon (the disc and the bowl), up to
+// this tilt, so the dots around the one it heads for come into view, as in a map that tilts as you dive.
+const GRAPH3D_SKIM_TILT = 1.05;
+// The padding, in px, of the 2D Graph's own fit (graphFit) the disc opens on.
+const GRAPH3D_DISC_FIT_PAD = 60;
+// How much of the stage the whole shape fills, each way, when H frames it at a tilt.
+const GRAPH3D_SHAPE_FILL = 0.85;
+// F and the search box's Enter bring a card to the middle with its kin within this much of the stage,
+// and a card alone no nearer than where it is seen at CARD_SCALE times its 2D size.
+const GRAPH3D_CARD_FILL = 0.6;
+const GRAPH3D_CARD_SCALE = 2.5;
+// A wheel step or a pinch eases the camera to where it asked for: this many ms to cover two thirds of the way.
+const GRAPH3D_ZOOM_TAU = 40;
+// A click this many px off a dot's edge still finds it.
+const GRAPH3D_PICK_TOL = 10;
+// How far a shape seen whole (H) is tilted when it is the bowl or the sphere: from the side, so it reads as one.
+const GRAPH3D_SHAPE_TILT = 0.85;
+const GRAPH3D_HINT_MS = 8000;
+// How much of its colour each mark of the ground lays over the stage, as app.css draws the 2D marks:
+// a tier wash, a guide ring, a dashed guide of a nested tier, a divider, the block's frame.
+const GRAPH3D_MIX = { wash: 0.13, guide: 0.55, sub: 0.4, divider: 0.6, block: 1 };
+// The share of its colour a mark at the back keeps (the rest is the ground), and a mark on the sphere's far side.
+const GRAPH3D_DEPTH_FADE = 0.3;
+const GRAPH3D_FAR_KEEP = 0.45;
+// Tilted, the ground's own lines and washes go further into it toward the back than the marks do, up to
+// this much at edge-on: the plane recedes as a surface does.
+const GRAPH3D_GROUND_FOG = 0.55;
+// The floor under the disc: lifted toward the guide rings' colour by this much at edge-on, nothing from
+// straight above, so tilted the plane reads as a surface with a soft edge.
+const GRAPH3D_FLOOR_LIFT = 0.35;
+// How dark a mark's contact shadow is at its middle, tilted edge-on (it fades to nothing at its edge).
+const GRAPH3D_SHADOW = 0.8;
+// A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
+// holding back the browser's contextmenu after this long.
+const GRAPH3D_MENU_HOLD_MS = 600;
+const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything.';
+const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
+const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home';
+// three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
+const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
+// The words the corner's label says when three.js did not load (the engine's own message goes to the console).
+const GRAPH3D_LOAD_FAILED = 'three.js did not load: the 3D Hierarchy cannot be drawn. Turn 3D off for the 2D Hierarchy.';
+const GRAPH3D_TAN_HALF_FOV = Math.tan((GRAPH3D_FOV * Math.PI) / 360);
+
+// A number to two decimals, as the marks' coordinates and the camera's data-cam are written.
+function graph3dRound2(v) {
+  return Math.round(v * 100) / 100;
+}
+
+// The ease of a morph or a flight: slow out, slow in, t and the answer from 0 to 1.
+function graph3dEase(t) {
+  return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
+}
+
+// What the stage does with a contextmenu event, given the right press under way (`right`: down, moved,
+// held, or null) and whether another drag or a pinch is moving (`dragging`): 'hold' it until the button
+// comes up (the menu asked for on the press), 'pass' it to the card menu (a right click with no drag, or
+// the keyboard's Menu key), or 'swallow' it (one asked for by a drag, or a second while one is held).
+function graph3dMenuVerdict(right, dragging) {
+  if (right && right.down) return right.moved || right.held ? 'swallow' : 'hold';
+  if (right) return right.moved ? 'swallow' : 'pass';
+  return dragging ? 'swallow' : 'pass';
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    graph3dPathPoints, graph3dPlace, graph3dMorph, graph3dNextShape, graph3dShapeName,
+    graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
+    graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
+    graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
+    graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
+    graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  };
+}

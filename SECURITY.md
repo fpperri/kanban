@@ -114,14 +114,17 @@ with the board inside, and none of the server's defences above apply to them: th
   only client.
 - **`npm audit` / dependency scanning** — the server is Node **standard
   library only**: no `node_modules`, nothing installed, no package dependency in
-  `package.json`. The plugin does ship two third-party browser libraries,
-  vendored under `plugin/skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT)
-  and **highlight.js** 11.12.0 (BSD-3). They were checked to be byte for byte the
-  files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
-  `@highlightjs/cdn-assets@11.12.0`) and the copies cdnjs and jsDelivr serve.
-  They load only when a body has a block that needs one; mermaid runs only in a
-  sandboxed frame.  Updating one means re-vendoring it and its hashes; there is no lockfile to
-  scan, so the check is that comparison.
+  `package.json`. The plugin does ship three third-party browser libraries,
+  vendored under `plugin/skills/web/web/vendor`: **mermaid** 12.2.0 (MIT) and
+  **highlight.js** 11.12.0 (BSD-3), the two ADR 0020 decided on, and **three.js** r160
+  (MIT), vendored the same way for the Graph's Hierarchy in 3D. They were checked to be
+  byte for byte the files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
+  `@highlightjs/cdn-assets@11.12.0`, `three@0.160.0`'s `build/three.min.js`) and the
+  copies cdnjs and jsDelivr serve.
+  mermaid and highlight.js load only when a body has a block that needs one; mermaid runs only in a
+  sandboxed frame. three.js loads only when the Graph's Hierarchy is drawn in 3D, and draws on a
+  canvas from the plan the page hands it. Updating one means re-vendoring it and its hashes; there is
+  no lockfile to scan, so the check is that comparison.
 
 ## If you're doing something this design doesn't assume
 

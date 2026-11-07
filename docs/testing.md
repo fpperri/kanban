@@ -1,6 +1,6 @@
 # Testing
 
-The plugin has no package dependencies (two libraries are vendored under `plugin/skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later. Run these from the repo root.
+The plugin has no package dependencies (three libraries are vendored under `plugin/skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later. Run these from the repo root.
 
 The plugin ships from `plugin/` (the three skills and the icon); the tests live outside it, in `test/web/`, so an install carries none of them. `.claude-plugin/marketplace.json` stays at the repo root and points its one plugin at `./plugin`.
 
