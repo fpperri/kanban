@@ -211,6 +211,26 @@ function graph3dDomeBack(p, eye, rim) {
   return graph3dFar([p[0] - c[0], p[1] - c[1], p[2] - c[2]], [eye[0] - c[0], eye[1] - c[1], eye[2] - c[2]]);
 }
 
+// Whether the camera at `eye` sees the point p of the shape from behind: the far side of the sphere and
+// of the dome; the disc has none.
+function graph3dShapeFar(shape, p, eye, rim) {
+  if (shape === 'sphere') return graph3dFar(p, eye);
+  if (shape === 'half') return graph3dDomeBack(p, eye, rim);
+  return false;
+}
+
+// The tilt the dome and the sphere are seen whole at (H, and G from straight above): the side view, or
+// less, in steps, down to the least tilt, until `seesAll` (from that tilt, the innermost ring, the cards of
+// the highest level, is all in front) says yes. The innermost ring can stand far down the shape.
+const GRAPH3D_SHAPE_TILT_MIN = 0.25;
+function graph3dSideTilt(seesAll) {
+  for (let k = 0; GRAPH3D_SHAPE_TILT - 0.05 * k > GRAPH3D_SHAPE_TILT_MIN + 1e-9; k++) {
+    const phi = Math.round((GRAPH3D_SHAPE_TILT - 0.05 * k) * 100) / 100;
+    if (seesAll(phi)) return phi;
+  }
+  return GRAPH3D_SHAPE_TILT_MIN;
+}
+
 // A line's pieces cut into the runs on the near side and the runs on the far side (farOf), each run
 // keeping the next one's first point, so the two halves meet.
 function graph3dSplitFar(pieces, farOf) {
@@ -604,7 +624,7 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
     graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
     graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-    graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dDomeBack, graph3dPaintOrder,
+    graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
     graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };

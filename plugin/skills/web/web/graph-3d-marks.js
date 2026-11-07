@@ -101,7 +101,7 @@ function graph3dPlaceMarks(hier) {
     top: graph3dTopDown(hier.cam),
     focus: document.activeElement,
     // The far side: the back of the sphere and of the dome, past their edge as the camera sees them.
-    isFar: (p) => (sphere && graph3dFar(p, eye)) || (dome && graph3dDomeBack(p, eye, hier.rim)),
+    isFar: (p) => (sphere || dome) && graph3dShapeFar(hier.shape, p, eye, hier.rim),
     // A card the lighting leaves unlit (graphLightCards) keeps less again, but never less than its floor.
     unlitIf: (el, kind) => (dimmed && !el.classList.contains('graph-near') ? GRAPH3D_UNLIT[kind] : null),
     dimmed,

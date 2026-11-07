@@ -99,14 +99,30 @@ function graph3dFitView(hier, phi, theta) {
   return { tx: c[0] + fit.shift[0], ty: c[1] + fit.shift[1], tz: c[2] + fit.shift[2], dist: Math.max(60, fit.dist), phi, theta };
 }
 
+// Whether the camera framing the whole shape at tilt phi and turn theta sees every card of the innermost
+// ring, the highest level, in front: none on the far side.
+function graph3dSeesInner(hier, phi, theta) {
+  const fan = hier.view.plan.nodes.filter((n) => Math.hypot(n.x, n.y) < hier.rim);
+  if (!fan.length) return true;
+  const r0 = Math.min(...fan.map((n) => Math.hypot(n.x, n.y)));
+  const v = graph3dFitView(hier, phi, theta);
+  const back = graph3dBasis(phi, theta).back;
+  const eye = [v.tx + back[0] * v.dist, v.ty + back[1] * v.dist, v.tz + back[2] * v.dist];
+  return fan.every((n) => Math.hypot(n.x, n.y) > r0 + 1
+    || !graph3dShapeFar(hier.shape, graph3dPlace(hier.shape, n.x, n.y, hier.rim, hier.outer), eye, hier.rim));
+}
+
 // H: everything, at the tilt the camera has. `side` (H, and a shape seen straight down): the dome and the
-// sphere from a three-quarter view, where they read as a dome and a ball rather than as the disc again.
+// sphere from a three-quarter view, where they read as a dome and a ball rather than as the disc again,
+// or from higher when that would put cards of the innermost ring behind the shape (graph3dSideTilt).
 // Until a zoom or a pan takes over (hier.fitted), an orbit keeps the whole shape fitted to the stage.
 function graph3dFrameAll(hier, now, side) {
   let { phi, theta } = hier.cam;
   const max = graph3dMaxTilt(hier.shape);
-  if (side && hier.shape !== 'disc') { phi = GRAPH3D_SHAPE_TILT; theta = graph3dNorthUp(theta); }
-  else if (phi > max) phi = max;
+  if (side && hier.shape !== 'disc') {
+    theta = graph3dNorthUp(theta);
+    phi = graph3dSideTilt((t) => graph3dSeesInner(hier, t, theta));
+  } else if (phi > max) phi = max;
   hier.fitted = true;
   const to = graph3dFitView(hier, phi, theta);
   hier.fitDist = to.dist;

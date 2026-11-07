@@ -7,7 +7,7 @@ const {
   graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
   graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dDomeBack, graph3dPaintOrder, graph3dRestack,
+  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
   graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
@@ -462,6 +462,21 @@ test("the dome's far side: its back, seen from outside past its edge; never the 
   assert.strictEqual(graph3dDomeBack([0, -50, 86.6], low, rim), false, 'the side facing a low camera');
   assert.strictEqual(graph3dDomeBack([0, -50, -86.6], low, rim), true, 'the side away from it, behind the dome');
   assert.strictEqual(graph3dDomeBack([0, -100, -150], low, rim), false, 'past the rim: the plane');
+});
+
+test('a point is on the far side by its shape: the back of the sphere and of the dome, never on the disc', () => {
+  const eye = [0, 0, 1000];
+  assert.strictEqual(graph3dShapeFar('sphere', [0, 0, -100], eye, 100), true);
+  assert.strictEqual(graph3dShapeFar('sphere', [0, 0, 100], eye, 100), false);
+  assert.strictEqual(graph3dShapeFar('half', [0, -50, -86.6], [0, -60, 400], 100), true);
+  assert.strictEqual(graph3dShapeFar('half', [0, -50, 86.6], [0, -60, 400], 100), false);
+  assert.strictEqual(graph3dShapeFar('disc', [0, 0, -100], eye, 100), false);
+});
+
+test('the dome and the sphere seen whole stand at the steepest tilt, up to the side view, from which the innermost ring is all in front', () => {
+  assert.strictEqual(graph3dSideTilt(() => true), 0.85, 'nothing hidden: the side view');
+  assert.ok(near(graph3dSideTilt((phi) => phi <= 0.52), 0.5), 'the steepest tilt that hides none, in steps of 0.05');
+  assert.strictEqual(graph3dSideTilt(() => false), 0.25, 'hidden from every tilt: the least one tried');
 });
 
 test('marks are painted back to front, the far side under every near mark however near, the lit last', () => {
