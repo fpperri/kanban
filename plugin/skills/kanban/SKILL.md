@@ -99,7 +99,7 @@ Read `references/config.md` when the task reads or writes a key beyond those nam
 **What an AI may write.** Never create `config.yaml` yourself and never invent a key; an absent file means the max + 1 id scan and freeform values. The exceptions:
 
 - `name:` — the **board name**, the token that opens every card mention (one token, no whitespace, no `#`; the human's to declare and rename). The first AI to service a nameless board seeds it from the folder that holds the board's home and files a notification so the human can rename it. Write it on **line 1**, above any `assignees:` block (each assignee entry has its own indented `name:`). A `config.yaml` holding only `name:` and the starter (below) is allowed.
-- `artifact:` — the Board artifact URL, written (with a notification) by the session that publishes the snapshot: `skills/snapshot/references/board-artifact.md`. Read `references/config.md` for the cases it is written in and when a human may delete it.
+- `artifact:` — the Board artifact URL, written (with a notification) by the session that publishes the Board artifact: `skills/artifact/references/board-artifact.md`. Read `references/config.md` for the cases it is written in and when a human may delete it.
 - `nextId:` and `counters:` — the id counters (see `id`).
 - `port:` (pins kanban-web's serving port) is a named key too, but the human's: never invent or auto-write it; only a human, or a session told to set specific values, writes it.
 
@@ -124,7 +124,7 @@ Only a handle whose registered `kind` is `human` / `ai-hitl` / `ai-afk` triggers
 
 ### `notifications.md` — messaging the human
 
-Append an entry to `<kanban-dir>/notifications.md` (create if absent); the human sees it in the web app's bell and the snapshot's read-only notifications sheet. A YAML list, every field on its own single line:
+Append an entry to `<kanban-dir>/notifications.md` (create if absent); the human sees it in the web app's bell. A YAML list, every field on its own single line:
 
 ```yaml
 - id: 4
@@ -136,7 +136,7 @@ Append an entry to `<kanban-dir>/notifications.md` (create if absent); the human
 ```
 
 - `id`: max existing + 1. `at`: local ISO datetime, no timezone, read from the clock as you write the entry (the `updated` command).
-- `from`: the writer's handle (`agent:#131`, `skill:kanban-snapshot`); a machine handle, not prose, so it keeps its bare form.
+- `from`: the writer's handle (`agent:#131`, `skill:kanban-artifact`); a machine handle, not prose, so it keeps its bare form.
 - `level`: `debug` | `info` | `warning` | `error`; **absent = `info`**.
 - `message`: one line; quote values containing `:` or `#`. **TLDR-first:** the text before `; more: ` is one plain sentence (no "TLDR" label) that renderers bold; the rest is detail. Without `; more: ` renderers bold only the first sentence, so write the separator. Card ids follow the **Card mention** rule (one code span, `` `board#id title` ``).
 - `read`: always write `false`; the reader flips it.
@@ -164,4 +164,4 @@ Each script's header comment gives its exact rules.
 
 ## Human surfaces
 
-This skill is the **AI's** lever set. When the human wants to see or work the board themselves, point them to (or launch) **kanban-web** (live browser editor on 127.0.0.1; a phone reaches it through a VS Code tunnel) or **kanban-snapshot** (single-file HTML board for phone, tablet and Cowork; read-only, its queued changes come back as an "Apply kanban changes" payload) instead of narrating files. With no browser and no way to open a file, print the board with `view_board.sh` and take the human's edits conversationally.
+This skill is the **AI's** lever set. When the human wants to see or work the board themselves, point them to (or launch) **kanban-web** (live browser editor on 127.0.0.1; a phone reaches it through a VS Code tunnel) or **kanban-artifact** (the Web built with the board inside, as a hosted Board artifact or a single file, for phone, tablet and Cowork; its queued changes are applied by Claude) instead of narrating files. With no browser and no way to open a file, print the board with `view_board.sh` and take the human's edits conversationally.
