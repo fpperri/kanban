@@ -12,13 +12,13 @@
 // its count and its dirty check.
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
 
 const STAMP_FILE = '.artifact-stamp';
 const OUT = `:(exclude)${STAMP_FILE}`;
 const MERGED_PR = /^Merge pull request (#\d+)/;
 
 function git(cwd, args) {
+  const { spawnSync } = require('child_process');
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
   return r.error ? { status: 128, out: '' } : { status: r.status, out: (r.stdout || '').trim() };
 }
