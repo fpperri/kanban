@@ -83,8 +83,8 @@ test('Space on a hovered card writes the sets ticked into the box as alternative
   assert.deepStrictEqual(s.told, [['dlinks:1 | hlinks:1', 'hover']], 'the write has its own reason');
 });
 
-test('the sets written are the ones ticked for the view: the Hierarchy\'s on the Board, and the Flow\'s own in the Graph\'s Flow', async () => {
-  const stored = { [KEY]: JSON.stringify({ hierarchy: ['hpath', 'dtree'], flow: ['dpath'] }) };
+test('the sets written are the ones ticked, the same on the Board and in the Graph\'s Flow', async () => {
+  const stored = { [KEY]: JSON.stringify({ kinds: ['hpath', 'dtree'], hierarchy: 'above&below', dependencies: 'before&after' }) };
   const board = await open({ stored: { ...stored } });
   board.over(3);
   board.space();
@@ -92,7 +92,19 @@ test('the sets written are the ones ticked for the view: the Hierarchy\'s on the
   const flow = await open({ view: 'graph', stored: { ...stored, 'kanban.kanban.graph.layout': 'flow' } });
   flow.over(3);
   flow.space();
-  assert.strictEqual(flow.box(), 'dpath:3');
+  assert.strictEqual(flow.box(), 'dtree:3 | hpath:3');
+});
+
+test('a toggle off its & state writes its side into the term, and only the sets of its relation say it', async () => {
+  const stored = { [KEY]: JSON.stringify({ kinds: ['hpath', 'dtree', 'htree', 'dlinks'], hierarchy: 'below', dependencies: 'after' }) };
+  const s = await open({ stored });
+  s.over(3);
+  s.space();
+  assert.strictEqual(s.box(), 'dtree:3:after | htree:3:below | hpath:3:below | dlinks:3:after');
+  const half = await open({ stored: { [KEY]: JSON.stringify({ kinds: ['hpath', 'dtree'], hierarchy: 'above', dependencies: 'before&after' }) } });
+  half.over(3);
+  half.space();
+  assert.strictEqual(half.box(), 'dtree:3 | hpath:3:above');
 });
 
 test('Space keeps the run of slices the box holds, and writes the card\'s terms beside it', async () => {
@@ -261,7 +273,7 @@ test('a held Space, Alt+Space and Ctrl+Space are not the write: Ctrl+Space is th
 });
 
 test('with no set ticked Space has nothing to write and keeps its job', async () => {
-  const s = await open({ stored: { [KEY]: JSON.stringify({ hierarchy: [], flow: [] }) } });
+  const s = await open({ stored: { [KEY]: JSON.stringify({ kinds: [] }) } });
   s.over(1);
   assert.strictEqual(s.space(), 0);
   assert.strictEqual(s.box(), '');

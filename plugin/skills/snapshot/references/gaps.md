@@ -37,7 +37,7 @@ writes the box, with no anchor and no Shift addition. It has no `m` key that ste
 pills either, and no preferences sheet for the panel's switch and folds.
 
 **No hover set.** kanban-web's panel has an *On hover show* section, six checkboxes that choose which sets a
-hover or a keyboard focus lights on a card, per board and per kind of Graph. This page has none: a tap hovers
+hover or a keyboard focus lights on a card, and which side of it, per board. This page has none: a tap hovers
 nothing, so the panel has no such section and a card lights nothing beside the selection's own marks. Web-only.
 
 **No jump to the nearest match.** kanban-web's Calendar and Gantt, when a change to the search box

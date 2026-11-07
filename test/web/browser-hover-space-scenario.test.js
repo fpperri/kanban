@@ -32,7 +32,7 @@ const plan = () => {
 after(() => { for (const r of roots) fs.rmSync(r, { recursive: true, force: true }); });
 
 const sorted = (ids) => [...ids].map(Number).sort((a, b) => a - b);
-const kinds = hoverShowDefaults().hierarchy;
+const kinds = hoverShowDefaults().kinds;
 const tiles = (b, ks, id) => sorted([...hoverShowTiles(ks, b.all, id, b.ctx)].filter((x) => b.liveIds.has(x)));
 const lit = (b, ks, id) => sorted([...hoverShowIds(ks, b.all, id, b.ctx)].filter((x) => b.liveIds.has(x)));
 const union = (...lists) => sorted(new Set(lists.flat()));
@@ -55,6 +55,7 @@ test('the text each Space writes is what the Hierarchy\'s defaults give, and wha
   assert.strictEqual(hoverShowTerms(kinds, graph.dot), graph.text);
   assert.strictEqual(hoverShowTerms(kinds, graph.focused), graph.focusedText);
   assert.strictEqual(hoverShowTerms(flow.kinds, flow.dot), flow.text);
+  assert.strictEqual(hoverShowTerms(flow.kinds, graph.dot), graph.sharedText);
 });
 
 test('on the Board the cards each text names are the cards the scenario expects lit, among the cards the Board draws', () => {
@@ -76,14 +77,15 @@ test('in the Graph the dot\'s text lights its card and its one-hop relations, an
   assert.ok(!graph.lit.every((id) => id === graph.focused) && graph.lit.includes(graph.focused), 'the focused card is one of the lit, so Ctrl+Space narrows the selection to it alone');
 });
 
-test('in the Flow the dot is a card the plan board has, and its text is the choice the Flow was given, which is not the Hierarchy\'s', () => {
+test('in the Flow the dot is a card the plan board has, and its text is the choice kept for the board, which is not the default: the Hierarchy writes it too', () => {
   const b = plan();
   const { flow, board, graph } = space.CASES;
   assert.ok(b.liveIds.has(String(flow.dot)));
   assert.strictEqual(flow.text, hoverShowTerms(flow.kinds, flow.dot));
-  assert.notDeepStrictEqual(flow.kinds, hoverShowDefaults().hierarchy);
-  assert.notStrictEqual(flow.text, hoverShowTerms(hoverShowDefaults().hierarchy, flow.dot), 'the Flow\'s text tells its choice from the Hierarchy\'s');
-  assert.strictEqual(graph.text, hoverShowTerms(hoverShowDefaults().hierarchy, graph.dot), 'the Hierarchy\'s own text, checked after the Flow\'s');
+  assert.notDeepStrictEqual(flow.kinds, hoverShowDefaults().kinds);
+  assert.notStrictEqual(flow.text, hoverShowTerms(hoverShowDefaults().kinds, flow.dot), 'the kept text tells its choice from the default');
+  assert.strictEqual(graph.text, hoverShowTerms(hoverShowDefaults().kinds, graph.dot), 'the default text, checked before the choice is kept');
+  assert.strictEqual(graph.sharedText, hoverShowTerms(flow.kinds, graph.dot), 'and the Hierarchy writes the kept choice after the Flow');
   assert.strictEqual(flow.dot, board.second);
 });
 
@@ -136,7 +138,7 @@ test('every line of the ticket has a check of its own in the scenario', () => {
     'and isolate stays on',
     'Ctrl+Space on a focused dot selects its card alone',
     'and Space on it is the write again, with the focused card standing for the hover',
-    'in the Flow Space writes its own choice, dtree and dlinks, not the Hierarchy',
-    'and the Hierarchy still writes its own choice, unchanged by the Flow',
+    'in the Flow Space writes the choice kept for the board, dtree and dlinks',
+    'and the Hierarchy writes the same choice, the Flow',
   ]) assert.ok(src.includes(text), text);
 });

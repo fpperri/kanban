@@ -81,7 +81,17 @@ const GRAPH_FLOW_LANES_LABEL = {
 };
 const GRAPH_HOVER_LABEL = {
   label: 'On hover',
-  hint: 'Which sets a hover or a keyboard focus on a card lights, any mix: dtree and htree the whole tree down or across, dpath and hpath the path to the roots, dlinks the cards one wait away, hlinks the parent and the children. The same choice as On hover show in the search panel, kept for each kind of Graph; Space writes the ticked terms into the box, and on a hovered line the cards it lights.',
+  hint: 'Which sets a hover or a keyboard focus on a card lights, any mix: dtree and htree the whole tree down or across, dpath and hpath the path to the roots, dlinks the cards one wait away, hlinks the parent and the children. The same choice as On hover show in the search panel, for every view; Space writes the ticked terms into the box, and on a hovered line the cards it lights.',
+};
+const GRAPH_SIDE_LABELS = {
+  hierarchy: {
+    label: 'Hierarchy',
+    hint: 'Which side of the hovered card the h sets light: above&below both, above the card and what it sits under, below the card and what hangs under it, with the cards at the card\'s own level always lit. A click steps to the next side; Space writes the side into the terms.',
+  },
+  dependencies: {
+    label: 'Dependencies',
+    hint: 'Which side of the hovered card the d sets light: before&after both, before the card and what it waits for, after the card and what waits on it, with the cards that are neither always lit. A click steps to the next side; Space writes the side into the terms.',
+  },
 };
 const GRAPH_KEY = 'solid line: parent, dashed arrow: points at the card that waits, red ring: blocked, amber ring: waiting, gold ring: review';
 
@@ -458,15 +468,44 @@ function graphBuildFlowRow(deps, lanes) {
   return row;
 }
 
+// One of the Hierarchy and Dependencies toggles: a lone button that steps the toggle (key hover-side) and reads
+// the side it is on, kept in step by syncHoverShowPanel. A stepper holds no pressed state.
+function graphBuildSideToggle(toggle, side) {
+  const group = document.createElement('span');
+  group.className = 'graph-option';
+  group.title = GRAPH_SIDE_LABELS[toggle].hint;
+  const label = document.createElement('span');
+  label.className = 'graph-option-label';
+  label.textContent = GRAPH_SIDE_LABELS[toggle].label;
+  group.appendChild(label);
+  const seg = document.createElement('span');
+  seg.className = 'graph-option-seg';
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', GRAPH_SIDE_LABELS[toggle].label);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'graph-option-btn';
+  b.dataset.key = 'hover-side';
+  b.dataset.val = toggle;
+  b.dataset.keepsSelection = '';
+  paintHoverSide(b, toggle, side);
+  seg.appendChild(b);
+  group.appendChild(seg);
+  return group;
+}
+
 // The On hover section: the six sets as toggles in two columns, any mix, the choice of this kind of Graph
 // (hover-show.js; HOVER_SHOW_GRID is the order they stand in).
 // A press edits the one choice the search panel's boxes edit (hoverShowPick, hover-show-ui.js), which
-// hands the buttons their new state without a redraw.
-function graphBuildHoverRow(kind) {
+// hands the buttons their new state without a redraw. Under the six stand the Hierarchy and Dependencies
+// toggles, one button each that steps its sides and reads the side it is on (hoverShowStepSide).
+function graphBuildHoverRow() {
   const row = document.createElement('div');
   row.className = 'graph-hover-options';
   row.dataset.keepsSelection = '';
-  row.appendChild(graphBuildSwitch(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_GRID, hoverShowLoad()[hoverShowGraph('graph', kind)]));
+  row.appendChild(graphBuildSwitch(GRAPH_HOVER_LABEL, 'hover', HOVER_SHOW_GRID, hoverShowKindsNow()));
+  const sides = hoverShowSidesNow();
+  for (const toggle of ['hierarchy', 'dependencies']) row.appendChild(graphBuildSideToggle(toggle, sides[toggle]));
   return row;
 }
 
@@ -496,7 +535,7 @@ function graphBuildPanel(kind, fan, deps, lanes) {
   panel.appendChild(zoom);
   if (fan) panel.appendChild(graphBuildOptionsRow(fan.options));
   if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps, lanes));
-  panel.appendChild(graphBuildHoverRow(kind));
+  panel.appendChild(graphBuildHoverRow());
   return panel;
 }
 
@@ -1187,6 +1226,7 @@ function wireGraphView(host) {
       hoverShowPick(option.dataset.val, !hoverShowKindsNow().includes(option.dataset.val));
       return;
     }
+    if (option && option.dataset.key === 'hover-side') { hoverShowStepSide(option.dataset.val); return; }
     if (option) {
       keepControlFocus(option, () => (option.dataset.key === 'deps' ? graphSetDeps(option.dataset.val) : option.dataset.key === 'lanes' ? graphSetLanes(option.dataset.val) : graphSetOption(option.dataset.key, option.dataset.val)));
       return;

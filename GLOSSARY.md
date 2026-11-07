@@ -178,7 +178,7 @@ Every card that a chain of relations joins, whichever way each points and whethe
 _Avoid_: component, cluster, web.
 
 **Explore set** (derived):
-One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree write one into the search box for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations. Two smaller sets sit beside them as search terms only, with no menu item: `dlinks:` is the card, what it waits for and what waits on it, and `hlinks:` is the card, its parent and its children, one hop each and no further; they treat a missing or other-board parent, a self-link and an archived card as the four do.
+One of four sets of cards found from one card, each by one relation alone. The **hierarchy path** is the card's parents up to its root and every card nested under it; the **hierarchy tree** is the whole parent tree from its root down; both follow `parent` only. The **dependency path** is everything the card waits for and everything waiting on it, transitively; the **dependency tree** is its connected set over `waiting_for`; both follow `waiting_for` only. The Explore menu's Path and Tree write one into the search box for the right-clicked card, and the search terms are `hpath:`, `htree:`, `dpath:` and `dtree:`. Narrower than the Tree above, which follows both relations. Two smaller sets sit beside them as search terms only, with no menu item: `dlinks:` is the card, what it waits for and what waits on it, and `hlinks:` is the card, its parent and its children, one hop each and no further; they treat a missing or other-board parent, a self-link and an archived card as the four do. Each of the six takes an optional **side** after the id, cutting the set to one side of the card: `above` or `below` for the `h` sets (by depth over `parent`: `htree:467:below` is the card, every card of its tree at its depth and every deeper one; `hpath` and `hlinks` are the card with its line up to the root or its parent, or with all nested under it or its children), and `before` or `after` for the `d` sets (by `waiting_for`: the card with what it waits for, or with what waits on it, directly or through others; `dtree` drops the cards of the other side and keeps those that are neither). No suffix and `:above&below` / `:before&after` are the whole set, and a side of the other relation (`htree:5:after`) matches nothing. The card is in every cut.
 _Avoid_: branch, subtree, lineage.
 
 **Chain end** (derived):
@@ -322,7 +322,7 @@ The selection written into the search box as the text Isolate would write for it
 _Avoid_: sync, echo.
 
 **On hover show**:
-The choice, made in the search panel and in the Graph's option panel (one choice, shown in both), of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, kept per board and per kind of Graph, the Flow's apart from the Hierarchy's, which every other view reads.
+The choice, made in the search panel and in the Graph's option panel (one choice, shown in both), of which sets a hover or a keyboard focus on a card lights: any mix of `dtree`, `htree`, `dpath`, `hpath`, `dlinks` and `hlinks`, and which side of the card the h sets and the d sets light, by the Hierarchy toggle (`above&below`, `above`, `below`) and the Dependencies toggle (`before&after`, `before`, `after`). It is kept per board and is the same in every view, the Flow included.
 _Avoid_: hover mode, hover filter.
 
 **Peek**:
@@ -372,4 +372,4 @@ web's own search module and drawing the same panel, where a pill filters.
 Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
 the snapshot as `tree:`/`path:` search terms, and the four Explore sets, `hpath:`, `htree:`, `dpath:`
 and `dtree:`, as search terms plus "Hierarchy path", "Dependency path", "Hierarchy tree"
-and "Dependency tree" tap actions on the card sheet and in the right-click card menu.
+and "Dependency tree" tap actions on the card sheet and in the right-click card menu. The snapshot runs the same set module, so a typed `htree:467:below` resolves there too; it has no hover and no Space, so nothing in it writes a side.
