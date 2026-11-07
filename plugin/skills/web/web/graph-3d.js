@@ -220,15 +220,17 @@ function graph3dShapeFar(shape, p, eye, rim) {
 }
 
 // The tilt the dome and the sphere are seen whole at (H, and G from straight above): the side view, or
-// less, in steps, down to the least tilt, until `seesAll` (from that tilt, the innermost ring, the cards of
-// the highest level, is all in front) says yes. The innermost ring can stand far down the shape.
-const GRAPH3D_SHAPE_TILT_MIN = 0.25;
+// less, in steps down to SHAPE_TILT_MIN, the first from which `seesAll` says the innermost ring, the cards
+// of the highest level, is all in front. When none is, the side view: the innermost ring can stand so far
+// down the sphere that only a view from nearly straight above, where it reads as the disc again, shows
+// all of it, and from the side its front half is in front, the rest dimmed behind the top.
+const GRAPH3D_SHAPE_TILT_MIN = 0.45;
 function graph3dSideTilt(seesAll) {
-  for (let k = 0; GRAPH3D_SHAPE_TILT - 0.05 * k > GRAPH3D_SHAPE_TILT_MIN + 1e-9; k++) {
+  for (let k = 0; GRAPH3D_SHAPE_TILT - 0.05 * k > GRAPH3D_SHAPE_TILT_MIN - 1e-9; k++) {
     const phi = Math.round((GRAPH3D_SHAPE_TILT - 0.05 * k) * 100) / 100;
     if (seesAll(phi)) return phi;
   }
-  return GRAPH3D_SHAPE_TILT_MIN;
+  return GRAPH3D_SHAPE_TILT;
 }
 
 // A line's pieces cut into the runs on the near side and the runs on the far side (farOf), each run

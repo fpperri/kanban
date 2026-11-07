@@ -473,10 +473,12 @@ test('a point is on the far side by its shape: the back of the sphere and of the
   assert.strictEqual(graph3dShapeFar('disc', [0, 0, -100], eye, 100), false);
 });
 
-test('the dome and the sphere seen whole stand at the steepest tilt, up to the side view, from which the innermost ring is all in front', () => {
+test('the dome and the sphere seen whole stand at the steepest tilt, up to the side view, from which the innermost ring is all in front, else the side view', () => {
   assert.strictEqual(graph3dSideTilt(() => true), 0.85, 'nothing hidden: the side view');
   assert.ok(near(graph3dSideTilt((phi) => phi <= 0.52), 0.5), 'the steepest tilt that hides none, in steps of 0.05');
-  assert.strictEqual(graph3dSideTilt(() => false), 0.25, 'hidden from every tilt: the least one tried');
+  assert.strictEqual(graph3dSideTilt((phi) => phi <= 0.3), 0.85, 'shown only from nearly straight above: the side view, so the shape still reads as one');
+  assert.strictEqual(graph3dSideTilt(() => false), 0.85, 'hidden from every tilt: the side view');
+  assert.strictEqual(graph3dSideTilt((phi) => phi <= 0.45), 0.45, 'the least tilt tried');
 });
 
 test('marks are painted back to front, the far side under every near mark however near, the lit last', () => {
