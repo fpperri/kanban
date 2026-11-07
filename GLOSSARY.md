@@ -259,6 +259,18 @@ _Avoid_: subject, owner, link.
 A disposable working page for one card or group, kept in one folder or in one folder per iteration, free text that may point at notes, files and folders. The kanban never throws it away on its own.
 _Avoid_: scratchbook, notes, draft.
 
+**Workspace** (via **workspace**):
+An optional pointer on a card to the folder where its work runs, such as a worktree. A pointer, not a structure: the card stays one file. Relative to the repository or led by a named root, never absolute, never validated. It is reaped when its branch is merged or gone, not when the card closes.
+_Avoid_: worktree (one kind of workspace), sandbox, checkout.
+
+**Evidence** (via **evidence**):
+An optional pointer on a card to the folder or file where its proof landed, as a whole. Same path rules as the **Workspace**. Not the per-step ticks of a **Todo list**, which are the finer grain.
+_Avoid_: proof, artifacts, attachment.
+
+**Named root** (via **vars:**):
+A name from the config's `vars:` block that leads a path (`<cortex>/runs`) and stands for a folder outside the repository. The only root a board declares besides the repository itself.
+_Avoid_: mount, alias, base path.
+
 ## Selecting and isolating
 
 **Selection**:
