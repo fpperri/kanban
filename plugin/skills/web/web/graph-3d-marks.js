@@ -91,17 +91,17 @@ function graph3dPlaceMarks(hier) {
   const { drawn } = hier.view;
   drawn.world.removeAttribute('transform');
   const sphere = hier.shape === 'sphere' && !hier.morph;
-  const bowl = hier.shape === 'half' && !hier.morph;
+  const dome = hier.shape === 'half' && !hier.morph;
   const e = hier.camera.position;
   const eye = [e.x, e.y, e.z];
   const dimmed = drawn.svg.classList.contains('graph-dim');
   const f = {
     v: new hier.T.Vector3(),
-    bent: sphere || bowl,
+    bent: sphere || dome,
     top: graph3dTopDown(hier.cam),
     focus: document.activeElement,
-    // The far side: the sphere's back, and the bowl's wall where the camera sees it from outside.
-    isFar: (p) => (sphere && graph3dFar(p, eye)) || (bowl && graph3dBowlBack(p, eye, hier.rim)),
+    // The far side: the back of the sphere and of the dome, past their edge as the camera sees them.
+    isFar: (p) => (sphere && graph3dFar(p, eye)) || (dome && graph3dDomeBack(p, eye, hier.rim)),
     // A card the lighting leaves unlit (graphLightCards) keeps less again, but never less than its floor.
     unlitIf: (el, kind) => (dimmed && !el.classList.contains('graph-near') ? GRAPH3D_UNLIT[kind] : null),
     dimmed,
@@ -181,7 +181,7 @@ function graph3dPlaceDots(hier, f) {
   return vis;
 }
 
-// A mark's contact shadow: tilted, on the disc and the bowl, a mark stands on the ground as a ball would, its
+// A mark's contact shadow: tilted, on the disc and the dome, a mark stands on the ground as a ball would, its
 // shadow under it and showing below it, as dark as the mark is kept; nothing from straight above or on the sphere.
 function graph3dPlaceShadows(hier, f, vis) {
   const phi = Math.min(Math.PI / 2, Math.max(0, hier.cam.phi));
@@ -203,7 +203,7 @@ function graph3dPlaceShadows(hier, f, vis) {
 }
 
 // Back to front, the far side under the near side, the lit cards last, so a selected or hovered card is
-// never under a nearer dimmed one and a mark seen through the bowl's wall never over one inside it.
+// never under a nearer dimmed one and a mark on the dome's back never over one on its front.
 function graph3dOrderDots(hier, f, vis) {
   const { drawn } = hier.view;
   const order = graph3dPaintOrder(vis);
@@ -235,7 +235,7 @@ function graph3dPathOf(hier, f, runs) {
 }
 
 // Each line bent with the shape, as wide and as far into the ground as the dots at its ends are seen, and
-// its count where the camera sees its point. On the sphere and the bowl a line is cut where it goes round
+// its count where the camera sees its point. On the sphere and the dome a line is cut where it goes round
 // to the far side: the far runs are drawn by a copy of the line just under it, darkened as the far dots
 // are. Answers the counts drawn, for the labels to keep apart.
 function graph3dPlaceLines(hier, f, vis) {

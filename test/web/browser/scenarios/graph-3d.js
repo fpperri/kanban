@@ -33,6 +33,10 @@ const MIDDLE_DOT = (skip) => `(()=>{const s=${ROOT}.getBoundingClientRect();let 
 const COMPASS = `${ROOT}.querySelector('.graph-3d-compass-dial').getAttribute('transform')`;
 // A contextmenu event at a point, as Linux and the Mac send one when the right button goes down.
 const MENU_AT = (x, y) => `document.elementFromPoint(${x},${y}).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:${x},clientY:${y},view:window}))`;
+// The cards of the fan's innermost ring (the highest level) and its outermost: how many, how far from the
+// camera on average (the depths the frame drew), and whether every innermost dot is drawn in the stage on
+// the near side.
+const TOP = `(()=>{const h=graph3dCur;const r=(n)=>Math.hypot(n.x,n.y);const z=new Map(h.vis.map((o)=>[o.id,o.z]));const fan=h.view.plan.nodes.filter((n)=>r(n)<h.rim&&z.has(n.id));const r0=Math.min(...fan.map(r)),r1=Math.max(...fan.map(r));const inner=fan.filter((n)=>r(n)<=r0+1),outer=fan.filter((n)=>r(n)>=r1-1);const mean=(ns)=>ns.reduce((a,n)=>a+z.get(n.id),0)/ns.length;const s=${ROOT}.getBoundingClientRect();const shown=inner.every((n)=>{const g=${ROOT}.querySelector('.graph-node[data-id="'+n.id+'"]');if(g.classList.contains('graph-3d-far'))return false;const b=g.querySelector('.graph-dot').getBoundingClientRect();const x=b.left+b.width/2,y=b.top+b.height/2;return x>s.left&&x<s.right&&y>s.top&&y<s.bottom});return {inner:inner.length,outer:outer.length,zInner:Math.round(mean(inner)),zOuter:Math.round(mean(outer)),shown}})()`;
 const CAM = `(()=>{const r=${ROOT};if(!r||!r.dataset.cam)return null;const [theta,phi,dist,tx,ty,tz]=r.dataset.cam.split(',').map(Number);return {theta,phi,dist,tx,ty,tz}})()`;
 const FRAMES = `(()=>{const raf=window.requestAnimationFrame.bind(window),caf=window.cancelAnimationFrame.bind(window);const f=window.__graph3dFrames={pending:new Set(),asked:0};`
   + `window.requestAnimationFrame=(cb)=>{const mine=/graph-3d(-[a-z]+)?\\.js/.test(new Error().stack||'');let id=0;id=raf((t)=>{f.pending.delete(id);cb(t)});if(mine){f.pending.add(id);f.asked++}return id};`
@@ -143,12 +147,31 @@ module.exports = {
     const zoomed = await settled();
     check('the wheel zooms in', zoomed.dist < north.dist * 0.8, { north, zoomed });
 
-    // G steps the shape: the half sphere, the sphere, and back to the disc.
+    // G steps the shape: the half sphere, the sphere, and back to the disc. The half sphere and the sphere
+    // fold with the disc's centre on top: seen as G frames them, the innermost ring is drawn on the near
+    // side, nearer the camera than the outermost; a left click on a dot selects its card and F brings it
+    // to the middle.
     for (const shape of ['half', 'sphere', 'disc']) {
       await key('g');
       check(`G steps the shape to ${shape}`, await waitFor(`${ROOT}.dataset.shape===${JSON.stringify(shape)}`, 3000));
       await settled();
-      if (shape !== 'disc') await shot(`3d-${shape}`);
+      if (shape === 'disc') continue;
+      await shot(`3d-${shape}`);
+      const tops = await ev(TOP);
+      check(`the ${shape} has the disc's centre on top: its innermost ring in view, nearer than the outermost`,
+        tops.inner > 0 && tops.outer > 0 && tops.shown && tops.zInner < tops.zOuter, tops);
+      const pick = await ev(MIDDLE_DOT(null));
+      await ev(`selectedIds.clear()`);
+      await mouse('mouseMoved', pick.x, pick.y, { button: 'none' });
+      await click(pick.x, pick.y);
+      check(`a left click on a dot of the ${shape} selects its card`, await waitFor(`selectedIds.size===1&&selectedIds.has(${JSON.stringify(pick.id)})`, 3000), { pick, sel: await ev(`[...selectedIds]`) });
+      await key('f');
+      await settled();
+      const gap = await ev(`(()=>{const d=${ROOT}.querySelector('.graph-node[data-id="${pick.id}"] .graph-dot').getBoundingClientRect();const s=${ROOT}.getBoundingClientRect();return Math.round(Math.hypot(d.left+d.width/2-(s.left+s.right)/2,d.top+d.height/2-(s.top+s.bottom)/2))})()`);
+      check(`F brings the selected card of the ${shape} to the middle`, gap < 30, { gap });
+      await key('h');
+      await settled();
+      await ev(`selectedIds.clear()`);
     }
 
     // H frames everything again; a left click on a dot selects its card, a right click on it opens the menu.
