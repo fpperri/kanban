@@ -117,11 +117,14 @@ with the board inside, and none of the server's defences above apply to them: th
   only client.
 - **`npm audit` / dependency scanning** — the server is Node **standard
   library only**: no `node_modules`, nothing installed, no package dependency in
-  `package.json`. The plugin does ship two third-party browser libraries,
-  vendored under `plugin/skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT)
-  and **highlight.js** 11.12.0 (BSD-3). They were checked to be byte for byte the
-  files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
-  `@highlightjs/cdn-assets@11.12.0`) and the copies cdnjs and jsDelivr serve.
+  `package.json`. The plugin does ship three third-party browser libraries,
+  vendored under `plugin/skills/web/web/vendor` (ADR 0020): **mermaid** 12.2.0 (MIT),
+  **highlight.js** 11.12.0 (BSD-3) and **three.js** r160 (MIT). They were checked to be
+  byte for byte the files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
+  `@highlightjs/cdn-assets@11.12.0`, `three@0.160.0`'s `build/three.min.js`) and the
+  copies cdnjs and jsDelivr serve. three.js loads only when the Graph's Hierarchy is
+  drawn in 3D and draws on a canvas from the plan the page hands it; the snapshot
+  does not carry it.
   They load only when a body has a block that needs one; mermaid runs only in a
   sandboxed frame. The snapshot takes them from cdnjs and jsDelivr under SRI
   `integrity` pins computed from the vendored files, and loads highlight.js

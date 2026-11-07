@@ -181,3 +181,27 @@ The 5-second poll rebuilds the view and keeps the
 layout, pills, pan and zoom. `?view=graph` is a deep link to it. The snapshot has no
 Graph view. The Graph draws one of two graphs, chosen by the Hierarchy and Flow buttons in the toolbar at the top right of the drawing, whether the option panel is open or shut:
 **Hierarchy**, which is all of the above, and **Flow** (see `plugin/skills/web/references/graph-flow.md`).
+
+**In 3D.** While the Hierarchy shows, a **3D** button (`.graph-3d-btn`, `aria-pressed`) follows Hierarchy | Flow;
+it writes or drops `in3d=1` in the address (`graph3dSetWanted`, `graph-3d.js`) and redraws. With it on,
+`renderGraphView` still builds the plan and stamps the 2D marks (`graphDrawPlan`), but hands them to
+`graph3dShow` instead of a pan and zoom: `graphCur` carries `in3d: true`, `graphApplyTransform` does nothing,
+`graphPaintNames` and `graphClearFocus` ask the 3D view for a frame, and the zoom buttons and the search box's
+Enter go to `graph3dZoomButton` and `graph3dCenterOn`. The view (`div.graph-3d`) outlives the Graph's draws,
+keeping its camera and shape; `graph3dRelease` takes it down when a draw is 2D or Flow, in `applyViewMode`
+when the view is not the Graph, and with the Graph's state on a board switch. three.js (r160's classic build,
+`/vendor/three/three.min.js?v=0.160.0`) is loaded by a script tag the first time 3D is on. It draws the
+washes, guide rings, dividers and the block's frame on the shape (a canvas, `canvas.graph-3d-canvas`, under
+the stage); the dots, rings, ids, names, lines, counts and captions are the 2D marks themselves, moved each
+frame to where the camera sees their point (`placeMarks`), so every click, hover, tip and menu of the 2D Graph
+works on them. Each mark's colour is its 2D colour, which `app.css` gives the 3D view as `--graph-3d-ink`,
+mixed into the ground by depth, the far side and the lighting (`graph3dMix`, `graph3dShare`) and written as
+`--graph-3d-paint`; nothing is see-through. The shapes are `disc`, `half` and `sphere` (`graph3dPlace`,
+`data-shape` on the root; `g` steps them), and the camera is `data-cam` on the root: turn, tilt, distance and
+the target's x, y, z. A press starts a pan (left, middle) or an orbit (right, Shift+left, a finger;
+`graph3dDragMode`) once it moves 4 px; a right press that does not move opens the card menu by the document's
+own `contextmenu` handler, which the view holds back while the button is down and sends again when it comes up
+(Linux and the Mac ask for the menu on the press, Windows on the release), and swallows after a drag. The
+compass (`button.graph-3d-compass`) is a dial turned and squashed as the camera sees the plan
+(`graph3dCompass`); a press flies the camera to tilt 0 and the nearest whole turn (`graph3dNorthUp`). The keys
+`g`, `f` and `h` are one window `keydown` listener, behind the key guard, while the view is on the page.

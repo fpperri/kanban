@@ -1,6 +1,6 @@
 # Testing
 
-The plugin has no package dependencies (two libraries are vendored under `plugin/skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later (the snapshot's also need Python 3.11 as `python`). Run these from the repo root.
+The plugin has no package dependencies (three libraries are vendored under `plugin/skills/web/web/vendor`, see `docs/web.md`); every test runs on Node 22 or later (the snapshot's also need Python 3.11 as `python`). Run these from the repo root.
 
 The plugin ships from `plugin/` (the four skills and the icon); the tests live outside it, in `test/web/` and `test/snapshot/`, so an install carries none of them. `.claude-plugin/marketplace.json` stays at the repo root and points its one plugin at `./plugin`.
 
