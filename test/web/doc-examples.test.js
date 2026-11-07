@@ -12,7 +12,6 @@ const { iterationNextDraft } = require('../../plugin/skills/web/web/iterations')
 // this file builds, not a sentence of the docs.
 
 const webDocs = read('docs', 'web.md');
-const snapshotSkill = read('plugin', 'skills', 'snapshot', 'references', 'search.md');
 
 const card = (id, over = {}) => ({ id, title: `Card ${id}`, body: '', status: 'todo', priority: 'Normal', tags: [], parent: null, waiting_for: [], ...over });
 const CARDS = [
@@ -30,7 +29,7 @@ const CTX = { board: 'kanban', hierarchy: ['goal', 'strategy', 'objective'] };
 const ids = (term, cards = CARDS, ctx = CTX) => filterCards(cards, parseSearchQuery(term, 'kanban'), ctx).map((c) => c.id);
 
 const WEB = [['docs/web.md', webDocs]];
-const ALL = [...WEB, ['the snapshot skill', snapshotSkill]];
+const ALL = WEB;
 
 const GRAMMAR = [
   ['tags:ui status:doing | #12', [1, 12], ALL],
@@ -43,7 +42,6 @@ const GRAMMAR = [
   ['slice:goal..', [1, 2, 3, 4, 5, 6, 7, 8, 12], ALL],
   ['slice:..objective', [1, 2, 3], ALL],
   ['tags:ui (slice:goal | #12)', [1, 12], ALL],
-  ['slice:1', [5, 8], [['the snapshot skill', snapshotSkill]]],
 ];
 
 test('every search term the docs show is shown by the docs that list it', () => {

@@ -35,9 +35,6 @@ const UNIT_JOB = `    runs-on: ubuntu-latest
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.11'
       - run: npm test
       - if: \${{ !cancelled() }}
         run: node test/web/docs-pinned-check.js
@@ -47,7 +44,7 @@ test('the workflow has a unit job and a browser job, side by side', () => {
   assert.deepStrictEqual(Object.keys(J), ['test', 'browser']);
 });
 
-test('the unit job is Node, Python, npm test and the docs check, and nothing about the browser', () => {
+test('the unit job is Node, npm test and the docs check, and nothing about the browser', () => {
   assert.strictEqual(J.test.replace(/\n+$/, '\n'), UNIT_JOB);
   assert.ok(!/browser/.test(pkg.scripts.test), 'npm test must not run the browser runner');
   assert.strictEqual(pkg.scripts['test:browser'], 'node test/web/browser/run.js');
@@ -111,7 +108,7 @@ test('the workflow still runs on pushes to main and on pull requests', () => {
 
 test('every action is pinned to the full commit of the tag it used, with the tag named in a comment', () => {
   const uses = [...workflow.matchAll(/uses: (\S+)(.*)$/gm)];
-  assert.strictEqual(uses.length, 7);
+  assert.strictEqual(uses.length, 6);
   for (const [, ref, comment] of uses) {
     assert.match(ref, /^actions\/[\w-]+@[0-9a-f]{40}$/, `${ref} is not pinned to a commit`);
     assert.match(comment, /^ # v\d+$/, `${ref} does not name its tag`);

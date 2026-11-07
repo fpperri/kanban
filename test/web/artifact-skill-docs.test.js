@@ -85,7 +85,7 @@ test('the apply names a temporary id two devices took by the device label, as th
   } finally { fs.rmSync(path.dirname(dir), { recursive: true, force: true }); }
 });
 
-test('the skill description names the header the page copies, so a payload from a file reaches the apply here and not the Snapshot protocol', () => {
+test('the skill description names the header the page copies, so a payload from a file reaches the apply here', () => {
   const description = /^description: (.*)$/m.exec(DOC)[1];
   const map = new Map();
   const storage = { getItem: (k) => (map.has(k) ? map.get(k) : null), setItem: (k, v) => { map.set(k, v); } };

@@ -26,7 +26,6 @@ test('the testing doc names every npm test script, and only scripts that exist',
 
 test('test:unit leaves the launcher test out and test:launcher runs it alone', () => {
   assert.match(pkg.scripts['test:unit'], /!\(launcher\)/);
-  assert.match(pkg.scripts['test:unit'], /test\/snapshot/);
   assert.strictEqual(pkg.scripts['test:launcher'], 'node --test test/web/launcher.test.js');
 });
 
@@ -49,14 +48,11 @@ test('the escape hatch the testing doc shows lets a contract doc through once it
 });
 
 test('the docs tests the testing doc lists are docs tests the check counts, and each exists', () => {
-  const listed = [...doc.matchAll(/`(test\/(?:web|snapshot)\/[\w-]+\.test\.js)`/g)].map((m) => m[1]).filter((p) => isDocsTest(p));
+  const listed = [...doc.matchAll(/`(test\/web\/[\w-]+\.test\.js)`/g)].map((m) => m[1]).filter((p) => isDocsTest(p));
   assert.ok(listed.length >= 6, 'the doc lists the docs tests');
   for (const file of listed) assert.ok(fs.existsSync(path.join(ROOT, file)), `${file} exists`);
   for (const file of fs.readdirSync(path.join(ROOT, 'test', 'web')).filter((f) => /-contract\.test\.js$|^doc-(examples|paths)\.test\.js$/.test(f))) {
     assert.ok(doc.includes(`test/web/${file}`), `test/web/${file} is in the testing doc`);
-  }
-  for (const file of fs.readdirSync(path.join(ROOT, 'test', 'snapshot')).filter((f) => /-contract\.test\.js$/.test(f))) {
-    assert.ok(doc.includes(`test/snapshot/${file}`), `test/snapshot/${file} is in the testing doc`);
   }
 });
 
