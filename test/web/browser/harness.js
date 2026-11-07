@@ -96,8 +96,10 @@ function noSandboxWanted(env, uid) {
   return uid === 0 || (v !== '' && v !== '0' && v !== 'false');
 }
 
+// With no GPU, WebGL (the Graph's Hierarchy in 3D) runs on Chrome's software renderer, SwiftShader, which
+// Chrome now lets a page use only when asked to.
 function chromeArgs({ cdpPort, profileDir, env = process.env, uid = typeof process.getuid === 'function' ? process.getuid() : undefined }) {
-  const args = ['--headless=new', '--disable-gpu', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${profileDir}`,
+  const args = ['--headless=new', '--disable-gpu', '--enable-unsafe-swiftshader', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${profileDir}`,
     '--window-size=1600,1000', '--no-first-run', '--no-default-browser-check'];
   if (noSandboxWanted(env, uid)) args.push('--no-sandbox');
   args.push('about:blank');

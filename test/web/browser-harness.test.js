@@ -120,6 +120,12 @@ test('Chrome is headless on the debug port and profile it is given, and opens ab
   assert.strictEqual(args[args.length - 1], 'about:blank');
 });
 
+test('Chrome lets a page draw WebGL on its software renderer, having no GPU', () => {
+  const args = chromeArgs({ ...base, env: {}, uid: 1000 });
+  assert.ok(args.includes('--disable-gpu'));
+  assert.ok(args.includes('--enable-unsafe-swiftshader'));
+});
+
 test('a plain key is a key down with its text and a key up', () => {
   const [down, up] = keyEvents('a');
   assert.deepStrictEqual(down, { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 0, text: 'a' });
