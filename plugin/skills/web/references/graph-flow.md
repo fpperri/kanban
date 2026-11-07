@@ -38,4 +38,4 @@ every draw of the Graph writes the address too (`graphWriteAddress`, a no-op onc
 a press replaces the page's address (`history.replaceState`, no step in Back) and leaves every other parameter, `deps` and `lanes` going when Hierarchy is
 chosen. The choice and the switches are buttons that keep the selection; a press of a switch redraws the Flow and re-frames a view the person has
 not moved. On a phone the panel is the **bottom sheet**, with the switches in it; the choice stays in the toolbar. The Flow's pure layout is `web/graph-flow.js` (`graphFlowPlace`),
-read by `graph-model.js`; the snapshot has no Graph view, so it embeds none of it.
+read by `graph-model.js`.

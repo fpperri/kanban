@@ -6,13 +6,13 @@ const { read } = require('./helpers/doc-text');
 // docs/testing.md asks for a docs test only when a contract doc changes. The CI step runs
 // docs-pinned-check.js on a pull request; this file holds its decision to fixtures, with no git.
 
-test('the contract docs are the kanban skill and its references, the apply protocol and the cross-harness note, and nothing else', () => {
-  for (const f of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/kanban/references/config.md', 'plugin/skills/kanban/references/notes-kit.md', 'plugin/skills/snapshot/references/apply-protocol.md', 'docs/cross-harness.md']) assert.ok(isContractDoc(f), f);
-  for (const f of ['plugin/skills/web/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'plugin/skills/snapshot/references/board-artifact.md', 'docs/web.md', 'docs/snapshot.md', 'docs/testing.md', 'GLOSSARY.md', 'README.md', 'docs/adr/0001-x.md', 'plugin/skills/kanban/scripts/apply-starter.js']) assert.ok(!isContractDoc(f), f);
+test('the contract docs are the kanban skill and its references, the cross-harness note, and nothing else', () => {
+  for (const f of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/kanban/references/config.md', 'plugin/skills/kanban/references/notes-kit.md', 'docs/cross-harness.md']) assert.ok(isContractDoc(f), f);
+  for (const f of ['plugin/skills/web/SKILL.md', 'plugin/skills/artifact/SKILL.md', 'plugin/skills/artifact/references/board-artifact.md', 'docs/web.md', 'docs/testing.md', 'GLOSSARY.md', 'README.md', 'docs/adr/0001-x.md', 'plugin/skills/kanban/scripts/apply-starter.js']) assert.ok(!isContractDoc(f), f);
 });
 
 test('the docs tests are the contract tests, the docs lints, doc-examples and doc-paths', () => {
-  for (const f of ['test/web/kanban-skill-contract.test.js', 'test/web/notes-kit-contract.test.js', 'test/snapshot/snapshot-contract.test.js', 'test/web/handles-in-skill-docs.test.js', 'test/web/testing-docs.test.js', 'test/web/doc-examples.test.js', 'test/web/doc-paths.test.js']) assert.ok(isDocsTest(f), f);
+  for (const f of ['test/web/kanban-skill-contract.test.js', 'test/web/notes-kit-contract.test.js', 'test/web/handles-in-skill-docs.test.js', 'test/web/testing-docs.test.js', 'test/web/doc-examples.test.js', 'test/web/doc-paths.test.js']) assert.ok(isDocsTest(f), f);
   for (const f of ['test/web/groups.test.js', 'test/web/docs-utf8.test.js', 'test/web/browser/x-docs.test.js', 'docs/x-docs.test.js', 'test/web/groups-docs.js', 'test/web/doc-examples.js', 'test/web/helpers/doc-text.js']) assert.ok(!isDocsTest(f), f);
 });
 
@@ -27,7 +27,7 @@ test('a changed contract doc with no docs test changed fails and names the doc',
 });
 
 test('each contract doc is held to it, and the message names every one that changed', () => {
-  for (const doc of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/kanban/references/groups.md', 'plugin/skills/snapshot/references/apply-protocol.md', 'docs/cross-harness.md']) {
+  for (const doc of ['plugin/skills/kanban/SKILL.md', 'plugin/skills/kanban/references/groups.md', 'docs/cross-harness.md']) {
     assert.strictEqual(decide({ changed: [doc], messages: [] }).ok, false, doc);
   }
   const r = decide({ changed: ['docs/cross-harness.md', 'plugin/skills/kanban/SKILL.md'], messages: [] });
@@ -36,7 +36,7 @@ test('each contract doc is held to it, and the message names every one that chan
 });
 
 test('prose docs ask for nothing, whatever else changes: the web docs and skills, the glossary, the testing doc, the ADRs', () => {
-  for (const doc of ['docs/web.md', 'docs/snapshot.md', 'docs/testing.md', 'plugin/skills/web/SKILL.md', 'plugin/skills/snapshot/SKILL.md', 'GLOSSARY.md', 'docs/adr/0014-x.md']) {
+  for (const doc of ['docs/web.md', 'docs/testing.md', 'plugin/skills/web/SKILL.md', 'plugin/skills/artifact/SKILL.md', 'GLOSSARY.md', 'docs/adr/0014-x.md']) {
     const r = decide({ changed: [doc, 'plugin/skills/web/web/app.js'], messages: [] });
     assert.strictEqual(r.ok, true, doc);
     assert.deepStrictEqual(r.docs, [], doc);
@@ -54,7 +54,7 @@ test('the README asks for a docs test only when its config.yaml or Starter confi
 });
 
 test('a docs test changed in the same range lets a contract doc through', () => {
-  for (const test of ['test/web/kanban-skill-contract.test.js', 'test/snapshot/snapshot-contract.test.js', 'test/web/doc-examples.test.js', 'test/web/doc-paths.test.js', 'test/web/testing-docs.test.js']) {
+  for (const test of ['test/web/kanban-skill-contract.test.js', 'test/web/doc-examples.test.js', 'test/web/doc-paths.test.js', 'test/web/testing-docs.test.js']) {
     const r = decide({ changed: ['docs/cross-harness.md', test], messages: [] });
     assert.strictEqual(r.ok, true, test);
   }

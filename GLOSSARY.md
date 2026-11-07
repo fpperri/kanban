@@ -63,8 +63,8 @@ _Avoid_: column, lane (it is a sticker, not a status); approved, done (a review 
 The human's live editor — localhost Node server + browser SPA, reached from a phone through a VS Code tunnel. "App" and "dashboard" in older writing both refer to this skill (the static `kanban-dashboard` skill is deleted).
 _Avoid_: app, dashboard (in new writing).
 
-**Snapshot** (skills `kanban-artifact`, and `kanban-snapshot` until the switch):
-The human's tap surface — the **Web** built with the board inside it: one page that opens where the Web's server can't reach (phone, tablet, Cowork), with the cards a **Snapshot query** picks. It answers its own saves with the server's own route code over the board held in memory, so a save shows at once; nothing touches disk. Each save is recorded as a **queued change** in a **tray**, and Claude applies the tray to the board's files under the `kanban` skill's write contracts. The older single-file board of `kanban-snapshot` stays, unchanged, until the new page passes its ready check.
+**Snapshot** (skill `kanban-artifact`):
+The human's tap surface — the **Web** built with the board inside it: one page that opens where the Web's server can't reach (phone, tablet, Cowork), with the cards a **Snapshot query** picks. It answers its own saves with the server's own route code over the board held in memory, so a save shows at once; nothing touches disk. Each save is recorded as a **queued change** in a **tray**, and Claude applies the tray to the board's files under the `kanban` skill's write contracts. The older single-file board (the retired `kanban-snapshot` skill) is gone; its change payload still applies for one more release.
 _Avoid_: remote, editor (it renders and queues; Claude writes).
 
 **Board artifact** (delivery of the **Snapshot**):
@@ -263,6 +263,18 @@ _Avoid_: subject, owner, link.
 A disposable working page for one card or group, kept in one folder or in one folder per iteration, free text that may point at notes, files and folders. The kanban never throws it away on its own.
 _Avoid_: scratchbook, notes, draft.
 
+**Workspace** (via **workspace**):
+An optional pointer on a card to the folder where its work runs, such as a worktree. A pointer, not a structure: the card stays one file. Relative to the repository or led by a named root, never absolute, never validated. It is reaped when its branch is merged or gone, not when the card closes.
+_Avoid_: worktree (one kind of workspace), sandbox, checkout.
+
+**Evidence** (via **evidence**):
+An optional pointer on a card to the folder or file where its proof landed, as a whole. Same path rules as the **Workspace**. Not the per-step ticks of a **Todo list**, which are the finer grain.
+_Avoid_: proof, artifacts, attachment.
+
+**Named root** (via **vars:**):
+A name from the config's `vars:` block that leads a path (`<cortex>/runs`) and stands for a folder outside the repository. The only root a board declares besides the repository itself.
+_Avoid_: mount, alias, base path.
+
 ## Selecting and isolating
 
 **Selection**:
@@ -348,32 +360,23 @@ surface suggests exactly this trio as its default.
 
 ## Surfaces and parity
 
-Four skills, one board (`kanban-artifact` is new and waits for the switch, which retires `kanban-snapshot`; the three-skill wording in `docs/cross-harness.md` and the plugin manifests changes with it):
+Three skills, one board:
 
 | Surface | For | Medium |
 | --- | --- | --- |
 | `kanban` | the AI | file contracts + scripts; also defines `config.yaml` and `notifications.md` and when the AI must notify |
 | `kanban-web` | the human, at a browser (a phone through a VS Code tunnel) | live browser editor |
 | `kanban-artifact` | the human, phone/tablet/Cowork | the Web built with the board inside (the **Snapshot** above), a **Board artifact** or a file; saves are queued changes in a tray that Claude applies |
-| `kanban-snapshot` | the human, phone/tablet/Cowork, until the switch | the older generated single-file HTML, edits queue as a change payload |
 
 **Parity rule:** every surface writes under the *same board contracts* — the
 hard `doing` entry gate (waiting + blocked), archive-as-location, id
 allocation, `config.yaml`'s suggest-never-validate lists — defined once, in
 the `kanban` skill. Web carries the full operation set (CRUD, multi-select
 bulk actions with per-card skips, speedbumps on every destructive action,
-notifications inbox, dependency/gantt/calendar/graph views); the snapshot carries
-the same board contracts through a tap UI whose changes Claude applies, and
-names its own deliberate gaps in `plugin/skills/snapshot/references/gaps.md`
-("What the snapshot deliberately does not do"). A feature added to one editor lands in the
+notifications inbox, dependency/gantt/calendar/graph views); the Board artifact is the same
+page, whose saves Claude applies under the same board contracts, and settings and
+notifications stay a desk job. A feature added to one surface lands in the
 other (or gets a line in that surface's own skill doc saying why not).
 Retired skills are deleted outright.
-The Graph view is web-only: the snapshot does not draw it.
-The Web's Map draws only the cards its filters show; the snapshot's map still draws a hidden card, or an id with no card, that a shown card relates to as a stub.
-The selection, Isolate and Peek are web-only too, since the snapshot has no selection to
-isolate; the search grammar, the slices and the pills are shared, the snapshot running the
-web's own search module and drawing the same panel, where a pill filters.
-Web's `tree:<id>`/`path:<id>` dependency-focus search terms are mirrored in
-the snapshot as `tree:`/`path:` search terms, and the four Explore sets, `hpath:`, `htree:`, `dpath:`
-and `dtree:`, as search terms plus "Hierarchy path", "Dependency path", "Hierarchy tree"
-and "Dependency tree" tap actions on the card sheet and in the right-click card menu. The snapshot runs the same set module, so a typed `htree:467:below` resolves there too; it has no hover and no Space, so nothing in it writes a side.
+The Web's Map draws only the cards its filters show.
+The four Explore sets, `hpath:`, `htree:`, `dpath:` and `dtree:`, take a side suffix, so a typed `htree:467:below` resolves to the cards of that tree below card 467.

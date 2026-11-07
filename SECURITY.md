@@ -77,10 +77,7 @@ access of their own:
   frame and the network, and a bypass of it could still navigate the frame itself, which would leak
   only that diagram's source. Mermaid runs with `securityLevel: 'strict'`, the page ignores messages
   from anything but the frames it made, and the server answers a request with the origin `null` (a
-  sandboxed frame's) only for the frame's two files and the vendored libraries. In the snapshot, whose
-  page builds the "Apply kanban changes" payload, mermaid is never loaded into the page: its diagrams
-  are drawn in the same kind of frame, made from a `srcdoc`, so a sanitiser bypass could reach neither
-  the page nor the payload. See ADR 0020.
+  sandboxed frame's) only for the frame's two files and the vendored libraries. See ADR 0020.
 
 None of this treats the network as more trusted than it is — it just closes
 the gap between "the trust boundary is the files" and "yet a stray browser
@@ -122,15 +119,11 @@ with the board inside, and none of the server's defences above apply to them: th
   **highlight.js** 11.12.0 (BSD-3) and **three.js** r160 (MIT). They were checked to be
   byte for byte the files in the npm tarballs (`mermaid@12.2.0`'s `dist/mermaid.min.js`,
   `@highlightjs/cdn-assets@11.12.0`, `three@0.160.0`'s `build/three.min.js`) and the
-  copies cdnjs and jsDelivr serve. three.js loads only when the Graph's Hierarchy is
-  drawn in 3D and draws on a canvas from the plan the page hands it; the snapshot
-  does not carry it.
-  They load only when a body has a block that needs one; mermaid runs only in a
-  sandboxed frame. The snapshot takes them from cdnjs and jsDelivr under SRI
-  `integrity` pins computed from the vendored files, and loads highlight.js
-  (which only wraps a block's own text in spans) into its page, never mermaid.
-  Updating one means re-vendoring it and its hashes; there is no lockfile to
-  scan, so the check is that comparison.
+  copies cdnjs and jsDelivr serve.
+  mermaid and highlight.js load only when a body has a block that needs one; mermaid runs only in a
+  sandboxed frame. three.js loads only when the Graph's Hierarchy is drawn in 3D, and draws on a
+  canvas from the plan the page hands it. Updating one means re-vendoring it and its hashes; there is
+  no lockfile to scan, so the check is that comparison.
 
 ## If you're doing something this design doesn't assume
 

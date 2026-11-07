@@ -1,6 +1,6 @@
 'use strict';
 // Colour and diagrams for the typed code blocks markdown.js draws (docs/web.md, Markdown), shared by
-// the page and the snapshot. createCodeBlocks(config) returns { enhance(root), enhanceBlocks(blocks) };
+// the page and any page built from it. createCodeBlocks(config) returns { enhance(root), enhanceBlocks(blocks) };
 // kanbanCodeLibs (code-libs.js) decides, from the languages the fences name, which library a block
 // needs, and nothing is requested unless one does:
 //
@@ -16,8 +16,8 @@
 // Where the libraries come from is the config: { libs: kanbanCodeLibs,
 //   highlight: { src, integrity? }, sheets: { light: { href, integrity? }, dark: { ... } },
 //   frame: { src } | { srcdoc } }.
-// The page hands in its vendored files and a frame served by the server; the snapshot hands in
-// cdnjs addresses with their integrity hashes and a srcdoc. An integrity hash goes on the element with
+// The page hands in its vendored files and a frame served by the server; a page with no server
+// can hand in cdnjs addresses with their integrity hashes and a srcdoc. An integrity hash goes on the element with
 // crossorigin. A diagram, or a block in a hidden popup or a closed section, is drawn when it has a box
 // (mermaid measures what it draws), so a block without one is watched until it does.
 //
