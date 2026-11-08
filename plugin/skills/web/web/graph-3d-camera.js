@@ -114,7 +114,7 @@ function graph3dSeesInner(hier, phi, theta) {
 
 // H: everything, at the tilt the camera has. `side` (H, and a shape seen straight down): the dome and the
 // sphere from a three-quarter view, where they read as a dome and a ball rather than as the disc again,
-// or from higher when that would put cards of the innermost ring behind the shape (graph3dSideTilt).
+// or from a little higher when that shows every card of the innermost ring in front (graph3dSideTilt).
 // Until a zoom or a pan takes over (hier.fitted), an orbit keeps the whole shape fitted to the stage.
 function graph3dFrameAll(hier, now, side) {
   let { phi, theta } = hier.cam;

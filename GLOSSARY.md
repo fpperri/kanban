@@ -198,7 +198,7 @@ The Graph view's second graph, beside the Hierarchy: the board laid out by its d
 _Avoid_: workflow, pipeline, timeline (that is the Gantt).
 
 **3D Hierarchy** (web only):
-The Hierarchy drawn on a **shape** the camera turns round: the same cards, marks, lines and captions as the 2D Hierarchy, laid on the **disc** (the 2D layout, flat), the **half sphere** (the disc's centre sunk into a bowl hanging under its rim, nothing above it) or the **sphere** (the same wrapped on round to the far pole). The 3D button beside Hierarchy | Flow turns it on and off and writes `in3d=1` in the address. Seen from straight above, the disc is the 2D picture. Its **compass** shows which way the view faces and how far it is tilted; a press on it turns the view back north up, seen from straight above, north being the top of the 2D Hierarchy.
+The Hierarchy drawn on a **shape** the camera turns round: the same cards, marks, lines and captions as the 2D Hierarchy, laid on the **disc** (the 2D layout, flat), the **half sphere** (a dome: the disc's centre its top, where the disc has it, the rim lowered under it, nothing above it) or the **sphere** (the centre its top pole, wrapped on round down toward the bottom one). The 3D button beside Hierarchy | Flow turns it on and off and writes `in3d=1` in the address. Seen from straight above, the disc is the 2D picture. Its **compass** shows which way the view faces and how far it is tilted; a press on it turns the view back north up, seen from straight above, north being the top of the 2D Hierarchy.
 _Avoid_: 3D graph, globe, 3D view (only the Hierarchy is drawn in 3D; the Flow is not).
 
 **Frontier** (web only):

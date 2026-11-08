@@ -236,8 +236,8 @@ draws the same Hierarchy (the same plan: every filter, search, option, status, t
 lighting) on a shape you turn round, and writes `in3d=1` in the address, so a reload or a link opens it
 again; pressed again, the 2D drawing is back and the address drops it. It opens on the **disc**, seen from
 straight above, where every dot stands where the 2D Hierarchy draws it; **g** steps the shape to the **half
-sphere** (the disc's centre sunk into a bowl under its rim), the **sphere** (the same to the far pole) and
-back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits, the wheel zooms
+sphere** (a dome: the disc's centre its top, where the disc has it, the rim lowered under it), the **sphere**
+(the centre its top pole, the outermost ring wrapped down toward the bottom one) and back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits, the wheel zooms
 toward the pointer, and you can zoom in among the dots; on a touch screen one finger orbits and a pinch zooms.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
 menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames
