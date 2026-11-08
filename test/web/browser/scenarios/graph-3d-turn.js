@@ -29,12 +29,15 @@ module.exports = {
   async run(page) {
     const { ev, open, waitFor, key, check, send, mouse, sleep } = page;
     const cam = () => ev(CAM);
-    // The camera once it has stopped: the same reading twice, a few frames apart.
+    // The camera once it has stopped.
     const settled = async () => {
-      let last = null;
-      for (let i = 0; i < 60; i++) {
+      // Six equal reads in a row, about half a second: the readout is rounded to two
+      // places, so the slow end of a coast can read the same twice and still be moving.
+      let last = null, same = 0;
+      for (let i = 0; i < 80; i++) {
         const now = await cam();
-        if (now && last && JSON.stringify(now) === JSON.stringify(last)) return now;
+        same = now && last && JSON.stringify(now) === JSON.stringify(last) ? same + 1 : 0;
+        if (same >= 5) return now;
         last = now;
         await sleep(80);
       }

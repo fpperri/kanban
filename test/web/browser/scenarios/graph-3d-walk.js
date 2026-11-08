@@ -26,12 +26,15 @@ module.exports = {
   async run(page) {
     const { ev, open, waitFor, key, check, send, mouse, sleep } = page;
     const cam = () => ev(CAM);
-    // The camera once it has stopped: the same reading twice, a few frames apart.
+    // The camera once it has stopped.
     const settled = async () => {
-      let last = null;
-      for (let i = 0; i < 60; i++) {
+      // Six equal reads in a row, about half a second: the readout is rounded to two
+      // places, so the slow end of a coast can read the same twice and still be moving.
+      let last = null, same = 0;
+      for (let i = 0; i < 80; i++) {
         const now = await cam();
-        if (now && last && JSON.stringify(now) === JSON.stringify(last)) return now;
+        same = now && last && JSON.stringify(now) === JSON.stringify(last) ? same + 1 : 0;
+        if (same >= 5) return now;
         last = now;
         await sleep(80);
       }
@@ -60,9 +63,12 @@ module.exports = {
     const ahead = (theta) => [-Math.sin(theta), -Math.cos(theta)];
     const right = (theta) => [Math.cos(theta), -Math.sin(theta)];
     const along = (d, v) => d[0] * v[0] + d[1] * v[1];
-    const unchanged = async (what, act) => {
+    // `then` runs straight after the key, before the camera is read again: a mark the key
+    // shows for a few seconds (the notes palette's Sure?) is checked while it is still up.
+    const unchanged = async (what, act, then) => {
       const before = await settled();
       await act();
+      if (then) await then();
       await sleep(400);
       const after = await settled();
       check(what, JSON.stringify(before) === JSON.stringify(after), { before, after });
@@ -126,8 +132,8 @@ module.exports = {
     await ev(`openNotes({ target: '7' })`);
     check('the notes palette opens on card 7 over the 3D Hierarchy', await waitFor(`${PAL_UP}&&document.querySelectorAll('#notes-palette .np-note').length>0`, 3000));
     check('a note row takes the focus', await ev(FOCUS_NOTE));
-    await unchanged('d on a note row moves no camera', () => key('d'));
-    check('d on a note row asks to delete the note', await waitFor(`(()=>{const s=document.querySelector('#notes-palette .np-sure');return !!s&&s.textContent==='Sure?'})()`, 2500));
+    await unchanged('d on a note row moves no camera', () => key('d'), async () =>
+      check('d on a note row asks to delete the note', await waitFor(`(()=>{const s=document.querySelector('#notes-palette .np-sure');return !!s&&s.textContent==='Sure?'})()`, 2500)));
     check('a note row takes the focus again', await ev(FOCUS_NOTE));
     await unchanged('a on a note row moves no camera', () => key('a'));
     check('a on a note row opens the picker to move the note', await waitFor(`!!document.querySelector('#notes-palette .np-assign-input')`, 2500));
