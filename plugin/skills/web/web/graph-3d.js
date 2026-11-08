@@ -452,6 +452,36 @@ function graph3dDragMode({ button, shiftKey, pointerType }) {
   return null;
 }
 
+// The walk keys, each as [right, ahead] on the stage: W ahead, S back, A left, D right.
+const GRAPH3D_WALK_KEYS = {
+  'w': [0, 1],
+  'a': [-1, 0],
+  's': [0, -1],
+  'd': [1, 0],
+};
+
+// The walk key a keydown or keyup is (w, a, s or d, whatever its case), or null: with Ctrl, Alt or Meta
+// held the letter keeps its own meaning (Ctrl+S saves).
+function graph3dWalkKey({ key, ctrlKey, altKey, metaKey }) {
+  if (ctrlKey || altKey || metaKey || typeof key !== 'string' || key.length !== 1) return null;
+  const k = key.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(GRAPH3D_WALK_KEYS, k) ? k : null;
+}
+
+// How far the camera's target moves along the ground, as [x, z] in the scene, while the walk keys `held`
+// are down for `dt` ms with the camera turned `theta` and `dist` from its target: ahead is the way it faces
+// (the stage's up seen straight above), the speed the same share of the stage whatever the distance, and
+// two keys together no faster than one. Null when nothing moves.
+function graph3dWalk(held, theta, dist, dt) {
+  let r = 0, f = 0;
+  for (const k of held) { const v = GRAPH3D_WALK_KEYS[k]; if (v) { r += v[0]; f += v[1]; } }
+  const len = Math.hypot(r, f);
+  if (!len) return null;
+  const step = (GRAPH3D_WALK * 2 * dist * GRAPH3D_TAN_HALF_FOV * dt) / 1000 / len;
+  const s = Math.sin(theta), c = Math.cos(theta);
+  return [(r * c - f * s) * step, (-r * s - f * c) * step];
+}
+
 // A colour as the stylesheet gives it (#rgb, #rrggbb, rgb() or rgba()), as { r, g, b, a }, or null.
 function graph3dRgb(text) {
   const s = String(text || '').trim();
@@ -516,6 +546,8 @@ const GRAPH3D_FLY_MS = 450;
 const GRAPH3D_DRAG = 4;
 const GRAPH3D_WHEEL = 0.87;
 const GRAPH3D_BUTTON_ZOOM = 0.8;
+// The walk (W, A, S, D) crosses this much of the stage's height each second, seen straight above.
+const GRAPH3D_WALK = 0.7;
 // The camera comes no nearer to what it looks at than where a dot there is seen this many times its 2D
 // size: just short of its fade (graph3dCloseFade), so the dot it heads for and its neighbours keep their
 // colour and the stage around them stays full.
@@ -555,9 +587,9 @@ const GRAPH3D_SHADOW = 0.8;
 // A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
-const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything.';
+const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything; W, A, S and D, held, move the camera along the ground.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
-const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home';
+const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home · WASD move';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
 // The words the corner's label says when three.js did not load (the engine's own message goes to the console).
@@ -592,6 +624,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }

@@ -239,6 +239,10 @@ straight above, where every dot stands where the 2D Hierarchy draws it; **g** st
 sphere** (the disc's centre sunk into a bowl under its rim), the **sphere** (the same to the far pole) and
 back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits, the wheel zooms
 toward the pointer, and you can zoom in among the dots; on a touch screen one finger orbits and a pinch zooms.
+Held, **w**, **a**, **s** and **d** move the camera along the ground ahead (the way it faces), left, back and
+right, two together diagonally, at a pace that looks the same zoomed in or out; the tilt, turn and distance
+stay, and the move stops when the key comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
+their own meaning (Ctrl+S saves), and on a note row of the notes palette **a** and **d** stay the note's.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
 menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames
 everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons zoom and
