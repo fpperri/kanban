@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -581,4 +581,36 @@ test('a step of the walk is as long as the camera is far and as the key is held:
   // The stage seen straight above at `dist` is 2 dist tan(22.5 deg) high: a second held crosses half of it to a whole one.
   const stage = 2 * 1000 * Math.tan((45 * Math.PI) / 360);
   assert.ok(len(1000, 1000) > 0.5 * stage && len(1000, 1000) < stage, len(1000, 1000) / stage);
+});
+
+test('q and e are the turn keys whatever their case; with Ctrl, Alt or Meta, or any other key, there is none', () => {
+  assert.deepStrictEqual(['q', 'e', 'Q', 'E'].map((key) => graph3dTurnKey({ key })), ['q', 'e', 'q', 'e']);
+  assert.strictEqual(graph3dTurnKey({ key: 'E', shiftKey: true }), 'e', 'Shift is no chord: a held Shift still turns');
+  for (const mod of ['ctrlKey', 'altKey', 'metaKey']) assert.strictEqual(graph3dTurnKey({ key: 'e', [mod]: true }), null, `${mod}+e keeps its own meaning`);
+  for (const key of ['w', 'a', 'r', 'ArrowLeft', ' ', '', undefined]) assert.strictEqual(graph3dTurnKey({ key }), null, String(key));
+});
+
+test('Q turns the view left and E right: the way W walks swings toward A for Q and toward D for E', () => {
+  const ahead = (theta) => { const [x, z] = graph3dWalk(new Set(['w']), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const right = (theta) => { const [x, z] = graph3dWalk(new Set(['d']), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const along = (a, b) => a[0] * b[0] + a[1] * b[1];
+  for (const theta of [0, 1.2, -2.5]) {
+    const q = graph3dTurn(new Set(['q']), 100);
+    const e = graph3dTurn(new Set(['e']), 100);
+    assert.ok(along(ahead(theta + q), right(theta)) < 0, `Q at ${theta}: ahead swings to the left`);
+    assert.ok(along(ahead(theta + e), right(theta)) > 0, `E at ${theta}: ahead swings to the right`);
+  }
+  assert.ok(graph3dTurn(new Set(['q']), 100) > 0, 'Q turns the camera the way a right drag to the left does: theta grows');
+});
+
+test('Q and E turn at one steady speed, the same each way; together, or none, they stand still', () => {
+  const q = graph3dTurn(new Set(['q']), 100);
+  assert.ok(near(graph3dTurn(new Set(['e']), 100), -q, 1e-12), 'E is Q the other way');
+  assert.ok(near(graph3dTurn(new Set(['q']), 200), 2 * q, 1e-12), 'held twice as long, twice the turn');
+  assert.strictEqual(graph3dTurn(new Set(['q', 'e']), 100), null);
+  assert.strictEqual(graph3dTurn(new Set(), 100), null);
+  assert.ok(near(graph3dTurn(new Set(['q', 'w', 'd']), 100), q, 1e-12), 'walk keys in the set add no turn');
+  // A second held turns the camera somewhere between a sixth and half of a whole turn.
+  const second = graph3dTurn(new Set(['q']), 1000);
+  assert.ok(second > Math.PI / 3 && second < Math.PI, second);
 });
