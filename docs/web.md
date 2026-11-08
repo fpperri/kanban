@@ -243,6 +243,11 @@ Held, **w**, **a**, **s** and **d** move the camera along the ground ahead (the 
 right, two together diagonally, at a pace that looks the same zoomed in or out; the tilt, turn and distance
 stay, and the move stops when the key comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
 their own meaning (Ctrl+S saves), and on a note row of the notes palette **a** and **d** stay the note's.
+Held, **q** turns the view left and **e** right, round the point the camera looks at, at a steady pace; the
+tilt, the distance and that point stay, the compass turns with it, and the turn stops when the key comes up
+or the window loses focus. **q** and **e** together cancel, and either turns while **w**, **a**, **s** or **d**
+moves, so a walk can turn as it goes. Like the walk keys they stay off while a field has focus or a popup is
+up, so with a card's details open **e** opens its edit form, and on a note row **e** edits the note.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
 menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames
 everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons zoom and
