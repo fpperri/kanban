@@ -1,6 +1,6 @@
 'use strict';
 // The 3D Hierarchy's ground, drawn by three.js on the shape (graph-3d-view.js holds its state, `hier`):
-// the tier washes, the guide rings, the dividers, the block's frame, the body of the bowl and of the
+// the tier washes, the guide rings, the dividers, the block's frame, the body of the dome and of the
 // sphere, and the floor under the disc. Each is drawn solid, in its colour mixed into the stage's ground
 // by as much of it as the 2D mark lays over the ground (GRAPH3D_MIX): a dimmed mark is a colour, never a
 // see-through one.
@@ -93,9 +93,9 @@ function graph3dWashItem(hier, t, el, slot, bg) {
   hier.ground.push({ obj, src, dashed: false, kind: 'wash', index: slot, base: graph3dInkOf(hier, el, 'fill', GRAPH3D_MIX.wash, bg), painted: '' });
 }
 
-// The body of the bowl and of the sphere: the whole shape as a faint skin over the washes, lit only at
-// its edge as seen (a soft rim in the guide rings' colour) and, in the bowl, a little darker toward the
-// bottom, so the shape reads as a bowl or a ball. The disc has none: from above it stays the 2D picture.
+// The body of the dome and of the sphere: the whole shape as a faint skin over the washes, lit only at
+// its edge as seen (a soft rim in the guide rings' colour) and, on the dome, a little darker toward its
+// foot, so the shape reads as a dome or a ball. The disc has none: from above it stays the 2D picture.
 function graph3dBodyItem(hier, el, bg) {
   const reach = Math.max(hier.rim, hier.outer || 0) * GRAPH3D_SPHERE_REACH;
   const { obj, src } = graph3dRingMesh(hier, 0, reach, 96, 24, 4, { transparent: true, depthWrite: false, depthTest: false, fog: false }, -2);
@@ -167,14 +167,14 @@ function graph3dRecolourGround(hier, svg) {
 // change with the camera, so they are painted once.
 function graph3dPaintGround(hier) {
   const sphere = hier.shape === 'sphere' && !hier.morph;
-  const bowl = hier.shape === 'half' && !hier.morph;
+  const dome = hier.shape === 'half' && !hier.morph;
   const e = hier.camera.position;
   const ex = e.x, ey = e.y, ez = e.z;
   const bg = hier.bg;
   for (const g of hier.ground) {
     if (g.kind === 'body') { graph3dPaintBody(hier, g, ex, ey, ez); continue; }
     if (g.kind === 'floor') { graph3dPaintFloor(hier, g); continue; }
-    const key = sphere || bowl ? '' : `flat ${g.base.getHexString()}`;
+    const key = sphere || dome ? '' : `flat ${g.base.getHexString()}`;
     if (key && g.painted === key) continue;
     g.painted = key;
     const pos = g.obj.geometry.getAttribute('position').array;
@@ -183,7 +183,8 @@ function graph3dPaintGround(hier) {
     const b = g.base;
     for (let k = 0; k < col.length / 3; k++) {
       const x = pos[3 * k], y = pos[3 * k + 1], z = pos[3 * k + 2];
-      const back = (sphere && x * (ex - x) + y * (ey - y) + z * (ez - z) < 0) || (bowl && graph3dBowlBack([x, y, z], [ex, ey, ez], hier.rim));
+      const back = (sphere && x * (ex - x) + y * (ey - y) + z * (ez - z) < 0)
+        || (dome && graph3dDomeBack([x, y, z], [ex, ey, ez], hier.rim));
       const m = back ? GRAPH3D_FAR_KEEP : 1;
       col[3 * k] = bg.r + (b.r - bg.r) * m;
       col[3 * k + 1] = bg.g + (b.g - bg.g) * m;
@@ -223,34 +224,38 @@ function graph3dPaintBody(hier, g, ex, ey, ez) {
   const strength = graph3dShapeWeight(hier, (shape) => (shape === 'disc' ? 0 : 1));
   g.obj.visible = strength > 0.001;
   if (!g.obj.visible) return;
-  const bowl = hier.shape === 'half' || (hier.morph && (hier.morph.from === 'half' || hier.morph.to === 'half')) && hier.shape !== 'sphere';
-  const sphere = hier.shape === 'sphere' && !hier.morph;
+  // The dome's own look (no skin past the rim, darker toward its foot): on the half sphere, and on a morph
+  // to or from it unless the morph is bound for the sphere.
+  const morphHalf = !!hier.morph && (hier.morph.from === 'half' || hier.morph.to === 'half');
+  const dome = hier.shape === 'half' || (morphHalf && hier.shape !== 'sphere');
+  const round = (hier.shape === 'sphere' || hier.shape === 'half') && !hier.morph;
+  // The middle of the shape's sphere, which the skin's points face away from: mid-morph, the way between.
+  const cy = graph3dShapeWeight(hier, (shape) => graph3dCentre(shape, hier.rim)[1]);
   const pos = g.obj.geometry.getAttribute('position').array;
   const attr = g.obj.geometry.getAttribute('color');
   const col = attr.array;
   const b = g.base;
-  // A key light from the upper left of the view, so the ball and the bowl have a lit side.
+  // A key light from the upper left of the view, so the ball and the dome have a lit side.
   const L = new hier.T.Vector3(-0.45, 0.65, 0.6).normalize().applyQuaternion(hier.camera.quaternion);
   for (let k = 0; k < col.length / 4; k++) {
     const x = pos[3 * k], y = pos[3 * k + 1], z = pos[3 * k + 2];
-    const len = Math.hypot(x, y, z) || 1;
+    const ny = y - cy;
+    const len = Math.hypot(x, ny, z) || 1;
     let vx = ex - x, vy = ey - y, vz = ez - z;
     const vl = Math.hypot(vx, vy, vz) || 1;
     vx /= vl; vy /= vl; vz /= vl;
-    const toward = (x * vx + y * vy + z * vz) / len;
+    const toward = (x * vx + ny * vy + z * vz) / len;
     const facing = Math.abs(toward);
     const rim = (1 - facing) * (1 - facing);
-    const lit = Math.max(0, ((Math.sign(toward) || 1) * (x * L.x + y * L.y + z * L.z)) / len);
-    const out = bowl && Math.hypot(g.src[2 * k], g.src[2 * k + 1]) > hier.rim;
-    const far = sphere && x * (ex - x) + y * (ey - y) + z * (ez - z) < 0;
-    // The bowl's wall seen from outside stands in front of the marks behind it: a little more glass.
-    const glass = hier.shape === 'half' && !hier.morph && graph3dBowlBack([x, y, z], [ex, ey, ez], hier.rim) ? 0.1 : 0;
-    const bottom = bowl ? Math.min(1, Math.max(0, -y / hier.rim)) : 0;
+    const lit = Math.max(0, ((Math.sign(toward) || 1) * (x * L.x + ny * L.y + z * L.z)) / len);
+    const out = dome && Math.hypot(g.src[2 * k], g.src[2 * k + 1]) > hier.rim;
+    const far = round && x * vx + ny * vy + z * vz < 0;
+    const bottom = dome ? Math.min(1, Math.max(0, -y / hier.rim)) : 0;
     const shade = (1 - 0.75 * bottom) * (0.55 + 0.45 * lit);
     col[4 * k] = b.r * shade;
     col[4 * k + 1] = b.g * shade;
     col[4 * k + 2] = b.b * shade;
-    col[4 * k + 3] = out || far ? 0 : strength * (0.03 + 0.22 * rim + 0.12 * bottom + 0.15 * lit + glass);
+    col[4 * k + 3] = out || far ? 0 : strength * (0.03 + 0.22 * rim + 0.12 * bottom + 0.15 * lit);
   }
   attr.needsUpdate = true;
 }

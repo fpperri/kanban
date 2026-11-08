@@ -7,9 +7,9 @@ const {
   graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
   graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dBowlBack, graph3dPaintOrder, graph3dRestack,
+  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -52,26 +52,26 @@ test('the disc is the 2D layout on a flat plane: x stays x, y becomes depth, hei
   assert.deepStrictEqual(graph3dPlace('disc', 30, -40, 200), [30, 0, -40]);
 });
 
-test('the half sphere hangs below the disc: the centre at the bottom, the rim on the plane, the bearing kept, nothing above', () => {
+const nearAll = (a, b, eps = 0.01) => a.length === b.length && a.every((v, k) => near(v, b[k], eps));
+
+test('the half sphere is a dome: the centre its top where the disc has it, the rim lowered by its radius, the bearing kept, nothing above', () => {
   const rim = 200;
-  const c = graph3dPlace('half', 0, 0, rim);
-  assert.ok(near(c[0], 0) && near(c[1], -rim) && near(c[2], 0));
-  const e = graph3dPlace('half', rim, 0, rim);
-  assert.ok(near(e[0], rim) && near(e[1], 0, 1e-9) && near(e[2], 0, 1e-9));
-  const mid = graph3dPlace('half', 0, 100, rim);
-  assert.ok(near(mid[0], 0, 1e-9) && mid[2] > 0 && mid[1] < 0 && mid[1] > -rim, 'the bearing toward +y stays +z');
-  const out = graph3dPlace('half', 0, 260, rim);
-  assert.ok(out[1] <= 1e-9, 'past the rim it stays on the plane');
+  assert.ok(nearAll(graph3dPlace('half', 0, 0, rim), [0, 0, 0]), 'the centre is the top, on the disc plane');
+  assert.ok(nearAll(graph3dPlace('half', rim, 0, rim), [200, -200, 0]), 'the rim, a right angle down from the top');
+  assert.ok(nearAll(graph3dPlace('half', 0, 100, rim), [0, -58.58, 141.42]), 'half way out, 45 degrees down; the bearing toward +y stays +z');
+  assert.ok(nearAll(graph3dPlace('half', 0, 260, rim), [0, -200, 260]), 'past the rim, the plane the dome stands on');
+  for (const [x, y] of [[0, 0], [30, -170], [-120, 90], [199, 1], [400, 400]]) {
+    assert.ok(graph3dPlace('half', x, y, rim)[1] <= 1e-9, `nothing above the disc plane: ${x} ${y}`);
+  }
 });
 
-test('the sphere wraps the same way to 180 degrees: the centre one pole, the rim toward the other', () => {
+test('the sphere wraps the same way to 180 degrees: the centre the top pole, the rim down toward the bottom one', () => {
   const rim = 200;
-  const c = graph3dPlace('sphere', 0, 0, rim);
-  const e = graph3dPlace('sphere', -rim, 0, rim);
-  const rc = Math.hypot(...c);
-  assert.ok(c[1] < 0 && near(c[0], 0) && near(c[2], 0), 'the centre is the bottom pole');
-  assert.ok(e[1] > 0 && near(Math.hypot(...e), rc, 1e-6), 'the rim is on the same sphere, over the top');
-  assert.ok(e[0] < 0 && near(e[2], 0, 1e-9), 'and keeps its bearing');
+  const radius = (rim * 1.08) / 2;
+  assert.ok(nearAll(graph3dPlace('sphere', 0, 0, rim), [0, 108, 0]), 'the centre is the top pole');
+  assert.ok(nearAll(graph3dPlace('sphere', -radius, 0, rim), [-108, 0, 0]), 'half the reach out, the equator');
+  assert.ok(nearAll(graph3dPlace('sphere', 0, 54, rim), [0, 76.37, 76.37]), 'a quarter out, 45 degrees down');
+  assert.ok(nearAll(graph3dPlace('sphere', -rim, 0, rim), [-24.91, -105.09, 0]), 'the rim near the bottom pole, keeping its bearing');
 });
 
 test('a morph runs from one shape to the next: at 0 the first, at 1 the second', () => {
@@ -109,7 +109,7 @@ test('the rim is the outermost ring the fan draws, a block of unnested cards lef
   assert.ok(near(graph3dRim(plan), 150, 1e-6));
 });
 
-test('the sphere reaches past the outermost thing drawn: cards of an Unnested table beyond the rim keep apart, short of the far pole', () => {
+test('the sphere reaches past the outermost thing drawn: cards of an Unnested table beyond the rim keep apart, short of the bottom pole', () => {
   const rim = 200;
   const plan = {
     nodes: [{ id: 'a', x: 0, y: 90, reach: 5 }, { id: 'b', x: 400, y: 300, reach: 5 }, { id: 'c', x: 430, y: 300, reach: 5 }],
@@ -121,7 +121,7 @@ test('the sphere reaches past the outermost thing drawn: cards of an Unnested ta
   const c = graph3dPlace('sphere', 430, 300, rim, outer);
   assert.ok(Math.hypot(b[0] - c[0], b[1] - c[1], b[2] - c[2]) > 1, 'two cards of the table stay two places');
   const radius = (outer * 1.08) / 2;
-  assert.ok(b[1] < radius - 1 && c[1] < radius - 1, 'neither sits on the far pole');
+  assert.ok(b[1] > -radius + 1 && c[1] > -radius + 1, 'neither sits on the bottom pole');
   assert.deepStrictEqual(graph3dPlace('sphere', 0, 90, rim, 0), graph3dPlace('sphere', 0, 90, rim), 'no block: the rim alone');
 });
 
@@ -339,6 +339,19 @@ test("the camera's right, up and back: straight above, x right and the plan's y 
   }
 });
 
+test('the camera stands its distance back from its target, along the basis it is turned to', () => {
+  const back = graph3dBasis(0.6, 1.1).back;
+  const eye = graph3dEye([10, -20, 30], back, 200);
+  eye.forEach((v, k) => assert.ok(near(v, [10, -20, 30][k] + back[k] * 200), `eye ${k}`));
+  assert.ok(near(Math.hypot(eye[0] - 10, eye[1] + 20, eye[2] - 30), 200), 'its distance from the target');
+});
+
+test('a ray crosses a sphere at two distances along it, nearer first, and misses it when it passes by', () => {
+  assert.deepStrictEqual(graph3dSphereHits([0, 0, 500], [0, 0, -1], 100), [400, 600], 'straight through the middle');
+  assert.deepStrictEqual(graph3dSphereHits([0, 0, 0], [1, 0, 0], 100), [-100, 100], 'from the middle: one behind, one ahead');
+  assert.strictEqual(graph3dSphereHits([0, 150, 500], [0, 0, -1], 100), null, 'passing above it');
+});
+
 test('a fit stands the camera back just far enough to see every point within the fill, and moves the target to the middle', () => {
   const tan = Math.tan(Math.PI / 8);
   const square = [[-100, 0, -100], [100, 0, -100], [100, 0, 100], [-100, 0, 100]];
@@ -383,27 +396,29 @@ test('the disc and the half sphere tilt no further than nearly edge-on; the sphe
   assert.strictEqual(graph3dMaxTilt('sphere'), Math.PI);
 });
 
-test('a ray from the camera meets the shape where the pointer is: the plane, the bowl inside the rim, the near side of the sphere', () => {
+test('a ray from the camera meets the shape where the pointer is: the plane, the dome inside the rim, the near side of the sphere', () => {
   const rim = 100;
   const down = graph3dRayHit('disc', [10, 50, 20], [0, -1, 0], rim);
   assert.deepStrictEqual(down.map(Math.round), [10, 0, 20]);
   assert.strictEqual(graph3dRayHit('disc', [0, 50, 0], [0, 1, 0], rim), null, 'looking away: no hit');
-  const bowl = graph3dRayHit('half', [0, 50, 0], [0, -1, 0], rim);
-  assert.ok(Math.abs(bowl[1] + rim) < 1e-6, 'through the opening to the bottom of the bowl');
-  const outside = graph3dRayHit('half', [150, 50, 0], [0, -1, 0], rim);
-  assert.ok(Math.abs(outside[1]) < 1e-6, 'past the rim the half is the plane');
+  assert.ok(nearAll(graph3dRayHit('half', [0, 50, 0], [0, -1, 0], rim), [0, 0, 0]), 'straight down on the top of the dome');
+  assert.ok(nearAll(graph3dRayHit('half', [50, 50, 0], [0, -1, 0], rim), [50, -13.4, 0]), 'on its side, not on what is under it');
+  assert.ok(nearAll(graph3dRayHit('half', [150, 50, 0], [0, -1, 0], rim), [150, -100, 0]), 'past the rim, the plane the dome stands on');
+  assert.ok(nearAll(graph3dRayHit('half', [0, -50, 500], [0, 0, -1], rim), [0, -50, 86.6]), 'from the side, its near side');
   const ball = graph3dRayHit('sphere', [0, 0, 500], [0, 0, -1], rim, 0);
   const radius = (rim * 1.08) / 2;
   assert.ok(Math.abs(ball[2] - radius) < 1e-6, 'the near side, not the far one');
 });
 
-test('a point is put back on the shape: the plane, the bowl under the rim, the sphere', () => {
+test('a point is put back on the shape: the plane, the dome inside the rim, the sphere', () => {
   assert.deepStrictEqual(graph3dSnap('disc', [3, 7, 4], 100), [3, 0, 4]);
   const ball = graph3dSnap('sphere', [0, 10, 0], 100, 0);
   assert.ok(Math.abs(Math.hypot(...ball) - 54) < 1e-6);
-  const bowl = graph3dSnap('half', [0, -10, 0], 100);
-  assert.ok(Math.abs(bowl[1] + 100) < 1e-6, 'under the centre, the bottom of the bowl');
-  assert.deepStrictEqual(graph3dSnap('half', [150, -3, 0], 100), [150, 0, 0]);
+  assert.ok(nearAll(graph3dSnap('sphere', [0, 0, 0], 100, 0), [0, 54, 0]), 'its middle goes to the top pole');
+  assert.ok(nearAll(graph3dSnap('half', [0, 10, 0], 100), [0, 0, 0]), 'over the centre, the top of the dome');
+  assert.ok(nearAll(graph3dSnap('half', [0, -60, 0], 100), [0, 0, 0]), 'inside it, under the top, the top');
+  assert.ok(nearAll(graph3dSnap('half', [30, -150, 0], 100), [100, -100, 0]), 'under its rim, the rim');
+  assert.ok(nearAll(graph3dSnap('half', [150, -3, 0], 100), [150, -100, 0]), 'past the rim, the plane');
 });
 
 test('a click a little off a small dot still finds it, the one nearer the camera first; one far from every dot finds none', () => {
@@ -451,16 +466,34 @@ test("a card's label may lie over a dot well behind its own, never over one as n
   assert.deepStrictEqual([...shown.keys()], ['front']);
 });
 
-test("the bowl's far side: its wall seen from outside, through the wall; never the plane past the rim", () => {
+test("the dome's far side: its back, seen from outside past its edge, and the plane past the rim where the dome hides it", () => {
   const rim = 100;
   const above = [0, 500, 0];
-  assert.strictEqual(graph3dBowlBack([0, -100, 0], above, rim), false, 'the bottom seen from above: inside');
-  const low = [0, 20, 400];
-  const nearWall = graph3dPlace('half', 0, 80, rim);
-  const farWall = graph3dPlace('half', 0, -80, rim);
-  assert.strictEqual(graph3dBowlBack(nearWall, low, rim), true, 'the wall nearest a low camera is seen through');
-  assert.strictEqual(graph3dBowlBack(farWall, low, rim), false, 'the far wall faces it');
-  assert.strictEqual(graph3dBowlBack([0, 0, 150], low, rim), false, 'past the rim: the plane');
+  assert.strictEqual(graph3dDomeBack([0, 0, 0], above, rim), false, 'the top seen from above');
+  assert.strictEqual(graph3dDomeBack([86.6, -50, 0], above, rim), false, 'its side seen from above');
+  const low = [0, -60, 400];
+  assert.strictEqual(graph3dDomeBack([0, -50, 86.6], low, rim), false, 'the side facing a low camera');
+  assert.strictEqual(graph3dDomeBack([0, -50, -86.6], low, rim), true, 'the side away from it, behind the dome');
+  assert.strictEqual(graph3dDomeBack([0, -100, -150], low, rim), true, 'the plane behind the dome, from a low camera');
+  assert.strictEqual(graph3dDomeBack([0, -100, 150], low, rim), false, 'the plane in front of it');
+  assert.strictEqual(graph3dDomeBack([0, -100, -150], above, rim), false, 'the plane behind it, seen over its top');
+});
+
+test('a point is on the far side by its shape: the back of the sphere and of the dome, never on the disc', () => {
+  const eye = [0, 0, 1000];
+  assert.strictEqual(graph3dShapeFar('sphere', [0, 0, -100], eye, 100), true);
+  assert.strictEqual(graph3dShapeFar('sphere', [0, 0, 100], eye, 100), false);
+  assert.strictEqual(graph3dShapeFar('half', [0, -50, -86.6], [0, -60, 400], 100), true);
+  assert.strictEqual(graph3dShapeFar('half', [0, -50, 86.6], [0, -60, 400], 100), false);
+  assert.strictEqual(graph3dShapeFar('disc', [0, 0, -100], eye, 100), false);
+});
+
+test('the dome and the sphere seen whole stand at the steepest tilt, up to the side view, from which the innermost ring is all in front, else the side view', () => {
+  assert.strictEqual(graph3dSideTilt(() => true), 0.85, 'nothing hidden: the side view');
+  assert.ok(near(graph3dSideTilt((phi) => phi <= 0.52), 0.5), 'the steepest tilt that hides none, in steps of 0.05');
+  assert.strictEqual(graph3dSideTilt((phi) => phi <= 0.3), 0.85, 'shown only from nearly straight above: the side view, so the shape still reads as one');
+  assert.strictEqual(graph3dSideTilt(() => false), 0.85, 'hidden from every tilt: the side view');
+  assert.strictEqual(graph3dSideTilt((phi) => phi <= 0.45), 0.45, 'the least tilt tried');
 });
 
 test('marks are painted back to front, the far side under every near mark however near, the lit last', () => {
@@ -509,4 +542,43 @@ test('the compass turns the camera back to north up the short way round, whole t
   assert.strictEqual(graph3dNorthUp(-0.4), 0);
   assert.ok(near(graph3dNorthUp(5.9), 2 * Math.PI), 'nearly a whole turn: on to the next north');
   assert.ok(near(graph3dNorthUp(-7), -2 * Math.PI));
+});
+
+test('w, a, s and d are the walk keys whatever their case; with Ctrl, Alt or Meta, or any other key, there is none', () => {
+  assert.deepStrictEqual(['w', 'a', 's', 'd', 'W', 'D'].map((key) => graph3dWalkKey({ key })), ['w', 'a', 's', 'd', 'w', 'd']);
+  assert.strictEqual(graph3dWalkKey({ key: 'W', shiftKey: true }), 'w', 'Shift is no chord: a held Shift still walks');
+  for (const mod of ['ctrlKey', 'altKey', 'metaKey']) assert.strictEqual(graph3dWalkKey({ key: 's', [mod]: true }), null, `${mod}+s keeps its own meaning`);
+  for (const key of ['g', 'q', 'ArrowUp', ' ', '', undefined]) assert.strictEqual(graph3dWalkKey({ key }), null, String(key));
+});
+
+test('the walk moves the target along the ground the way the camera faces: W ahead, S back, A left, D right', () => {
+  const dir = (keys, theta) => { const [x, z] = graph3dWalk(new Set(keys), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const same = (a, b) => near(a[0], b[0], 1e-9) && near(a[1], b[1], 1e-9);
+  // Straight above and north up, the stage's up is the plan's up: -z (the 2D Hierarchy's top), its right +x.
+  assert.ok(same(dir(['w'], 0), [0, -1]), 'W: toward the top of the stage');
+  assert.ok(same(dir(['s'], 0), [0, 1]));
+  assert.ok(same(dir(['a'], 0), [-1, 0]));
+  assert.ok(same(dir(['d'], 0), [1, 0]));
+  // A quarter turn (graph3dBasis: right [0, 0, -1]): D goes to -z, W to -x.
+  assert.ok(same(dir(['d'], Math.PI / 2), [0, -1]));
+  assert.ok(same(dir(['w'], Math.PI / 2), [-1, 0]));
+});
+
+test('two walk keys move diagonally at the speed of one; opposite keys, or none, stand still', () => {
+  const one = graph3dWalk(new Set(['w']), 0, 1000, 100);
+  const both = graph3dWalk(new Set(['w', 'd']), 0, 1000, 100);
+  assert.ok(near(Math.hypot(...both), Math.hypot(...one), 1e-9), 'no faster on the diagonal');
+  assert.ok(near(both[0], -both[1], 1e-9) && both[0] > 0, 'W and D: ahead and to the right, at 45 degrees');
+  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(), 0, 1000, 100), null);
+});
+
+test('a step of the walk is as long as the camera is far and as the key is held: the same on the screen zoomed in or out', () => {
+  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, dist, dt));
+  assert.ok(near(len(2000, 100), 2 * len(1000, 100), 1e-9), 'twice as far, twice the step');
+  assert.ok(near(len(1000, 200), 2 * len(1000, 100), 1e-9), 'held twice as long, twice the way');
+  // The stage seen straight above at `dist` is 2 dist tan(22.5 deg) high: a second held crosses half of it to a whole one.
+  const stage = 2 * 1000 * Math.tan((45 * Math.PI) / 360);
+  assert.ok(len(1000, 1000) > 0.5 * stage && len(1000, 1000) < stage, len(1000, 1000) / stage);
 });
