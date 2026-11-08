@@ -54,7 +54,7 @@ function graph3dFlyTo(hier, to, now) {
 }
 
 // The points that stand for the whole shape as it is now: every dot, the block's corners, the rim, and the
-// body of the bowl and of the sphere, in the scene.
+// body of the dome and of the sphere, in the scene.
 function graph3dFitPoints(hier) {
   const { plan } = hier.view;
   const pts = plan.nodes.map((n) => [n.x, n.y]);
@@ -99,14 +99,30 @@ function graph3dFitView(hier, phi, theta) {
   return { tx: c[0] + fit.shift[0], ty: c[1] + fit.shift[1], tz: c[2] + fit.shift[2], dist: Math.max(60, fit.dist), phi, theta };
 }
 
-// H: everything, at the tilt the camera has. `side` (H, and a shape seen straight down): the bowl and the
-// sphere from a three-quarter view, where they read as a bowl and a ball rather than as the disc again.
+// Whether the camera framing the whole shape at tilt phi and turn theta sees every card of the innermost
+// ring, the highest level, in front: none on the far side.
+function graph3dSeesInner(hier, phi, theta) {
+  const fan = hier.view.plan.nodes.filter((n) => Math.hypot(n.x, n.y) < hier.rim);
+  if (!fan.length) return true;
+  const r0 = Math.min(...fan.map((n) => Math.hypot(n.x, n.y)));
+  const v = graph3dFitView(hier, phi, theta);
+  const back = graph3dBasis(phi, theta).back;
+  const eye = [v.tx + back[0] * v.dist, v.ty + back[1] * v.dist, v.tz + back[2] * v.dist];
+  return fan.every((n) => Math.hypot(n.x, n.y) > r0 + 1
+    || !graph3dShapeFar(hier.shape, graph3dPlace(hier.shape, n.x, n.y, hier.rim, hier.outer), eye, hier.rim));
+}
+
+// H: everything, at the tilt the camera has. `side` (H, and a shape seen straight down): the dome and the
+// sphere from a three-quarter view, where they read as a dome and a ball rather than as the disc again,
+// or from a little higher when that shows every card of the innermost ring in front (graph3dSideTilt).
 // Until a zoom or a pan takes over (hier.fitted), an orbit keeps the whole shape fitted to the stage.
 function graph3dFrameAll(hier, now, side) {
   let { phi, theta } = hier.cam;
   const max = graph3dMaxTilt(hier.shape);
-  if (side && hier.shape !== 'disc') { phi = GRAPH3D_SHAPE_TILT; theta = graph3dNorthUp(theta); }
-  else if (phi > max) phi = max;
+  if (side && hier.shape !== 'disc') {
+    theta = graph3dNorthUp(theta);
+    phi = graph3dSideTilt((t) => graph3dSeesInner(hier, t, theta));
+  } else if (phi > max) phi = max;
   hier.fitted = true;
   const to = graph3dFitView(hier, phi, theta);
   hier.fitDist = to.dist;
@@ -115,7 +131,7 @@ function graph3dFrameAll(hier, now, side) {
 
 // The cards `ids` (with `focus`, the one the camera looks at, else their middle) brought to the middle of
 // the stage with room round them; on the sphere the camera turns round to see the focus face on, so a
-// card on the far side comes to the front.
+// card on the far side comes to the front, and on the dome it does so for a card on its back.
 function graph3dFrameCards(hier, ids, focus) {
   const nodes = hier.view.plan.nodes.filter((n) => ids.has(String(n.id)));
   if (!nodes.length) return false;
@@ -123,7 +139,14 @@ function graph3dFrameCards(hier, ids, focus) {
   const main = focus == null ? null : nodes.find((n) => String(n.id) === String(focus));
   const c = main ? graph3dPlace(hier.shape, main.x, main.y, hier.rim, hier.outer) : graph3dMiddle(P);
   const to = { tx: c[0], ty: c[1], tz: c[2], phi: Math.min(hier.cam.phi, graph3dMaxTilt(hier.shape)), theta: hier.cam.theta };
-  const face = hier.shape === 'sphere' ? graph3dFacing(main ? c : graph3dSnap('sphere', c, hier.rim, hier.outer), hier.cam.theta) : null;
+  let face = hier.shape === 'sphere' ? graph3dFacing(main ? c : graph3dSnap('sphere', c, hier.rim, hier.outer), hier.cam.theta) : null;
+  if (hier.shape === 'half') {
+    const back = graph3dBasis(to.phi, to.theta).back;
+    const eye = c.map((v, k) => v + back[k] * hier.cam.dist);
+    const centre = graph3dCentre('half', hier.rim);
+    if (graph3dDomeBack(c, eye, hier.rim)) face = graph3dFacing(c.map((v, k) => v - centre[k]), hier.cam.theta);
+    if (face) face.phi = Math.min(face.phi, graph3dMaxTilt('half'));
+  }
   if (face) Object.assign(to, face);
   const tv = GRAPH3D_TAN_HALF_FOV;
   const fit = graph3dFit(P, c, graph3dBasis(to.phi, to.theta), tv * (hier.w / hier.h), tv, GRAPH3D_CARD_FILL, true);
@@ -174,8 +197,9 @@ function graph3dZoomAt(hier, px, py, f) {
     }
     goal.dist = Math.max(closest, want);
   } else if (f < 1) {
-    // Toward empty space: nearer, never past the closest, and on the sphere never inside it.
-    const inside = hier.shape === 'sphere' ? graph3dSphereRadius('sphere', hier.rim, hier.outer) - target.length() : 0;
+    // Toward empty space: nearer, never past the closest, and on the sphere and the dome never inside it.
+    const inside = hier.shape === 'disc' ? 0
+      : graph3dSphereRadius(hier.shape, hier.rim, hier.outer) - target.distanceTo(new T.Vector3(...graph3dCentre(hier.shape, hier.rim)));
     goal.dist = Math.max(closest, inside + closest, want);
   } else {
     const onPlane = eye.clone().addScaledVector(dir, goal.dist / Math.max(0.05, dir.dot(look)));
