@@ -453,7 +453,7 @@ test("a card's label may lie over a dot well behind its own, never over one as n
   assert.deepStrictEqual([...shown.keys()], ['front']);
 });
 
-test("the dome's far side: its back, seen from outside past its edge; never the plane past the rim", () => {
+test("the dome's far side: its back, seen from outside past its edge, and the plane past the rim where the dome hides it", () => {
   const rim = 100;
   const above = [0, 500, 0];
   assert.strictEqual(graph3dDomeBack([0, 0, 0], above, rim), false, 'the top seen from above');
@@ -461,7 +461,9 @@ test("the dome's far side: its back, seen from outside past its edge; never the 
   const low = [0, -60, 400];
   assert.strictEqual(graph3dDomeBack([0, -50, 86.6], low, rim), false, 'the side facing a low camera');
   assert.strictEqual(graph3dDomeBack([0, -50, -86.6], low, rim), true, 'the side away from it, behind the dome');
-  assert.strictEqual(graph3dDomeBack([0, -100, -150], low, rim), false, 'past the rim: the plane');
+  assert.strictEqual(graph3dDomeBack([0, -100, -150], low, rim), true, 'the plane behind the dome, from a low camera');
+  assert.strictEqual(graph3dDomeBack([0, -100, 150], low, rim), false, 'the plane in front of it');
+  assert.strictEqual(graph3dDomeBack([0, -100, -150], above, rim), false, 'the plane behind it, seen over its top');
 });
 
 test('a point is on the far side by its shape: the back of the sphere and of the dome, never on the disc', () => {

@@ -204,11 +204,21 @@ function graph3dFar(p, eye) {
 }
 
 // Whether the camera at `eye` sees the point p of the dome (the half sphere inside a rim of radius `rim`)
-// from behind, past its edge as seen: the dome's own far side. The plane past the rim has none.
+// from behind, past its edge as seen: the dome's own far side; and, past the rim, a point of the plane the
+// dome stands between it and the camera.
 function graph3dDomeBack(p, eye, rim) {
-  if (Math.hypot(p[0], p[2]) >= rim - 1e-6) return false;
   const c = graph3dCentre('half', rim);
-  return graph3dFar([p[0] - c[0], p[1] - c[1], p[2] - c[2]], [eye[0] - c[0], eye[1] - c[1], eye[2] - c[2]]);
+  const q = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+  const e = [eye[0] - c[0], eye[1] - c[1], eye[2] - c[2]];
+  if (Math.hypot(p[0], p[2]) < rim - 1e-6) return graph3dFar(q, e);
+  const d = [e[0] - q[0], e[1] - q[1], e[2] - q[2]];
+  const len = Math.hypot(d[0], d[1], d[2]);
+  if (len < 1e-9) return false;
+  const u = d.map((v) => v / len);
+  const b = q[0] * u[0] + q[1] * u[1] + q[2] * u[2];
+  const disc = b * b - (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] - rim * rim);
+  if (disc < 0) return false;
+  return [-b - Math.sqrt(disc), -b + Math.sqrt(disc)].some((t) => t > 1e-6 && t < len && q[1] + u[1] * t >= 0);
 }
 
 // Whether the camera at `eye` sees the point p of the shape from behind: the far side of the sphere and
