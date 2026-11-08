@@ -225,12 +225,10 @@ function graph3dOnKey(e) {
   if (keyGuardOff(document)) return;
   const hier = graph3dCur;
   if (!hier || !e.key || e.ctrlKey || e.metaKey || e.altKey || !graph3dVisible(hier) || !graph3dReady(hier)) return;
-  const walk = graph3dWalkKey(e);
-  const turn = !walk && graph3dTurnKey(e);
-  if (walk || turn) {
+  const held = graph3dHeldKey(hier, e);
+  if (held) {
     if (e.target && e.target.closest && e.target.closest('#notes-palette')) return;
-    if (walk) graph3dHoldKey(hier, hier.walk, walk);
-    else graph3dHoldKey(hier, hier.turn, turn);
+    graph3dHoldKey(hier, held.set, held.key);
     e.preventDefault();
     return;
   }
@@ -243,14 +241,19 @@ function graph3dOnKey(e) {
   e.preventDefault();
 }
 
+// The walk key (into hier.walk) or turn key (into hier.turn) a keydown or keyup is, as { set, key }, or null.
+function graph3dHeldKey(hier, e) {
+  const walk = graph3dWalkKey(e);
+  if (walk) return { set: hier.walk, key: walk };
+  const turn = graph3dTurnKey(e);
+  return turn ? { set: hier.turn, key: turn } : null;
+}
+
 // A walk or turn key coming up lets go of it wherever the focus is, and the window losing focus lets go of them all.
 function graph3dOnKeyUp(e) {
   const hier = graph3dCur;
-  if (!hier) return;
-  const walk = graph3dWalkKey({ key: e.key });
-  const turn = graph3dTurnKey({ key: e.key });
-  if (walk) graph3dLetGoKey(hier, hier.walk, walk);
-  if (turn) graph3dLetGoKey(hier, hier.turn, turn);
+  const held = hier && graph3dHeldKey(hier, { key: e.key });
+  if (held) graph3dLetGoKey(hier, held.set, held.key);
 }
 
 function graph3dOnBlur() {

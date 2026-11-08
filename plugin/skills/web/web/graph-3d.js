@@ -521,12 +521,17 @@ const GRAPH3D_WALK_KEYS = {
   'd': [1, 0],
 };
 
-// The walk key a keydown or keyup is (w, a, s or d, whatever its case), or null: with Ctrl, Alt or Meta
-// held the letter keeps its own meaning (Ctrl+S saves).
-function graph3dWalkKey({ key, ctrlKey, altKey, metaKey }) {
+// The key of the table `keys` a keydown or keyup is, whatever its case, or null: with Ctrl, Alt or Meta
+// held the letter keeps its own meaning (Ctrl+S saves, Ctrl+E codes the selection in a text box).
+function graph3dKeyIn(keys, { key, ctrlKey, altKey, metaKey }) {
   if (ctrlKey || altKey || metaKey || typeof key !== 'string' || key.length !== 1) return null;
   const k = key.toLowerCase();
-  return Object.prototype.hasOwnProperty.call(GRAPH3D_WALK_KEYS, k) ? k : null;
+  return Object.prototype.hasOwnProperty.call(keys, k) ? k : null;
+}
+
+// The walk key a keydown or keyup is (w, a, s or d), or null.
+function graph3dWalkKey(ev) {
+  return graph3dKeyIn(GRAPH3D_WALK_KEYS, ev);
 }
 
 // How far the camera's target moves along the ground, as [x, z] in the scene, while the walk keys `held`
@@ -550,12 +555,9 @@ const GRAPH3D_TURN_KEYS = {
   'e': -1,
 };
 
-// The turn key a keydown or keyup is (q or e, whatever its case), or null: with Ctrl, Alt or Meta held the
-// letter keeps its own meaning (Ctrl+E codes the selection in a text box).
-function graph3dTurnKey({ key, ctrlKey, altKey, metaKey }) {
-  if (ctrlKey || altKey || metaKey || typeof key !== 'string' || key.length !== 1) return null;
-  const k = key.toLowerCase();
-  return Object.prototype.hasOwnProperty.call(GRAPH3D_TURN_KEYS, k) ? k : null;
+// The turn key a keydown or keyup is (q or e), or null.
+function graph3dTurnKey(ev) {
+  return graph3dKeyIn(GRAPH3D_TURN_KEYS, ev);
 }
 
 // How far the camera turns round its target, in radians added to its turn theta, while the turn keys among
