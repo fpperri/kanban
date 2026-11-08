@@ -51,7 +51,7 @@ function graph3dCreate() {
     cam: { theta: 0, phi: 0, dist: 1000, tx: 0, ty: 0, tz: 0 }, framed: false, fly: null,
     raf: 0, w: 1, h: 1, cw: 1, ch: 1, ox: 0, oy: 0, order: '',
     drag: null, pointers: new Map(), pressed: null, pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
-    zoom: null, spin: null, walk: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
+    zoom: null, spin: null, walk: new Set(), turn: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
     fitted: false, fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),
     bg: null, scheme: null, themeWatch: null, onTheme: null, compassAt: '',
@@ -61,7 +61,7 @@ function graph3dCreate() {
   hier.hintTimer = setTimeout(() => graph3dEndHint(hier), GRAPH3D_HINT_MS);
   graph3dWireInput(hier);
   window.addEventListener('keydown', graph3dOnKey, true);
-  window.addEventListener('keyup', graph3dOnKeyUp, true); // key-guard: exempt (only lets go of a walk key held down, wherever the focus is)
+  window.addEventListener('keyup', graph3dOnKeyUp, true); // key-guard: exempt (only lets go of a walk or turn key held down, wherever the focus is)
   window.addEventListener('blur', graph3dOnBlur);
   // The colours are read off the stylesheet, so a change of theme (the system's or the page's own
   // data-theme) reads them again: the ground's, the marks' inks and the shadows'.
@@ -84,7 +84,7 @@ function graph3dVisible(hier) {
 // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
 function graph3dPaintLabel(hier) {
   hier.label.textContent = hier.hint ? GRAPH3D_HINT
-    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
+    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE turn${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
   hier.root.dataset.shape = hier.shape;
 }
 
@@ -125,7 +125,7 @@ function graph3dAt(hier, x, y) {
   return m ? graph3dMorph(m.from, m.to, m.e, x, y, hier.rim, hier.outer) : graph3dPlace(hier.shape, x, y, hier.rim, hier.outer);
 }
 
-// One frame: the zoom, the walk, the coast, the morph and the flight moved on by the time since the last, then the
+// One frame: the zoom, the walk, the turn, the coast, the morph and the flight moved on by the time since the last, then the
 // camera, the ground and the marks; another frame is asked for while any is still on its way.
 function graph3dFrame(hier) {
   hier.raf = 0;
@@ -147,6 +147,13 @@ function graph3dFrame(hier) {
     const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.dist, dt);
     if (step) {
       for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.tz += step[1]; }
+      more = true;
+    }
+  }
+  if (hier.turn.size) {
+    const turn = graph3dTurn(hier.turn, dt);
+    if (turn) {
+      hier.cam.theta += turn;
       more = true;
     }
   }

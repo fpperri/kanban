@@ -1,7 +1,7 @@
 'use strict';
 // The 3D Hierarchy's input (graph-3d-view.js holds its state, `hier`): a press drags to pan or orbit
 // (graph3dDragMode), a click selects and a double click opens, a right click opens the card menu, the
-// wheel and a pinch zoom, the keys g, f and h, and the walk keys w, a, s and d held.
+// wheel and a pinch zoom, the keys g, f and h, the walk keys w, a, s and d held and the turn keys q and e held.
 
 function graph3dEndDrag(hier, moved) {
   hier.root.classList.remove('graph-3d-dragging');
@@ -216,18 +216,21 @@ function graph3dWireInput(hier) {
   root.addEventListener('wheel', (e) => graph3dOnWheel(hier, e), { passive: false });
 }
 
-// G steps the shape, F frames the selection, H frames everything, and W, A, S and D held walk the camera
-// (graph3dWalkStart): through the key guard, so never while a field has focus or a menu or dialog is up,
-// and only while the 3D Hierarchy is on the page. The walk keys stay off on the notes palette, whose note
-// and todo rows read a and d.
+// G steps the shape, F frames the selection, H frames everything, W, A, S and D held walk the camera and Q
+// and E held turn it (graph3dHoldKey): through the key guard, so never while a field has focus or a menu or
+// dialog is up, and only while the 3D Hierarchy is on the page. The card details are such a dialog, so with
+// them open E is theirs and edits the card (onDetailEditKey, app.js). The held keys stay off on the notes
+// palette, whose note and todo rows read a, d and e.
 function graph3dOnKey(e) {
   if (keyGuardOff(document)) return;
   const hier = graph3dCur;
   if (!hier || !e.key || e.ctrlKey || e.metaKey || e.altKey || !graph3dVisible(hier) || !graph3dReady(hier)) return;
   const walk = graph3dWalkKey(e);
-  if (walk) {
+  const turn = !walk && graph3dTurnKey(e);
+  if (walk || turn) {
     if (e.target && e.target.closest && e.target.closest('#notes-palette')) return;
-    graph3dWalkStart(hier, walk);
+    if (walk) graph3dHoldKey(hier, hier.walk, walk);
+    else graph3dHoldKey(hier, hier.turn, turn);
     e.preventDefault();
     return;
   }
@@ -240,13 +243,18 @@ function graph3dOnKey(e) {
   e.preventDefault();
 }
 
-// A walk key coming up lets go of it wherever the focus is, and the window losing focus lets go of them all.
+// A walk or turn key coming up lets go of it wherever the focus is, and the window losing focus lets go of them all.
 function graph3dOnKeyUp(e) {
   const hier = graph3dCur;
-  const walk = hier && graph3dWalkKey({ key: e.key });
-  if (walk) graph3dWalkStop(hier, walk);
+  if (!hier) return;
+  const walk = graph3dWalkKey({ key: e.key });
+  const turn = graph3dTurnKey({ key: e.key });
+  if (walk) graph3dLetGoKey(hier, hier.walk, walk);
+  if (turn) graph3dLetGoKey(hier, hier.turn, turn);
 }
 
 function graph3dOnBlur() {
-  if (graph3dCur) graph3dWalkStop(graph3dCur, null);
+  if (!graph3dCur) return;
+  graph3dLetGoKey(graph3dCur, graph3dCur.walk, null);
+  graph3dLetGoKey(graph3dCur, graph3dCur.turn, null);
 }

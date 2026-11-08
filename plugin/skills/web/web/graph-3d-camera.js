@@ -21,7 +21,7 @@ function graph3dApplyCamera(hier) {
 // light), and come back on the next move of the pointer once the camera has stopped (graph3dRearm).
 function graph3dMoving(hier) {
   return !!(hier.drag && hier.drag.moved) || !!hier.pinch || !!hier.spin || !!hier.fly || !!hier.zoom || !!hier.morph
-    || hier.walk.size > 0;
+    || hier.walk.size > 0 || hier.turn.size > 0;
 }
 
 function graph3dQuietHover(hier) {
@@ -210,7 +210,7 @@ function graph3dZoomAt(hier, px, py, f) {
   graph3dTakeOver(hier);
 }
 
-// A zoom or a walk takes the camera over: a flight stops, an orbit no longer keeps the whole shape fitted,
+// A zoom, a walk or a turn takes the camera over: a flight stops, an orbit no longer keeps the whole shape fitted,
 // the hint and the pointer's light go out, and the next frame is asked for.
 function graph3dTakeOver(hier) {
   hier.fly = null;
@@ -238,18 +238,19 @@ function graph3dPan(hier, dx, dy) {
   c.tz += (-right.z * dx + up.z * dy) * wpp;
 }
 
-// W, A, S and D held: the frame loop moves the camera's target along the ground (graph3dWalk) while any is
-// down, as a pan does.
-function graph3dWalkStart(hier, key) {
-  if (hier.walk.has(key)) return;
-  hier.walk.add(key);
+// A walk key (W, A, S, D) or a turn key (Q, E) held, into its set `held` (hier.walk or hier.turn): while any
+// is down the frame loop moves the camera's target along the ground (graph3dWalk), as a pan does, or turns
+// the camera round its target (graph3dTurn).
+function graph3dHoldKey(hier, held, key) {
+  if (held.has(key)) return;
+  held.add(key);
   graph3dTakeOver(hier);
 }
 
-// A walk key up, or every one (`key` null).
-function graph3dWalkStop(hier, key) {
-  if (key == null) hier.walk.clear();
-  else if (!hier.walk.delete(key)) return;
+// A held key up, or every one in `held` (`key` null).
+function graph3dLetGoKey(hier, held, key) {
+  if (key == null) held.clear();
+  else if (!held.delete(key)) return;
   graph3dRequest(hier);
 }
 
