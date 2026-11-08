@@ -61,7 +61,7 @@ function graph3dCreate() {
   hier.hintTimer = setTimeout(() => graph3dEndHint(hier), GRAPH3D_HINT_MS);
   graph3dWireInput(hier);
   window.addEventListener('keydown', graph3dOnKey, true);
-  window.addEventListener('keyup', graph3dOnKeyUp, true);
+  window.addEventListener('keyup', graph3dOnKeyUp, true); // key-guard: exempt (only lets go of a walk key held down, wherever the focus is)
   window.addEventListener('blur', graph3dOnBlur);
   // The colours are read off the stylesheet, so a change of theme (the system's or the page's own
   // data-theme) reads them again: the ground's, the marks' inks and the shadows'.
