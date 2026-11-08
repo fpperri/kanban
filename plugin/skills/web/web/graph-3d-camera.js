@@ -20,7 +20,8 @@ function graph3dApplyCamera(hier) {
 // shows no tip: the pointer's light and its tip go out when it starts (a card the focus is on keeps its
 // light), and come back on the next move of the pointer once the camera has stopped (graph3dRearm).
 function graph3dMoving(hier) {
-  return !!(hier.drag && hier.drag.moved) || !!hier.pinch || !!hier.spin || !!hier.fly || !!hier.zoom || !!hier.morph || hier.walk.size > 0;
+  return !!(hier.drag && hier.drag.moved) || !!hier.pinch || !!hier.spin || !!hier.fly || !!hier.zoom || !!hier.morph
+    || hier.walk.size > 0;
 }
 
 function graph3dQuietHover(hier) {
@@ -106,8 +107,7 @@ function graph3dSeesInner(hier, phi, theta) {
   if (!fan.length) return true;
   const r0 = Math.min(...fan.map((n) => Math.hypot(n.x, n.y)));
   const v = graph3dFitView(hier, phi, theta);
-  const back = graph3dBasis(phi, theta).back;
-  const eye = [v.tx + back[0] * v.dist, v.ty + back[1] * v.dist, v.tz + back[2] * v.dist];
+  const eye = graph3dEye([v.tx, v.ty, v.tz], graph3dBasis(phi, theta).back, v.dist);
   return fan.every((n) => Math.hypot(n.x, n.y) > r0 + 1
     || !graph3dShapeFar(hier.shape, graph3dPlace(hier.shape, n.x, n.y, hier.rim, hier.outer), eye, hier.rim));
 }
@@ -141,10 +141,8 @@ function graph3dFrameCards(hier, ids, focus) {
   const to = { tx: c[0], ty: c[1], tz: c[2], phi: Math.min(hier.cam.phi, graph3dMaxTilt(hier.shape)), theta: hier.cam.theta };
   let face = hier.shape === 'sphere' ? graph3dFacing(main ? c : graph3dSnap('sphere', c, hier.rim, hier.outer), hier.cam.theta) : null;
   if (hier.shape === 'half') {
-    const back = graph3dBasis(to.phi, to.theta).back;
-    const eye = c.map((v, k) => v + back[k] * hier.cam.dist);
-    const centre = graph3dCentre('half', hier.rim);
-    if (graph3dDomeBack(c, eye, hier.rim)) face = graph3dFacing(c.map((v, k) => v - centre[k]), hier.cam.theta);
+    const eye = graph3dEye(c, graph3dBasis(to.phi, to.theta).back, hier.cam.dist);
+    if (graph3dDomeBack(c, eye, hier.rim)) face = graph3dFacing(graph3dSub(c, graph3dCentre('half', hier.rim)), hier.cam.theta);
     if (face) face.phi = Math.min(face.phi, graph3dMaxTilt('half'));
   }
   if (face) Object.assign(to, face);
@@ -208,9 +206,15 @@ function graph3dZoomAt(hier, px, py, f) {
   }
   goal.tx = target.x; goal.ty = target.y; goal.tz = target.z;
   hier.zoom = goal;
-  hier.fitted = false;
-  hier.fly = null;
   hier.spin = null;
+  graph3dTakeOver(hier);
+}
+
+// A zoom or a walk takes the camera over: a flight stops, an orbit no longer keeps the whole shape fitted,
+// the hint and the pointer's light go out, and the next frame is asked for.
+function graph3dTakeOver(hier) {
+  hier.fly = null;
+  hier.fitted = false;
   graph3dEndHint(hier);
   graph3dQuietHover(hier);
   graph3dRequest(hier);
@@ -235,15 +239,11 @@ function graph3dPan(hier, dx, dy) {
 }
 
 // W, A, S and D held: the frame loop moves the camera's target along the ground (graph3dWalk) while any is
-// down, as a pan does, so a flight stops and an orbit no longer keeps the whole shape fitted.
+// down, as a pan does.
 function graph3dWalkStart(hier, key) {
   if (hier.walk.has(key)) return;
   hier.walk.add(key);
-  hier.fly = null;
-  hier.fitted = false;
-  graph3dEndHint(hier);
-  graph3dQuietHover(hier);
-  graph3dRequest(hier);
+  graph3dTakeOver(hier);
 }
 
 // A walk key up, or every one (`key` null).

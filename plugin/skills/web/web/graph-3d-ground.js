@@ -183,7 +183,8 @@ function graph3dPaintGround(hier) {
     const b = g.base;
     for (let k = 0; k < col.length / 3; k++) {
       const x = pos[3 * k], y = pos[3 * k + 1], z = pos[3 * k + 2];
-      const back = (sphere && x * (ex - x) + y * (ey - y) + z * (ez - z) < 0) || (dome && graph3dDomeBack([x, y, z], [ex, ey, ez], hier.rim));
+      const back = (sphere && x * (ex - x) + y * (ey - y) + z * (ez - z) < 0)
+        || (dome && graph3dDomeBack([x, y, z], [ex, ey, ez], hier.rim));
       const m = back ? GRAPH3D_FAR_KEEP : 1;
       col[3 * k] = bg.r + (b.r - bg.r) * m;
       col[3 * k + 1] = bg.g + (b.g - bg.g) * m;
@@ -223,7 +224,10 @@ function graph3dPaintBody(hier, g, ex, ey, ez) {
   const strength = graph3dShapeWeight(hier, (shape) => (shape === 'disc' ? 0 : 1));
   g.obj.visible = strength > 0.001;
   if (!g.obj.visible) return;
-  const dome = hier.shape === 'half' || (hier.morph && (hier.morph.from === 'half' || hier.morph.to === 'half')) && hier.shape !== 'sphere';
+  // The dome's own look (no skin past the rim, darker toward its foot): on the half sphere, and on a morph
+  // to or from it unless the morph is bound for the sphere.
+  const morphHalf = !!hier.morph && (hier.morph.from === 'half' || hier.morph.to === 'half');
+  const dome = hier.shape === 'half' || (morphHalf && hier.shape !== 'sphere');
   const round = (hier.shape === 'sphere' || hier.shape === 'half') && !hier.morph;
   // The middle of the shape's sphere, which the skin's points face away from: mid-morph, the way between.
   const cy = graph3dShapeWeight(hier, (shape) => graph3dCentre(shape, hier.rim)[1]);

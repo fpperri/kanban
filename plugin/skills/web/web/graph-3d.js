@@ -203,22 +203,43 @@ function graph3dFar(p, eye) {
   return p[0] * (eye[0] - p[0]) + p[1] * (eye[1] - p[1]) + p[2] * (eye[2] - p[2]) < 0;
 }
 
+// Points and directions in the scene, as [x, y, z]: a less b, and a dot b.
+function graph3dSub(a, b) {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function graph3dDot(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+// Where the ray from `from` along the unit vector `dir`, both taken from a sphere's middle, crosses the
+// sphere of radius `radius`: the two distances along it, nearer first, or null when it passes by.
+function graph3dSphereHits(from, dir, radius) {
+  const along = graph3dDot(from, dir);
+  const disc = along * along - (graph3dDot(from, from) - radius * radius);
+  if (disc < 0) return null;
+  return [-along - Math.sqrt(disc), -along + Math.sqrt(disc)];
+}
+
+// Where the camera stands: `dist` back from its target along `back`, its basis's (graph3dBasis).
+function graph3dEye(target, back, dist) {
+  return target.map((v, k) => v + back[k] * dist);
+}
+
 // Whether the camera at `eye` sees the point p of the dome (the half sphere inside a rim of radius `rim`)
 // from behind, past its edge as seen: the dome's own far side; and, past the rim, a point of the plane the
 // dome stands between it and the camera.
 function graph3dDomeBack(p, eye, rim) {
-  const c = graph3dCentre('half', rim);
-  const q = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
-  const e = [eye[0] - c[0], eye[1] - c[1], eye[2] - c[2]];
-  if (Math.hypot(p[0], p[2]) < rim - 1e-6) return graph3dFar(q, e);
-  const d = [e[0] - q[0], e[1] - q[1], e[2] - q[2]];
-  const len = Math.hypot(d[0], d[1], d[2]);
+  const centre = graph3dCentre('half', rim);
+  const point = graph3dSub(p, centre);
+  const from = graph3dSub(eye, centre);
+  if (Math.hypot(p[0], p[2]) < rim - 1e-6) return graph3dFar(point, from);
+  const toEye = graph3dSub(from, point);
+  const len = Math.hypot(...toEye);
   if (len < 1e-9) return false;
-  const u = d.map((v) => v / len);
-  const b = q[0] * u[0] + q[1] * u[1] + q[2] * u[2];
-  const disc = b * b - (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] - rim * rim);
-  if (disc < 0) return false;
-  return [-b - Math.sqrt(disc), -b + Math.sqrt(disc)].some((t) => t > 1e-6 && t < len && q[1] + u[1] * t >= 0);
+  const dir = toEye.map((v) => v / len);
+  const hits = graph3dSphereHits(point, dir, rim);
+  return !!hits && hits.some((t) => t > 1e-6 && t < len && point[1] + dir[1] * t >= 0);
 }
 
 // Whether the camera at `eye` sees the point p of the shape from behind: the far side of the sphere and
@@ -364,15 +385,9 @@ function graph3dRayHit(shape, o, d, rim, outer) {
     if (shape === 'disc' || Math.hypot(p[0], p[2]) >= rim) hits.push(plane);
   }
   if (shape === 'half' || shape === 'sphere') {
-    const r = graph3dSphereRadius(shape, rim, outer);
-    const c = graph3dCentre(shape, rim);
-    const q = [o[0] - c[0], o[1] - c[1], o[2] - c[2]];
-    const b = q[0] * d[0] + q[1] * d[1] + q[2] * d[2];
-    const disc = b * b - (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] - r * r);
-    if (disc >= 0) {
-      for (const t of [-b - Math.sqrt(disc), -b + Math.sqrt(disc)]) {
-        if (t > 0 && (shape === 'sphere' || at(t)[1] >= c[1] - 1e-6)) hits.push(t);
-      }
+    const centre = graph3dCentre(shape, rim);
+    for (const t of graph3dSphereHits(graph3dSub(o, centre), d, graph3dSphereRadius(shape, rim, outer)) || []) {
+      if (t > 0 && (shape === 'sphere' || at(t)[1] >= centre[1] - 1e-6)) hits.push(t);
     }
   }
   if (!hits.length) return null;
@@ -386,7 +401,7 @@ function graph3dSnap(shape, p, rim, outer) {
   if (shape === 'half' && Math.hypot(p[0], p[2]) >= rim) return [p[0], -rim, p[2]];
   const r = graph3dSphereRadius(shape, rim, outer);
   const c = graph3dCentre(shape, rim);
-  const q = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+  const q = graph3dSub(p, c);
   if (shape === 'half') q[1] = Math.max(q[1], 0);
   const len = Math.hypot(q[0], q[1], q[2]);
   if (len < 1e-9) return [c[0], c[1] + r, c[2]];
@@ -633,7 +648,9 @@ const GRAPH3D_SHADOW = 0.8;
 // A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
-const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything; W, A, S and D, held, move the camera along the ground.';
+const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; '
+  + 'one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything; '
+  + 'W, A, S and D, held, move the camera along the ground.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
 const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home · WASD move';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
@@ -668,7 +685,8 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
     graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
     graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-    graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
+    graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
+    graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
     graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };

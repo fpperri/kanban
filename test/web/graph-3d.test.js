@@ -7,7 +7,7 @@ const {
   graph3dWantedIn, graph3dAddressFor, graph3dRim, graph3dOuter, graph3dFar, graph3dSplitFar,
   graph3dPick, graph3dTopDown, graph3dCloseFade, graph3dMarkScale, graph3dMaxTilt, graph3dRayHit,
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
-  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
+  graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
   graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
@@ -337,6 +337,19 @@ test("the camera's right, up and back: straight above, x right and the plan's y 
     const cross = [r[1] * u[2] - r[2] * u[1], r[2] * u[0] - r[0] * u[2], r[0] * u[1] - r[1] * u[0]];
     cross.forEach((v, i) => assert.ok(near(v, k[i]), `right x up = back at ${phi} ${theta}`));
   }
+});
+
+test('the camera stands its distance back from its target, along the basis it is turned to', () => {
+  const back = graph3dBasis(0.6, 1.1).back;
+  const eye = graph3dEye([10, -20, 30], back, 200);
+  eye.forEach((v, k) => assert.ok(near(v, [10, -20, 30][k] + back[k] * 200), `eye ${k}`));
+  assert.ok(near(Math.hypot(eye[0] - 10, eye[1] + 20, eye[2] - 30), 200), 'its distance from the target');
+});
+
+test('a ray crosses a sphere at two distances along it, nearer first, and misses it when it passes by', () => {
+  assert.deepStrictEqual(graph3dSphereHits([0, 0, 500], [0, 0, -1], 100), [400, 600], 'straight through the middle');
+  assert.deepStrictEqual(graph3dSphereHits([0, 0, 0], [1, 0, 0], 100), [-100, 100], 'from the middle: one behind, one ahead');
+  assert.strictEqual(graph3dSphereHits([0, 150, 500], [0, 0, -1], 100), null, 'passing above it');
 });
 
 test('a fit stands the camera back just far enough to see every point within the fill, and moves the target to the middle', () => {
