@@ -521,12 +521,17 @@ const GRAPH3D_WALK_KEYS = {
   'd': [1, 0],
 };
 
-// The walk key a keydown or keyup is (w, a, s or d, whatever its case), or null: with Ctrl, Alt or Meta
-// held the letter keeps its own meaning (Ctrl+S saves).
-function graph3dWalkKey({ key, ctrlKey, altKey, metaKey }) {
+// The key of the table `keys` a keydown or keyup is, whatever its case, or null: with Ctrl, Alt or Meta
+// held the letter keeps its own meaning (Ctrl+S saves, Ctrl+E codes the selection in a text box).
+function graph3dKeyIn(keys, { key, ctrlKey, altKey, metaKey }) {
   if (ctrlKey || altKey || metaKey || typeof key !== 'string' || key.length !== 1) return null;
   const k = key.toLowerCase();
-  return Object.prototype.hasOwnProperty.call(GRAPH3D_WALK_KEYS, k) ? k : null;
+  return Object.prototype.hasOwnProperty.call(keys, k) ? k : null;
+}
+
+// The walk key a keydown or keyup is (w, a, s or d), or null.
+function graph3dWalkKey(ev) {
+  return graph3dKeyIn(GRAPH3D_WALK_KEYS, ev);
 }
 
 // How far the camera's target moves along the ground, as [x, z] in the scene, while the walk keys `held`
@@ -541,6 +546,27 @@ function graph3dWalk(held, theta, dist, dt) {
   const step = (GRAPH3D_WALK * 2 * dist * GRAPH3D_TAN_HALF_FOV * dt) / 1000 / len;
   const s = Math.sin(theta), c = Math.cos(theta);
   return [(r * c - f * s) * step, (-r * s - f * c) * step];
+}
+
+// The turn keys, each as the way it turns the camera round its target: Q to the left (its turn, theta, grows),
+// E to the right.
+const GRAPH3D_TURN_KEYS = {
+  'q': 1,
+  'e': -1,
+};
+
+// The turn key a keydown or keyup is (q or e), or null.
+function graph3dTurnKey(ev) {
+  return graph3dKeyIn(GRAPH3D_TURN_KEYS, ev);
+}
+
+// How far the camera turns round its target, in radians added to its turn theta, while the turn keys among
+// `held` are down for `dt` ms: a steady speed whatever the distance, Q and E together cancelling. Null when
+// nothing turns.
+function graph3dTurn(held, dt) {
+  let way = 0;
+  for (const k of held) way += GRAPH3D_TURN_KEYS[k] || 0;
+  return way ? (way * GRAPH3D_TURN * dt) / 1000 : null;
 }
 
 // A colour as the stylesheet gives it (#rgb, #rrggbb, rgb() or rgba()), as { r, g, b, a }, or null.
@@ -609,6 +635,8 @@ const GRAPH3D_WHEEL = 0.87;
 const GRAPH3D_BUTTON_ZOOM = 0.8;
 // The walk (W, A, S, D) crosses this much of the stage's height each second, seen straight above.
 const GRAPH3D_WALK = 0.7;
+// Q and E turn the camera this many radians each second: a quarter turn.
+const GRAPH3D_TURN = Math.PI / 2;
 // The camera comes no nearer to what it looks at than where a dot there is seen this many times its 2D
 // size: just short of its fade (graph3dCloseFade), so the dot it heads for and its neighbours keep their
 // colour and the stage around them stays full.
@@ -650,9 +678,9 @@ const GRAPH3D_SHADOW = 0.8;
 const GRAPH3D_MENU_HOLD_MS = 600;
 const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; '
   + 'one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything; '
-  + 'W, A, S and D, held, move the camera along the ground.';
+  + 'W, A, S and D, held, move the camera along the ground; Q and E, held, turn it left and right.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
-const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home · WASD move';
+const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home · WASD move · QE turn';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
 // The words the corner's label says when three.js did not load (the engine's own message goes to the console).
@@ -688,6 +716,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }

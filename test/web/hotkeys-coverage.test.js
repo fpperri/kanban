@@ -70,11 +70,11 @@ test('a key the page reads and the list lacks is reported: drop an entry from th
   const texts = sources.map((s) => s.text);
   assert.deepStrictEqual(keysMissing(texts, without('names'), NOT_HOTKEYS), ['l']);
   assert.deepStrictEqual(keysMissing(texts, without('note'), NOT_HOTKEYS), ['n']);
-  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), [], 'e, a and d are still listed: they are Ctrl+E, a walk key in 3D and Ctrl+Shift+D too');
-  assert.deepStrictEqual(keysMissing(texts, HOTKEYS.filter((entry) => !['note-row', 'graph-3d'].includes(entry.id)), NOT_HOTKEYS), ['a', 'g', 'h', 'w']);
+  assert.deepStrictEqual(keysMissing(texts, without('note-row'), NOT_HOTKEYS), [], 'e, a and d are still listed: they are Ctrl+E and a turn key in 3D, a walk key in 3D, and Ctrl+Shift+D too');
+  assert.deepStrictEqual(keysMissing(texts, HOTKEYS.filter((entry) => !['note-row', 'graph-3d'].includes(entry.id)), NOT_HOTKEYS), ['a', 'g', 'h', 'q', 'w']);
   assert.deepStrictEqual(keysMissing(texts, without('slice'), NOT_HOTKEYS), ['[', ']', '{', '}'].sort());
-  assert.deepStrictEqual(keysMissing(texts, HOTKEYS.filter((entry) => !['find', 'note-find', 'graph-3d'].includes(entry.id)), NOT_HOTKEYS), ['f', 'g', 'h', 'w']);
-  assert.deepStrictEqual(keysMissing(texts, without('graph-3d'), NOT_HOTKEYS), ['g', 'h', 'w'], "f, a, s and d are still listed: Ctrl+F, the note row's a and d, Ctrl+S");
+  assert.deepStrictEqual(keysMissing(texts, HOTKEYS.filter((entry) => !['find', 'note-find', 'graph-3d'].includes(entry.id)), NOT_HOTKEYS), ['f', 'g', 'h', 'q', 'w']);
+  assert.deepStrictEqual(keysMissing(texts, without('graph-3d'), NOT_HOTKEYS), ['g', 'h', 'q', 'w'], "f, a, s, d and e are still listed: Ctrl+F, the note row's a, d and e, Ctrl+S");
   for (const id of ['find', 'note-find']) assert.deepStrictEqual(HOTKEYS.find((entry) => entry.id === id).reads, ['f'], `${id} reads f`);
   assert.deepStrictEqual(keysMissing(texts, without('hotkeys'), NOT_HOTKEYS), ['?']);
   assert.deepStrictEqual(keysMissing([...texts, "if (e.key === 'x') {}"], HOTKEYS, NOT_HOTKEYS), ['x']);
