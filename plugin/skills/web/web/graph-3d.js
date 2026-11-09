@@ -513,7 +513,7 @@ function graph3dDragMode({ button, shiftKey, pointerType }) {
   return null;
 }
 
-// The walk keys, each as [right, up]: W rises, S sinks, A goes left, D right.
+// The walk keys, each as [right, up] in the camera's own screen: W up, S down, A left, D right.
 const GRAPH3D_WALK_KEYS = {
   'w': [0, 1],
   'a': [-1, 0],
@@ -535,17 +535,18 @@ function graph3dWalkKey(ev) {
 }
 
 // How far the camera moves, as [x, y, z] in the scene, while the walk keys `held` are down for `dt` ms with the
-// camera turned `theta`: W and S straight up and down, the scene's vertical, whichever way it looks and tilts;
-// A and D sideways along its right, which is level. `pace` is the distance the speed goes by (see graph3dPace),
-// the same share of what the camera sees whatever it is; two keys together go no faster than one. Null when
-// nothing moves.
-function graph3dWalk(held, theta, pace, dt) {
+// camera turned `theta` and tilted `phi`: it slides in the screen's plane, as a pan does: W and S along the
+// camera's up and down (looking straight down that is along the ground, at the horizon straight up), A and D
+// along its right, which is level. `pace` is the distance the speed goes by (see graph3dPace), the same share
+// of what the camera sees whatever it is; two keys together go no faster than one. Null when nothing moves.
+function graph3dWalk(held, theta, phi, pace, dt) {
   let r = 0, u = 0;
   for (const k of held) { const v = GRAPH3D_WALK_KEYS[k]; if (v) { r += v[0]; u += v[1]; } }
   const len = Math.hypot(r, u);
   if (!len) return null;
   const step = (GRAPH3D_WALK * 2 * pace * GRAPH3D_TAN_HALF_FOV * dt) / 1000 / len;
-  return [r * Math.cos(theta) * step, u * step, -r * Math.sin(theta) * step];
+  const b = graph3dBasis(phi, theta);
+  return [0, 1, 2].map((k) => (r * b.right[k] + u * b.up[k]) * step);
 }
 
 // What the pace of flying goes by: how far the camera at `eye` is from the nearest point of the shape, so it
@@ -717,7 +718,7 @@ const GRAPH3D_SHADOW = 0.8;
 const GRAPH3D_MENU_HOLD_MS = 600;
 const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag looks round from where the camera stands, the wheel flies toward the pointer; '
   + 'one finger looks round and a pinch flies. G steps the shape, F frames the selection, H frames everything; '
-  + 'W and S, held, raise and lower the camera, A and D move it sideways; Q and E, held, spin the shape left and right.';
+  + 'W, A, S and D, held, slide the camera in the screen plane (W up, S down); Q and E, held, spin the shape left and right.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
 const GRAPH3D_HINT = 'Drag pans · right drag looks · wheel flies · double click opens · G shape · F frame · H home · WASD move · QE spin';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).

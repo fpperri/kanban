@@ -149,7 +149,7 @@ function graph3dFrame(hier) {
     } else more = true;
   }
   if (hier.walk.size) {
-    const step = graph3dWalk(hier.walk, hier.cam.theta, graph3dPaceOf(hier), dt);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, graph3dPaceOf(hier), dt);
     if (step) {
       for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
       more = true;
