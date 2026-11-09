@@ -77,7 +77,12 @@ function graph3dOnPointerDown(hier, e) {
   }
   const mode = graph3dDragMode(e);
   if (!mode) return;
-  hier.drag = { id: e.pointerId, mode, button: e.button, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, moved: false, trail: [] };
+  let pivot = null;
+  if (mode === 'orbit' && graph3dReady(hier)) {
+    const rect = hier.root.getBoundingClientRect();
+    pivot = graph3dPickPivot(hier, e.clientX - rect.left, e.clientY - rect.top);
+  }
+  hier.drag = { id: e.pointerId, mode, button: e.button, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, moved: false, trail: [], pivot };
 }
 
 function graph3dOnPointerMove(hier, e) {
@@ -110,7 +115,7 @@ function graph3dOnPointerMove(hier, e) {
   d.x = e.clientX;
   d.y = e.clientY;
   if (d.mode === 'orbit') {
-    graph3dOrbit(hier, dx, dy);
+    graph3dOrbit(hier, dx, dy, d.pivot);
     const t = performance.now();
     d.trail.push({ t, dx, dy });
     while (d.trail.length && t - d.trail[0].t > 80) d.trail.shift();
@@ -145,10 +150,11 @@ function graph3dOnPointerEnd(hier, e) {
   if (trail.length > 1) {
     const span = Math.max(16, t - trail[0].t);
     const sx = trail.reduce((a, m) => a + m.dx, 0), sy = trail.reduce((a, m) => a + m.dy, 0);
-    hier.spin = graph3dCoast({ vx: sx / span, vy: sy / span }, 0);
+    const coast = graph3dCoast({ vx: sx / span, vy: sy / span }, 0);
+    hier.spin = coast && { vx: coast.vx, vy: coast.vy, pivot: d.pivot };
     hier.tick = 0;
-    graph3dRequest(hier);
   }
+  graph3dRequest(hier);
 }
 
 // The dot a click a little off a dot means, or null on a mark of its own or the corner's controls.

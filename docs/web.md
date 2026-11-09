@@ -237,16 +237,20 @@ lighting) on a shape you turn round, and writes `in3d=1` in the address, so a re
 again; pressed again, the 2D drawing is back and the address drops it. It opens on the **disc**, seen from
 straight above, where every dot stands where the 2D Hierarchy draws it; **g** steps the shape to the **half
 sphere** (a dome: the disc's centre its top, where the disc has it, the rim lowered under it), the **sphere**
-(the centre its top pole, the outermost ring wrapped down toward the bottom one) and back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits, the wheel zooms
+(the centre its top pole, the outermost ring wrapped down toward the bottom one) and back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits round the point under the pointer when
+the press lands (the dot there, else the shape's surface or the ground, else its centre), which keeps its
+place on screen, and the coast after the release turns round it too; the wheel zooms
 toward the pointer, and you can zoom in among the dots; on a touch screen one finger orbits and a pinch zooms.
 Held, **w**, **a**, **s** and **d** move the camera along the ground ahead (the way it faces), left, back and
 right, two together diagonally, at a pace that looks the same zoomed in or out; the tilt, turn and distance
 stay, and the move stops when the key comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
 their own meaning (Ctrl+S saves), and on a note row of the notes palette **a** and **d** stay the note's.
-Held, **q** turns the view left and **e** right, round the point the camera looks at, at a steady pace; the
-tilt, the distance and that point stay, the compass turns with it, and the turn stops when the key comes up
+Held, **q** turns the view left and **e** right, round the shape's own vertical axis (through the point **h**
+frames: the disc's centre, the dome's top, the sphere's pole axis) wherever a pan has put it on screen, at a
+steady pace; the shape's centre keeps its place on screen, the tilt and the distance stay, the compass turns with it, and the turn stops when the key comes up
 or the window loses focus. **q** and **e** together cancel, and either turns while **w**, **a**, **s** or **d**
-moves, so a walk can turn as it goes. Like the walk keys they stay off while a field has focus or a popup is
+moves, so a walk can turn as it goes. While a right drag, its coast or **q** and **e** turns the view, a small
+quiet cross marks the point it turns round, and fades out as the turn stops. Like the walk keys they stay off while a field has focus or a popup is
 up, so with a card's details open **e** opens its edit form, and on a note row **e** edits the note.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
 menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames

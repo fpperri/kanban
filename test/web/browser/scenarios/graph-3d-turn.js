@@ -1,7 +1,8 @@
 'use strict';
 // The 3D Hierarchy's turn, on the notes board (the plan board with a logbook, so the notes palette can be
-// opened over it). Held, Q turns the view left round the point the camera looks at and E turns it right; the
-// tilt, the distance and that point stay, and the compass turns with the camera. The turn stops when the key
+// opened over it). Held, Q turns the view left round the shape's own vertical axis and E turns it right; the
+// tilt and the distance stay, the shape's centre keeps its place on screen wherever a pan has put it (a quiet
+// cross marks it while the turn runs, and is gone after), and the compass turns with the camera. The turn stops when the key
 // comes up and when the window loses focus; Q and E together cancel; Q turns while W walks. The keys never
 // turn the camera while a field has focus, with Ctrl held, on a note row of the notes palette (where e edits
 // the note), nor with a card's details open, where e opens the card's edit form. The 2D Hierarchy and the
@@ -52,7 +53,7 @@ module.exports = {
     };
     const down = (k, mods) => send('Input.dispatchKeyEvent', keyEvents(k, mods)[0]);
     const up = (k, mods) => send('Input.dispatchKeyEvent', keyEvents(k, mods)[1]);
-    const kept = (a, b) => a.phi === b.phi && a.dist === b.dist && a.tx === b.tx && a.ty === b.ty && a.tz === b.tz;
+    const kept = (a, b) => a.phi === b.phi && a.dist === b.dist;
     // Holds `k` until the camera has turned 0.3 rad, then lets it up.
     const turn = async (k) => {
       const from = await settled();
@@ -84,15 +85,40 @@ module.exports = {
     const tilted = await settled();
     check('a right drag tilts the camera', tilted.phi > 0.2, tilted);
 
+    // Panned off the middle, Q turns the shape round its own axis: its centre keeps its place on screen
+    // while the turn runs, a quiet cross marks it, and the cross is gone once the key is up.
+    const CENTRE = `(()=>{const h=graph3dCur;const s=graph3dScreenOf(h,graph3dShapeAxis(h.shape,h.rim,h.outer));const r=h.root.getBoundingClientRect();return s&&{x:r.left+s.x,y:r.top+s.y}})()`;
+    const CROSS = `${ROOT}.querySelector('.graph-3d-pivot')`;
+    await mouse('mouseMoved', spot.x, spot.y, { button: 'none' });
+    await mouse('mousePressed', spot.x, spot.y, { button: 'left' });
+    for (let k = 1; k <= 8; k++) await mouse('mouseMoved', spot.x + 15 * k, spot.y - 6 * k, { button: 'left', buttons: 1 });
+    await mouse('mouseReleased', spot.x + 120, spot.y - 48, { button: 'left' });
+    const panned = await settled();
+    const home = await ev(CENTRE);
+    check('a pan moves the shape centre off where it stood', !!home && !!panned, { home });
+    check('no cross shows before the turn', await waitFor(`!!${CROSS}&&${CROSS}.dataset.on==='0'&&Number(getComputedStyle(${CROSS}).opacity)<0.02`, 5000));
+    await down('q');
+    check('the cross shows while Q turns', await waitFor(`${CROSS}.dataset.on==='1'`, 6000));
+    check('Q has turned the camera well past the pan', await waitFor(`(()=>{const c=${CAM};return !!c&&Math.abs(c.theta-(${panned.theta}))>0.5})()`, 6000));
+    const spun = await ev(CENTRE);
+    const mark = await ev(`(()=>{const r=${CROSS}.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,pe:getComputedStyle(${CROSS}).pointerEvents}})()`);
+    check('Q after a pan keeps the shape centre in place on screen', Math.hypot(spun.x - home.x, spun.y - home.y) < 4, { home, spun });
+    check('the cross stands on the shape centre and takes no pointer', Math.hypot(mark.x - spun.x, mark.y - spun.y) < 4 && mark.pe === 'none', { mark, spun });
+    await up('q');
+    await settled();
+    check('the cross is gone once Q is up', await waitFor(`${CROSS}.dataset.on==='0'&&Number(getComputedStyle(${CROSS}).opacity)<0.02`, 5000));
+    const rested = await ev(CENTRE);
+    check('the shape centre stood in place at the end of the turn too', Math.hypot(rested.x - home.x, rested.y - home.y) < 4, { home, rested });
+
     const q = await turn('q');
     check('held, Q turns the view left: the camera\'s turn grows', q.went && q.by > 0.3, q);
-    check('Q keeps the tilt, the distance and the point the camera looks at', q.kept, q);
+    check('Q keeps the tilt and the distance', q.from.phi === q.to.phi && q.from.dist === q.to.dist, q);
     check('the turn stops when Q comes up', q.stopped, q);
     const dial = await ev(COMPASS);
     check('the compass turns with the camera', dial !== null && Math.abs(dial - (q.to.theta * 180) / Math.PI) < 1, { dial, theta: q.to.theta });
     const e = await turn('e');
     check('held, E turns the view right: the camera\'s turn shrinks', e.went && e.by < -0.3, e);
-    check('E keeps the tilt, the distance and the point, and stops when it comes up', e.kept && e.stopped, e);
+    check('E keeps the tilt and the distance, and stops when it comes up', e.from.phi === e.to.phi && e.from.dist === e.to.dist && e.stopped, e);
 
     // Q and E together cancel: read from once both are down to before either comes up, since the moment
     // between the two keyDowns turns the camera as Q alone does.

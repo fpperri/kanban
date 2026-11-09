@@ -220,11 +220,72 @@ function graph3dTakeOver(hier) {
   graph3dRequest(hier);
 }
 
-function graph3dOrbit(hier, dx, dy) {
+// The point a turn started at (px, py on the stage) goes round: the dot under the pointer (a click's
+// tolerance), else the point of the shape or the ground there, else the shape's centre (its axis).
+function graph3dPickPivot(hier, px, py) {
+  const T = hier.T;
+  const dotId = graph3dNearest(hier.vis, px, py, GRAPH3D_PICK_TOL);
+  const dot = dotId == null ? null : hier.view.plan.nodes.find((n) => n.id === dotId);
+  if (dot) return graph3dPlace(hier.shape, dot.x, dot.y, hier.rim, hier.outer);
+  graph3dApplyCamera(hier);
+  const ndc = new T.Vector3(((px + hier.ox) / hier.cw) * 2 - 1, -((py + hier.oy) / hier.ch) * 2 + 1, 0.5);
+  const dir = ndc.unproject(hier.camera).sub(hier.camera.position).normalize();
+  const eye = hier.camera.position;
+  return graph3dRayHit(hier.shape, [eye.x, eye.y, eye.z], [dir.x, dir.y, dir.z], hier.rim, hier.outer)
+    || graph3dShapeAxis(hier.shape, hier.rim, hier.outer);
+}
+
+// An orbit drag or coast step of (dx, dy) px: the turn and the tilt change, the tilt kept within its limits,
+// and the camera turns round `pivot` (a scene point) so the pivot keeps its place on screen. While the shape
+// is fitted (hier.fitted) the camera is the fit at the new angle instead.
+function graph3dOrbit(hier, dx, dy, pivot) {
   const c = hier.cam;
-  c.theta -= (Math.PI * dx) / hier.h;
-  c.phi = Math.min(graph3dMaxTilt(hier.shape), Math.max(0, c.phi - (Math.PI * dy) / hier.h));
-  if (hier.fitted && hier.view) { Object.assign(c, graph3dFitView(hier, c.phi, c.theta)); hier.fitDist = c.dist; }
+  const theta = c.theta - (Math.PI * dx) / hier.h;
+  const phi = Math.min(graph3dMaxTilt(hier.shape), Math.max(0, c.phi - (Math.PI * dy) / hier.h));
+  if (hier.fitted && hier.view) {
+    Object.assign(c, graph3dFitView(hier, phi, theta));
+    hier.fitDist = c.dist;
+    return;
+  }
+  Object.assign(c, graph3dTurnRound(c, pivot || graph3dShapeAxis(hier.shape, hier.rim, hier.outer), theta, phi));
+}
+
+// Q and E's turn of `by` radians: the camera swings round the shape's own vertical axis, so the shape's
+// centre keeps its place on screen with the tilt and the distance. A zoom on its way swings with it.
+function graph3dSpin(hier, by) {
+  const axis = graph3dShapeAxis(hier.shape, hier.rim, hier.outer);
+  const c = hier.cam, z = hier.zoom;
+  if (z) {
+    const to = graph3dTurnRound({ tx: z.tx, ty: z.ty, tz: z.tz, theta: c.theta, phi: z.phi }, axis, c.theta + by, z.phi);
+    z.tx = to.tx; z.ty = to.ty; z.tz = to.tz;
+  }
+  Object.assign(c, graph3dTurnRound(c, axis, c.theta + by, c.phi));
+}
+
+// The point the camera is turning round now, or null while it turns round none: a right drag's or its coast's
+// pivot, the shape's axis point while Q or E turns it. While the shape is fitted an orbit refits rather than
+// keeps a point, so none then.
+function graph3dTurnPivot(hier) {
+  const orbit = hier.spin || (hier.drag && hier.drag.moved && hier.drag.mode === 'orbit' ? hier.drag : null);
+  if (orbit && !hier.fitted) return orbit.pivot || null;
+  return hier.turn.size > 0 ? graph3dShapeAxis(hier.shape, hier.rim, hier.outer) : null;
+}
+
+// The small cross at the pivot's place on screen (hier.pivotMark): on (data-on) while a turn goes round it,
+// where it stays while it fades out (app.css).
+function graph3dPaintPivot(hier) {
+  const p = graph3dTurnPivot(hier);
+  if (p) hier.pivotAt = p;
+  const s = hier.pivotAt ? graph3dScreenOf(hier, hier.pivotAt) : null;
+  hier.pivotMark.dataset.on = p && s ? '1' : '0';
+  if (s) hier.pivotMark.style.transform = `translate(${graph3dRound2(s.x)}px, ${graph3dRound2(s.y)}px)`;
+}
+
+// Where the scene point `p` is on the stage, { x, y } in the stage's px, or null behind the camera.
+function graph3dScreenOf(hier, p) {
+  const v = new hier.T.Vector3(p[0], p[1], p[2]).project(hier.camera);
+  if (!(v.z > -1 && v.z < 1)) return null;
+  return { x: ((v.x + 1) / 2) * hier.cw - hier.ox, y: ((1 - v.y) / 2) * hier.ch - hier.oy };
 }
 
 function graph3dPan(hier, dx, dy) {

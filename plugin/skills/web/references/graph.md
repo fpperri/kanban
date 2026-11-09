@@ -198,7 +198,12 @@ mixed into the ground by depth, the far side and the lighting (`graph3dMix`, `gr
 `--graph-3d-paint`; nothing is see-through. The shapes are `disc`, `half` and `sphere` (`graph3dPlace`,
 `data-shape` on the root; `g` steps them), and the camera is `data-cam` on the root: turn, tilt, distance and
 the target's x, y, z. A press starts a pan (left, middle) or an orbit (right, Shift+left, a finger;
-`graph3dDragMode`) once it moves 4 px; a right press that does not move opens the card menu by the document's
+`graph3dDragMode`) once it moves 4 px. An orbit turns the camera round the point under the pointer at the
+press (`graph3dPickPivot`: the dot there, else the shape's surface or the ground, else the shape's centre),
+the pivot keeping its place on screen, and so does its coast (`graph3dOrbit`, `graph3dTurnRound`); the held
+`q` and `e` spin the camera round the shape's own vertical axis (`graph3dSpin`, `graph3dShapeAxis`), the
+shape's centre keeping its place. While either turns, `span.graph-3d-pivot` (`data-on`) draws a small cross at
+the pivot and fades out about 600 ms after the turn stops; it takes no pointer; a right press that does not move opens the card menu by the document's
 own `contextmenu` handler, which the 3D Hierarchy holds back while the button is down and sends again when it
 comes up (Linux and the Mac ask for the menu on the press, Windows on the release), and swallows after a drag
 or while another drag or a pinch is moving (`graph3dMenuVerdict`). The

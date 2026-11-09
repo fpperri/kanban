@@ -114,6 +114,30 @@ module.exports = {
     check('the compass turns and tilts with the camera', await ev(COMPASS) !== 'scale(1 1) rotate(0)', await ev(COMPASS));
     await shot('3d-tilted');
 
+    // A right drag started on a dot turns the camera round that dot: it keeps its place on screen while the
+    // drag runs and after the coast, and a quiet cross marks the pivot while the turn runs and is gone after.
+    const pivotDot = await ev(MIDDLE_DOT(''));
+    const DOT_AT = `(()=>{const g=${ROOT}.querySelector('.graph-node[data-id="${pivotDot.id}"] .graph-dot');const r=g.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`;
+    const CROSS_ON = `(()=>{const m=${ROOT}.querySelector('.graph-3d-pivot');return !!m&&m.dataset.on==='1'})()`;
+    const CROSS_GONE = `(()=>{const m=${ROOT}.querySelector('.graph-3d-pivot');return !!m&&m.dataset.on==='0'&&Number(getComputedStyle(m).opacity)<0.02})()`;
+    check('no cross shows while nothing turns', await waitFor(CROSS_GONE, 5000));
+    const turnedBefore = await settled();
+    await mouse('mouseMoved', pivotDot.x, pivotDot.y, { button: 'none' });
+    await mouse('mousePressed', pivotDot.x, pivotDot.y, { button: 'right' });
+    for (let k = 1; k <= 8; k++) await mouse('mouseMoved', pivotDot.x + 14 * k, pivotDot.y - 6 * k, { button: 'right', buttons: 2 });
+    const midDot = await ev(DOT_AT);
+    check('a right drag on a dot keeps that dot in place on screen while it turns',
+      Math.hypot(midDot.x - pivotDot.x, midDot.y - pivotDot.y) < 3 && Math.abs((await cam()).theta - turnedBefore.theta) > 0.2, { pivotDot, midDot });
+    check('the cross shows while the drag turns', await waitFor(CROSS_ON, 3000));
+    const cross = await ev(`(()=>{const r=${ROOT}.querySelector('.graph-3d-pivot').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,pe:getComputedStyle(${ROOT}.querySelector('.graph-3d-pivot')).pointerEvents,node:!!${ROOT}.querySelector('.graph-3d-pivot').closest('.graph-node')}})()`);
+    check('the cross is 14 px, on the pivot, takes no pointer and is no card', Math.hypot(cross.x - pivotDot.x, cross.y - pivotDot.y) < 3 && cross.w === 14 && cross.pe === 'none' && !cross.node, { cross, pivotDot });
+    await mouse('mouseReleased', pivotDot.x + 112, pivotDot.y - 48, { button: 'right' });
+    await settled();
+    const end = await ev(DOT_AT);
+    check('the coast after the release turns round the same dot', Math.hypot(end.x - pivotDot.x, end.y - pivotDot.y) < 3, { pivotDot, end });
+    check('the cross is gone once the turn has stopped', await waitFor(CROSS_GONE, 5000));
+    check('a right drag on a dot opens no menu', await ev(`${menu}.classList.contains('hidden')`));
+
     // The same right drag with the menu asked for as the button goes down: still no menu.
     await drag(spot, { x: spot.x + 60, y: spot.y + 40 }, 'right', () => ev(MENU_AT(spot.x, spot.y)));
     await settled();

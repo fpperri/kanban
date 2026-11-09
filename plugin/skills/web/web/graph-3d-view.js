@@ -42,8 +42,13 @@ function graph3dCreate() {
   label.title = GRAPH3D_HELP;
   label.setAttribute('aria-live', 'polite');
   root.appendChild(label);
+  const pivotMark = document.createElement('span');
+  pivotMark.className = 'graph-3d-pivot';
+  pivotMark.dataset.on = '0';
+  pivotMark.setAttribute('aria-hidden', 'true');
+  root.appendChild(pivotMark);
   const hier = {
-    root, label, compass: null, dial: null, north: null,
+    root, label, pivotMark, pivotAt: null, compass: null, dial: null, north: null,
     gone: false, T: null, renderer: null, scene: null, camera: null,
     ground: [], groundKey: '', groundAt: '', view: null, overlay: null, links: [], farLinks: [], captions: [], rim: 100, outer: 0,
     names: null, namesMode: '',
@@ -153,13 +158,15 @@ function graph3dFrame(hier) {
   if (hier.turn.size) {
     const turn = graph3dTurn(hier.turn, dt);
     if (turn) {
-      hier.cam.theta += turn;
+      graph3dSpin(hier, turn);
       more = true;
     }
   }
   if (hier.spin) {
-    graph3dOrbit(hier, hier.spin.vx * dt, hier.spin.vy * dt);
-    hier.spin = graph3dCoast(hier.spin, dt);
+    const pivot = hier.spin.pivot;
+    graph3dOrbit(hier, hier.spin.vx * dt, hier.spin.vy * dt, pivot);
+    const next = graph3dCoast(hier.spin, dt);
+    hier.spin = next && { vx: next.vx, vy: next.vy, pivot };
     if (hier.spin) more = true;
   }
   if (hier.morph) {
@@ -176,6 +183,7 @@ function graph3dFrame(hier) {
     else more = true;
   }
   graph3dApplyCamera(hier);
+  graph3dPaintPivot(hier);
   graph3dPlaceGround(hier);
   graph3dPlaceMarks(hier);
   graph3dPaintGround(hier);
