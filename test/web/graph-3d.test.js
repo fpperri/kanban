@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -613,4 +613,52 @@ test('Q and E turn at one steady speed, the same each way; together, or none, th
   // A second held turns the camera somewhere between a sixth and half of a whole turn.
   const second = graph3dTurn(new Set(['q']), 1000);
   assert.ok(second > Math.PI / 3 && second < Math.PI, second);
+});
+
+// A point's place on the camera's own axes (right, up, back): where it stands on screen and how far.
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const inCamera = (cam, p) => {
+  const b = graph3dBasis(cam.phi, cam.theta);
+  const d = [p[0] - cam.tx, p[1] - cam.ty, p[2] - cam.tz];
+  return [dot3(d, b.right), dot3(d, b.up), dot3(d, b.back)];
+};
+
+test('the shape\'s axis is the vertical line through the point H frames: the disc\'s centre, the dome\'s top, the sphere\'s pole axis', () => {
+  for (const shape of ['disc', 'half', 'sphere']) {
+    const a = graph3dShapeAxis(shape, 200, 0);
+    assert.deepStrictEqual([a[0], a[2]], [0, 0], shape);
+    assert.deepStrictEqual(a, graph3dPlace(shape, 0, 0, 200, 0), `${shape}: where the plan's middle stands`);
+  }
+});
+
+test('turning round a point keeps the point where it stands on screen, whatever the turn and the tilt', () => {
+  const cam = { theta: 0.4, phi: 0.7, dist: 900, tx: 120, ty: 0, tz: -80 };
+  const pivot = [300, 40, 250];
+  const before = inCamera(cam, pivot);
+  for (const [theta, phi] of [[1.9, 0.7], [-2, 0.2], [0.4, 1.2], [3, 1.3]]) {
+    const to = graph3dTurnRound(cam, pivot, theta, phi);
+    assert.strictEqual(to.theta, theta);
+    assert.strictEqual(to.phi, phi);
+    inCamera(to, pivot).forEach((v, k) => assert.ok(near(v, before[k], 1e-6), `${theta},${phi}: axis ${k}`));
+  }
+});
+
+test('turning round a point by no turn and no tilt moves nothing, and hands back only the target, the turn and the tilt', () => {
+  const cam = { theta: 0.4, phi: 0.7, dist: 900, tx: 120, ty: 5, tz: -80 };
+  const same = graph3dTurnRound(cam, [300, 40, 250], cam.theta, cam.phi);
+  assert.deepStrictEqual(Object.keys(same).sort(), ['phi', 'theta', 'tx', 'ty', 'tz']);
+  for (const k of ['tx', 'ty', 'tz']) assert.ok(near(same[k], cam[k], 1e-9), k);
+});
+
+test('a turn round the shape\'s axis at one tilt swings the target round that axis by the turn and keeps its height', () => {
+  const axis = [0, 0, 0];
+  const cam = { theta: 0.3, phi: 0.9, dist: 700, tx: 150, ty: 12, tz: 60 };
+  const by = 0.8;
+  const to = graph3dTurnRound(cam, axis, cam.theta + by, cam.phi);
+  assert.ok(near(to.ty, cam.ty, 1e-9), 'the height stays');
+  assert.ok(near(Math.hypot(to.tx, to.tz), Math.hypot(cam.tx, cam.tz), 1e-9), 'the target stays as far from the axis');
+  const c = Math.cos(by), s = Math.sin(by);
+  assert.ok(near(to.tx, cam.tx * c + cam.tz * s, 1e-9) && near(to.tz, -cam.tx * s + cam.tz * c, 1e-9), 'swung by the same angle as the camera\'s turn');
+  const there = graph3dTurnRound(to, axis, cam.theta, cam.phi);
+  for (const k of ['tx', 'ty', 'tz']) assert.ok(near(there[k], cam[k], 1e-9), `Q then E: back where it was (${k})`);
 });

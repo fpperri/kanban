@@ -569,6 +569,26 @@ function graph3dTurn(held, dt) {
   return way ? (way * GRAPH3D_TURN * dt) / 1000 : null;
 }
 
+// The vertical axis a shape turns round, as the point of it the plan's middle stands at: the disc's centre,
+// the dome's top, the sphere's top pole; H frames the shape round it, and Q and E spin it (graph3dTurnRound).
+function graph3dShapeAxis(shape, rim, outer) {
+  return graph3dPlace(shape, 0, 0, rim, outer);
+}
+
+// The camera `cam` (its target tx ty tz, its turn theta and tilt phi) turned round the scene point `pivot`
+// to the turn `theta` and tilt `phi`: the target moves so the pivot keeps its place on the camera's own
+// axes, that is, where it stands on screen and how far. At the same tilt that is the camera swung rigidly
+// round the vertical line through the pivot. Returns the new { tx, ty, tz, theta, phi }; the distance is
+// the camera's own and stays.
+function graph3dTurnRound(cam, pivot, theta, phi) {
+  const from = graph3dBasis(cam.phi, cam.theta);
+  const to = graph3dBasis(phi, theta);
+  const d = graph3dSub(pivot, [cam.tx, cam.ty, cam.tz]);
+  const r = graph3dDot(d, from.right), u = graph3dDot(d, from.up), b = graph3dDot(d, from.back);
+  const at = (k) => pivot[k] - (r * to.right[k] + u * to.up[k] + b * to.back[k]);
+  return { tx: at(0), ty: at(1), tz: at(2), theta, phi };
+}
+
 // A colour as the stylesheet gives it (#rgb, #rrggbb, rgb() or rgba()), as { r, g, b, a }, or null.
 function graph3dRgb(text) {
   const s = String(text || '').trim();
@@ -716,6 +736,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }
