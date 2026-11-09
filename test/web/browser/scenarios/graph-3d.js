@@ -4,14 +4,15 @@
 // ground on a canvas that covers the stage, and the 2D drawing's own marks are moved to where the
 // camera sees them. Opened straight above on the disc, every dot stands within 2 px of where the
 // 2D Hierarchy drew it. G steps the shape (disc, half sphere, sphere and round). With the mouse a
-// left drag pans (the camera's target moves, its tilt and turn stay) and a right drag orbits (the
-// tilt or the turn changes) and opens no menu; the wheel zooms in; a left click on a dot selects its
+// left drag pans (the camera's target moves, its tilt and turn stay) and a right drag looks round from
+// where the camera stands (its heading changes, its position does not) and opens no menu; the wheel flies
+// it toward the pointer; a left click on a dot selects its
 // card, a double click opens it, and a right click on it, with no drag, opens the card menu. The
 // browser asks for that menu when the right button goes up on Windows and when it goes down on Linux
 // and the Mac; the second order is played here by a contextmenu event sent while the button is held,
 // and still the menu opens only once the button is up without a drag, and never after a drag. The
 // compass in the corner turns with the camera, and a press on it turns the view back north up from
-// straight above, where it looks and how near kept. The Flow and the Board take the scene down and
+// straight above. The Flow and the Board take the scene down and
 // the Hierarchy brings 3D back (the address still says in3d=1). Turning 3D off takes the scene down:
 // the 2D drawing is back, the address drops in3d, and no animation frame of the 3D Hierarchy is left waiting.
 //
@@ -105,38 +106,18 @@ module.exports = {
     check('a left drag pans: the target moves, the tilt and the turn stay', panned.phi === top.phi && panned.theta === top.theta && Math.hypot(panned.tx - top.tx, panned.tz - top.tz) > 20, { top, panned });
     check('a drag leaves isDragging off once it ends', await waitFor('isDragging===false'));
 
-    // A right drag orbits, and opens no card menu.
+    // A right drag looks round from where the camera stands, and opens no card menu: the camera's position
+    // does not move, its heading (the turn and the tilt) changes.
     await drag(spot, { x: spot.x + 120, y: spot.y - 140 }, 'right');
     const turned = await settled();
-    check('a right drag orbits: the tilt and the turn change', turned.phi > 0.2 && Math.abs(turned.theta - panned.theta) > 0.2, { panned, turned });
+    const eyeOf = (c) => [c.tx + Math.sin(c.phi) * Math.sin(c.theta) * c.dist, c.ty + Math.cos(c.phi) * c.dist, c.tz + Math.sin(c.phi) * Math.cos(c.theta) * c.dist];
+    const e0 = eyeOf(panned), e1 = eyeOf(turned);
+    check('a right drag looks round: the tilt and the turn change', turned.phi > 0.2 && Math.abs(turned.theta - panned.theta) > 0.2, { panned, turned });
+    check('a right drag keeps the camera where it stands', Math.hypot(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]) < panned.dist * 0.015 && turned.dist === panned.dist, { e0, e1 });
     await page.sleep(400);
     check('a right drag opens no menu', await ev(`${menu}.classList.contains('hidden')`));
     check('the compass turns and tilts with the camera', await ev(COMPASS) !== 'scale(1 1) rotate(0)', await ev(COMPASS));
     await shot('3d-tilted');
-
-    // A right drag started on a dot turns the camera round that dot: it keeps its place on screen while the
-    // drag runs and after the coast, and a quiet cross marks the pivot while the turn runs and is gone after.
-    const pivotDot = await ev(MIDDLE_DOT(''));
-    const DOT_AT = `(()=>{const g=${ROOT}.querySelector('.graph-node[data-id="${pivotDot.id}"] .graph-dot');const r=g.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`;
-    const CROSS_ON = `(()=>{const m=${ROOT}.querySelector('.graph-3d-pivot');return !!m&&m.dataset.on==='1'})()`;
-    const CROSS_GONE = `(()=>{const m=${ROOT}.querySelector('.graph-3d-pivot');return !!m&&m.dataset.on==='0'&&Number(getComputedStyle(m).opacity)<0.02})()`;
-    check('no cross shows while nothing turns', await waitFor(CROSS_GONE, 5000));
-    const turnedBefore = await settled();
-    await mouse('mouseMoved', pivotDot.x, pivotDot.y, { button: 'none' });
-    await mouse('mousePressed', pivotDot.x, pivotDot.y, { button: 'right' });
-    for (let k = 1; k <= 8; k++) await mouse('mouseMoved', pivotDot.x + 14 * k, pivotDot.y - 6 * k, { button: 'right', buttons: 2 });
-    const midDot = await ev(DOT_AT);
-    check('a right drag on a dot keeps that dot in place on screen while it turns',
-      Math.hypot(midDot.x - pivotDot.x, midDot.y - pivotDot.y) < 3 && Math.abs((await cam()).theta - turnedBefore.theta) > 0.2, { pivotDot, midDot });
-    check('the cross shows while the drag turns', await waitFor(CROSS_ON, 3000));
-    const cross = await ev(`(()=>{const r=${ROOT}.querySelector('.graph-3d-pivot').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,pe:getComputedStyle(${ROOT}.querySelector('.graph-3d-pivot')).pointerEvents,node:!!${ROOT}.querySelector('.graph-3d-pivot').closest('.graph-node')}})()`);
-    check('the cross is 14 px, on the pivot, takes no pointer and is no card', Math.hypot(cross.x - pivotDot.x, cross.y - pivotDot.y) < 3 && cross.w === 14 && cross.pe === 'none' && !cross.node, { cross, pivotDot });
-    await mouse('mouseReleased', pivotDot.x + 112, pivotDot.y - 48, { button: 'right' });
-    await settled();
-    const end = await ev(DOT_AT);
-    check('the coast after the release turns round the same dot', Math.hypot(end.x - pivotDot.x, end.y - pivotDot.y) < 3, { pivotDot, end });
-    check('the cross is gone once the turn has stopped', await waitFor(CROSS_GONE, 5000));
-    check('a right drag on a dot opens no menu', await ev(`${menu}.classList.contains('hidden')`));
 
     // The same right drag with the menu asked for as the button goes down: still no menu.
     await drag(spot, { x: spot.x + 60, y: spot.y + 40 }, 'right', () => ev(MENU_AT(spot.x, spot.y)));
@@ -156,20 +137,32 @@ module.exports = {
     await page.sleep(400);
     check('a right press in the middle of a left pan opens no menu, the browser\'s own included', chordPassed === false && await ev(`${menu}.classList.contains('hidden')`), { chordPassed });
 
-    // The compass: north up, from straight above, the target and the distance kept.
+    // The compass: north up, looking straight down from where the camera stands.
     const before = await settled();
     const needle = await centre('#graph-view .graph-3d-compass');
     await click(needle.x, needle.y);
     const north = await settled();
     const whole = Math.abs(north.theta / (2 * Math.PI) - Math.round(north.theta / (2 * Math.PI))) < 0.002;
-    check('a press on the compass turns the view north up from straight above, where it looks and how near kept',
-      north.phi === 0 && whole && Math.abs(north.dist - before.dist) < 0.5 && Math.hypot(north.tx - before.tx, north.tz - before.tz) < 0.5 && await ev(COMPASS) === 'scale(1 1) rotate(0)', { before, north });
+    const eb = eyeOf(before), en = eyeOf(north);
+    check('a press on the compass turns the view north up, looking straight down from where the camera stands',
+      north.phi === 0 && whole && Math.abs(north.dist - before.dist) < 0.5 && Math.hypot(en[0] - eb[0], en[1] - eb[1], en[2] - eb[2]) < before.dist * 0.015 && await ev(COMPASS) === 'scale(1 1) rotate(0)', { before, north });
 
-    // The wheel zooms in toward the pointer.
-    const mid = { x: (area.l + area.r) / 2, y: (area.t + area.b) / 2 };
-    await page.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: mid.x, y: mid.y, deltaX: 0, deltaY: -300 });
-    const zoomed = await settled();
-    check('the wheel zooms in', zoomed.dist < north.dist * 0.8, { north, zoomed });
+    // The wheel flies the camera toward the pointer: along the ray under it, its tilt and its distance to its
+    // target kept.
+    const aim = { x: area.l + (area.r - area.l) * 0.7, y: area.t + (area.b - area.t) * 0.35 };
+    const RAY = `(()=>{const h=graph3dCur,r=h.root.getBoundingClientRect();const v=new h.T.Vector3(((${aim.x}-r.left+h.ox)/h.cw)*2-1,-((${aim.y}-r.top+h.oy)/h.ch)*2+1,0.5).unproject(h.camera).sub(h.camera.position).normalize();return [v.x,v.y,v.z]})()`;
+    const ray = await ev(RAY);
+    const e2 = eyeOf(north);
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: aim.x, y: aim.y, deltaX: 0, deltaY: -300 });
+    const flown = await settled();
+    const e3 = eyeOf(flown);
+    const step = [e3[0] - e2[0], e3[1] - e2[1], e3[2] - e2[2]], len = Math.hypot(...step);
+    check('the wheel flies the camera toward the pointer, along the ray under it', len > north.dist * 0.05 && (step[0] * ray[0] + step[1] * ray[1] + step[2] * ray[2]) / len > 0.99 && flown.phi === north.phi && flown.dist === north.dist, { north, flown, ray, step });
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: aim.x, y: aim.y, deltaX: 0, deltaY: 300 });
+    const flownBack = await settled();
+    const e4 = eyeOf(flownBack);
+    const out = [e4[0] - e3[0], e4[1] - e3[1], e4[2] - e3[2]], outLen = Math.hypot(...out);
+    check('a tick the other way flies it back along the same ray', outLen > 1 && (out[0] * ray[0] + out[1] * ray[1] + out[2] * ray[2]) / outLen < -0.99, { e2, e3, e4 });
 
     // G steps the shape: the half sphere, the sphere, and back to the disc. The half sphere and the sphere
     // fold with the disc's centre on top: seen as G frames them, the innermost ring is drawn on the near

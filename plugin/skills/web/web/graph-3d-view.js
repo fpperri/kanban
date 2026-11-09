@@ -57,7 +57,7 @@ function graph3dCreate() {
     raf: 0, w: 1, h: 1, cw: 1, ch: 1, ox: 0, oy: 0, order: '',
     drag: null, pointers: new Map(), pressed: null, pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
     zoom: null, spin: null, walk: new Set(), turn: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
-    fitted: false, fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
+    fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),
     bg: null, scheme: null, themeWatch: null, onTheme: null, compassAt: '',
   };
@@ -149,9 +149,9 @@ function graph3dFrame(hier) {
     } else more = true;
   }
   if (hier.walk.size) {
-    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.dist, dt);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, graph3dPaceOf(hier), dt);
     if (step) {
-      for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.tz += step[1]; }
+      for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
       more = true;
     }
   }
@@ -163,10 +163,8 @@ function graph3dFrame(hier) {
     }
   }
   if (hier.spin) {
-    const pivot = hier.spin.pivot;
-    graph3dOrbit(hier, hier.spin.vx * dt, hier.spin.vy * dt, pivot);
-    const next = graph3dCoast(hier.spin, dt);
-    hier.spin = next && { vx: next.vx, vy: next.vy, pivot };
+    graph3dLookBy(hier, hier.spin.vx * dt, hier.spin.vy * dt);
+    hier.spin = graph3dCoast(hier.spin, dt);
     if (hier.spin) more = true;
   }
   if (hier.morph) {

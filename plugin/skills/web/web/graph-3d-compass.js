@@ -1,7 +1,6 @@
 'use strict';
 // The 3D Hierarchy's compass in the stage's corner: a dial that turns and tilts with the camera
-// (graph3dCompass); a press eases the camera back to north up, seen from straight above, the 2D
-// Hierarchy's picture, keeping where it looks and how near.
+// (graph3dCompass); a press eases the camera round to north up, looking straight down from where it stands.
 
 function graph3dBuildCompass(hier) {
   const compass = document.createElement('button');
@@ -25,7 +24,9 @@ function graph3dBuildCompass(hier) {
     if (!graph3dReady(hier)) return;
     graph3dEndHint(hier);
     hier.zoom = null;
-    graph3dFlyTo(hier, { phi: 0, theta: graph3dNorthUp(hier.cam.theta) }, false);
+    const c = hier.cam;
+    const eye = graph3dEye([c.tx, c.ty, c.tz], graph3dBasis(c.phi, c.theta).back, c.dist);
+    graph3dFlyTo(hier, graph3dTurnRound(c, eye, graph3dNorthUp(c.theta), 0), false);
   });
   Object.assign(hier, { compass, dial, north });
   return compass;

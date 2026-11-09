@@ -420,7 +420,7 @@ function graph3dNearest(vis, x, y, tol) {
   return best ? best.id : null;
 }
 
-// A released orbit's speed (px per ms) after another `dt` ms of coasting, or null once it has stopped.
+// A released look's speed (px per ms) after another `dt` ms of coasting, or null once it has stopped.
 function graph3dCoast(v, dt) {
   const k = 0.9 ** (dt / 16.7);
   const vx = v.vx * k, vy = v.vy * k;
@@ -503,12 +503,12 @@ function graph3dKinOf(links, id) {
   return out;
 }
 
-// What a press starts once it drags: 'pan' for the left button (and the middle one), 'orbit' for the
+// What a press starts once it drags: 'pan' for the left button (and the middle one), 'look' for the
 // right one, a Shift+left press and a finger; null for any other button. A press that never drags is
 // a click: a left click selects, a right one opens the card menu.
 function graph3dDragMode({ button, shiftKey, pointerType }) {
-  if (pointerType === 'touch') return 'orbit';
-  if (button === 2 || (button === 0 && shiftKey)) return 'orbit';
+  if (pointerType === 'touch') return 'look';
+  if (button === 2 || (button === 0 && shiftKey)) return 'look';
   if (button === 0 || button === 1) return 'pan';
   return null;
 }
@@ -684,7 +684,6 @@ const GRAPH3D_TURN = Math.PI / 2;
 const GRAPH3D_CLOSEST_SCALE = 10;
 // At the closest, each further step in leans the camera toward the horizon (the disc and the dome), up to
 // this tilt, so the dots around the one it heads for come into view, as in a map that tilts as you dive.
-const GRAPH3D_SKIM_TILT = 1.05;
 // The padding, in px, of the 2D Graph's own fit (graphFit) the disc opens on.
 const GRAPH3D_DISC_FIT_PAD = 60;
 // How much of the stage the whole shape fills, each way, when H frames it at a tilt.

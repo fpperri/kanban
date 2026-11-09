@@ -237,26 +237,28 @@ lighting) on a shape you turn round, and writes `in3d=1` in the address, so a re
 again; pressed again, the 2D drawing is back and the address drops it. It opens on the **disc**, seen from
 straight above, where every dot stands where the 2D Hierarchy draws it; **g** steps the shape to the **half
 sphere** (a dome: the disc's centre its top, where the disc has it, the rim lowered under it), the **sphere**
-(the centre its top pole, the outermost ring wrapped down toward the bottom one) and back, with a short morph. A left drag pans, a right drag (or Shift and a left drag) orbits round the point under the pointer when
-the press lands (the dot there, else the shape's surface or the ground, else its centre), which keeps its
-place on screen, and the coast after the release turns round it too; the wheel zooms
-toward the pointer, and you can zoom in among the dots; on a touch screen one finger orbits and a pinch zooms.
-Held, **w**, **a**, **s** and **d** move the camera along the ground ahead (the way it faces), left, back and
-right, two together diagonally, at a pace that looks the same zoomed in or out; the tilt, turn and distance
-stay, and the move stops when the key comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
+(the centre its top pole, the outermost ring wrapped down toward the bottom one) and back, with a short morph. A left drag pans (slides the camera in the screen's plane); the camera is a fly camera. A right drag
+(or Shift and a left drag) looks round from where the camera stands: it turns and tilts in place, from straight
+down to straight up, and its coast after the release goes on looking. The wheel flies the camera ahead or back
+along the ray under the pointer (at the stage's centre, straight ahead), so a free-spinning wheel flies fast; on a
+touch screen one finger looks round and a pinch flies. Held, **w** and **s** fly ahead and back along where the
+camera looks, in 3D (looking up, **w** goes up), and **a** and **d** move left and right along its level right, two
+together diagonally. The pace of the keys and the wheel is a share of how far the camera is from the nearest point
+of the shape, so it feels the same far out and close among the dots; the tilt, turn and distance to the target stay,
+and a key's move stops when it comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
 their own meaning (Ctrl+S saves), and on a note row of the notes palette **a** and **d** stay the note's.
-Held, **q** turns the view left and **e** right, round the shape's own vertical axis (through the point **h**
+Held, **q** spins the shape left and **e** right, round its own vertical axis (through the point **h**
 frames: the disc's centre, the dome's top, the sphere's pole axis) wherever a pan has put it on screen, at a
 steady pace; the shape's centre keeps its place on screen, the tilt and the distance stay, the compass turns with it, and the turn stops when the key comes up
 or the window loses focus. **q** and **e** together cancel, and either turns while **w**, **a**, **s** or **d**
-moves, so a walk can turn as it goes. While a right drag, its coast or **q** and **e** turns the view, a small
-quiet cross marks the point it turns round, and fades out as the turn stops. Like the walk keys they stay off while a field has focus or a popup is
+moves, so a flight can spin as it goes. While **q** or **e** spins the shape, a small
+quiet cross marks its centre, and fades out as the spin stops. Like the walk keys they stay off while a field has focus or a popup is
 up, so with a card's details open **e** opens its edit form, and on a note row **e** edits the note.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
 menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames
-everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons zoom and
-fit. A compass in the stage's bottom-right corner turns and tilts with the camera; a press on it turns the
-view north up from straight above (the 2D picture), keeping where it looks and how near. Farther marks, and
+everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons fly
+ahead and back and fit. A compass in the stage's bottom-right corner turns and tilts with the camera; a press on it turns the
+view north up, looking straight down from where the camera stands (the 2D picture). Farther marks, and
 those on the far side of the half sphere or the sphere, are drawn in their colour mixed into the ground, as
 dimmed cards are, never see-through. A quiet line in the bottom-left corner names the gestures at first,
 then the shape and its keys. three.js draws the shape's washes, rings and dividers; it is vendored (see

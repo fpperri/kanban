@@ -1,5 +1,5 @@
 'use strict';
-// The 3D Hierarchy's input (graph-3d-view.js holds its state, `hier`): a press drags to pan or orbit
+// The 3D Hierarchy's input (graph-3d-view.js holds its state, `hier`): a press drags to pan or look round
 // (graph3dDragMode), a click selects and a double click opens, a right click opens the card menu, the
 // wheel and a pinch zoom, the keys g, f and h, the walk keys w, a, s and d held and the turn keys q and e held.
 
@@ -18,7 +18,7 @@ function graph3dStartPinch(hier) {
   graph3dQuietHover(hier);
 }
 
-// The right button orbits when it drags and opens the card menu when it does not. The browser asks
+// The right button looks round when it drags and opens the card menu when it does not. The browser asks
 // for the menu when the button goes down on some systems and when it comes up on others, so while the
 // button is down its contextmenu is held back (hier.right.held) and sent again once the button comes up
 // without a drag; after a drag the one that may still come is swallowed (graph3dMenuVerdict).
@@ -77,12 +77,7 @@ function graph3dOnPointerDown(hier, e) {
   }
   const mode = graph3dDragMode(e);
   if (!mode) return;
-  let pivot = null;
-  if (mode === 'orbit' && graph3dReady(hier)) {
-    const rect = hier.root.getBoundingClientRect();
-    pivot = graph3dPickPivot(hier, e.clientX - rect.left, e.clientY - rect.top);
-  }
-  hier.drag = { id: e.pointerId, mode, button: e.button, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, moved: false, trail: [], pivot };
+  hier.drag = { id: e.pointerId, mode, button: e.button, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, moved: false, trail: [] };
 }
 
 function graph3dOnPointerMove(hier, e) {
@@ -114,12 +109,12 @@ function graph3dOnPointerMove(hier, e) {
   const dx = e.clientX - d.x, dy = e.clientY - d.y;
   d.x = e.clientX;
   d.y = e.clientY;
-  if (d.mode === 'orbit') {
-    graph3dOrbit(hier, dx, dy, d.pivot);
+  if (d.mode === 'look') {
+    graph3dLookBy(hier, dx, dy);
     const t = performance.now();
     d.trail.push({ t, dx, dy });
     while (d.trail.length && t - d.trail[0].t > 80) d.trail.shift();
-  } else { graph3dPan(hier, dx, dy); hier.fitted = false; }
+  } else graph3dPan(hier, dx, dy);
   hier.fly = null;
   hier.zoom = null;
   graph3dRequest(hier);
@@ -144,14 +139,14 @@ function graph3dOnPointerEnd(hier, e) {
     if (e.type === 'pointerup') graph3dRightUp(hier);
     else graph3dForgetRight(hier);
   }
-  // A released orbit coasts on at the speed of its last 80 ms, then slows to a stop.
+  // A released look coasts on at the speed of its last 80 ms, then slows to a stop.
   const t = performance.now();
-  const trail = d.moved && d.mode === 'orbit' && e.type === 'pointerup' ? d.trail.filter((m) => t - m.t <= 80) : [];
+  const trail = d.moved && d.mode === 'look' && e.type === 'pointerup' ? d.trail.filter((m) => t - m.t <= 80) : [];
   if (trail.length > 1) {
     const span = Math.max(16, t - trail[0].t);
     const sx = trail.reduce((a, m) => a + m.dx, 0), sy = trail.reduce((a, m) => a + m.dy, 0);
     const coast = graph3dCoast({ vx: sx / span, vy: sy / span }, 0);
-    hier.spin = coast && { vx: coast.vx, vy: coast.vy, pivot: d.pivot };
+    hier.spin = coast;
     hier.tick = 0;
   }
   graph3dRequest(hier);

@@ -197,18 +197,21 @@ works on them. Each mark's colour is its 2D colour, which `app.css` gives the 3D
 mixed into the ground by depth, the far side and the lighting (`graph3dMix`, `graph3dShare`) and written as
 `--graph-3d-paint`; nothing is see-through. The shapes are `disc`, `half` and `sphere` (`graph3dPlace`,
 `data-shape` on the root; `g` steps them), and the camera is `data-cam` on the root: turn, tilt, distance and
-the target's x, y, z. A press starts a pan (left, middle) or an orbit (right, Shift+left, a finger;
-`graph3dDragMode`) once it moves 4 px. An orbit turns the camera round the point under the pointer at the
-press (`graph3dPickPivot`: the dot there, else the shape's surface or the ground, else the shape's centre),
-the pivot keeping its place on screen, and so does its coast (`graph3dOrbit`, `graph3dTurnRound`); the held
-`q` and `e` spin the camera round the shape's own vertical axis (`graph3dSpin`, `graph3dShapeAxis`), the
-shape's centre keeping its place. While either turns, `span.graph-3d-pivot` (`data-on`) draws a small cross at
-the pivot and fades out about 600 ms after the turn stops; it takes no pointer; a right press that does not move opens the card menu by the document's
+the target's x, y, z. A press starts a pan (left, middle) or a look (right, Shift+left, a finger;
+`graph3dDragMode`) once it moves 4 px. The camera is a fly camera. A look turns and tilts it round where it
+stands (`graph3dLook`: the eye does not move, the target swings round it; the tilt runs from straight down to
+straight up, short of the poles), and its coast goes on looking (`graph3dLookBy`). `w` and `s` fly it along where
+it looks in 3D, `a` and `d` along its level right (`graph3dWalk`); the wheel and a pinch fly it along the ray under
+the pointer (`graph3dZoomAt`, `graph3dWheelStep`). The pace of both is a share of the distance to the nearest
+point of the shape (`graph3dPace`), never under a floor. The held `q` and `e` spin the camera round the shape's
+own vertical axis (`graph3dSpin`, `graph3dShapeAxis`, `graph3dTurnRound`), the shape's centre keeping its place;
+while either is down `span.graph-3d-pivot` (`data-on`) draws a small cross at that centre and fades out about
+600 ms after the spin stops; it takes no pointer. A right press that does not move opens the card menu by the document's
 own `contextmenu` handler, which the 3D Hierarchy holds back while the button is down and sends again when it
 comes up (Linux and the Mac ask for the menu on the press, Windows on the release), and swallows after a drag
 or while another drag or a pinch is moving (`graph3dMenuVerdict`). The
 compass (`button.graph-3d-compass`) is a dial turned and squashed as the camera sees the plan
-(`graph3dCompass`); a press flies the camera to tilt 0 and the nearest whole turn (`graph3dNorthUp`). The keys
+(`graph3dCompass`); a press flies the camera to tilt 0 and the nearest whole turn (`graph3dNorthUp`), the eye staying where it is. The keys
 `g`, `f` and `h` are one window `keydown` listener, behind the key guard, while the 3D Hierarchy is on the page.
 The code is `graph-3d.js` (the pure helpers and the tuning, unit-tested) and, for the browser,
 `graph-3d-view.js` (its state, life and frame loop, and what the Graph calls), `graph-3d-camera.js`,

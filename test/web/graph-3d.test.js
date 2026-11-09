@@ -209,13 +209,13 @@ test('three.js is asked for at the vendored, version-pinned path the server serv
   assert.ok(!pageFiles(read('app.html')).some((f) => /three/.test(f)), 'the page does not name it');
 });
 
-test('a left drag pans and a right drag orbits; Shift+left and a finger orbit; the middle button pans', () => {
+test('a left drag pans and a right drag looks; Shift+left and a finger look; the middle button pans', () => {
   assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'mouse' }), 'pan');
-  assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: false, pointerType: 'mouse' }), 'orbit');
-  assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: true, pointerType: 'mouse' }), 'orbit');
-  assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: true, pointerType: 'mouse' }), 'orbit');
+  assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: false, pointerType: 'mouse' }), 'look');
+  assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: true, pointerType: 'mouse' }), 'look');
+  assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: true, pointerType: 'mouse' }), 'look');
   assert.strictEqual(graph3dDragMode({ button: 1, shiftKey: false, pointerType: 'mouse' }), 'pan');
-  assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'touch' }), 'orbit', 'one finger orbits');
+  assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'touch' }), 'look', 'one finger looks');
   assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'pen' }), 'pan', 'a pen is a mouse');
   assert.strictEqual(graph3dDragMode({ button: 3, shiftKey: false, pointerType: 'mouse' }), null);
 });
