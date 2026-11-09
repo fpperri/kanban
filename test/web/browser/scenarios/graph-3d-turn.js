@@ -3,7 +3,7 @@
 // opened over it). Held, Q turns the view left round the shape's own vertical axis and E turns it right; the
 // tilt and the distance stay, the shape's centre keeps its place on screen wherever a pan has put it (a quiet
 // cross marks it while the turn runs, and is gone after), and the compass turns with the camera. The turn stops when the key
-// comes up and when the window loses focus; Q and E together cancel; Q turns while W walks. The keys never
+// comes up and when the window loses focus; Q and E together cancel; Q turns while W rises. The keys never
 // turn the camera while a field has focus, with Ctrl held, on a note row of the notes palette (where e edits
 // the note), nor with a card's details open, where e opens the card's edit form. The 2D Hierarchy and the
 // Flow draw no 3D Hierarchy, and Q and E there do nothing.
@@ -132,17 +132,17 @@ module.exports = {
     await up('q');
     check('Q and E held together turn nothing', JSON.stringify(held) === JSON.stringify(heldLater), { held, heldLater });
 
-    // Q turns while W walks.
+    // Q turns while W rises.
     const from = await settled();
     await down('w');
     await down('q');
-    const both = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.abs(c.theta-(${from.theta}))>0.3&&Math.hypot(c.tx-(${from.tx}),c.tz-(${from.tz}))>${from.dist * 0.05}})()`, 6000);
+    const both = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.abs(c.theta-(${from.theta}))>0.3&&Math.abs(c.ty-(${from.ty}))>${from.dist * 0.05}})()`, 6000);
     await up('q');
     await up('w');
     const walked = await still();
     const to = walked.a;
     check('Q with W held turns the camera while it walks, the tilt and the distance kept',
-      both && to.theta > from.theta + 0.3 && Math.hypot(to.tx - from.tx, to.tz - from.tz) > 0 && to.phi === from.phi && to.dist === from.dist && walked.still, { from, to });
+      both && to.theta > from.theta + 0.3 && to.ty > from.ty && to.phi === from.phi && to.dist === from.dist && walked.still, { from, to });
 
     // The window losing focus stops the turn, the key still down.
     const lost = await settled();

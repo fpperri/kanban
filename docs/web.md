@@ -241,9 +241,9 @@ sphere** (a dome: the disc's centre its top, where the disc has it, the rim lowe
 (or Shift and a left drag) looks round from where the camera stands: it turns and tilts in place, from straight
 down to straight up, and its coast after the release goes on looking. The wheel flies the camera ahead or back
 along the ray under the pointer (at the stage's centre, straight ahead), so a free-spinning wheel flies fast; on a
-touch screen one finger looks round and a pinch flies. Held, **w** and **s** fly ahead and back along where the
-camera looks, in 3D (looking up, **w** goes up), and **a** and **d** move left and right along its level right, two
-together diagonally. The pace of the keys and the wheel is a share of how far the camera is from the nearest point
+touch screen one finger looks round and a pinch flies. Held, **w** rises and **s** sinks, straight up and down
+whichever way the camera looks (the wheel is the way ahead and back), and **a** and **d** move left and right along
+its level right, two together diagonally. The pace of the keys and the wheel is a share of how far the camera is from the nearest point
 of the shape, so it feels the same far out and close among the dots; the tilt, turn and distance to the target stay,
 and a key's move stops when it comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
 their own meaning (Ctrl+S saves), and on a note row of the notes palette **a** and **d** stay the note's.

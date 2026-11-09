@@ -1,7 +1,8 @@
 'use strict';
 // The 3D Hierarchy's walk, on the notes board (the plan board with a logbook, so the notes palette can be
-// opened over it). Held, W flies the camera ahead along where it looks, in 3D (looking up, W goes up), S
-// back, A to the left and D to the right, level; the tilt, the turn and the distance to the target stay.
+// opened over it). Held, W raises the camera and S lowers it, straight up and down whatever way it looks
+// (its x and z stay), A moves it to the left and D to the right, level; the tilt, the turn and the distance to
+// the target stay.
 // Two keys together move diagonally. The walk stops when the key comes up and when the window loses focus.
 // A right drag looks round from where the camera stands: its position stays while its heading changes. The
 // keys never move the camera while a field has focus, with Ctrl held (Ctrl+S), nor on a note row of the
@@ -63,8 +64,8 @@ module.exports = {
       const d = [to.tx - from.tx, to.ty - from.ty, to.tz - from.tz], len = Math.hypot(...d) || 1;
       return { from, to, went, stopped, dir: d.map((v) => v / len), kept: to.theta === from.theta && to.phi === from.phi && to.dist === from.dist };
     };
-    // The camera's directions for its turn and tilt (graph3dBasis): ahead (where it looks), and to the right.
-    const ahead = (c) => [-Math.sin(c.phi) * Math.sin(c.theta), -Math.cos(c.phi), -Math.sin(c.phi) * Math.cos(c.theta)];
+    // The camera's directions: up, and to the right (graph3dBasis), which is level.
+    const UP = [0, 1, 0];
     const right = (c) => [Math.cos(c.theta), 0, -Math.sin(c.theta)];
     const along = (d, v) => d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
     // `then` runs straight after the key, before the camera is read again: a mark the key
@@ -83,13 +84,13 @@ module.exports = {
     const top = await settled();
     check('it opens straight above, north up', top && top.phi === 0 && top.theta === 0, top);
 
-    // Straight above, north up: W flies down toward the ground, S back up, A left and D right, level.
+    // Straight above, north up: W rises, S sinks, A goes left and D right, level.
     const w = await walk(['w']);
-    check('held, W flies the camera ahead, straight down when it looks straight down', w.went && along(w.dir, ahead(w.from)) > 0.99 && w.dir[1] < -0.99, w);
+    check('held, W raises the camera straight up', w.went && along(w.dir, UP) > 0.99, w);
     check('W keeps the tilt, the turn and the distance to the target', w.kept, w);
     check('the walk stops when the key comes up', w.stopped, w);
     const s = await walk(['s']);
-    check('held, S flies the camera back', s.went && s.stopped && s.kept && along(s.dir, ahead(s.from)) < -0.99, s);
+    check('held, S lowers the camera straight down', s.went && s.stopped && s.kept && along(s.dir, UP) < -0.99, s);
     const a = await walk(['a']);
     check('held, A moves the camera to the left, level', a.went && a.stopped && a.kept && along(a.dir, right(a.from)) < -0.99, a);
     const d = await walk(['d']);
@@ -113,18 +114,18 @@ module.exports = {
     check('a right drag keeps the camera where it stands: its position does not move, its target swings round it',
       Math.hypot(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]) < level.dist * 0.015 && Math.hypot(looked.tx - level.tx, looked.ty - level.ty, looked.tz - level.tz) > 20, { level, looked, e0, e1 });
     const wt = await walk(['w']);
-    check('tilted and turned, W flies along where the camera looks, the tilt, turn and distance kept',
-      wt.went && wt.stopped && wt.kept && along(wt.dir, ahead(wt.from)) > 0.99, wt);
+    check('tilted and turned, W still raises the camera straight up, the tilt, turn and distance kept',
+      wt.went && wt.stopped && wt.kept && along(wt.dir, UP) > 0.99, wt);
     const wd = await walk(['w', 'd']);
-    const diag = ahead(wd.from).map((v, k) => (v + right(wd.from)[k]) / Math.SQRT2);
-    check('W and D together move diagonally, ahead and to the right', wd.went && wd.stopped && wd.kept && along(wd.dir, diag) > 0.99, wd);
+    const diag = UP.map((v, k) => (v + right(wd.from)[k]) / Math.SQRT2);
+    check('W and D together move diagonally, up and to the right', wd.went && wd.stopped && wd.kept && along(wd.dir, diag) > 0.99, wd);
 
-    // Looking up past the horizon, W goes up.
+    // Looking up past the horizon, W still goes up and S down.
     await dragUp(0.45 * (area.b - area.t));
     const up1 = await settled();
     check('a long right drag up looks above the horizon', up1.phi > Math.PI / 2 + 0.2 && up1.phi < Math.PI, up1);
     const wu = await walk(['w']);
-    check('looking up, W raises the camera', wu.went && wu.stopped && wu.kept && eyeOf(wu.to)[1] > eyeOf(wu.from)[1] + 5 && along(wu.dir, ahead(wu.from)) > 0.99, wu);
+    check('looking up, W raises the camera, its x and z kept', wu.went && wu.stopped && wu.kept && eyeOf(wu.to)[1] > eyeOf(wu.from)[1] + 5 && along(wu.dir, UP) > 0.99, wu);
     const sd = await walk(['s']);
     check('looking up, S lowers it', sd.went && sd.stopped && eyeOf(sd.to)[1] < eyeOf(sd.from)[1] - 5, sd);
     const ad = await walk(['a']);

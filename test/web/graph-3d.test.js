@@ -551,31 +551,31 @@ test('w, a, s and d are the walk keys whatever their case; with Ctrl, Alt or Met
   for (const key of ['g', 'q', 'ArrowUp', ' ', '', undefined]) assert.strictEqual(graph3dWalkKey({ key }), null, String(key));
 });
 
-test('the walk moves the target along the ground the way the camera faces: W ahead, S back, A left, D right', () => {
-  const dir = (keys, theta) => { const [x, , z] = graph3dWalk(new Set(keys), theta, Math.PI / 2, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
-  const same = (a, b) => near(a[0], b[0], 1e-9) && near(a[1], b[1], 1e-9);
-  // Straight above and north up, the stage's up is the plan's up: -z (the 2D Hierarchy's top), its right +x.
-  assert.ok(same(dir(['w'], 0), [0, -1]), 'W: toward the top of the stage');
-  assert.ok(same(dir(['s'], 0), [0, 1]));
-  assert.ok(same(dir(['a'], 0), [-1, 0]));
-  assert.ok(same(dir(['d'], 0), [1, 0]));
-  // A quarter turn (graph3dBasis: right [0, 0, -1]): D goes to -z, W to -x.
-  assert.ok(same(dir(['d'], Math.PI / 2), [0, -1]));
-  assert.ok(same(dir(['w'], Math.PI / 2), [-1, 0]));
+test('the walk flies the camera straight up and down and sideways: W rises, S sinks, A goes left, D right', () => {
+  const dir = (keys, theta) => { const v = graph3dWalk(new Set(keys), theta, 1000, 100); const l = Math.hypot(...v); return v.map((c) => c / l); };
+  const same = (a, b) => a.every((c, k) => near(c, b[k], 1e-9));
+  assert.ok(same(dir(['w'], 0), [0, 1, 0]), 'W: straight up');
+  assert.ok(same(dir(['s'], 0), [0, -1, 0]));
+  assert.ok(same(dir(['w'], 1.3), [0, 1, 0]), 'whatever way it is turned');
+  assert.ok(same(dir(['a'], 0), [-1, 0, 0]));
+  assert.ok(same(dir(['d'], 0), [1, 0, 0]));
+  // A quarter turn (graph3dBasis: right [0, 0, -1]): D goes to -z.
+  assert.ok(same(dir(['d'], Math.PI / 2), [0, 0, -1]));
+  assert.ok(same(dir(['a'], Math.PI / 2), [0, 0, 1]));
 });
 
 test('two walk keys move diagonally at the speed of one; opposite keys, or none, stand still', () => {
-  const one = graph3dWalk(new Set(['w']), 0, Math.PI / 2, 1000, 100);
-  const both = graph3dWalk(new Set(['w', 'd']), 0, Math.PI / 2, 1000, 100);
+  const one = graph3dWalk(new Set(['w']), 0, 1000, 100);
+  const both = graph3dWalk(new Set(['w', 'd']), 0, 1000, 100);
   assert.ok(near(Math.hypot(...both), Math.hypot(...one), 1e-9), 'no faster on the diagonal');
-  assert.ok(near(both[0], -both[2], 1e-9) && both[0] > 0, 'W and D: ahead and to the right, at 45 degrees');
-  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, Math.PI / 2, 1000, 100), null);
-  assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, Math.PI / 2, 1000, 100), null);
-  assert.strictEqual(graph3dWalk(new Set(), 0, Math.PI / 2, 1000, 100), null);
+  assert.ok(near(both[0], both[1], 1e-9) && both[0] > 0 && near(both[2], 0, 1e-9), 'W and D: up and to the right, at 45 degrees');
+  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(), 0, 1000, 100), null);
 });
 
 test('a step of the walk is as long as the camera is far and as the key is held: the same on the screen zoomed in or out', () => {
-  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, Math.PI / 2, dist, dt));
+  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, dist, dt));
   assert.ok(near(len(2000, 100), 2 * len(1000, 100), 1e-9), 'twice as far, twice the step');
   assert.ok(near(len(1000, 200), 2 * len(1000, 100), 1e-9), 'held twice as long, twice the way');
   // The stage seen straight above at `dist` is 2 dist tan(22.5 deg) high: a second held crosses half of it to a whole one.
@@ -591,8 +591,8 @@ test('q and e are the turn keys whatever their case; with Ctrl, Alt or Meta, or 
 });
 
 test('Q turns the view left and E right: the way W walks swings toward A for Q and toward D for E', () => {
-  const ahead = (theta) => { const [x, , z] = graph3dWalk(new Set(['w']), theta, Math.PI / 2, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
-  const right = (theta) => { const [x, , z] = graph3dWalk(new Set(['d']), theta, Math.PI / 2, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const ahead = (theta) => [-Math.sin(theta), -Math.cos(theta)];
+  const right = (theta) => { const [x, , z] = graph3dWalk(new Set(['d']), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
   const along = (a, b) => a[0] * b[0] + a[1] * b[1];
   for (const theta of [0, 1.2, -2.5]) {
     const q = graph3dTurn(new Set(['q']), 100);
@@ -683,15 +683,14 @@ test('a look runs from straight down to straight up, short of the poles, whateve
   assert.strictEqual(graph3dLook(cam, 0, 2.5).phi, 2.5, 'past the old tilt limit of the shapes');
 });
 
-test('W flies along where the camera looks in 3D: looking up it goes up, looking down it goes down; A and D stay level', () => {
-  const w = (phi) => graph3dWalk(new Set(['w']), 0.6, phi, 1000, 100);
-  assert.ok(w(Math.PI / 2)[1] === 0 || near(w(Math.PI / 2)[1], 0, 1e-9), 'looking level it goes level');
-  assert.ok(w(2.5)[1] > 0, 'looking up: up');
-  assert.ok(w(0.5)[1] < 0, 'looking down: down');
-  assert.ok(near(Math.hypot(...w(2.5)), Math.hypot(...w(1)), 1e-9), 'the same pace whichever way it looks');
-  const s = graph3dWalk(new Set(['s']), 0.6, 2.5, 1000, 100);
-  assert.ok(s[1] < 0, 'S backs off: down when looking up');
-  for (const phi of [0.3, 1.5, 2.8]) assert.ok(near(graph3dWalk(new Set(['d']), 0.6, phi, 1000, 100)[1], 0, 1e-12), `D level at ${phi}`);
+test('W and S go straight up and down whichever way the camera looks and turns, and A and D stay level', () => {
+  for (const theta of [0, 0.6, -2]) {
+    const w = graph3dWalk(new Set(['w']), theta, 1000, 100);
+    assert.ok(w[1] > 0 && near(w[0], 0, 1e-12) && near(w[2], 0, 1e-12), `W: up at ${theta}`);
+    const s = graph3dWalk(new Set(['s']), theta, 1000, 100);
+    assert.ok(s[1] < 0 && near(s[0], 0, 1e-12) && near(s[2], 0, 1e-12), `S: down at ${theta}`);
+    assert.ok(near(graph3dWalk(new Set(['d']), theta, 1000, 100)[1], 0, 1e-12), `D level at ${theta}`);
+  }
 });
 
 test('the pace is the distance to the nearest point of the shape, never under the floor', () => {

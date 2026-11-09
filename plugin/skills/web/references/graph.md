@@ -200,8 +200,8 @@ mixed into the ground by depth, the far side and the lighting (`graph3dMix`, `gr
 the target's x, y, z. A press starts a pan (left, middle) or a look (right, Shift+left, a finger;
 `graph3dDragMode`) once it moves 4 px. The camera is a fly camera. A look turns and tilts it round where it
 stands (`graph3dLook`: the eye does not move, the target swings round it; the tilt runs from straight down to
-straight up, short of the poles), and its coast goes on looking (`graph3dLookBy`). `w` and `s` fly it along where
-it looks in 3D, `a` and `d` along its level right (`graph3dWalk`); the wheel and a pinch fly it along the ray under
+straight up, short of the poles), and its coast goes on looking (`graph3dLookBy`). `w` and `s` raise and
+lower it straight up and down, `a` and `d` move it along its level right (`graph3dWalk`); the wheel and a pinch fly it along the ray under
 the pointer (`graph3dZoomAt`, `graph3dWheelStep`). The pace of both is a share of the distance to the nearest
 point of the shape (`graph3dPace`), never under a floor. The held `q` and `e` spin the camera round the shape's
 own vertical axis (`graph3dSpin`, `graph3dShapeAxis`, `graph3dTurnRound`), the shape's centre keeping its place;

@@ -89,7 +89,7 @@ function graph3dVisible(hier) {
 // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
 function graph3dPaintLabel(hier) {
   hier.label.textContent = hier.hint ? GRAPH3D_HINT
-    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD fly · QE spin${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
+    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE spin${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
   hier.root.dataset.shape = hier.shape;
 }
 
@@ -149,7 +149,7 @@ function graph3dFrame(hier) {
     } else more = true;
   }
   if (hier.walk.size) {
-    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, graph3dPaceOf(hier), dt);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, graph3dPaceOf(hier), dt);
     if (step) {
       for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
       more = true;

@@ -250,7 +250,7 @@ function graph3dPan(hier, dx, dy) {
 }
 
 // A walk key (W, A, S, D) or a turn key (Q, E) held, into its set `held` (hier.walk or hier.turn): while any
-// is down the frame loop moves the camera's target along the ground (graph3dWalk), as a pan does, or turns
+// is down the frame loop flies the camera up, down or sideways (graph3dWalk), or turns
 // the camera round its target (graph3dTurn).
 function graph3dHoldKey(hier, held, key) {
   if (held.has(key)) return;
