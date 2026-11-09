@@ -89,7 +89,7 @@ function graph3dVisible(hier) {
 // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
 function graph3dPaintLabel(hier) {
   hier.label.textContent = hier.hint ? GRAPH3D_HINT
-    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE turn${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
+    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD fly · QE spin${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
   hier.root.dataset.shape = hier.shape;
 }
 

@@ -534,18 +534,31 @@ function graph3dWalkKey(ev) {
   return graph3dKeyIn(GRAPH3D_WALK_KEYS, ev);
 }
 
-// How far the camera's target moves along the ground, as [x, z] in the scene, while the walk keys `held`
-// are down for `dt` ms with the camera turned `theta` and `dist` from its target: ahead is the way it faces
-// (the stage's up seen straight above), the speed the same share of the stage whatever the distance, and
-// two keys together no faster than one. Null when nothing moves.
-function graph3dWalk(held, theta, dist, dt) {
+// How far the camera moves, as [x, y, z] in the scene, while the walk keys `held` are down for `dt` ms with the
+// camera turned `theta` and tilted `phi`: W and S fly ahead and back along where it looks, in 3D (looking up,
+// W goes up), A and D sideways along its right, which is level. `pace` is the distance the speed goes by (see
+// graph3dPace), the same share of what the camera sees whatever it is; two keys together go no faster than
+// one. Null when nothing moves.
+function graph3dWalk(held, theta, phi, pace, dt) {
   let r = 0, f = 0;
   for (const k of held) { const v = GRAPH3D_WALK_KEYS[k]; if (v) { r += v[0]; f += v[1]; } }
   const len = Math.hypot(r, f);
   if (!len) return null;
-  const step = (GRAPH3D_WALK * 2 * dist * GRAPH3D_TAN_HALF_FOV * dt) / 1000 / len;
-  const s = Math.sin(theta), c = Math.cos(theta);
-  return [(r * c - f * s) * step, (-r * s - f * c) * step];
+  const step = (GRAPH3D_WALK * 2 * pace * GRAPH3D_TAN_HALF_FOV * dt) / 1000 / len;
+  const b = graph3dBasis(phi, theta);
+  return [0, 1, 2].map((k) => (r * b.right[k] - f * b.back[k]) * step);
+}
+
+// What the pace of flying goes by: how far the camera at `eye` is from the nearest point of the shape, so it
+// feels the same far out and close among the dots, never under `floor` so it never stalls on the shape.
+function graph3dPace(shape, eye, rim, outer, floor) {
+  return Math.max(floor, Math.hypot(...graph3dSub(eye, graph3dSnap(shape, eye, rim, outer))));
+}
+
+// How far ahead one step of the wheel (or a pinch) flies, from the factor `f` the zoom would have had: a tick
+// toward the pointer (f under 1) is a share of the pace ahead, a tick the other way the same back.
+function graph3dWheelStep(f, pace) {
+  return f > 0 ? (Math.log(f) / Math.log(GRAPH3D_WHEEL)) * (1 - GRAPH3D_WHEEL) * pace : 0;
 }
 
 // The turn keys, each as the way it turns the camera round its target: Q to the left (its turn, theta, grows),
@@ -573,6 +586,14 @@ function graph3dTurn(held, dt) {
 // the dome's top, the sphere's top pole; H frames the shape round it, and Q and E spin it (graph3dTurnRound).
 function graph3dShapeAxis(shape, rim, outer) {
   return graph3dPlace(shape, 0, 0, rim, outer);
+}
+
+// The camera `cam` looking round from where it stands: turned to `theta` and tilted to `phi` (kept from straight
+// down to straight up, short of the poles), its eye not moving and its target swinging round it.
+const GRAPH3D_LOOK_MARGIN = 0.02;
+function graph3dLook(cam, theta, phi) {
+  const eye = graph3dEye([cam.tx, cam.ty, cam.tz], graph3dBasis(cam.phi, cam.theta).back, cam.dist);
+  return graph3dTurnRound(cam, eye, theta, Math.min(Math.PI - GRAPH3D_LOOK_MARGIN, Math.max(GRAPH3D_LOOK_MARGIN, phi)));
 }
 
 // The camera `cam` (its target tx ty tz, its turn theta and tilt phi) turned round the scene point `pivot`
@@ -696,11 +717,11 @@ const GRAPH3D_SHADOW = 0.8;
 // A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
-const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag orbits, the wheel zooms toward the pointer; '
-  + 'one finger orbits and a pinch zooms. G steps the shape, F frames the selection, H frames everything; '
-  + 'W, A, S and D, held, move the camera along the ground; Q and E, held, turn it left and right.';
+const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag looks round from where the camera stands, the wheel flies toward the pointer; '
+  + 'one finger looks round and a pinch flies. G steps the shape, F frames the selection, H frames everything; '
+  + 'W, A, S and D, held, fly the camera (W and S along where it looks); Q and E, held, spin the shape left and right.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
-const GRAPH3D_HINT = 'Drag pans · right drag orbits · wheel zooms · double click opens · G shape · F frame · H home · WASD move · QE turn';
+const GRAPH3D_HINT = 'Drag pans · right drag looks · wheel flies · double click opens · G shape · F frame · H home · WASD fly · QE spin';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
 // The words the corner's label says when three.js did not load (the engine's own message goes to the console).
@@ -736,6 +757,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }

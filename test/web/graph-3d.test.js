@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -552,7 +552,7 @@ test('w, a, s and d are the walk keys whatever their case; with Ctrl, Alt or Met
 });
 
 test('the walk moves the target along the ground the way the camera faces: W ahead, S back, A left, D right', () => {
-  const dir = (keys, theta) => { const [x, z] = graph3dWalk(new Set(keys), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const dir = (keys, theta) => { const [x, , z] = graph3dWalk(new Set(keys), theta, Math.PI / 2, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
   const same = (a, b) => near(a[0], b[0], 1e-9) && near(a[1], b[1], 1e-9);
   // Straight above and north up, the stage's up is the plan's up: -z (the 2D Hierarchy's top), its right +x.
   assert.ok(same(dir(['w'], 0), [0, -1]), 'W: toward the top of the stage');
@@ -565,17 +565,17 @@ test('the walk moves the target along the ground the way the camera faces: W ahe
 });
 
 test('two walk keys move diagonally at the speed of one; opposite keys, or none, stand still', () => {
-  const one = graph3dWalk(new Set(['w']), 0, 1000, 100);
-  const both = graph3dWalk(new Set(['w', 'd']), 0, 1000, 100);
+  const one = graph3dWalk(new Set(['w']), 0, Math.PI / 2, 1000, 100);
+  const both = graph3dWalk(new Set(['w', 'd']), 0, Math.PI / 2, 1000, 100);
   assert.ok(near(Math.hypot(...both), Math.hypot(...one), 1e-9), 'no faster on the diagonal');
-  assert.ok(near(both[0], -both[1], 1e-9) && both[0] > 0, 'W and D: ahead and to the right, at 45 degrees');
-  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, 1000, 100), null);
-  assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, 1000, 100), null);
-  assert.strictEqual(graph3dWalk(new Set(), 0, 1000, 100), null);
+  assert.ok(near(both[0], -both[2], 1e-9) && both[0] > 0, 'W and D: ahead and to the right, at 45 degrees');
+  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, Math.PI / 2, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, Math.PI / 2, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(), 0, Math.PI / 2, 1000, 100), null);
 });
 
 test('a step of the walk is as long as the camera is far and as the key is held: the same on the screen zoomed in or out', () => {
-  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, dist, dt));
+  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, Math.PI / 2, dist, dt));
   assert.ok(near(len(2000, 100), 2 * len(1000, 100), 1e-9), 'twice as far, twice the step');
   assert.ok(near(len(1000, 200), 2 * len(1000, 100), 1e-9), 'held twice as long, twice the way');
   // The stage seen straight above at `dist` is 2 dist tan(22.5 deg) high: a second held crosses half of it to a whole one.
@@ -591,8 +591,8 @@ test('q and e are the turn keys whatever their case; with Ctrl, Alt or Meta, or 
 });
 
 test('Q turns the view left and E right: the way W walks swings toward A for Q and toward D for E', () => {
-  const ahead = (theta) => { const [x, z] = graph3dWalk(new Set(['w']), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
-  const right = (theta) => { const [x, z] = graph3dWalk(new Set(['d']), theta, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const ahead = (theta) => { const [x, , z] = graph3dWalk(new Set(['w']), theta, Math.PI / 2, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
+  const right = (theta) => { const [x, , z] = graph3dWalk(new Set(['d']), theta, Math.PI / 2, 1000, 100); const l = Math.hypot(x, z); return [x / l, z / l]; };
   const along = (a, b) => a[0] * b[0] + a[1] * b[1];
   for (const theta of [0, 1.2, -2.5]) {
     const q = graph3dTurn(new Set(['q']), 100);
@@ -661,4 +661,50 @@ test('a turn round the shape\'s axis at one tilt swings the target round that ax
   assert.ok(near(to.tx, cam.tx * c + cam.tz * s, 1e-9) && near(to.tz, -cam.tx * s + cam.tz * c, 1e-9), 'swung by the same angle as the camera\'s turn');
   const there = graph3dTurnRound(to, axis, cam.theta, cam.phi);
   for (const k of ['tx', 'ty', 'tz']) assert.ok(near(there[k], cam[k], 1e-9), `Q then E: back where it was (${k})`);
+});
+
+test('looking turns and tilts the camera round its own position: the eye stays, the target swings round it', () => {
+  const cam = { theta: 0.4, phi: 0.7, dist: 900, tx: 120, ty: 0, tz: -80 };
+  const eye = graph3dEye([cam.tx, cam.ty, cam.tz], graph3dBasis(cam.phi, cam.theta).back, cam.dist);
+  for (const [theta, phi] of [[1.9, 0.7], [-2, 0.2], [0.4, 2.4], [3, 3]]) {
+    const to = graph3dLook(cam, theta, phi);
+    const now = graph3dEye([to.tx, to.ty, to.tz], graph3dBasis(to.phi, to.theta).back, cam.dist);
+    now.forEach((v, k) => assert.ok(near(v, eye[k], 1e-6), `${theta},${phi}: axis ${k}`));
+    assert.strictEqual(to.theta, theta);
+  }
+});
+
+test('a look runs from straight down to straight up, short of the poles, whatever the shape', () => {
+  const cam = { theta: 0, phi: 1, dist: 500, tx: 0, ty: 0, tz: 0 };
+  const down = graph3dLook(cam, 0, -5).phi;
+  const up = graph3dLook(cam, 0, 9).phi;
+  assert.ok(down > 0 && down < 0.1, down);
+  assert.ok(up < Math.PI && up > Math.PI - 0.1, up);
+  assert.strictEqual(graph3dLook(cam, 0, 2.5).phi, 2.5, 'past the old tilt limit of the shapes');
+});
+
+test('W flies along where the camera looks in 3D: looking up it goes up, looking down it goes down; A and D stay level', () => {
+  const w = (phi) => graph3dWalk(new Set(['w']), 0.6, phi, 1000, 100);
+  assert.ok(w(Math.PI / 2)[1] === 0 || near(w(Math.PI / 2)[1], 0, 1e-9), 'looking level it goes level');
+  assert.ok(w(2.5)[1] > 0, 'looking up: up');
+  assert.ok(w(0.5)[1] < 0, 'looking down: down');
+  assert.ok(near(Math.hypot(...w(2.5)), Math.hypot(...w(1)), 1e-9), 'the same pace whichever way it looks');
+  const s = graph3dWalk(new Set(['s']), 0.6, 2.5, 1000, 100);
+  assert.ok(s[1] < 0, 'S backs off: down when looking up');
+  for (const phi of [0.3, 1.5, 2.8]) assert.ok(near(graph3dWalk(new Set(['d']), 0.6, phi, 1000, 100)[1], 0, 1e-12), `D level at ${phi}`);
+});
+
+test('the pace is the distance to the nearest point of the shape, never under the floor', () => {
+  assert.ok(near(graph3dPace('disc', [30, 500, 40], 200, 0, 20), 500, 1e-9), 'above the disc: its height');
+  assert.strictEqual(graph3dPace('disc', [30, 5, 40], 200, 0, 20), 20, 'on the floor');
+  const top = graph3dPlace('sphere', 0, 0, 200, 0);
+  assert.ok(near(graph3dPace('sphere', [0, top[1] + 300, 0], 200, 0, 20), 300, 1e-6), 'above the top pole of the sphere');
+});
+
+test('a wheel tick flies toward the pointer: a tick in the zoom-in direction goes ahead by a share of the pace, out goes back', () => {
+  const f = 0.87;
+  assert.ok(near(graph3dWheelStep(f, 1000), 130, 1e-6), 'one tick in: 13% of the pace ahead');
+  assert.ok(near(graph3dWheelStep(1 / f, 1000), -130, 1e-6), 'one tick out: the same back');
+  assert.ok(near(graph3dWheelStep(f * f, 1000), 2 * 130, 1e-6), 'two ticks, twice the way');
+  assert.ok(near(graph3dWheelStep(1, 1000), 0, 1e-12));
 });
