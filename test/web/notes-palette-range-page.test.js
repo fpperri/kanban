@@ -71,11 +71,8 @@ test('on several cards the picker reads how many', async () => {
   assert.strictEqual(p.ui().pick.value, '3 cards');
 });
 
-test('with nothing aimed at, the picker shows the card Enter would write on, the card last noted, else no card', async () => {
-  const p = await open({ stored: { 'kanban.kanban.lastnoted': '22' } });
-  p.page.run('openNotes({})');
-  assert.strictEqual(p.ui().pick.value, '#22 Cut over the data layer');
-  const q = await open();
+test('with nothing aimed at, the picker shows no card', async () => {
+  const q = await open({ stored: { 'kanban.kanban.lastnoted': '22' } });
   q.page.run('openNotes({})');
   assert.strictEqual(q.ui().pick.value, 'no card');
 });
@@ -132,8 +129,8 @@ test('a bare mention and Enter aims the same way, so the picker and the line agr
   assert.strictEqual(p.ui().pick.value, '#22 Cut over the data layer');
 });
 
-test('choosing no card writes a note about nothing, whatever card was last noted', async () => {
-  const p = await open({ stored: { 'kanban.kanban.lastnoted': '22' } });
+test('choosing no card writes a note about nothing', async () => {
+  const p = await open();
   p.openCard('7');
   p.focusPick();
   p.choose('no card');

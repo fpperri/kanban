@@ -6,7 +6,7 @@ const KNOWN = { board: 'plan', isTarget: (id) => ['7', '22', 'G3'].includes(id) 
 const IS = { today: '2026-10-16', isGroup: (id) => id === 'G3' };
 const field = (value = '', untimed = false, day = '') => ({ value, untimed, day });
 const plan = (raw, subject, f, ctx) => n.noteWritePlan(n.noteParseLine(raw, KNOWN), subject, f, ctx);
-const at = (today, now) => ({ today, now, lastNoted: '7' });
+const at = (today, now) => ({ today, now });
 
 test('a subject whose day came from the clock says so; one whose day the request gave does not', () => {
   assert.strictEqual(n.noteSubjectFrom({}, IS).clockDay, true);

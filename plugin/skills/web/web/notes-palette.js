@@ -1,8 +1,7 @@
 'use strict';
 // The notes palette on the page (docs/adr/0016): the one surface for a board's notes. n on the
 // card whose details are open, else the hovered or selected card, a card's note count and the
-// right-click Add note... open it aimed at a card; with nothing aimed at it opens on the card last
-// noted. Over the card details it draws above them and Esc closes it before them. Rows, top down:
+// right-click Add note... open it aimed at a card; with nothing aimed at it opens on no card. Over the card details it draws above them and Esc closes it before them. Rows, top down:
 // the subject row (the chip that says what it is about, the date, time and duration fields, the
 // untimed tick and the card picker), the note box, the preview line that says what Enter will write, the
 // filter row (the filter field, and beside it the Grouped or Timeline switch and the All, Human and
@@ -45,7 +44,7 @@ const notesUi = {
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
   head: null, fsBtn: null,
-  menu: null, sub: null, scoped: null, finding: false, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null, lastFor: null, last: '',
+  menu: null, sub: null, scoped: null, finding: false, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null,
 };
 
 let notesCountsOf = null;
@@ -78,16 +77,6 @@ function notesLabel(id) {
 
 const notesKnown = () => ({ board: state.projectName, isTarget: (id) => notesCard(id) !== null || notesGroup(id) !== null });
 
-// The card last noted, kept in this browser; a card that is gone is no card.
-function notesLastNoted() {
-  if (notesUi.lastFor !== state.projectName) {
-    const storage = prefsStorage();
-    notesUi.last = storage ? noteLastLoad(storage, state.projectName) : '';
-    notesUi.lastFor = state.projectName;
-  }
-  return notesUi.last && notesCard(notesUi.last) ? notesUi.last : '';
-}
-
 // The list's layout, kept in this browser per board.
 function notesLayout() {
   const u = notesUi;
@@ -100,7 +89,7 @@ function notesLayout() {
 }
 
 const notesNow = () => noteClock(kanbanDays.now());
-const notesCtx = () => ({ today: localTodayStr(), now: notesNow(), lastNoted: notesLastNoted() });
+const notesCtx = () => ({ today: localTodayStr(), now: notesNow() });
 // The date and time fields as they read: Today and Now, which Enter works out from the clock at that
 // moment, or a picked or typed value, which it uses as it is (notes.js noteWritePlan).
 const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.checked, day: notesUi.date.value, duration: notesUi.duration.value });
@@ -534,7 +523,7 @@ function notesOnFullscreenKey(e) {
 
 // Open the palette. `req` is what asks for it (notes.js, noteSubjectFrom): a card's notes
 // ({ kind: 'card-notes', id }), a day's slot or untimed box, a card or group to write on
-// ({ target }), or nothing ({}) to start on the card last noted.
+// ({ target }), or nothing ({}) to start on no card.
 function openNotes(req) {
   if (!notesOn() && !state.groups && !scratchpadOn() && !todosOn()) return;
   notesBuild();
@@ -1245,12 +1234,6 @@ async function notesWrite() {
   } finally {
     u.writing = false;
   }
-  if (!plan.targets && plan.target && notesCard(plan.target)) {
-    u.last = plan.target;
-    u.lastFor = state.projectName;
-    const storage = prefsStorage();
-    if (storage) noteLastSave(storage, state.projectName, plan.target);
-  }
   for (const m of made) u.written.push(notesKey(m.note));
   u.input.value = '';
   notesGrow();
@@ -1288,7 +1271,7 @@ function notesPaintPick(force = false) {
   const u = notesUi;
   if (!u.sub || !u.pick) return;
   if (!force && document.activeElement === u.pick) return;
-  const target = noteSubjectTarget(u.sub, notesLastNoted());
+  const target = noteSubjectTarget(u.sub);
   u.pick.value = target.each ? `${target.each} cards` : notesLabel(target.id);
   u.pick.title = u.pick.value;
 }
@@ -1348,7 +1331,7 @@ function notesDropListMenus(only) {
 function notesCommitPick() {
   const u = notesUi;
   if (!u.sub) return;
-  const target = noteSubjectTarget(u.sub, notesLastNoted());
+  const target = noteSubjectTarget(u.sub);
   const shown = target.each ? `${target.each} cards` : notesLabel(target.id);
   const typed = u.pick.value.trim();
   const id = typed === shown ? null : kanbanIds.idKey(typed.replace(/^#/, ''));
@@ -1571,7 +1554,7 @@ function notesAimedCard() {
   return detail !== null && notesCard(detail) ? detail : hoveredId !== null && notesCard(hoveredId) ? hoveredId : selectedIds.size === 1 ? [...selectedIds][0] : null;
 }
 
-// n opens the palette on the aimed card (notesAimedCard), else on the card last noted. `t` (todos-ui.js) opens
+// n opens the palette on the aimed card (notesAimedCard), else on no card. `t` (todos-ui.js) opens
 // the Todos tab of the same card. Keys that type nothing but read a letter, so they
 // read the key guard: off while a field has focus and while a menu, a dialog, the notifications
 // panel or the preferences sheet is up. The card details are the one popup they work over.

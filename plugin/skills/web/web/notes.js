@@ -17,8 +17,7 @@
 // tick or a `-` says so, else the time field's, else now (or none in a day's untimed box).
 // The duration is the line's, else the duration field's, none when it is empty (durations.js reads
 // it); with a time it makes the note a range from that time, the moment of Enter for Now.
-// The target is the line's mention, else the chip's card or group, else the card last
-// noted, else nothing. The day is the date field's, else the subject's.
+// The target is the line's mention, else the chip's card or group, else nothing. The day is the date field's, else the subject's.
 //
 // The date and time fields say Today and Now, or a picked or typed value. Today and Now are
 // worked out when Enter is pressed, from the clock the caller passes, so a palette left open
@@ -37,7 +36,6 @@ const NOTE_DURATIONS = (typeof module !== 'undefined' && module.exports) ? requi
 // How the palette and the Calendar name a note about nothing.
 const NOTE_NO_CARD = 'no card';
 const NOTE_DAY = /^\d{4}-\d{2}-\d{2}$/;
-const NOTE_LAST_FEATURE = 'lastnoted';
 const NOTE_LAYOUT_FEATURE = 'notes.layout';
 const NOTE_LAYOUTS = ['grouped', 'timeline'];
 const NOTE_LINE_TIME = /^(\d{1,2})[:.](\d{2})(?=\s|$)\s*/;
@@ -228,16 +226,15 @@ function noteSubjectNoCard(was) {
 }
 
 // What the picker shows as the note's target: { id } (a card or group; '' is no card) or { each: how
-// many cards }. For a palette aimed at nothing it is the card Enter would write on, the last noted.
-function noteSubjectTarget(sub, lastNoted) {
+// many cards }. For a palette aimed at nothing it is no card.
+function noteSubjectTarget(sub) {
   if (sub.kind === 'each') return { each: sub.ids.length };
   if (noteIsTarget(sub)) return { id: sub.id };
-  if (sub.noCard) return { id: '' };
-  return { id: lastNoted || '' };
+  return { id: '' };
 }
 
 // Clearing the chip ends where choosing no card ends: the moment stays, the card goes, and a note is
-// about nothing, not the card last noted.
+// about nothing.
 function noteSubjectCleared(subject, today) {
   if (!subject.when) return { kind: 'none', day: today, clockDay: true, noCard: true };
   const { noCard, ...moment } = subject.when;
@@ -281,9 +278,9 @@ function noteSubjectNotes(notes, subject, o = {}) {
 
 // What Enter will write: { text, at, duration, day, target, targets, from, bad, scopeTo }. `parsed` is
 // noteParseLine's, `field` the date, time and duration fields { value, untimed, day, duration }, `o`
-// { today, now, lastNoted }. The duration is in the written form (`1h30m`), or null. The day is the
+// { today, now }. The duration is in the written form (`1h30m`), or null. The day is the
 // date field's, else the subject's. `from` says where the target came
-// from: 'line', 'chip', 'each', 'nocard' (chosen in the picker) or 'last'. On several cards
+// from: 'line', 'chip', 'each', or 'nocard' (nothing aimed at, or chosen in the picker). On several cards
 // (the subject 'each') `targets` lists them, one note is written on each and `target` is
 // empty, unless the line names one card, which takes that one note alone.
 function noteWritePlan(parsed, subject, field, o) {
@@ -306,8 +303,7 @@ function noteWritePlan(parsed, subject, field, o) {
   if (parsed.mention !== null) { target = parsed.mention; from = 'line'; }
   else if (noteIsTarget(subject)) { target = subject.id; from = 'chip'; }
   else if (subject.kind === 'each') { target = ''; targets = subject.ids; from = 'each'; }
-  else if (subject.noCard) { target = ''; from = 'nocard'; }
-  else { target = o.lastNoted || ''; from = 'last'; }
+  else { target = ''; from = 'nocard'; }
   return { text: parsed.text, at, duration, day, target, targets, from, bad, scopeTo: parsed.bare ? parsed.mention : null };
 }
 
@@ -375,8 +371,7 @@ function notePreview(plan, o) {
   const timed = plan.at && length !== null ? `Note ${NOTE_DURATIONS.durationRange(plan.at, length)}` : plan.at ? `Note at ${plan.at}` : null;
   const when = timed || (length !== null ? `Note ${plan.duration} untimed` : 'Untimed note');
   const dayBit = plan.day !== o.today ? `, ${o.dayName(plan.day)},` : '';
-  const last = plan.from === 'last' && plan.target ? ' (last noted)' : '';
-  const on = plan.targets ? noteEachLabel(plan.targets) : `${o.label(plan.target)}${last}`;
+  const on = plan.targets ? noteEachLabel(plan.targets) : `${o.label(plan.target)}`;
   return `${when}${dayBit} on ${on}${plan.text ? '' : ' · type the note'}`;
 }
 
@@ -588,16 +583,6 @@ function noteDayName(day) {
   return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()]} ${d.getUTCDate()}`;
 }
 
-// The card last noted, kept in this browser per board: only what reads as an id.
-function noteLastLoad(storage, projectName) {
-  const saved = NOTE_COLUMN_STATE.boardPrefLoad(storage, projectName, NOTE_LAST_FEATURE);
-  return saved !== null && NOTE_IDS.idKey(saved) !== null ? NOTE_IDS.idKey(saved) : '';
-}
-
-function noteLastSave(storage, projectName, id) {
-  if (NOTE_IDS.idKey(id) !== null) NOTE_COLUMN_STATE.boardPrefSave(storage, projectName, NOTE_LAST_FEATURE, NOTE_IDS.idKey(id));
-}
-
 // The list's layout, Grouped or Timeline, kept in this browser per board; anything else is Grouped.
 function noteLayoutLoad(storage, projectName) {
   const saved = NOTE_COLUMN_STATE.boardPrefLoad(storage, projectName, NOTE_LAYOUT_FEATURE);
@@ -613,7 +598,7 @@ const NOTES_EXPORTS = {
   NOTE_TODAY, NOTE_NOW, noteIsToday, noteIsNow, noteDayField, noteTimeField,
   noteFieldTime, noteFieldDay, noteParseLine, noteSubjectFrom, noteTabs, noteSubjectAimed, noteSubjectNoCard, noteSubjectTarget, noteSubjectCleared, noteSubjectOnDay, noteSubjectNotes,
   NOTE_RANGE_MODES, noteRangeBounds, noteRangeStep, noteRangeLabel, noteRangeFor, noteRangeOnDay, noteInRange, noteListNotes,
-  noteLineTime, noteWriteTime, noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLastLoad, noteLastSave, noteLayoutLoad, noteLayoutSave,
+  noteLineTime, noteWriteTime, noteWritePlan, notePreview, noteDurationOptions, noteEditDuration, noteTimeLabel, noteAuthorKind, noteParseFilter, noteFilter, noteGroups, noteTimeline, noteOneTarget, noteBoxSize, noteTabKey, noteCounts, noteRef, noteClock, noteDayName, noteLayoutLoad, noteLayoutSave,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -299,7 +299,7 @@ module.exports = {
     check('calnotes: n on the Week view, the pointer on no day, opens the palette on Week', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week*', '3 days', 'Day']), JSON.stringify(await ev(RANGE_BTNS)));
     check('calnotes: with the range of the week on screen, 12 to 18 October', await ev(RANGE_LABEL) === '12–18 Oct', await ev(RANGE_LABEL));
     check('calnotes: and lists that week\'s notes, of every card', await ev(`document.querySelectorAll('#notes-palette .np-note').length===${IN_WEEK}`) && await ev(IN_WEEK) >= 6, `${await ev(`document.querySelectorAll('#notes-palette .np-note').length`)} of ${await ev(IN_WEEK)}`);
-    check('calnotes: it is no card\'s: the picker names the card last noted or none, and the box is empty', await ev(`!document.querySelector('#notes-palette .np-chip')||document.querySelector('#notes-palette .np-chip').hidden`));
+    check('calnotes: it is no card\'s: the picker names no card, and the box is empty', await ev(`!document.querySelector('#notes-palette .np-chip')||document.querySelector('#notes-palette .np-chip').hidden`));
     await shot('palette-week-range');
     check('calnotes: Esc closes the palette', await closePalette());
     const friday = await hourPoint('2026-10-16', 10);

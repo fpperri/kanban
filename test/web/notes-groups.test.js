@@ -7,7 +7,7 @@ const n = require('../../plugin/skills/web/web/notes');
 // the group I2 lists 3 and 7, and the board is called plan.
 
 const KNOWN = { board: 'plan', isTarget: (id) => ['3', '7', '15', 'I2'].includes(id) };
-const CTX = { today: '2026-10-16', now: '16:40', lastNoted: '7' };
+const CTX = { today: '2026-10-16', now: '16:40' };
 const field = (value, untimed = false) => ({ value, untimed });
 const label = (id) => ({ 3: '#3 Write the cutover plan', 7: '#7 Port the zephyr schema', 15: '#15 Fix the invoice rounding', I2: '#I2 zephyr-2', '': 'no card' }[id]);
 const prevOf = (plan) => n.notePreview(plan, { label, dayName: (d) => `Day ${d.slice(8)}`, today: CTX.today });

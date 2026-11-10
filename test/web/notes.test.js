@@ -4,7 +4,7 @@ const n = require('../../plugin/skills/web/web/notes');
 
 // The known targets of a fixture board: cards 7, 22 and G3; the board is called plan.
 const KNOWN = { board: 'plan', isTarget: (id) => ['7', '22', 'G3'].includes(id) };
-const CTX = { today: '2026-10-16', now: '16:40', lastNoted: '7' };
+const CTX = { today: '2026-10-16', now: '16:40' };
 const field = (value, untimed = false) => ({ value, untimed });
 
 // --- the line ---------------------------------------------------------------------------------
@@ -169,13 +169,13 @@ test('the time comes from the line, else the untimed tick, else the time field, 
   assert.match(plan('x', field('9:7')).bad, /9:7/);
 });
 
-test('the target comes from a leading mention, else the chip, else the card last noted, else nothing', () => {
+test('the target comes from a leading mention, else the chip, else nothing', () => {
   const plan = (raw, subject) => n.noteWritePlan(n.noteParseLine(raw, KNOWN), subject, field('09:00'), CTX);
   const card = { kind: 'card', id: '22', day: '2026-10-16' };
   assert.deepStrictEqual([plan('#7 x', card).target, plan('#7 x', card).from], ['7', 'line']);
   assert.deepStrictEqual([plan('x', card).target, plan('x', card).from], ['22', 'chip']);
-  assert.deepStrictEqual([plan('x', { kind: 'none', day: '2026-10-16' }).target, plan('x', { kind: 'none', day: '2026-10-16' }).from], ['7', 'last']);
-  assert.deepStrictEqual([n.noteWritePlan(n.noteParseLine('x', KNOWN), { kind: 'none', day: '2026-10-16' }, field('09:00'), { ...CTX, lastNoted: '' }).target], ['']);
+  assert.deepStrictEqual([plan('x', { kind: 'none', day: '2026-10-16' }).target, plan('x', { kind: 'none', day: '2026-10-16' }).from], ['', 'nocard']);
+  assert.deepStrictEqual([plan('x', { kind: 'slot', day: '2026-10-14', at: '08:00' }).target, plan('x', { kind: 'untimed', day: '2026-10-14' }).from], ['', 'nocard']);
   assert.strictEqual(plan('x', { kind: 'slot', day: '2026-10-14', at: '08:00' }).day, '2026-10-14');
 });
 
@@ -191,8 +191,8 @@ test('the preview says what Enter will write', () => {
   assert.strictEqual(prev('x', { kind: 'card', id: '7', day: CTX.today }), 'Note at 10:30 on #7 Port the zephyr schema');
   assert.strictEqual(prev('x', { kind: 'card', id: '7', day: CTX.today }, field('', true)), 'Untimed note on #7 Port the zephyr schema');
   assert.strictEqual(prev('#22 x', { kind: 'card', id: '7', day: CTX.today }), 'Note at 10:30 on #22 Plan the cutover');
-  assert.strictEqual(prev('x', { kind: 'none', day: CTX.today }), 'Note at 10:30 on #7 Port the zephyr schema (last noted)');
-  assert.strictEqual(prev('x', { kind: 'slot', day: '2026-10-14', at: '08:00' }), 'Note at 10:30, Day 14, on #7 Port the zephyr schema (last noted)');
+  assert.strictEqual(prev('x', { kind: 'none', day: CTX.today }), 'Note at 10:30 on no card');
+  assert.strictEqual(prev('x', { kind: 'slot', day: '2026-10-14', at: '08:00' }), 'Note at 10:30, Day 14, on no card');
   assert.strictEqual(prev('#22', { kind: 'none', day: CTX.today }), 'Open #22 Plan the cutover, then type the note');
   assert.strictEqual(prev('25:00 x', { kind: 'none', day: CTX.today }), '25:00 is not a time; a time reads HH:MM.');
   assert.strictEqual(prev('', { kind: 'card', id: '7', day: CTX.today }), 'Note at 10:30 on #7 Port the zephyr schema · type the note');
@@ -499,19 +499,6 @@ test('the time now reads HH:MM and a day reads as the weekday and the date', () 
   assert.strictEqual(n.noteDayName('2026-10-05'), 'Mon 5');
 });
 
-test('the card last noted is kept in the browser per board and a bad value is no card', () => {
-  const store = new Map();
-  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
-  assert.strictEqual(n.noteLastLoad(storage, 'plan'), '');
-  n.noteLastSave(storage, 'plan', '22');
-  assert.strictEqual(n.noteLastLoad(storage, 'plan'), '22');
-  assert.strictEqual(n.noteLastLoad(storage, 'other'), '');
-  store.set('kanban.plan.lastnoted', '../etc');
-  assert.strictEqual(n.noteLastLoad(storage, 'plan'), '');
-  assert.strictEqual(n.noteLastLoad({ getItem() { throw new Error('blocked'); } }, 'plan'), '');
-  n.noteLastSave({ setItem() { throw new Error('full'); } }, 'plan', '22');
-});
-
 test('the palette\'s layout, Grouped or Timeline, is kept in the browser per board and anything else reads as Grouped', () => {
   const store = new Map();
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) };
@@ -610,7 +597,7 @@ test('clearing the chip ends where picking no card ends', () => {
   const today = CTX.today;
   const aimed = { kind: 'card', id: '34', day: today, clockDay: true };
   const cleared = n.noteSubjectCleared(aimed, today);
-  assert.deepStrictEqual(n.noteSubjectTarget(cleared, '34'), { id: '' });
+  assert.deepStrictEqual(n.noteSubjectTarget(cleared), { id: '' });
   assert.deepStrictEqual(cleared, n.noteSubjectNoCard(aimed));
-  assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'none', day: CTX.today, clockDay: true }, '34'), { id: '34' }, 'opening on nothing still starts on the card last noted');
+  assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'none', day: CTX.today, clockDay: true }), { id: '' }, 'opening on nothing starts on no card');
 });
