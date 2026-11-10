@@ -471,8 +471,10 @@ test('shiftAnchorDay week steps 7 days either way', () => {
   assert.strictEqual(shiftAnchorDay('week', '2026-07-09', -1), '2026-07-02');
 });
 
-test('shiftAnchorDay 3day steps 3 days, day steps 1 — across month/year boundaries', () => {
-  assert.strictEqual(shiftAnchorDay('3day', '2026-07-30', 1), '2026-08-02');
+test('shiftAnchorDay 3day steps 1 day like day does — across month/year boundaries', () => {
+  assert.strictEqual(shiftAnchorDay('3day', '2026-07-30', 2), '2026-08-01');
+  assert.strictEqual(shiftAnchorDay('3day', '2026-07-30', 1), '2026-07-31');
+  assert.strictEqual(shiftAnchorDay('3day', '2026-08-01', -1), '2026-07-31');
   assert.strictEqual(shiftAnchorDay('day', '2026-12-31', 1), '2027-01-01');
   assert.strictEqual(shiftAnchorDay('day', '2027-01-01', -1), '2026-12-31');
 });

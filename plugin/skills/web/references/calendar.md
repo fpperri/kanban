@@ -67,7 +67,7 @@ toggle. The section is there unconditionally ("always leave a control to turn a 
 **Sub-views** — the calendar header carries an Outlook/Teams-style
 Month | Week | 3 days | Day switcher (persisted per board under `calendar.subview`;
 unknown saved values fall back to Month, which is exactly the grid above). Sub-month
-views show one column per day (week starts Monday; 3 days = anchor day + the next two;
+views show one column per day (week starts Monday; 3 days = anchor day + the next two, and previous/next move it one day;
 today's column highlighted): an **"all day" band** on top holds date-only cards and
 multi-day ranges (spans cover their real columns and pack into shared rows; a span cut
 by the window edge squares off + dashes on the cut side), and a scrollable **24-hour
