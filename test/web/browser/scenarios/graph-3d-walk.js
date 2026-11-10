@@ -104,6 +104,9 @@ module.exports = {
       await mouse('mouseMoved', spot.x, spot.y, { button: 'none' });
       await mouse('mousePressed', spot.x, spot.y, { button: 'right' });
       for (let k = 1; k <= 8; k++) await mouse('mouseMoved', spot.x + 15 * k, spot.y - (px * k) / 8, { button: 'right', buttons: 2 });
+      // Held still past the coast's 80 ms window before the release, so no coast carries the look on: the tilt the
+      // drag leaves is the drag's own, the same on a slow machine as on a fast one.
+      await sleep(250);
       await mouse('mouseReleased', spot.x + 120, spot.y - px, { button: 'right' });
       await key('Escape');
     };
@@ -114,6 +117,7 @@ module.exports = {
     check('a right drag turns and tilts the camera', looked.phi > 0.2 && Math.abs(looked.theta) > 0.2, looked);
     check('a right drag keeps the camera where it stands: its position does not move, its target swings round it',
       Math.hypot(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]) < level.dist * 0.015 && Math.hypot(looked.tx - level.tx, looked.ty - level.ty, looked.tz - level.tz) > 20, { level, looked, e0, e1 });
+    check('the right drag leaves the camera looking near the horizon', Math.abs(looked.phi - Math.PI / 2) < 0.6, looked);
     const wt = await walk(['w']);
     check('looking at the horizon, W raises the camera, the tilt, turn and distance kept',
       wt.went && wt.stopped && wt.kept && along(wt.dir, upOf(wt.from)) > 0.99 && wt.dir[1] > 0.8 && eyeOf(wt.to)[1] > eyeOf(wt.from)[1] + 5, wt);
