@@ -111,5 +111,5 @@ test('a long run of cards is cut short in the preview', () => {
 });
 
 test('clearing the chip of "each" goes back to nothing', () => {
-  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'each', ids: ['3', '7'], day: CTX.today }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true, noCard: true });
+  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'each', ids: ['3', '7'], day: CTX.today }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true });
 });

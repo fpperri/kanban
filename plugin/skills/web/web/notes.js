@@ -216,13 +216,13 @@ function noteSubjectAimed(was, id, kind = 'card') {
   return aimed;
 }
 
-// A note about nothing, chosen from the card picker: a note's target is empty, whatever card was last
-// noted. From an hour or the untimed box (or a card aimed at from one) it keeps that moment.
+// A note about nothing, chosen from the card picker: a note's target is empty.
+// From an hour or the untimed box (or a card aimed at from one) it keeps that moment.
 function noteSubjectNoCard(was) {
   const moment = was.kind === 'slot' || was.kind === 'untimed' ? was : was.when || null;
   const base = moment || { kind: 'none', day: was.day, ...noteClockDay(was) };
   const { when, ...rest } = base;
-  return { ...rest, noCard: true };
+  return rest;
 }
 
 // What the picker shows as the note's target: { id } (a card or group; '' is no card) or { each: how
@@ -236,9 +236,8 @@ function noteSubjectTarget(sub) {
 // Clearing the chip ends where choosing no card ends: the moment stays, the card goes, and a note is
 // about nothing.
 function noteSubjectCleared(subject, today) {
-  if (!subject.when) return { kind: 'none', day: today, clockDay: true, noCard: true };
-  const { noCard, ...moment } = subject.when;
-  return { ...moment, noCard: true };
+  if (!subject.when) return { kind: 'none', day: today, clockDay: true };
+  return subject.when;
 }
 
 // A subject whose day came from the clock and not from the request carries clockDay: its day is

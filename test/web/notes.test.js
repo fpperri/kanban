@@ -313,12 +313,12 @@ test('clearing the chip goes back to the slot it came from, else to nothing', ()
   const slot = { kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600, at: '09:00' };
   const aimed = n.noteSubjectAimed(slot, '22');
   assert.deepStrictEqual([aimed.kind, aimed.id, aimed.day, aimed.at, aimed.when], ['card', '22', '2026-10-14', '09:00', slot]);
-  assert.deepStrictEqual(n.noteSubjectCleared(aimed, CTX.today), { ...slot, noCard: true });
-  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'card', id: '7', day: '2026-10-16' }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true, noCard: true });
+  assert.deepStrictEqual(n.noteSubjectCleared(aimed, CTX.today), { ...slot });
+  assert.deepStrictEqual(n.noteSubjectCleared({ kind: 'card', id: '7', day: '2026-10-16' }, CTX.today), { kind: 'none', day: CTX.today, clockDay: true });
   const untimedAim = n.noteSubjectAimed({ kind: 'untimed', day: '2026-10-14' }, '22');
   assert.deepStrictEqual([untimedAim.kind, untimedAim.untimed, untimedAim.when.kind], ['card', true, 'untimed']);
   const untimedCleared = n.noteSubjectCleared(untimedAim, CTX.today);
-  assert.deepStrictEqual(untimedCleared, { kind: 'untimed', day: '2026-10-14', noCard: true });
+  assert.deepStrictEqual(untimedCleared, { kind: 'untimed', day: '2026-10-14' });
   assert.deepStrictEqual(n.noteSubjectTarget(untimedCleared, '22'), { id: '' });
   const fromNone = n.noteSubjectAimed({ kind: 'none', day: CTX.today }, '22');
   assert.deepStrictEqual([fromNone.kind, fromNone.id, fromNone.when], ['card', '22', undefined]);
