@@ -23,6 +23,8 @@ const PAGE_GLOBALS = [
   'DOUBLE_CLICK_MS',
   'graph3dCur',
   'graph3dRequest',
+  'graph3dScreenOf',
+  'graph3dShapeAxis',
   'graphCur',
   'graphFanLines',
   'graphFanNames',

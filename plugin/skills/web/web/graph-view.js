@@ -71,7 +71,7 @@ const GRAPH_KIND_TITLES = {
   hierarchy: 'Hierarchy: the cards by their parent tree, as the tier fan, all the way round the centre, a band for each tier that holds a drawn card, with its name (hover or focus it for its count), tier 1 nearest the centre, then a ring for each depth of the cards without a tier (a tier or a depth with no drawn card has no ring); a sector for each tree; cards with no parent, children or tier sit on one ring outside the rest (the Unnested option of the option row moves them: off, depth 0 or the Unnested block outside the rim, a column for each status)',
   flow: 'Flow: the cards in columns by their dependencies, left to right; an arrow runs from the card waited for to the card that waits',
 };
-const GRAPH_3D_TITLE = 'The Hierarchy in 3D: the same graph on a disc, a half sphere or a sphere (g steps the shape). Left drag pans, right drag orbits, the wheel zooms; f frames the selection, h everything';
+const GRAPH_3D_TITLE = 'The Hierarchy in 3D: the same graph on a disc, a half sphere or a sphere (g steps the shape). Left drag pans, right drag looks round, the wheel flies; f frames the selection, h everything';
 const GRAPH_FLOW_DEPS_LABEL = {
   label: 'Dependencies',
   hint: 'Frontier: columns by the steps until a card is ready, counting only the dependencies not done; done cards stand faded in the first column and a dependency loop in the last. All: columns by the longest chain of dependencies behind a card, done ones included.',

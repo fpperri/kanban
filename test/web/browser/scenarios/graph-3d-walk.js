@@ -1,10 +1,14 @@
 'use strict';
 // The 3D Hierarchy's walk, on the notes board (the plan board with a logbook, so the notes palette can be
-// opened over it). Held, W moves the camera's target along the ground the way the camera faces, S back,
-// A to the left and D to the right; the tilt, the turn and the distance stay. Two keys together move
-// diagonally. The walk stops when the key comes up and when the window loses focus. The keys never move
-// the camera while a field has focus, with Ctrl held (Ctrl+S), nor on a note row of the notes palette,
-// where a and d keep acting on the note. The Flow draws no 3D Hierarchy, and a walk key there does nothing.
+// opened over it). Held, W, A, S and D slide the camera in the screen plane, as a pan does: W along the
+// camera up (looking straight down that is along the ground, ahead, its height kept; at the horizon it
+// raises the camera), S the reverse, A to the left and D to the right, level; the tilt, the turn and the
+// distance to the target stay.
+// Two keys together move diagonally. The walk stops when the key comes up and when the window loses focus.
+// A right drag looks round from where the camera stands: its position stays while its heading changes. The
+// keys never move the camera while a field has focus, with Ctrl held (Ctrl+S), nor on a note row of the
+// notes palette, where a and d keep acting on the note. The Flow draws no 3D Hierarchy, and a walk key there
+// does nothing.
 //
 // Every key is a real Input.dispatchKeyEvent; a held key is its keyDown alone, its keyUp sent once the
 // camera has moved far enough. The camera is read off the view's root (data-cam: turn, tilt, distance,
@@ -49,20 +53,22 @@ module.exports = {
     };
     const down = (k, mods) => send('Input.dispatchKeyEvent', keyEvents(k, mods)[0]);
     const up = (k, mods) => send('Input.dispatchKeyEvent', keyEvents(k, mods)[1]);
-    // Holds `keys` until the target has moved a tenth of the distance, then lets them up.
+    // Where the camera stands, from its target, its turn, its tilt and its distance (graph3dBasis).
+    const eyeOf = (c) => [c.tx + Math.sin(c.phi) * Math.sin(c.theta) * c.dist, c.ty + Math.cos(c.phi) * c.dist, c.tz + Math.sin(c.phi) * Math.cos(c.theta) * c.dist];
+    // Holds `keys` until the camera has moved a tenth of the distance, then lets them up.
     const walk = async (keys) => {
       const from = await settled();
       for (const k of keys) await down(k);
-      const went = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.hypot(c.tx-(${from.tx}),c.tz-(${from.tz}))>${from.dist * 0.1}})()`, 6000);
+      const went = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.hypot(c.tx-(${from.tx}),c.ty-(${from.ty}),c.tz-(${from.tz}))>${from.dist * 0.1}})()`, 6000);
       for (const k of keys) await up(k);
       const { a: to, still: stopped } = await still();
-      const dx = to.tx - from.tx, dz = to.tz - from.tz, len = Math.hypot(dx, dz) || 1;
-      return { from, to, went, stopped, dir: [dx / len, dz / len], kept: to.theta === from.theta && to.phi === from.phi && to.dist === from.dist && to.ty === from.ty };
+      const d = [to.tx - from.tx, to.ty - from.ty, to.tz - from.tz], len = Math.hypot(...d) || 1;
+      return { from, to, went, stopped, dir: d.map((v) => v / len), kept: to.theta === from.theta && to.phi === from.phi && to.dist === from.dist };
     };
-    // The ground's directions for the camera's turn theta (graph3dBasis): ahead, as [x, z], and to the right.
-    const ahead = (theta) => [-Math.sin(theta), -Math.cos(theta)];
-    const right = (theta) => [Math.cos(theta), -Math.sin(theta)];
-    const along = (d, v) => d[0] * v[0] + d[1] * v[1];
+    // The camera's up and its right (graph3dBasis); the right is level.
+    const upOf = (c) => [-Math.cos(c.phi) * Math.sin(c.theta), Math.sin(c.phi), -Math.cos(c.phi) * Math.cos(c.theta)];
+    const right = (c) => [Math.cos(c.theta), 0, -Math.sin(c.theta)];
+    const along = (d, v) => d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
     // `then` runs straight after the key, before the camera is read again: a mark the key
     // shows for a few seconds (the notes palette's Sure?) is checked while it is still up.
     const unchanged = async (what, act, then) => {
@@ -79,39 +85,62 @@ module.exports = {
     const top = await settled();
     check('it opens straight above, north up', top && top.phi === 0 && top.theta === 0, top);
 
-    // Straight above, north up: W moves the target toward the top of the stage, S back, A left, D right.
+    // Straight above, north up: W slides along the ground ahead, its height kept, S back, A left, D right.
     const w = await walk(['w']);
-    check('held, W moves the target ahead: toward the top of the stage seen straight above', w.went && along(w.dir, ahead(w.from.theta)) > 0.99, w);
-    check('W keeps the tilt, the turn and the distance: a pan, not an orbit', w.kept, w);
+    check('looking straight down, W moves the camera along the ground, ahead, its height kept', w.went && along(w.dir, upOf(w.from)) > 0.99 && Math.abs(w.dir[1]) < 0.01, w);
+    check('W keeps the tilt, the turn and the distance to the target', w.kept, w);
     check('the walk stops when the key comes up', w.stopped, w);
     const s = await walk(['s']);
-    check('held, S moves the target back', s.went && s.stopped && s.kept && along(s.dir, ahead(s.from.theta)) < -0.99, s);
+    check('looking straight down, S moves it back along the ground', s.went && s.stopped && s.kept && along(s.dir, upOf(s.from)) < -0.99 && Math.abs(s.dir[1]) < 0.01, s);
     const a = await walk(['a']);
-    check('held, A moves the target to the left', a.went && a.stopped && a.kept && along(a.dir, right(a.from.theta)) < -0.99, a);
+    check('held, A moves the camera to the left, level', a.went && a.stopped && a.kept && along(a.dir, right(a.from)) < -0.99, a);
     const d = await walk(['d']);
-    check('held, D moves the target to the right', d.went && d.stopped && d.kept && along(d.dir, right(d.from.theta)) > 0.99, d);
+    check('held, D moves the camera to the right, level', d.went && d.stopped && d.kept && along(d.dir, right(d.from)) > 0.99, d);
 
-    // Tilted and turned by a right drag: ahead is the way the camera faces, along the ground.
+    // Looked round by a right drag: the camera stays where it stands and its heading changes.
     const area = await ev(`(()=>{const r=document.querySelector('#graph-view .graph-main').getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom}})()`);
-    const spot = { x: area.l + 120, y: area.b - 140 };
-    await mouse('mouseMoved', spot.x, spot.y, { button: 'none' });
-    await mouse('mousePressed', spot.x, spot.y, { button: 'right' });
-    for (let k = 1; k <= 8; k++) await mouse('mouseMoved', spot.x + 15 * k, spot.y - 12 * k, { button: 'right', buttons: 2 });
-    await mouse('mouseReleased', spot.x + 120, spot.y - 96, { button: 'right' });
-    await key('Escape');
-    const tilted = await settled();
-    check('a right drag tilts and turns the camera', tilted.phi > 0.2 && Math.abs(tilted.theta) > 0.2, tilted);
+    const spot = { x: area.l + 120, y: area.b - 60 };
+    const dragUp = async (px) => {
+      await mouse('mouseMoved', spot.x, spot.y, { button: 'none' });
+      await mouse('mousePressed', spot.x, spot.y, { button: 'right' });
+      for (let k = 1; k <= 8; k++) await mouse('mouseMoved', spot.x + 15 * k, spot.y - (px * k) / 8, { button: 'right', buttons: 2 });
+      // Held still past the coast's 80 ms window before the release, so no coast carries the look on: the tilt the
+      // drag leaves is the drag's own, the same on a slow machine as on a fast one.
+      await sleep(250);
+      await mouse('mouseReleased', spot.x + 120, spot.y - px, { button: 'right' });
+      await key('Escape');
+    };
+    const level = await settled();
+    await dragUp(0.35 * (area.b - area.t));
+    const looked = await settled();
+    const e0 = eyeOf(level), e1 = eyeOf(looked);
+    check('a right drag turns and tilts the camera', looked.phi > 0.2 && Math.abs(looked.theta) > 0.2, looked);
+    check('a right drag keeps the camera where it stands: its position does not move, its target swings round it',
+      Math.hypot(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]) < level.dist * 0.015 && Math.hypot(looked.tx - level.tx, looked.ty - level.ty, looked.tz - level.tz) > 20, { level, looked, e0, e1 });
+    check('the right drag leaves the camera looking near the horizon', Math.abs(looked.phi - Math.PI / 2) < 0.6, looked);
     const wt = await walk(['w']);
-    check('tilted and turned, W moves the target along the ground the way the camera faces, the tilt, turn and distance kept',
-      wt.went && wt.stopped && wt.kept && along(wt.dir, ahead(wt.from.theta)) > 0.99, wt);
+    check('looking at the horizon, W raises the camera, the tilt, turn and distance kept',
+      wt.went && wt.stopped && wt.kept && along(wt.dir, upOf(wt.from)) > 0.99 && wt.dir[1] > 0.8 && eyeOf(wt.to)[1] > eyeOf(wt.from)[1] + 5, wt);
     const wd = await walk(['w', 'd']);
-    const diag = [(ahead(wd.from.theta)[0] + right(wd.from.theta)[0]) / Math.SQRT2, (ahead(wd.from.theta)[1] + right(wd.from.theta)[1]) / Math.SQRT2];
-    check('W and D together move diagonally, ahead and to the right', wd.went && wd.stopped && wd.kept && along(wd.dir, diag) > 0.99, wd);
+    const diag = upOf(wd.from).map((v, k) => (v + right(wd.from)[k]) / Math.SQRT2);
+    check('W and D together move diagonally, up and to the right', wd.went && wd.stopped && wd.kept && along(wd.dir, diag) > 0.99, wd);
+
+    // Looking far up, the camera's up runs along the ground again: W slides it along the ground, S back, whatever
+    // way it looks, never along its line of sight.
+    await dragUp(0.45 * (area.b - area.t));
+    const up1 = await settled();
+    check('a long right drag up looks above the horizon', up1.phi > Math.PI / 2 + 0.2 && up1.phi < Math.PI, up1);
+    const wu = await walk(['w']);
+    check('looking far up, W moves the camera along its up, nearly along the ground', wu.went && wu.stopped && wu.kept && along(wu.dir, upOf(wu.from)) > 0.99, wu);
+    const sd = await walk(['s']);
+    check('looking far up, S moves it the other way', sd.went && sd.stopped && along(sd.dir, upOf(sd.from)) < -0.99, sd);
+    const ad = await walk(['a']);
+    check('A stays level however the camera looks', ad.went && ad.stopped && Math.abs(eyeOf(ad.to)[1] - eyeOf(ad.from)[1]) < 0.5, ad);
 
     // The window losing focus stops the walk, the key still down.
     const lost = await settled();
     await down('d');
-    const going = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.hypot(c.tx-(${lost.tx}),c.tz-(${lost.tz}))>${lost.dist * 0.05}})()`, 6000);
+    const going = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.hypot(c.tx-(${lost.tx}),c.ty-(${lost.ty}),c.tz-(${lost.tz}))>${lost.dist * 0.05}})()`, 6000);
     await ev(`window.dispatchEvent(new Event('blur'))`);
     const blurred = await still();
     await up('d');

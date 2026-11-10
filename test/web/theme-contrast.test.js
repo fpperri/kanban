@@ -515,6 +515,7 @@ const GRAPH_KEEPS = {
   '.graph-canvas.graph-flow-frontier .graph-node.is-done': 'the Graph\'s dimming: waits on the ruling',
   '.graph-canvas.graph-flow-frontier .graph-node.archived': 'the Graph\'s dimming: waits on the ruling',
   '.graph-node-leader': 'a leader line, decoration',
+  '.graph-3d-pivot': 'the cross a turn goes round, decoration: it fades out when the turn stops',
   '.graph-dim .graph-node:not(.graph-near)': 'the Graph\'s dimming: waits on the ruling',
   '.graph-dim .graph-link:not(.graph-near)': 'the Graph\'s dimming: waits on the ruling',
   '.graph-dim .graph-link.graph-near': 'the Graph\'s dimming: waits on the ruling',

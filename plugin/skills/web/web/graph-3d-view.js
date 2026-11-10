@@ -42,8 +42,13 @@ function graph3dCreate() {
   label.title = GRAPH3D_HELP;
   label.setAttribute('aria-live', 'polite');
   root.appendChild(label);
+  const pivotMark = document.createElement('span');
+  pivotMark.className = 'graph-3d-pivot';
+  pivotMark.dataset.on = '0';
+  pivotMark.setAttribute('aria-hidden', 'true');
+  root.appendChild(pivotMark);
   const hier = {
-    root, label, compass: null, dial: null, north: null,
+    root, label, pivotMark, pivotAt: null, compass: null, dial: null, north: null,
     gone: false, T: null, renderer: null, scene: null, camera: null,
     ground: [], groundKey: '', groundAt: '', view: null, overlay: null, links: [], farLinks: [], captions: [], rim: 100, outer: 0,
     names: null, namesMode: '',
@@ -52,7 +57,7 @@ function graph3dCreate() {
     raf: 0, w: 1, h: 1, cw: 1, ch: 1, ox: 0, oy: 0, order: '',
     drag: null, pointers: new Map(), pressed: null, pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
     zoom: null, spin: null, walk: new Set(), turn: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
-    fitted: false, fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
+    fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),
     bg: null, scheme: null, themeWatch: null, onTheme: null, compassAt: '',
   };
@@ -84,7 +89,7 @@ function graph3dVisible(hier) {
 // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
 function graph3dPaintLabel(hier) {
   hier.label.textContent = hier.hint ? GRAPH3D_HINT
-    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE turn${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
+    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE spin${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
   hier.root.dataset.shape = hier.shape;
 }
 
@@ -144,21 +149,21 @@ function graph3dFrame(hier) {
     } else more = true;
   }
   if (hier.walk.size) {
-    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.dist, dt);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, graph3dPaceOf(hier), dt);
     if (step) {
-      for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.tz += step[1]; }
+      for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
       more = true;
     }
   }
   if (hier.turn.size) {
     const turn = graph3dTurn(hier.turn, dt);
     if (turn) {
-      hier.cam.theta += turn;
+      graph3dSpin(hier, turn);
       more = true;
     }
   }
   if (hier.spin) {
-    graph3dOrbit(hier, hier.spin.vx * dt, hier.spin.vy * dt);
+    graph3dLookBy(hier, hier.spin.vx * dt, hier.spin.vy * dt);
     hier.spin = graph3dCoast(hier.spin, dt);
     if (hier.spin) more = true;
   }
@@ -176,6 +181,7 @@ function graph3dFrame(hier) {
     else more = true;
   }
   graph3dApplyCamera(hier);
+  graph3dPaintPivot(hier);
   graph3dPlaceGround(hier);
   graph3dPlaceMarks(hier);
   graph3dPaintGround(hier);

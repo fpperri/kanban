@@ -1744,6 +1744,13 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 /* The quiet hint in the corner: the gestures for the first seconds, then the shape and its keys. On a narrow
    stage it wraps short of the compass. */
 .graph-3d-label { position: absolute; left: 4px; bottom: 2px; max-width: calc(100% - 60px); margin: 0; color: var(--mut); font-size: 0.78em; user-select: none; }
+/* The pivot of a turn: a quiet cross (a plus, 14px, the muted ink) at the point the camera turns round, shown while
+   a right drag, its coast or Q and E turns and fading out over 600ms after (graph-3d-camera.js). It takes no pointer. */
+.graph-3d-pivot { position: absolute; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; pointer-events: none; opacity: 0; transition: opacity 600ms ease-out; }
+.graph-3d-pivot[data-on="1"] { opacity: 1; transition-duration: 80ms; }
+.graph-3d-pivot::before, .graph-3d-pivot::after { content: ""; position: absolute; background: var(--mut); }
+.graph-3d-pivot::before { left: 0; top: 6.5px; width: 14px; height: 1px; }
+.graph-3d-pivot::after { left: 6.5px; top: 0; width: 1px; height: 14px; }
 /* The compass in the stage's bottom-right corner: a dial on the plan, turned and tilted as the camera sees the
    plan (graph-3d-compass.js), its north the 2D Hierarchy's top; a press turns the view north up from straight above. */
 .graph-3d-compass { position: absolute; right: 6px; bottom: 6px; width: 44px; height: 44px; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; }
