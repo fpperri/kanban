@@ -4,7 +4,7 @@
 // card with notes wears opens its notes, newest day first, each with its time (and its author
 // when it is not the human); the filter field narrows them and leaves the note box alone. n on
 // the hovered card, on the one selected card and on nothing, and the right-click Add note...,
-// open the palette aimed at a card, and with nothing aimed at it starts on the card last noted.
+// open the palette aimed at a card, and with nothing aimed at it starts on no card.
 // Enter writes the note at the time field's time, keeps the palette open and clears the box;
 // Shift+Enter starts a new line; a leading HH:MM, the untimed tick and a leading - each set the
 // time, and the preview line says exactly what Enter will write; a duration picked from its menu makes a
@@ -278,13 +278,13 @@ module.exports = {
     await ev(`document.activeElement.blur()`);
     check('notes: Esc closes the palette with focus outside it, and leaves the selection alone', await closePalette() && await ev(`[...selectedIds].join()==='3'`));
 
-    // --- with nothing aimed at it, the palette starts on the card last noted, and remembers it across a reload --
+    // --- with nothing aimed at it, the palette starts on no card --
     await open('/?view=board');
     check('notes: the board is drawn again', await boardReady());
     await mouse('mouseMoved', 5, 5, { button: 'none', clickCount: 0 });
     await ev(`document.body.focus()`);
     await key('n');
-    check('notes: n with nothing hovered or selected opens on the card last noted, after a reload too', await palUp() && await chip() === '' && (await preview()).includes('on #22 Cut over the data layer (last noted)'), await preview());
+    check('notes: n with nothing hovered or selected opens on no card, after a reload too', await palUp() && await chip() === '' && (await preview()).includes('on no card') && !/last noted/.test(await preview()), await preview());
     check('notes: the day\'s notes are listed when there is no chip', (await ev(SECTIONS)).length >= 1 && (await ev(SECTIONS)).every((s) => s.startsWith('20')));
     await closePalette();
 

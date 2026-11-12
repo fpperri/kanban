@@ -267,7 +267,7 @@ test('#22 then Enter from an hour keeps the hour\'s time: the card is aimed at a
   const sub = n.noteSubjectFrom(c.noteHourRequest('2026-10-15', 601), { today: '2026-10-19', isGroup: () => false });
   const aimed = n.noteSubjectAimed(sub, '22');
   assert.strictEqual(aimed.at, '10:00');
-  const plan = n.noteWritePlan(n.noteParseLine('checked the cutover', { board: 'plan', isTarget: () => true }), aimed, { value: '10:00', untimed: false }, { today: '2026-10-19', now: '16:40', lastNoted: '' });
+  const plan = n.noteWritePlan(n.noteParseLine('checked the cutover', { board: 'plan', isTarget: () => true }), aimed, { value: '10:00', untimed: false }, { today: '2026-10-19', now: '16:40' });
   assert.deepStrictEqual([plan.at, plan.day, plan.target], ['10:00', '2026-10-15', '22']);
 });
 

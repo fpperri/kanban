@@ -6,7 +6,7 @@ const n = require('../../plugin/skills/web/web/notes');
 // starts are the Calendar's (calendar-model.js: Monday). 2026-10-21 is a Wednesday.
 
 const KNOWN = { board: 'plan', isTarget: (id) => ['7', '22', '3', 'G3'].includes(id) };
-const CTX = { today: '2026-10-21', now: '16:40', lastNoted: '7' };
+const CTX = { today: '2026-10-21', now: '16:40' };
 const field = (value, untimed = false, day = '') => ({ value, untimed, day });
 const plan = (raw, subject, f = field('09:00')) => n.noteWritePlan(n.noteParseLine(raw, KNOWN), subject, f, CTX);
 const none = { kind: 'none', day: CTX.today };
@@ -56,34 +56,33 @@ test('the preview names the day when it is not today', () => {
 
 // --- the card picker -------------------------------------------------------------------------------
 
-test('the picker shows the subject\'s target: a card or group, several cards by count, no card, else the card last noted', () => {
+test('the picker shows the subject\'s target: a card or group, several cards by count, no card, and no card for nothing', () => {
   assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'card', id: '7', day: CTX.today }, '22'), { id: '7' });
   assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'group', id: 'G3', day: CTX.today }, '22'), { id: 'G3' });
   assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'each', ids: ['3', '7'], day: CTX.today }, '22'), { each: 2 });
-  assert.deepStrictEqual(n.noteSubjectTarget(none, '22'), { id: '22' }, 'what Enter would write on');
-  assert.deepStrictEqual(n.noteSubjectTarget(none, ''), { id: '' });
-  assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'none', day: CTX.today, noCard: true }, '22'), { id: '' });
+  assert.deepStrictEqual(n.noteSubjectTarget(none), { id: '' }, 'nothing aimed at is no card');
+  assert.deepStrictEqual(n.noteSubjectTarget({ kind: 'none', day: CTX.today }), { id: '' });
 });
 
-test('choosing no card makes a note about nothing, whatever card was last noted', () => {
+test('choosing no card makes a note about nothing', () => {
   const chosen = n.noteSubjectNoCard({ kind: 'card', id: '7', day: '2026-10-16' });
-  assert.deepStrictEqual(chosen, { kind: 'none', day: '2026-10-16', noCard: true });
+  assert.deepStrictEqual(chosen, { kind: 'none', day: '2026-10-16' });
   const p = plan('x', chosen);
   assert.deepStrictEqual([p.target, p.from], ['', 'nocard']);
-  assert.strictEqual(plan('x', none).target, '7', 'without the choice it is the card last noted');
+  assert.strictEqual(plan('x', none).target, '', 'without the choice it is still no card');
 });
 
 test('choosing no card keeps the hour or the untimed box the palette was opened on', () => {
   const slot = { kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600, at: '09:00' };
-  assert.deepStrictEqual(n.noteSubjectNoCard(slot), { ...slot, noCard: true });
+  assert.deepStrictEqual(n.noteSubjectNoCard(slot), { ...slot });
   const aimed = n.noteSubjectAimed(slot, '22');
-  assert.deepStrictEqual(n.noteSubjectNoCard(aimed), { ...slot, noCard: true }, 'from a card aimed at from a slot, back to the slot with no card');
+  assert.deepStrictEqual(n.noteSubjectNoCard(aimed), { ...slot }, 'from a card aimed at from a slot, back to the slot with no card');
   assert.strictEqual(n.noteSubjectNoCard({ kind: 'untimed', day: '2026-10-14' }).kind, 'untimed');
   assert.strictEqual(n.noteSubjectNoCard({ kind: 'each', ids: ['3', '7'], day: CTX.today }).kind, 'none');
 });
 
 test('a mention typed at the start of the note wins over the picker', () => {
-  const p = plan('#22 from the line', { kind: 'none', day: CTX.today, noCard: true });
+  const p = plan('#22 from the line', { kind: 'none', day: CTX.today });
   assert.deepStrictEqual([p.target, p.from], ['22', 'line']);
   const q = plan('#22 x', { kind: 'card', id: '7', day: CTX.today });
   assert.deepStrictEqual([q.target, q.from], ['22', 'line']);
@@ -91,7 +90,7 @@ test('a mention typed at the start of the note wins over the picker', () => {
 
 test('the preview says no card when the note is about nothing', () => {
   const o = { label: (id) => (id ? `#${id}` : 'no card'), dayName: n.noteDayName, today: CTX.today };
-  assert.strictEqual(n.notePreview(plan('x', { kind: 'none', day: CTX.today, noCard: true }), o), 'Note at 09:00 on no card');
+  assert.strictEqual(n.notePreview(plan('x', { kind: 'none', day: CTX.today }), o), 'Note at 09:00 on no card');
 });
 
 test('on several cards, choosing one makes it a single target, as a bare mention does', () => {
@@ -237,14 +236,11 @@ test('a group lists its own and its members\' notes in the range', () => {
   assert.deepStrictEqual(out, ['c']);
 });
 
-test('clearing the chip leaves no card, whatever card was last noted', () => {
+test('clearing the chip leaves no card', () => {
   const slot = { kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600, at: '09:00' };
   const noCard = n.noteSubjectNoCard(slot);
   const aimed = n.noteSubjectAimed(noCard, '22');
   const cleared = n.noteSubjectCleared(aimed, CTX.today);
-  assert.strictEqual(cleared.noCard, true);
-  assert.strictEqual(plan('x', cleared).target, '', 'a note about nothing, not the card last noted');
-  assert.deepStrictEqual(n.noteSubjectTarget(cleared, '7'), { id: '' });
-  const fromCard = n.noteSubjectCleared(n.noteSubjectAimed(n.noteSubjectNoCard({ kind: 'card', id: '7', day: CTX.today }), '22'), CTX.today);
-  assert.strictEqual(fromCard.noCard, true);
+  assert.strictEqual(plan('x', cleared).target, '', 'a note about nothing');
+  assert.deepStrictEqual(n.noteSubjectTarget(cleared), { id: '' });
 });

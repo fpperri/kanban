@@ -6,7 +6,7 @@ const KNOWN = { board: 'plan', isTarget: (id) => ['7', '22', 'G3'].includes(id) 
 const IS = { today: '2026-10-16', isGroup: (id) => id === 'G3' };
 const field = (value = '', untimed = false, day = '') => ({ value, untimed, day });
 const plan = (raw, subject, f, ctx) => n.noteWritePlan(n.noteParseLine(raw, KNOWN), subject, f, ctx);
-const at = (today, now) => ({ today, now, lastNoted: '7' });
+const at = (today, now) => ({ today, now });
 
 test('a subject whose day came from the clock says so; one whose day the request gave does not', () => {
   assert.strictEqual(n.noteSubjectFrom({}, IS).clockDay, true);
@@ -63,7 +63,7 @@ test('the clock subject stays on the clock through aiming, no-card and clearing'
   assert.strictEqual(n.noteSubjectNoCard(none).clockDay, true);
   assert.strictEqual(n.noteSubjectNoCard(n.noteSubjectAimed(none, '22')).clockDay, true);
   const cleared = n.noteSubjectCleared(n.noteSubjectFrom({ target: '22' }, IS), '2026-10-16');
-  assert.deepStrictEqual(cleared, { kind: 'none', day: '2026-10-16', clockDay: true, noCard: true });
+  assert.deepStrictEqual(cleared, { kind: 'none', day: '2026-10-16', clockDay: true });
   const slot = n.noteSubjectFrom({ kind: 'slot', day: '2026-10-14', fromMin: 540, toMin: 600 }, IS);
   assert.strictEqual(n.noteSubjectAimed(slot, '22').clockDay, undefined);
   assert.strictEqual(n.noteSubjectNoCard(slot).clockDay, undefined);
