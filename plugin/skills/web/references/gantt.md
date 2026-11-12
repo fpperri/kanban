@@ -20,7 +20,7 @@ inside the data's range) when a board sprawls wider — re-derived from the card
 every render, same as before this sub-view switch existed. A SIZED sub-view
 (Month/Week/3 days/Day) instead pages a fixed-span window around one anchor day
 (`ganttSubviewWindow`, gantt-model.js; week starts Monday, 3 days = anchor + the next
-two, month = that calendar month's own days with no leading/trailing padding — a linear
+two and stepping one day, month = that calendar month's own days with no leading/trailing padding — a linear
 timeline has no week rows to square off) — prev/next/Today step it by the active
 sub-view's span, reusing the calendar's own `shiftAnchorDay`/`subviewTitle`
 (calendar-model.js) verbatim, since that math has nothing calendar-specific in it. The

@@ -277,7 +277,8 @@ function calendarSubviewDays(subview, anchorDay) {
   return null;
 }
 
-// prev/next step by the ACTIVE view's span. One anchor day drives all four
+// prev/next step by the ACTIVE view's span (a week 7 days; 3 days and Day one
+// day each, so the 3 days window slides). One anchor day drives all four
 // sub-views, so the
 // month case normalizes to the FIRST of the shifted month — the grid only
 // needs y/m, and pinning day 1 keeps a Jan-31 anchor from skipping February.
@@ -287,7 +288,7 @@ function shiftAnchorDay(subview, anchorDay, delta) {
     const s = shiftMonth(y, m - 1, delta);
     return `${s.year}-${pad2(s.monthIndex + 1)}-01`;
   }
-  const span = subview === 'week' ? 7 : subview === '3day' ? 3 : 1;
+  const span = subview === 'week' ? 7 : 1;
   return addDays(anchorDay, delta * span);
 }
 

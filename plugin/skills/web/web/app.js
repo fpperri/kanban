@@ -5785,8 +5785,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// prev/next step by the ACTIVE sub-view's span (month / 7 / 3 / 1
-// days) — shiftAnchorDay owns the math, one anchor cursor drives all four.
+// prev/next step by the ACTIVE sub-view's span (month / 7 / 1 / 1
+// days; 3 days slides a day) — shiftAnchorDay owns the math, one anchor cursor drives all four.
 function shiftCalendarWindow(delta) {
   calendarAnchor = shiftAnchorDay(loadCalendarSubview(), currentCalendarAnchor(), delta);
   renderCalendarView();

@@ -124,7 +124,7 @@ test('All has no bounds', () => {
 test('the previous and next buttons step one unit, and All has nowhere to step', () => {
   assert.strictEqual(n.noteRangeStep('day', '2026-10-21', 1), '2026-10-22');
   assert.strictEqual(n.noteRangeStep('day', '2026-10-21', -1), '2026-10-20');
-  assert.strictEqual(n.noteRangeStep('3day', '2026-10-21', 1), '2026-10-24');
+  assert.strictEqual(n.noteRangeStep('3day', '2026-10-21', 1), '2026-10-22');
   assert.strictEqual(n.noteRangeStep('week', '2026-10-21', 1), '2026-10-28');
   assert.strictEqual(n.noteRangeStep('week', '2026-10-21', -1), '2026-10-14');
   assert.strictEqual(n.noteRangeStep('month', '2026-10-21', 1), '2026-11-01');
