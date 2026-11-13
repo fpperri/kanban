@@ -46,11 +46,12 @@ const setBox = (p, text) => { p.ui().input.value = text; p.ui().input.fire('inpu
 
 // --- the date beside the time ------------------------------------------------------------------
 
-test('the subject row holds a date, a time, a duration, the untimed tick and the card picker, in that order', async () => {
+test('the subject row holds the card picker, then a date, a time, a duration and the untimed tick, in that order', async () => {
   const p = await open();
   p.page.run("openNotes({ kind: 'card-notes', id: '7' })");
-  const names = p.find('.np-when').children.map((c) => c.classes.find((k) => /^np-(date-wrap|time-wrap|duration-wrap|untimed-label|pick)$/.test(k)) || c.classes.join(' ') || c.tag);
-  assert.deepStrictEqual(names.filter((n) => n !== 'span'), ['np-date-wrap', 'np-time-wrap', 'np-duration-wrap', 'np-untimed-label', 'np-pick']);
+  const names = p.find('.np-subject-row').children.flatMap((c) => (c.classes.includes('np-when') ? c.children : [c]).map((k) => k.classes.find((n) => /^np-(subject|date-wrap|time-wrap|duration-wrap|untimed-label)$/.test(n))).filter(Boolean));
+  assert.deepStrictEqual(names, ['np-subject', 'np-date-wrap', 'np-time-wrap', 'np-duration-wrap', 'np-untimed-label']);
+  assert.ok(p.find('.np-subject').contains(p.ui().pick), 'the picker is the subject');
 });
 
 test('the date starts on Today and the time on Now, which Enter works out when it is pressed', async () => {

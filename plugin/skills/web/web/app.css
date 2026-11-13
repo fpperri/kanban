@@ -2140,31 +2140,37 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .context-menu { position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: .2rem; padding: 4px; display: flex; flex-direction: column; min-width: 160px; box-shadow: var(--shadow-pop); }
 
 /* --- The notes palette (notes-palette.js): the one surface for a board's notes. Not a modal:
-   no backdrop, so the board keeps refreshing behind it; it sits above the header and below the
-   search list, the toast and every popup. The subject row (chip, time, untimed tick) leads, then
-   the note box, the preview line, the filter row (the filter field and the author switch in .np-by-slot) and the
-   list of notes by day and card. */
+   no backdrop, so the board keeps refreshing beside it. From 760px (notes-palette.js
+   NOTES_FULLSCREEN_MIN_WIDTH, which sets .fullscreen under it) the palette is a dock: full height on the
+   right, under the header, and body.notes-docked gives the views the room. Top down: the head (tabs, the
+   full screen button), one toolbar (the filter, the layout, author and range switches, each a dropdown
+   where the toolbar is narrow), the list of notes by day and card, then the note bar pinned at the bottom
+   (the subject line while focus is in it, the box) and the hint line while the box has focus. */
+:root { --np-dock-w: clamp(340px, 34vw, 480px); }
 .card-notes { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; padding: 0 5px; border: 1px solid transparent; border-radius: .15rem; background: transparent; color: var(--mut); font-size: 0.72em; line-height: 1.6; font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-variant-numeric: tabular-nums; cursor: pointer; }
 .card-notes:hover, .card-notes:focus-visible { border-color: var(--line-strong); color: var(--accent); }
 .card-notes svg { width: 11px; height: 11px; }
-.notes-palette { position: fixed; z-index: 19; top: calc(var(--board-header-h, 64px) + 24px); left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - var(--board-header-h, 64px) - 64px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line-strong); border-radius: .2rem; box-shadow: var(--shadow-pop); font-size: 15px; overflow: hidden; }
+.notes-palette { position: fixed; z-index: 19; top: calc(var(--board-header-h, 64px) + 16px); right: 0; bottom: 0; width: var(--np-dock-w); display: flex; flex-direction: column; background: var(--surface); border: 0 solid var(--line-strong); border-left-width: 1px; border-radius: 0; box-shadow: var(--shadow-pop); font-size: 15px; overflow: hidden; }
 .text-edit-hint { position: fixed; right: 12px; bottom: 8px; z-index: 61; padding: 2px 8px; font-size: 0.75rem; color: var(--mut); background: var(--surface); border: 1px solid var(--line-soft); border-radius: .15rem; pointer-events: none; }
 .text-edit-hint[hidden] { display: none; }
 .notes-palette.np-over-detail { z-index: 31; } /* over the card details, which sit at 30 */
-.np-bar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-.np-subject-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
-.np-chip { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 2px 4px 2px 8px; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); color: var(--ink); font-size: 0.85em; white-space: nowrap; }
-.np-chip[hidden] { display: none; }
-.np-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+body.notes-docked main#board, body.notes-docked .map-view, body.notes-docked .calendar-view, body.notes-docked .gantt-view, body.notes-docked .graph-view { margin-right: var(--np-dock-w); }
+.np-bar { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; border-top: 1px solid var(--line); }
+.np-subject-row { display: none; align-items: center; gap: 4px 8px; flex-wrap: wrap; min-width: 0; }
+.notes-palette.np-focus .np-subject-row { display: flex; }
+.np-subject { display: inline-flex; align-items: center; flex: 1 1 11em; min-width: 0; max-width: 100%; border: 1px solid var(--accent); border-radius: .15rem; background: var(--accent-soft); }
+.np-subject .np-pick { flex: 1 1 auto; min-width: 0; }
+.np-subject .np-pick-input { width: 100%; padding: 2px 4px 2px 8px; border: 0; background: transparent; color: var(--ink); font-size: .85em; }
+.np-subject .np-pick-input:focus { outline: none; }
 .np-chip-x { flex: 0 0 auto; padding: 0 4px; font-size: 0.85em; line-height: 1.2; border: 0; background: transparent; color: var(--mut); cursor: pointer; }
 .np-chip-x:hover { background: transparent; color: var(--accent); }
-.np-when { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: var(--mut); font-size: 0.82em; } /* wraps where a phone has no room for the date, time, duration, tick and picker on one line */
+.np-when { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; color: var(--mut); font-size: 0.82em; } /* wraps where a phone has no room for the date, time, duration, tick and picker on one line */
 .np-date-wrap { display: inline-flex; align-items: center; gap: 2px; }
-.np-date { width: 6.8em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
+.np-date { width: 6.2em; padding: 3px 6px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 1em; text-align: center; }
 .np-date-btn { padding: 1px 4px; border: 0; background: transparent; cursor: pointer; font-size: 1em; line-height: 1; }
 .np-time-wrap { display: inline-flex; align-items: center; gap: 4px; position: relative; }
-.np-mode-btn { padding: 1px 6px; border: 1px solid var(--line); border-radius: .15rem; background: transparent; color: var(--mut); font: inherit; font-size: .92em; line-height: 1.3; cursor: pointer; }
-.np-mode-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--ink-strong); }
+.np-mode-btn { padding: 0 5px; border: 1px solid var(--line); border-radius: .15rem; background: transparent; color: var(--mut); font: inherit; font-size: .92em; line-height: 1.3; cursor: pointer; }
+.np-mode-btn[aria-pressed="true"] { display: none; } /* Today and Now are the fields' own state: the reset shows only while a field says something else */
 .np-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .np-mode-btn:disabled { opacity: .45; cursor: default; }
 .np-pick { position: relative; display: inline-flex; min-width: 0; }
@@ -2174,33 +2180,47 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .np-time:focus, .np-duration:focus, .np-date:focus, .np-pick-input:focus, .np-input:focus, .np-filter:focus, .np-edit input:focus, .np-edit textarea:focus { outline: none; border-color: var(--accent); }
 .np-time:disabled { opacity: .45; }
 .np-duration-wrap { display: inline-flex; align-items: center; position: relative; }
-.np-duration { width: 6.4em; }
+.np-duration { width: 5.4em; }
 .np-untimed-label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .np-input { padding: 6px 9px; border: 1px solid var(--line); border-radius: .15rem; background: var(--paper); color: var(--ink-strong); font: inherit; font-size: 1.02em; line-height: 1.4; resize: none; overflow-y: hidden; }
 .np-input::placeholder, .np-filter::placeholder { color: var(--mut); }
-.np-prev { display: flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-bottom: 1px solid var(--line-soft); background: var(--raised); color: var(--ink); font-size: 0.8em; min-width: 0; }
+.np-prev { display: none; align-items: baseline; gap: 6px; padding: 3px 12px; border-top: 1px solid var(--line-soft); background: var(--raised); color: var(--ink); font-size: 0.8em; min-width: 0; }
 .np-prev-key { flex: 0 0 auto; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: .15rem; color: var(--mut); font-family: ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace; font-size: 0.85em; }
+.notes-palette.np-typing .np-prev { display: flex; }
 .np-prev-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .np-prev-hint { margin-left: auto; flex: 0 0 auto; color: var(--mut); }
 .np-prev.idle .np-prev-text { color: var(--mut); }
 .np-prev.bad { color: var(--crit); }
 .np-prev.bad .np-prev-key { color: var(--crit); border-color: var(--crit); }
-.np-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px 0; }
-.np-filter { flex: 1 1 8em; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.85em; }
+.np-filter-row { display: flex; align-items: center; gap: 6px; padding: 6px 10px 0; container-type: inline-size; }
+.np-filter { flex: 1 1 3em; min-width: 2.5em; padding: 5px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.85em; }
 .np-by-slot { display: inline-flex; flex: 0 0 auto; border: 1px solid var(--line-soft); border-radius: .15rem; overflow: hidden; }
 .np-by-btn { padding: 4px 9px; border: 0; border-left: 1px solid var(--line-soft); border-radius: 0; background: transparent; color: var(--mut); font: inherit; font-size: 0.8em; cursor: pointer; }
 .np-by-btn:first-child { border-left: 0; }
 .np-by-btn:hover { background: var(--hover-wash); color: var(--ink); }
 .np-by-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink-strong); }
 .np-by-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.np-range-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 12px 0; }
-.np-range-step { padding: 2px 9px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.9em; cursor: pointer; }
+.np-range-row { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+.np-sel { flex: 0 0 auto; max-width: 7em; padding: 3px 2px; border: 1px solid var(--line-soft); border-radius: .15rem; background: var(--paper); color: var(--ink); font: inherit; font-size: .8em; }
+.np-sel:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+/* The toolbar shows a switch where it has the room and its dropdown where it has not (the container is the row). */
+.np-layout-slot, .np-who-slot, .np-range-slot, .np-range-label { display: none; }
+@container (min-width: 520px) {
+  .np-sel-layout, .np-sel-by { display: none; }
+  .np-layout-slot, .np-who-slot { display: inline-flex; }
+  .np-range-label { display: inline-block; }
+}
+@container (min-width: 900px) {
+  .np-sel-range { display: none; }
+  .np-range-slot { display: inline-flex; }
+}
+.np-range-step { padding: 1px 7px; border: 1px solid var(--line-soft); border-radius: .15rem; background: transparent; color: var(--ink); font: inherit; font-size: 0.9em; cursor: pointer; }
 .np-range-step:hover:not(:disabled) { background: var(--hover-wash); }
 .np-range-step:disabled, .np-range-label:disabled { opacity: .4; cursor: default; }
 .np-range-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .np-range-label { padding: 2px 8px; border: 0; background: transparent; color: var(--ink-strong); font: inherit; font-size: 0.85em; font-weight: 600; cursor: pointer; }
 .np-range-label:hover:not(:disabled) { color: var(--accent); }
-.np-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 12px; }
+.np-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 12px 12px; }
 .np-notes { display: flex; flex-direction: column; gap: 12px; min-width: 0; container: np-list / inline-size; }
 .np-nhead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; font-size: 0.8em; min-width: 0; }
 .np-nhead-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--ink-strong); font: inherit; font-weight: 600; text-align: left; }

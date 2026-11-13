@@ -115,8 +115,7 @@ test('choosing a card aims the palette at it, as a bare mention and Enter does, 
   assert.strictEqual(p.page.run('notesUi.sub.kind'), 'card');
   assert.strictEqual(p.ui().input.value, 'half a thought', 'the note box is not cleared');
   assert.strictEqual(p.ui().pick.value, '#22 Cut over the data layer', 'the field names the card, not its id');
-  assert.match(p.text(p.find('.np-chip-text')), /^#22 Cut over the data layer/);
-  assert.match(p.text(p.find('.np-prev-text')), /on #22 Cut over the data layer/);
+    assert.match(p.text(p.find('.np-prev-text')), /on #22 Cut over the data layer/);
   assert.deepStrictEqual(p.listed().filter((x) => x === 'c'), ['c'], 'the list is that card\'s');
 });
 
@@ -230,7 +229,7 @@ test('a press on the menu is a press in the palette: it stays up', async () => {
   p.page.fireDocument('mousedown', { target: item });
   assert.notStrictEqual(p.page.run('notesUi.sub'), null);
   p.page.fireDocument('mousedown', { target: p.doc.createElement('div') });
-  assert.strictEqual(p.page.run('notesUi.sub'), null, 'a press anywhere else still closes it');
+  assert.notStrictEqual(p.page.run('notesUi.sub'), null, 'a press anywhere else leaves it up: the dock keeps the board in use');
 });
 
 // --- Esc clears the chip before it closes the palette -------------------------------------------------------------
@@ -247,7 +246,8 @@ test('Esc on a palette aimed at a card clears the chip, as the backspace does, a
   assert.strictEqual(e.stopped, true);
   assert.notStrictEqual(p.page.run('notesUi.sub'), null, 'still open');
   assert.strictEqual(p.page.run('notesUi.sub.kind'), 'none');
-  assert.ok(p.find('.np-chip').hidden, 'no chip shows');
+  assert.ok(p.find('.np-chip-x').hidden, 'no subject to clear');
+  assert.strictEqual(p.ui().pick.value, 'no card');
   assert.strictEqual(p.ui().input.value, 'half a thought', 'the box is as it was');
   assert.deepStrictEqual(p.pressed(), ['day'], 'the range is the opening rule\'s with no card');
 });
@@ -407,7 +407,7 @@ test('the range row holds All, Month, Week, 3 days and Day, then previous, the l
   const p = await open();
   p.openCard('7');
   assert.deepStrictEqual(p.all('.np-range-slot .np-by-btn').map((b) => p.text(b)), ['All', 'Month', 'Week', '3 days', 'Day']);
-  assert.deepStrictEqual(p.find('.np-range-row').children.map((c) => c.classes.includes('np-range-slot') ? 'modes' : c.classes.includes('np-range-label') ? 'label' : c.classes.includes('np-range-live') ? 'live' : `step ${c.dataset.step}`), ['modes', 'step -1', 'label', 'step 1', 'live']);
+  assert.deepStrictEqual(p.find('.np-range-row').children.map((c) => c.classes.includes('np-range-slot') ? 'modes' : c.classes.includes('np-sel') ? 'dropdown' : c.classes.includes('np-range-label') ? 'label' : c.classes.includes('np-range-live') ? 'live' : `step ${c.dataset.step}`), ['modes', 'dropdown', 'step -1', 'label', 'step 1', 'live']);
   assert.deepStrictEqual(p.all('.np-range-step').map((b) => p.text(b)), ['‹', '›']);
 });
 
@@ -653,10 +653,10 @@ test('the untimed box opens on Day, that day, listing its untimed notes; widenin
 test('the range row goes with the notes list: a group\'s other tabs do not show it', async () => {
   const p = await open();
   p.openCard('7');
-  assert.strictEqual(p.find('.np-range-row').hidden, false);
+  assert.strictEqual(p.find('.np-filter-row').hidden, false);
   p.page.run("notesUi.tab = 'scratch'; notesPaint = notesPaint");
   p.page.run('notesPaint()');
-  assert.strictEqual(p.find('.np-range-row').hidden, true);
+  assert.strictEqual(p.find('.np-filter-row').hidden, true);
 });
 
 test('the stylesheet gives the range row its buttons and label', () => {

@@ -25,12 +25,12 @@ const DAY = "{ kind: 'slot', day: '2026-10-15', fromMin: 0, toMin: 1440 }";
 const switchBtn = (p, layout) => p.find(`.np-by-btn[data-layout="${layout}"]`);
 const pressed = (p) => p.all('.np-layout-slot .np-by-btn').map((b) => `${b.dataset.layout}:${b.getAttribute('aria-pressed')}`);
 
-test('the filter row holds a Grouped and Timeline switch beside the author switch, Grouped pressed to begin with', async () => {
+test('the toolbar holds a Grouped and Timeline switch beside the author switch, Grouped pressed to begin with', async () => {
   const p = await openPalette({ notes: NOTES });
   p.page.run(`openNotes(${DAY})`);
   assert.deepStrictEqual(pressed(p), ['grouped:true', 'timeline:false']);
   const row = p.find('.np-filter-row');
-  assert.deepStrictEqual(row.children.map((c) => c.classes.includes('np-layout-slot') ? 'layout' : c.classes.includes('np-by-slot') ? 'by' : 'filter'), ['filter', 'layout', 'by']);
+  assert.deepStrictEqual(row.children.filter((c) => !c.classes.includes('np-sel') && !c.classes.includes('np-range-row')).map((c) => c.classes.includes('np-layout-slot') ? 'layout' : c.classes.includes('np-by-slot') ? 'by' : 'filter'), ['filter', 'layout', 'by']);
   assert.match(switchBtn(p, 'timeline').title, /By day and time|One list/);
 });
 

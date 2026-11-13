@@ -38,12 +38,12 @@
 // loadCalendarSubview, currentCalendarAnchor, calendarHoverDay, kanbanDurations, and notes.js's and groups.js's functions.
 
 const notesUi = {
-  el: null, input: null, time: null, untimed: null, chip: null, chipText: null, prev: null,
+  el: null, input: null, time: null, untimed: null, subject: null, clearBtn: null, prev: null,
   date: null, dateBtn: null, dateWrap: null, dateTyped: false, todayBtn: null, timeWrap: null, timeMenu: null, nowBtn: null, pick: null, pickWrap: null,
   duration: null, durationWrap: null, durationMenu: null, listMenus: new Map(),
   range: { mode: 'day', anchor: '' }, rangeTouched: false, rangeRow: null, rangeBtns: [], rangeStepBtns: [], rangeLabel: null, rangeLive: null,
   filter: null, filterRow: null, when: null, tabsEl: null, bySlot: null, byBtns: [], by: 'all', layoutSlot: null, layoutBtns: [], layout: 'grouped', layoutFor: null, body: null, foot: null,
-  head: null, fsBtn: null,
+  head: null, fsBtn: null, bar: null, selects: [], leaveTimers: { typing: 0, focus: 0 },
   menu: null, sub: null, scoped: null, finding: false, tab: 'notes', groupSig: '', hi: -1, written: [], editing: 0, writing: false, opener: null,
 };
 
@@ -96,6 +96,8 @@ const notesField = () => ({ value: notesUi.time.value, untimed: notesUi.untimed.
 const NOTES_LAYOUTS = [['grouped', 'Grouped', 'The notes grouped by day and card'], ['timeline', 'Timeline', 'One list of the notes by day and time, each naming its card']];
 const NOTES_RANGES = [['all', 'All', 'Every day'], ['month', 'Month', 'A month at a time'], ['week', 'Week', 'A week at a time, from Monday'], ['3day', '3 days', 'Three days at a time'], ['day', 'Day', 'A day at a time']];
 const NOTES_BY = [['all', 'All', 'Every note'], ['human', 'Human', 'Notes by a human'], ['ai', 'AI', 'Notes by an AI, or by a handle the board does not list']];
+// What the Today and Now fields' reset reads: it shows only while its field says something else.
+const NOTES_RESET = '↺';
 const notesKey = (n) => `${n.day}|${n.target}|${n.at || ''}|${n.duration || ''}|${n.note}|${n.by}`;
 
 function notesEl(tag, className, text) {
@@ -103,6 +105,25 @@ function notesEl(tag, className, text) {
   if (className) el.className = className;
   if (text !== undefined) el.textContent = text;
   return el;
+}
+
+// A dropdown for a switch that has no room on a narrow toolbar (the stylesheet shows one or the other by the
+// toolbar's width); notesSyncSelects keeps it saying what the switch beside it says.
+function notesSelect(className, name, options, set) {
+  const sel = notesEl('select', `np-sel ${className}`);
+  sel.setAttribute('aria-label', name);
+  for (const [value, text, title] of options) {
+    const o = notesEl('option', '', text);
+    o.value = value;
+    o.title = title;
+    sel.append(o);
+  }
+  sel.addEventListener('change', () => set(sel.value));
+  return sel;
+}
+
+function notesSyncSelects() {
+  for (const [sel, value] of notesUi.selects) sel.value = value();
 }
 
 function notesButton(className, text, title, onclick) {
@@ -308,13 +329,9 @@ function notesCalendarUntimed(day, untimed) {
 function notesBuild() {
   if (notesUi.el) return;
   const u = notesUi;
-  u.chipText = notesEl('span', 'np-chip-text');
-  const clear = notesButton('np-chip-x', '✕', 'Clear (Backspace on an empty box)', () => notesClearChip());
-  clear.tabIndex = -1;
-  clear.setAttribute('aria-label', 'Clear the subject');
-  u.chip = notesEl('span', 'np-chip');
-  u.chip.hidden = true;
-  u.chip.append(u.chipText, clear);
+  u.clearBtn = notesButton('np-chip-x', '✕', 'Clear the subject (Backspace on an empty box)', () => notesClearChip());
+  u.clearBtn.tabIndex = -1;
+  u.clearBtn.setAttribute('aria-label', 'Clear the subject');
   u.date = notesEl('input', 'np-date');
   Object.assign(u.date, { type: 'text', maxLength: 10, placeholder: 'YYYY-MM-DD', autocomplete: 'off', inputMode: 'numeric' });
   u.date.setAttribute('aria-label', 'Day of the note');
@@ -322,13 +339,13 @@ function notesBuild() {
   u.dateBtn = notesButton('np-date-btn date-pick-btn', '📅', 'Pick the day', () => {});
   u.dateBtn.setAttribute('aria-label', 'Pick the day of the note');
   wireDatePickButton(u.dateBtn, u.date); // app.js: the one date picker serves this field as it does the card form's
-  u.todayBtn = notesButton('np-mode-btn np-today-btn', NOTE_TODAY, 'The day of the moment Enter is pressed', () => notesChoose(u.date, NOTE_TODAY));
+  u.todayBtn = notesButton('np-mode-btn np-today-btn', NOTES_RESET, 'Back to Today, the day of the moment Enter is pressed', () => notesChoose(u.date, NOTE_TODAY));
   u.dateWrap = notesEl('span', 'np-date-wrap');
   u.dateWrap.append(u.date, u.dateBtn, u.todayBtn);
   u.time = notesEl('input', 'np-time');
   Object.assign(u.time, { type: 'text', maxLength: 5, placeholder: 'HH:MM', autocomplete: 'off', inputMode: 'numeric' });
   u.time.setAttribute('aria-label', 'Time of the note');
-  u.nowBtn = notesButton('np-mode-btn np-now-btn', NOTE_NOW, 'The time of the moment Enter is pressed', () => notesChoose(u.time, NOTE_NOW));
+  u.nowBtn = notesButton('np-mode-btn np-now-btn', NOTES_RESET, 'Back to Now, the time of the moment Enter is pressed', () => notesChoose(u.time, NOTE_NOW));
   u.timeWrap = notesEl('span', 'np-time-wrap');
   u.timeWrap.append(u.time, u.nowBtn);
   u.duration = notesEl('input', 'np-duration');
@@ -346,13 +363,15 @@ function notesBuild() {
   u.pick.setAttribute('aria-label', 'Card the note is about');
   u.pickWrap = notesEl('span', 'np-pick');
   u.pickWrap.append(u.pick);
-  when.append(u.dateWrap, notesEl('span', '', 'at'), u.timeWrap, u.durationWrap, untimedLabel, u.pickWrap);
+  u.subject = notesEl('span', 'np-subject');
+  u.subject.append(u.pickWrap, u.clearBtn);
+  when.append(u.dateWrap, notesEl('span', '', 'at'), u.timeWrap, u.durationWrap, untimedLabel);
   u.pickMenu = notesHangMenu(u.pick, notesPickOptions, '', { minWidth: 320, onPick: notesPicked }); // app.js: the form's suggest-never-validate menu
   u.timeMenu = notesHangMenu(u.time, notesTimeOptions, 'np-time-menu'); // the same menu picks the time: Now, then every 15 minutes
   u.durationMenu = notesHangMenu(u.duration, notesDurationOptions, 'np-duration-menu'); // and the duration: 15m to 4h, to what ends by midnight
   u.when = when;
   const subjectRow = notesEl('div', 'np-subject-row');
-  subjectRow.append(u.chip, when);
+  subjectRow.append(u.subject, when);
   u.tabsEl = notesEl('div', 'np-tabs');
   u.tabsEl.setAttribute('role', 'tablist');
   u.tabsEl.hidden = true;
@@ -363,12 +382,13 @@ function notesBuild() {
   u.input.setAttribute('aria-label', 'Note');
   const bar = notesEl('div', 'np-bar');
   bar.append(subjectRow, u.input);
+  u.bar = bar;
   u.prev = notesEl('div', 'np-prev');
   u.prev.setAttribute('aria-live', 'polite');
   u.filter = notesEl('input', 'np-filter');
   Object.assign(u.filter, { type: 'search', autocomplete: 'off', placeholder: 'Filter these notes; by:@handle' });
   u.filter.setAttribute('aria-label', 'Filter the notes below');
-  u.bySlot = notesEl('span', 'np-by-slot');
+  u.bySlot = notesEl('span', 'np-by-slot np-who-slot');
   u.bySlot.setAttribute('role', 'group');
   u.bySlot.setAttribute('aria-label', 'Notes by');
   u.byBtns = NOTES_BY.map(([by, text, title]) => {
@@ -387,9 +407,11 @@ function notesBuild() {
   });
   u.layoutSlot.append(...u.layoutBtns);
   const filterRow = notesEl('div', 'np-filter-row');
-  filterRow.append(u.filter, u.layoutSlot, u.bySlot);
+  const layoutSel = notesSelect('np-sel-layout', 'List layout', NOTES_LAYOUTS, (v) => notesSetLayout(v));
+  const bySel = notesSelect('np-sel-by', 'Notes by', NOTES_BY, (v) => notesSetBy(v));
+  filterRow.append(u.filter, u.layoutSlot, layoutSel, u.bySlot, bySel);
   u.filterRow = filterRow;
-  u.rangeRow = notesEl('div', 'np-range-row');
+  u.rangeRow = notesEl('span', 'np-range-row');
   const rangeSlot = notesEl('span', 'np-by-slot np-range-slot');
   rangeSlot.setAttribute('role', 'group');
   rangeSlot.setAttribute('aria-label', 'Dates shown');
@@ -410,7 +432,10 @@ function notesBuild() {
   u.rangeLive = notesEl('span', 'np-range-live'); // what a change of range lists, for a screen reader
   u.rangeLive.setAttribute('role', 'status');
   u.rangeLive.setAttribute('aria-live', 'polite');
-  u.rangeRow.append(rangeSlot, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1], u.rangeLive);
+  const rangeSel = notesSelect('np-sel-range', 'Dates shown', NOTES_RANGES, (v) => notesSetRangeMode(v));
+  u.rangeRow.append(rangeSlot, rangeSel, u.rangeStepBtns[0], u.rangeLabel, u.rangeStepBtns[1], u.rangeLive);
+  filterRow.append(u.rangeRow);
+  u.selects = [[layoutSel, () => notesLayout()], [bySel, () => u.by], [rangeSel, () => u.range.mode]];
   u.body = notesEl('div', 'np-body');
   u.foot = notesEl('div', 'np-foot');
   u.fsBtn = notesButton('icon-btn np-fs-btn', '', '', () => toggleModalFullscreen('notes')); // app.js applyModalFullscreen gives it its icon, label and pressed state
@@ -422,7 +447,7 @@ function notesBuild() {
   u.el.setAttribute('role', 'dialog');
   u.el.setAttribute('aria-label', 'Notes');
   u.el.dataset.keepsSelection = '';
-  u.el.append(u.head, bar, u.prev, filterRow, u.rangeRow, u.body, u.foot);
+  u.el.append(u.head, filterRow, u.body, bar, u.prev, u.foot);
   document.body.append(u.el);
 
   u.input.addEventListener('input', () => {
@@ -444,6 +469,10 @@ function notesBuild() {
   u.time.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === 'ArrowDown') && u.timeMenu.hidden) { e.preventDefault(); u.input.focus(); } }); // an open menu takes the arrows and Enter first
   u.filter.addEventListener('keydown', notesOnFilterKey);
   u.input.addEventListener('keydown', notesOnInputKey);
+  u.input.addEventListener('focus', () => notesFocusHeld('typing', true));
+  u.input.addEventListener('blur', () => notesFocusHeld('typing', false));
+  bar.addEventListener('focusin', () => notesFocusHeld('focus', true));
+  bar.addEventListener('focusout', () => notesFocusHeld('focus', false));
   u.body.addEventListener('keydown', notesOnBodyKey);
   u.body.addEventListener('contextmenu', notesOnRowMenu);
   u.body.addEventListener('touchstart', notesOnPressStart, { passive: true });
@@ -484,6 +513,33 @@ function notesGrowBox(box) {
   box.style.overflowY = size.scroll ? 'auto' : 'hidden';
 }
 
+// The subject line shows while focus is in the note bar, and the hint line (what Enter will write) while the
+// box has it. Both go a moment after the focus leaves, so a click that took the focus lands before the
+// list and the box move under it.
+const NOTES_FOCUS_CLASS = { typing: 'np-typing', focus: 'np-focus' };
+const NOTES_FOCUS_LINGER_MS = 250;
+
+function notesFocusHeld(kind, on) {
+  const u = notesUi;
+  clearTimeout(u.leaveTimers[kind]);
+  if (on) { u.el.classList.add(NOTES_FOCUS_CLASS[kind]); return; }
+  u.leaveTimers[kind] = setTimeout(() => {
+    const at = document.activeElement;
+    if (!(kind === 'typing' ? at === u.input : u.bar.contains(at))) u.el.classList.remove(NOTES_FOCUS_CLASS[kind]);
+  }, NOTES_FOCUS_LINGER_MS);
+}
+
+// The two classes read at once from where the focus is: when the palette opens or closes, which the focus
+// events of a box focused by a script need not say in time.
+function notesFocusSync() {
+  const u = notesUi;
+  const at = document.activeElement;
+  clearTimeout(u.leaveTimers.typing);
+  clearTimeout(u.leaveTimers.focus);
+  u.el.classList.toggle(NOTES_FOCUS_CLASS.typing, at === u.input);
+  u.el.classList.toggle(NOTES_FOCUS_CLASS.focus, !!at && u.bar.contains(at));
+}
+
 const notesGrow = () => notesGrowBox(notesUi.input);
 
 // Fullscreen is room: a note box may grow to this many lines, and to this share of the window, before it
@@ -502,9 +558,17 @@ function notesOnTop() {
   return !!notesUi.el && !!notesUi.sub && keyGuardSurface(document, NOTES_DETAIL) === null;
 }
 
+// From the width the palette has a choice (NOTES_FULLSCREEN_MIN_WIDTH), the open palette that is not full screen
+// is a dock on the right, and the page is told so that the board gives it the room (body.notes-docked,
+// app.css). A phone never docks: its palette is always full screen.
+function notesDockSync() {
+  document.body.classList.toggle('notes-docked', notesIsOpen() && !notesUi.el.classList.contains('fullscreen'));
+}
+
 // The boxes are measured at the width fullscreen changed, and the room they may take has changed too.
 function notesFullscreenChanged() {
   const u = notesUi;
+  notesDockSync();
   if (!u.sub) return;
   notesGrow();
   u.body.querySelectorAll('.np-edit-text').forEach(notesGrowBox);
@@ -554,8 +618,10 @@ function openNotes(req) {
   u.el.classList.toggle('np-over-detail', notesDetailId() !== null);
   applyModalFullscreen('notes'); // the board's saved choice, on every open
   u.el.classList.remove('hidden');
+  notesDockSync();
   notesPaint();
   if (u.tab !== 'notes') notesFocusGroupPanel(); else u.input.focus();
+  notesFocusSync();
   scheduleBackSync(); // over the card details a Back closes it, so the page keeps an entry for it
 }
 
@@ -606,6 +672,8 @@ function notesClose() {
   u.opener = null;
   if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
   if (u.el.contains(document.activeElement)) document.activeElement.blur(); // never leave the focus in the hidden palette
+  notesFocusSync();
+  notesDockSync();
   scheduleBackSync();
   return true;
 }
@@ -715,18 +783,6 @@ function notesClearChip() {
 
 // ---------- painting ----------
 
-function notesChipText() {
-  const sub = notesUi.sub;
-  const day = noteDayName(sub.day);
-  if (noteIsTarget(sub)) {
-    return notesLabel(sub.id) + (sub.at ? ` · ${day} ${sub.at}` : sub.untimed ? ` · ${day} untimed` : '');
-  }
-  if (sub.kind === 'each') return `each of ${sub.ids.length} cards`;
-  if (sub.kind === 'slot') return `${day} ${sub.at}`;
-  if (sub.kind === 'untimed') return `${day} untimed`;
-  return '';
-}
-
 function notesPlan() {
   return noteWritePlan(noteParseLine(notesUi.input.value, notesKnown()), notesUi.sub, notesField(), notesCtx());
 }
@@ -750,14 +806,12 @@ function notesHint(key, what) {
 function notesPaint() {
   const u = notesUi;
   if (!u.sub) return;
-  const text = notesChipText();
-  u.chip.hidden = !text;
-  u.chipText.textContent = text;
-  u.chipText.title = text;
+  const chipOn = u.sub.kind !== 'none';
+  u.clearBtn.hidden = !chipOn;
   u.input.placeholder = noteIsTarget(u.sub) ? 'Write a note' : 'Write a note; #7 picks the card';
   notesPaintTabs();
   const panel = u.tab !== 'notes';
-  for (const el of [u.when, u.input, u.prev, u.filterRow, u.rangeRow]) el.hidden = panel;
+  for (const el of [u.when, u.subject, u.input, u.prev, u.filterRow]) el.hidden = panel;
   if (!panel) { notesGrow(); notesPaintPick(); notesPaintRange(); }
   const hint = notesHint;
   if (panel) {
@@ -768,7 +822,7 @@ function notesPaint() {
   }
   notesPaintPreview();
   notesPaintBody();
-  u.foot.replaceChildren(hint('↵', 'write'), hint('↓', 'notes'), hint('e', 'edit'), hint('a', 'assign'), hint('d d', 'delete'), ...(text ? [hint('⌫', 'clear the chip')] : []), hint('Esc', notesChipClearable() ? 'clear the chip' : 'close'));
+  u.foot.replaceChildren(hint('↵', 'write'), hint('↓', 'notes'), hint('e', 'edit'), hint('a', 'assign'), hint('d d', 'delete'), ...(chipOn ? [hint('⌫', 'clear the chip')] : []), hint('Esc', notesChipClearable() ? 'clear the chip' : 'close'));
 }
 
 // The tab row: shown only when the subject has more than one tab.
@@ -813,6 +867,7 @@ function notesPaintBody() {
   if (!u.sub) return;
   for (const b of u.byBtns) b.setAttribute('aria-pressed', String(b.dataset.by === u.by));
   for (const b of u.layoutBtns) b.setAttribute('aria-pressed', String(b.dataset.layout === notesLayout()));
+  notesSyncSelects();
   const scroll = u.body.scrollTop;
   u.editing = 0; // the rows are built anew: none is being edited
   if (u.tab === 'group') {
@@ -1369,6 +1424,7 @@ function notesPaintRange() {
   for (const b of u.rangeStepBtns) b.disabled = all;
   u.rangeLabel.disabled = all;
   u.rangeLabel.textContent = noteRangeLabel(u.range.mode, u.range.anchor);
+  notesSyncSelects();
 }
 
 // Any change of the range, by the buttons, lists the range's notes and no longer only the hour or
@@ -1588,13 +1644,11 @@ function onNotesEscape(e) {
   notesEscape();
 }
 
-// A mouse press outside the palette closes it, but not on what opens it.
+// A mouse press outside the palette closes a note's menu and nothing else: the dock leaves the board in
+// use beside it, so a press there does not close the palette (Esc does).
 function onNotesPointer(e) {
   const u = notesUi;
   if (u.menu && !u.menu.el.contains(e.target) && !notesPressEcho()) notesMenuClose();
-  if (!u.sub || u.el.contains(e.target)) return;
-  if (e.target.closest && e.target.closest('.np-menu, .np-trigger, .np-pick-menu, #context-menu, .modal-backdrop, #toast, .date-picker-pop')) return;
-  notesClose();
 }
 
 // ---------- the board payload ----------
