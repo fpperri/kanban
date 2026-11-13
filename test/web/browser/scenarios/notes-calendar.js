@@ -23,7 +23,9 @@ const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
 const PAL_GONE = `!${PAL}||${PAL}.classList.contains('hidden')`;
 const q = (sel) => `document.querySelector(${JSON.stringify(`#notes-palette ${sel}`)})`;
-const CHIP = `(()=>{const c=${q('.np-chip')};return c&&!c.hidden?${q('.np-chip-text')}.textContent:''})()`;
+// The subject: the card picker, as long as the clear button beside it shows (the palette is aimed at something).
+const DATE = `${q('.np-date')}.value`;
+const CHIP = `(()=>{const x=${q('.np-chip-x')};return x&&!x.hidden?${q('.np-pick-input')}.value:''})()`;
 const SECTIONS = `[...document.querySelectorAll('#notes-palette .np-ngroup')].map((g)=>[g.dataset.day,g.dataset.target,g.querySelectorAll('.np-note').length].join('|')).sort()`;
 const slotEl = (day, fromMin) => `#calendar-view .cal-note[data-slot="${day}|${fromMin}"]`;
 const layerCount = `document.querySelectorAll('#calendar-view .cal-note').length`;
@@ -93,16 +95,16 @@ module.exports = {
 
     // --- each one opens the palette ---------------------------------------------------------------------------
     await press(slotEl('2026-10-15', 570));
-    check('calnotes: a chip opens the palette on its note\'s card, at the chip\'s time', await palUp() && await ev(CHIP) === '#7 Port the zephyr schema · Thu 15 09:30', await ev(CHIP));
+    check('calnotes: a chip opens the palette on its note\'s card, at the chip\'s time', await palUp() && await ev(CHIP) === '#7 Port the zephyr schema' && await ev(DATE) === '2026-10-15', await ev(CHIP));
     check('calnotes: with the notes of that card, headed by day', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-14|7|1', '2026-10-15|7|2']), await ev(SECTIONS));
     check('calnotes: and the time field starts at the chip\'s time', await ev(`${q('.np-time')}.value`) === '09:30');
     check('calnotes: Esc closes the palette, which would cover the next one', await closePalette());
     await press(slotEl('2026-10-15', 600));
-    check('calnotes: a count bubble opens it on that half hour', await waitFor(`${CHIP}==='Thu 15 10:00'`, 3000), await ev(CHIP));
+    check('calnotes: a count bubble opens it on that half hour', await waitFor(`${CHIP}==='no card'&&${DATE}==='2026-10-15'&&${q('.np-time')}.value==='10:00'`, 3000), await ev(CHIP));
     check('calnotes: with both notes, headed by their cards', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-15|22|1', '2026-10-15|3|1']), await ev(SECTIONS));
     check('calnotes: Esc closes it again', await closePalette());
     await press('#calendar-view .cal-note-untimed');
-    check('calnotes: the untimed box opens it on that day\'s untimed notes', await waitFor(`${CHIP}==='Wed 14 untimed'`, 3000) && await ev(`${q('.np-untimed')}.checked`), await ev(CHIP));
+    check('calnotes: the untimed box opens it on that day\'s untimed notes', await waitFor(`${CHIP}==='no card'&&${DATE}==='2026-10-14'`, 3000) && await ev(`${q('.np-untimed')}.checked`), await ev(CHIP));
     check('calnotes: with both of them', JSON.stringify(await ev(SECTIONS)) === JSON.stringify(['2026-10-14|3|1', '2026-10-14|7|1']), await ev(SECTIONS));
     check('calnotes: Esc closes the palette', await closePalette());
 
@@ -110,11 +112,11 @@ module.exports = {
     const spot = await hourPoint('2026-10-16', 10);
     check('calnotes: the point is on the empty part of Friday\'s column', await ev(`(()=>{const e=document.elementFromPoint(${spot.x},${spot.y});return !!e&&e.classList.contains('cal-tg-col')&&e.dataset.day==='2026-10-16'})()`), JSON.stringify(spot));
     await click(spot.x, spot.y);
-    check('calnotes: a click on an empty hour opens the palette on that hour', await palUp(2500) && await ev(CHIP) === 'Fri 16 10:00', await ev(CHIP));
+    check('calnotes: a click on an empty hour opens the palette on that hour', await palUp(2500) && await ev(CHIP) === 'no card' && await ev(DATE) === '2026-10-16', await ev(CHIP));
     check('calnotes: with the time field set to the hour', await ev(`${q('.np-time')}.value`) === '10:00');
     await ev(`(()=>{const i=${q('.np-input')};i.value='#22';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()})()`);
     await key('Enter');
-    check('calnotes: #22 then Enter aims the palette at card 22 and keeps that time', await waitFor(`${CHIP}==='#22 Cut over the data layer · Fri 16 10:00'`, 2500) && await ev(`${q('.np-time')}.value`) === '10:00', await ev(CHIP));
+    check('calnotes: #22 then Enter aims the palette at card 22 and keeps that time', await waitFor(`${CHIP}==='#22 Cut over the data layer'&&${DATE}==='2026-10-16'`, 2500) && await ev(`${q('.np-time')}.value`) === '10:00', await ev(CHIP));
     await ev(`(()=>{const i=${q('.np-input')};i.value='checked the window';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()})()`);
     await key('Enter');
     check('calnotes: the note is written on card 22 on Friday at 10:00', await waitFor(`state.logbook.notes.some((n)=>n.day==='2026-10-16'&&n.at==='10:00'&&n.target==='22'&&n.note==='checked the window')`, 4000));
@@ -299,7 +301,7 @@ module.exports = {
     check('calnotes: n on the Week view, the pointer on no day, opens the palette on Week', await palUp() && JSON.stringify(await ev(RANGE_BTNS)) === JSON.stringify(['All', 'Month', 'Week*', '3 days', 'Day']), JSON.stringify(await ev(RANGE_BTNS)));
     check('calnotes: with the range of the week on screen, 12 to 18 October', await ev(RANGE_LABEL) === '12–18 Oct', await ev(RANGE_LABEL));
     check('calnotes: and lists that week\'s notes, of every card', await ev(`document.querySelectorAll('#notes-palette .np-note').length===${IN_WEEK}`) && await ev(IN_WEEK) >= 6, `${await ev(`document.querySelectorAll('#notes-palette .np-note').length`)} of ${await ev(IN_WEEK)}`);
-    check('calnotes: it is no card\'s: the picker names no card, and the box is empty', await ev(`!document.querySelector('#notes-palette .np-chip')||document.querySelector('#notes-palette .np-chip').hidden`));
+    check('calnotes: it is no card\'s: the picker names no card, and the box is empty', await ev(`${CHIP}===''`));
     await shot('palette-week-range');
     check('calnotes: Esc closes the palette', await closePalette());
     const friday = await hourPoint('2026-10-16', 10);

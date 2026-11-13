@@ -20,7 +20,8 @@ const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
 const PAL_GONE = `!${PAL}||${PAL}.classList.contains('hidden')`;
 const q = (sel) => `document.querySelector(${JSON.stringify(`#notes-palette ${sel}`)})`;
-const CHIP = `(()=>{const c=${q('.np-chip')};return c&&!c.hidden?${q('.np-chip-text')}.textContent:''})()`;
+// The subject: the card picker, as long as the clear button beside it shows (the palette is aimed at something).
+const CHIP = `(()=>{const x=${q('.np-chip-x')};return x&&!x.hidden?${q('.np-pick-input')}.value:''})()`;
 const TABS = `[...document.querySelectorAll('#notes-palette .np-tab')].map((b)=>b.textContent+(b.classList.contains('on')?'*':'')).join()`;
 const SEL = `document.getElementById('iter-select')`;
 const BOARD_IDS = `[...new Set([...document.querySelectorAll('#board .card-el')].map((e)=>e.dataset.id))].sort().join()`;
@@ -108,7 +109,7 @@ module.exports = {
     await ev(`(()=>{const c=[...document.querySelectorAll('#calendar-view .cal-note')].find((x)=>x.textContent.includes('#G11'));c.scrollIntoView({block:'center'});return true})()`);
     await shot('feature-calendar');
     await press(`#calendar-view .cal-note[title*="#G11"]`);
-    check('feature: the chip opens the palette on its half hour, headed by the card', await waitFor(PAL_UP, 3000) && /\d\d:\d\d$/.test(await ev(CHIP)) && await ev(SECTIONS) === `${await ev(TODAY)}|G11|1`, await ev(CHIP));
+    check('feature: the chip opens the palette on its half hour, headed by the card', await waitFor(PAL_UP, 3000) && /^\d\d:\d\d$/.test(await ev(`${q('.np-time')}.value`)) && await ev(SECTIONS) === `${await ev(TODAY)}|G11|1`, await ev(CHIP));
     await closePalette();
 
     // --- the group badge and the Group tab ---------------------------------------------------------------------------------

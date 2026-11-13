@@ -28,7 +28,8 @@ const PAL = `document.getElementById('notes-palette')`;
 const PAL_UP = `!!${PAL}&&!${PAL}.classList.contains('hidden')`;
 const PAL_GONE = `!${PAL}||${PAL}.classList.contains('hidden')`;
 const q = (sel) => `document.querySelector(${JSON.stringify(`#notes-palette ${sel}`)})`;
-const CHIP = `(()=>{const c=${q('.np-chip')};return c&&!c.hidden?${q('.np-chip-text')}.textContent:''})()`;
+// The subject: the card picker, as long as the clear button beside it shows (the palette is aimed at something).
+const CHIP = `(()=>{const x=${q('.np-chip-x')};return x&&!x.hidden?${q('.np-pick-input')}.value:''})()`;
 const PREVIEW = `${q('.np-prev-text')}.textContent`;
 const BOX = `${q('.np-input')}.value`;
 const SECTIONS = `[...document.querySelectorAll('#notes-palette .np-ngroup')].map((g)=>[g.dataset.day,g.dataset.target,g.querySelectorAll('.np-note').length].join('|'))`;
@@ -130,7 +131,9 @@ module.exports = {
     // --- the author switch and by:@handle narrow the list; a note written here stays ---------------------------
     const BY_BTNS = `[...document.querySelectorAll('#notes-palette .np-by-btn[data-by]')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
     const setFilter = (text) => ev(`(()=>{const f=${q('.np-filter')};f.value=${JSON.stringify(text)};f.dispatchEvent(new Event('input',{bubbles:true}))})()`);
-    const pickBy = async (by) => { const p = await centre(`#notes-palette .np-by-btn[data-by="${by}"]`); await click(p.x, p.y); };
+    // In the dock the switches are dropdowns (the toolbar is under 520px): a choice is the select's value and its change event.
+    const choose = (sel, value) => ev(`(()=>{const s=${q(sel)};s.value=${JSON.stringify(value)};s.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+    const pickBy = (by) => choose('.np-sel-by', by);
     const isRows = (texts, ms) => waitFor(`JSON.stringify(${ROW_TEXTS}.slice().sort())===${JSON.stringify(JSON.stringify(texts.slice().sort()))}`, ms || 2500);
     check('notes: the filter row holds an All, Human and AI switch, All pressed', JSON.stringify(await ev(BY_BTNS)) === JSON.stringify(['All*', 'Human', 'AI']), await ev(BY_BTNS));
     await pickBy('ai');
@@ -416,7 +419,7 @@ module.exports = {
 
     // --- the Grouped | Timeline switch-------------------------------------------------------------------------
     const LAYOUT_BTNS = `[...document.querySelectorAll('#notes-palette .np-layout-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
-    const pickLayout = async (layout) => { const p = await centre(`#notes-palette .np-by-btn[data-layout="${layout}"]`); await click(p.x, p.y); };
+    const pickLayout = (layout) => choose('.np-sel-layout', layout);
     check('notes: the filter row holds a Grouped and Timeline switch, Grouped pressed', JSON.stringify(await ev(LAYOUT_BTNS)) === JSON.stringify(['Grouped*', 'Timeline']), await ev(LAYOUT_BTNS));
     const rowsBefore = await ev(ROW_TEXTS);
     await pickLayout('timeline');
@@ -568,8 +571,7 @@ module.exports = {
     check('notes: and a wider list puts the text beside the time again', await waitFor(`(()=>{const r=document.querySelector(${JSON.stringify(ROW1)});const t=r.querySelector('.np-note-time').getBoundingClientRect();const x=r.querySelector('.np-note-text').getBoundingClientRect();return x.left>t.right})()`, 2500));
     await key('Escape');
     check('notes: Esc clears the chip', await waitFor(`${CHIP}===''`, 2500));
-    const allBtn = await centre('#notes-palette .np-range-slot .np-by-btn[data-range="all"]');
-    await click(allBtn.x, allBtn.y);
+    await choose('.np-sel-range', 'all');
     check('notes: with notes on several cards each row names its card again, by id, with the title on hover', await waitFor(`(()=>{const c=[...document.querySelectorAll('#notes-palette .np-note')].map((r)=>r.querySelector('.np-note-card'));return c.length>1&&c.every(Boolean)&&new Set(c.map((e)=>e.textContent)).size>1&&c.every((e)=>e.textContent==='no card'||(e.textContent[0]==='#'&&e.textContent.indexOf(' ')<0)&&e.title.startsWith(e.textContent+' '))})()`, 2500), await ev(`[...document.querySelectorAll('#notes-palette .np-note-card')].map((e)=>e.textContent+'|'+e.title).join()`));
     await setBox('#7');
     await key('Enter');
@@ -598,7 +600,7 @@ module.exports = {
     const RANGE_BTNS = `[...document.querySelectorAll('#notes-palette .np-range-slot .np-by-btn')].map((b)=>b.textContent+(b.getAttribute('aria-pressed')==='true'?'*':''))`;
     const RANGE_LABEL = `document.querySelector('#notes-palette .np-range-label').textContent`;
     const DAYS = `[...document.querySelectorAll('#notes-palette .np-ngroup')].map((g)=>g.dataset.day)`;
-    const pickRange = async (mode) => { const p = await centre(`#notes-palette .np-range-slot .np-by-btn[data-range="${mode}"]`); await click(p.x, p.y); };
+    const pickRange = (mode) => choose('.np-sel-range', mode);
     const stepRange = async (dir) => { const p = await centre(`#notes-palette .np-range-step[data-step="${dir}"]`); await click(p.x, p.y); };
     const chooseCard = async (text) => {
       // A screenshot or any lost focus shuts the menu (the combobox closes on blur), and a focus that was never lost opens nothing: blur, then focus, and wait for the row to be drawn.
@@ -810,7 +812,7 @@ module.exports = {
     const fsBtn = await centre('#notes-fullscreen-btn');
     await click(fsBtn.x, fsBtn.y);
     check('notes: the button fills the window with the palette and turns into Exit full screen', await waitFor(`${FS_ON}&&${FS_BTN}.title==='Exit full screen'&&${FS_BTN}.getAttribute('aria-pressed')==='true'`, 2500) && await ev(FILLS));
-    check('notes: the list takes the height the bars leave, down to the footer', await ev(`(()=>{const b=${q('.np-body')}.getBoundingClientRect();const f=${q('.np-foot')}.getBoundingClientRect();return Math.abs(b.bottom-f.top)<=1&&b.height>200})()`));
+    check('notes: the list takes the height the bars leave, down to the note box pinned above the footer', await ev(`(()=>{const b=${q('.np-body')}.getBoundingClientRect();const bar=${q('.np-bar')}.getBoundingClientRect();const prev=${q('.np-prev')};const under=prev.offsetParent?prev.getBoundingClientRect():bar;const f=${q('.np-foot')}.getBoundingClientRect();return Math.abs(b.bottom-bar.top)<=1&&Math.abs(under.bottom-f.top)<=1&&b.height>200})()`));
     check('notes: the choice is kept for the board', await ev(`JSON.parse(localStorage.getItem('kanban.'+state.projectName+'.modal.fullscreen')).notes===true`));
     await shot('palette-fullscreen');
     await setBox('kept');

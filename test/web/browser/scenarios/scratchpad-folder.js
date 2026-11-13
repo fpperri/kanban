@@ -12,8 +12,8 @@
 // only. New file and New folder open a name field in the list. Unsaved text follows a rename and leaves
 // with a delete; a save over a file changed on disk is a conflict with Reload, kept on that file when it
 // arrives after the selection moved on; the menu of a file still loading is off. Under 600px of tab width
-// the explorer is one line above the editor and opens over it. Screenshots (--shots) are taken at the
-// palette's usual width, full screen at 1920 by 1080 and at 390 wide. Each step waits on the page or on the
+// the explorer is one line above the editor and opens over it. The explorer's own checks run full screen (the dock is
+// a narrow tab); screenshots (--shots) are taken full screen at 1920 by 1080 and at 390 wide. Each step waits on the page or on the
 // file, never on a fixed sleep.
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js): state, scratchUi.
@@ -70,6 +70,10 @@ module.exports = {
     check('scratchpad-folder: the card menu is up', await menuUp());
     await press('#ctx-scratch');
     check('scratchpad-folder: card 7\'s Scratchpad tab opens', await waitFor(READY, 4000));
+    // The dock is under the 600px of tab width the explorer needs beside the editor (it is one line there, below), so the
+    // explorer's own checks run full screen.
+    await press('#notes-fullscreen-btn');
+    check('scratchpad-folder: the explorer beside the editor needs the width of full screen: the dock is the narrow tab', await waitFor(`${PAL}.classList.contains('fullscreen')`, 3000));
 
     // --- the explorer beside the editor, the page selected ---------------------------------------------------------------------------
     check('scratchpad-folder: the list shows the page first, then the folder, then the files', await waitFor(`${NAMES}==='${PAGE},sub/,blob.bin,build.log,late.txt,notes.txt,plan.md,shot.png'`, 4000), await ev(NAMES));
@@ -165,7 +169,6 @@ module.exports = {
 
     // --- full screen: both run to the foot of the window, the box takes all the height ----------------------------------------
     await metrics(1920, 1080);
-    await press('#notes-fullscreen-btn');
     check('scratchpad-folder: full screen, the list and the editor fill the tab to the foot of the window', await waitFor(`(()=>{const p=${PAL}.getBoundingClientRect();const l=document.querySelector('#notes-palette .spf-list').getBoundingClientRect();const m=${PREVIEW}.getBoundingClientRect();return ${PAL}.classList.contains('fullscreen')&&p.height>=1070&&window.innerHeight-l.bottom<80&&window.innerHeight-m.bottom<80&&m.height>600})()`, 4000), await ev(`JSON.stringify([window.innerHeight,document.querySelector('#notes-palette .spf-list').getBoundingClientRect().bottom,${PREVIEW}.getBoundingClientRect().bottom])`));
     check('scratchpad-folder: full screen, the header is one line', await ev(`document.querySelector('#notes-palette .sp-head').getBoundingClientRect().height<40`));
     await shot('scratchpad-folder-fullscreen');
@@ -176,9 +179,11 @@ module.exports = {
     await waitFor(`${LIST_SHOWN}`, 3000);
     await press('#notes-palette .sp-mode:first-child');
     check('scratchpad-folder: full screen, the Edit box takes the height too', await waitFor(`${BOX}.getBoundingClientRect().height>600`, 3000));
-    await press('#notes-fullscreen-btn');
     await metrics(1800, 1000);
-    check('scratchpad-folder: back to the palette', await waitFor(`!${PAL}.classList.contains('fullscreen')`, 3000));
+    await press('#notes-fullscreen-btn');
+    check('scratchpad-folder: back to the dock, whose tab is narrow: the explorer is one line above the editor', await waitFor(`!${PAL}.classList.contains('fullscreen')&&getComputedStyle(document.querySelector('#notes-palette .spf-pick')).display!=='none'&&document.querySelector('#notes-palette .spf-pick').getBoundingClientRect().bottom<=document.querySelector('#notes-palette .sp-main').getBoundingClientRect().top+1`, 3000));
+    await press('#notes-fullscreen-btn');
+    check('scratchpad-folder: and full screen again for the rest', await waitFor(`${PAL}.classList.contains('fullscreen')`, 3000));
 
     // --- a picture and a binary file show in the editor's place ---------------------------------------------------------------
     check('scratchpad-folder: a png shows in the editor\'s place as a picture', await select('shot.png') && await waitFor(`(()=>{const i=${VIEWER}.querySelector('.spf-img');return !!i&&i.complete&&i.naturalWidth>0&&new URL(i.src).pathname==='/api/cards/7/image'})()`, 8000) && await ev(`document.querySelector('#notes-palette .md-edit').hidden`));

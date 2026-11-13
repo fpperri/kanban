@@ -2,12 +2,15 @@
 // The notes palette on the page (docs/adr/0016): the one surface for a board's notes. n on the
 // card whose details are open, else the hovered or selected card, a card's note count and the
 // right-click Add note... open it aimed at a card; with nothing aimed at it opens on no card. Over the card details it draws above them and Esc closes it before them. Rows, top down:
-// the subject row (the chip that says what it is about, the date, time and duration fields, the
-// untimed tick and the card picker), the note box, the preview line that says what Enter will write, the
-// filter row (the filter field, and beside it the Grouped or Timeline switch and the All, Human and
-// AI switch on a note's author), the range row (All, Month, Week, 3 days or Day, with previous and
-// next buttons and the range's label), then the notes list, newest day first: Grouped by day and
-// card, or Timeline, one flat list per day by time with each row naming its card. The range is
+// the head (the tabs, the full screen button), one toolbar (the filter field, the Grouped or Timeline
+// switch, the All, Human and AI switch on a note's author, and the range: All, Month, Week, 3 days or Day,
+// with previous and next buttons and the range's label; each switch a dropdown where the toolbar is
+// narrow), the notes list, newest day first: Grouped by day and card, or Timeline, one flat list per day by
+// time with each row naming its card, and the note bar pinned at the bottom: the subject line (the card
+// picker, which is the one subject control, with its clear button, the date, time and duration fields and
+// the untimed tick) while focus is in the bar, the note box, and the preview line that says what Enter will
+// write while the box has focus. From 760 px the palette is a dock on the right under the header and the
+// board shrinks beside it (notesDockSync); full screen and a phone are the whole window. The range is
 // set each time the palette opens (notes.js noteRangeFor) and is no memory: a card, a group or
 // several cards open on All, nothing aimed at on Day today or on what the Calendar asked for. The filter field reads `by:@handle`
 // too; a note written in this palette stays listed whatever the filter and the switches say.
@@ -811,8 +814,10 @@ function notesPaint() {
   u.input.placeholder = noteIsTarget(u.sub) ? 'Write a note' : 'Write a note; #7 picks the card';
   notesPaintTabs();
   const panel = u.tab !== 'notes';
-  for (const el of [u.when, u.subject, u.input, u.prev, u.filterRow]) el.hidden = panel;
-  if (!panel) { notesGrow(); notesPaintPick(); notesPaintRange(); }
+  for (const el of [u.when, u.input, u.prev, u.filterRow]) el.hidden = panel;
+  u.el.classList.toggle('np-panel', panel); // a panel tab keeps the subject, so it still says which card or group it is about
+  notesPaintPick();
+  if (!panel) { notesGrow(); notesPaintRange(); }
   const hint = notesHint;
   if (panel) {
     notesPaintBody();
