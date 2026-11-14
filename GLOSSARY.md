@@ -202,7 +202,7 @@ The Hierarchy drawn on a **shape** the camera turns round: the same cards, marks
 _Avoid_: 3D graph, globe, 3D view (only the Hierarchy is drawn in 3D; the Flow is not); orbit (say spin), dolly (W and S fly).
 
 **3D options** (web only):
-The sliders of the Graph panel's 3D section while the **3D Hierarchy** shows, kept per board in this browser, with a Reset back to the defaults: the **pole limits** of the half sphere and the sphere (how far below the top pole the centre stands, and how far down the outermost ring goes), the far side kept, the line strength, the mark size (from its size in the world to a constant size on screen) and the mark scale (a factor of 1 to 4 on it), and the move and spin speeds. The defaults draw the 3D Hierarchy as it was before them.
+The sliders of the Graph panel's 3D section while the **3D Hierarchy** shows, kept per board in this browser, with a Reset back to the defaults: the **pole limits** of the half sphere and the sphere (how far below the top pole the centre stands, and how far down the outermost ring goes), the far side kept, the line strength, the mark size (from its size in the world to its 2D size at 100% zoom on screen) and the mark scale (a factor of 1 to 4 on it), and the move and spin speeds. The defaults draw the 3D Hierarchy as it was before them.
 _Avoid_: tuning, settings (the preferences sheet's), 3D preferences.
 
 **Frontier** (web only):

@@ -274,8 +274,9 @@ pole the centre stands and how far down the outermost ring goes (the disc keeps 
 disabled there); **Far side kept** says how much of its colour the far side of the dome and the sphere keeps, its
 lines, dots and captions, from all of it to nearly none; **Line strength** says the same for their lines on the
 near side. On every shape, **Mark size** blends a mark's size from its size in the world (far marks small) to a
-constant size on screen, so marks stay readable from far away, and **Mark scale** grows every mark (its dot and
-its label) by a factor from 1× to 4× on top of that, for a large board seen whole; **Move speed** scales **w**, **a**, **s** and
+constant size on screen, the size the 2D Hierarchy draws it at 100% zoom, so marks stay readable from far away,
+and **Mark scale** grows every mark (its dot or square, its rings, its label and the area a click finds it in) by a
+factor from 1× to 4×, at either end, for a large board seen whole; **Move speed** scales **w**, **a**, **s** and
 **d**, and **Spin speed** scales **q** and **e**. The options are kept per board in this browser
 (`localStorage`, `kanban.<board>.graph.3d`; storage that refuses, or a value out of a slider's range, reads as
 the default), and **Reset** sets them back to the defaults and forgets what was kept. The defaults draw the 3D

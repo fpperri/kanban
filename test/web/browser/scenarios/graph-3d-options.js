@@ -1,7 +1,8 @@
 'use strict';
 // The 3D options, on the plan board: the sliders of the Graph panel's 3D section while the 3D Hierarchy shows.
 // The section is named for the shape; on the disc the pole limits, the far side and the line strength stand
-// disabled. Each slider changes the scene: the mark size and the mark scale change how big a dot is drawn,
+// disabled. Each slider changes the scene: the mark size and the mark scale change how big a dot is drawn
+// (at the screen end of the mark size, every mark the size the 2D Hierarchy draws it at 100% zoom),
 // the pole limits move the dots on the half sphere and the sphere, the far side kept and the line strength
 // change the colour the far side and the lines are painted, and the move and spin speeds change how far a
 // held D slides and a held Q spins in the same time. Let go, a slider gives the focus back, so the keys work
@@ -34,7 +35,7 @@ const MIDDLE_DOT = `(()=>{const s=${ROOT}.getBoundingClientRect();let best=null;
 module.exports = {
   name: 'graph-3d-options',
   board: 'plan',
-  timeoutMs: 150000,
+  timeoutMs: 120000,
   async run(page) {
     const { ev, open, waitFor, mouse, click, key, check, send, sleep, shot } = page;
     const cam = () => ev(CAM);
@@ -123,10 +124,20 @@ module.exports = {
     await settled();
     const sizedW = await ev(DOT_W);
     check('the mark size at the screen end draws far dots bigger', sizedW > farW * 1.2, { farW, sizedW });
+    const as2d = await ev(`(()=>{let worst=0,n=0;for(const d of ${ROOT}.querySelectorAll('.graph-node:not(.graph-3d-off) .graph-dot')){const w=d.getBoundingClientRect().width,b=d.getBBox().width;worst=Math.max(worst,Math.abs(w-b));n++}return {worst,n}})()`);
+    check('at the screen end every mark is drawn the size the 2D Hierarchy draws it at 100% zoom', as2d.n > 20 && as2d.worst < 1, as2d);
     await slide('scale', 1);
     await settled();
     const scaledW = await ev(DOT_W);
     check('the mark scale at its top draws the dots well past their size before', scaledW > sizedW * 2.5, { sizedW, scaledW });
+    // A click near the edge of a grown dot, well past where the dot ends at 1x, still finds its card.
+    // The dot with the most room round it, so the click lands on no neighbour.
+    const big = await ev(`(()=>{const s=${ROOT}.getBoundingClientRect();const ds=[...${ROOT}.querySelectorAll('.graph-node:not(.graph-3d-off):not(.graph-3d-far) .graph-dot')].map((d)=>{const r=d.getBoundingClientRect();return {id:d.closest('.graph-node').dataset.id,x:r.left+r.width/2,y:r.top+r.height/2,w:r.width}}).filter((o)=>o.x>s.left+60&&o.x<s.right-60&&o.y>s.top+60&&o.y<s.bottom-60);let best=null;for(const o of ds){const room=Math.min(...ds.filter((p)=>p!==o).map((p)=>Math.hypot(p.x-o.x,p.y-o.y)));if(!best||room>best.room)best={...o,room}}return best&&{...best,x:best.x+best.w*0.4}})()`);
+    await ev(`selectedIds.clear()`);
+    await mouse('mouseMoved', big.x, big.y, { button: 'none' });
+    await click(big.x, big.y);
+    check('a click near the edge of a grown dot selects its card', await waitFor(`selectedIds.has(${JSON.stringify(big.id)})`, 3000), { big, sel: await ev(`[...selectedIds]`) });
+    await ev(`selectedIds.clear()`);
     await shot('options-marks');
     await key('h');
     await settled();

@@ -146,7 +146,9 @@ function graph3dPlaceDots(hier, f) {
     if (!close) { g.classList.add('graph-3d-off'); continue; }
     g.classList.remove('graph-3d-off');
     const raw = graph3dScaleAt(hier, q[2]);
-    const s = Math.round(graph3dBlendScale(graph3dMarkScale(raw, hier.cam.phi, hier.shape, ref), hier.kHome, GRAPH3D_OPTIONS.size, GRAPH3D_OPTIONS.scale) * 10000) / 10000;
+    // The mark size option's screen end is the size the 2D Hierarchy draws a mark at 100% zoom; the mark scale
+    // grows it from there, its ring and the area a click finds it in (hier.vis) with it.
+    const s = Math.round(graph3dBlendScale(graph3dMarkScale(raw, hier.cam.phi, hier.shape, ref), 1, GRAPH3D_OPTIONS.size, GRAPH3D_OPTIONS.scale) * 10000) / 10000;
     g.setAttribute('transform', `translate(${graph3dRound2(q[0])} ${graph3dRound2(q[1])}) scale(${s})`);
     g.style.setProperty('--graph-k', String(s));
     const ls = Math.round(graph3dBlendScale(graph3dLabelScale(raw, ref, f.top, grow), 1, GRAPH3D_OPTIONS.size, GRAPH3D_OPTIONS.scale) * 1000) / 1000;
