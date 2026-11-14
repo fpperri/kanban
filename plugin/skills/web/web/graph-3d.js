@@ -757,6 +757,20 @@ function graph3dCompass(theta, phi) {
   };
 }
 
+// The share of the stage, across (x) and down (y), F's close frame fills with the selection and its kin:
+// all but a margin each side of GRAPH3D_CLOSE_MARGIN of that side, at least GRAPH3D_CLOSE_MARGIN_PX.
+function graph3dCloseFill(w, h) {
+  const fill = (side) => Math.max(0.3, 1 - (2 * Math.max(GRAPH3D_CLOSE_MARGIN_PX, side * GRAPH3D_CLOSE_MARGIN)) / side);
+  return { x: fill(w), y: fill(h) };
+}
+
+// Whether the camera `a` is still the camera `b` (as hier.cam holds one): nothing has moved it since, past
+// the rounding a flight ends on.
+function graph3dSameCam(a, b) {
+  if (!a || !b) return false;
+  return ['theta', 'phi', 'dist', 'tx', 'ty', 'tz'].every((k) => Math.abs(a[k] - b[k]) <= 1e-6 * Math.max(1, Math.abs(b[k])));
+}
+
 // The turn the compass eases the camera back to: north up, the whole turn nearest `theta`, so it goes
 // the short way round.
 function graph3dNorthUp(theta) {
@@ -789,6 +803,10 @@ const GRAPH3D_SHAPE_FILL = 0.85;
 // and a card alone no nearer than where it is seen at CARD_SCALE times its 2D size.
 const GRAPH3D_CARD_FILL = 0.6;
 const GRAPH3D_CARD_SCALE = 2.5;
+// F again (graph3dFrameSelection) flies close: the selection and its kin fill the stage but for this share of
+// each side, and no less than this many px.
+const GRAPH3D_CLOSE_MARGIN = 0.09;
+const GRAPH3D_CLOSE_MARGIN_PX = 40;
 // A wheel step or a pinch eases the camera to where it asked for: this many ms to cover two thirds of the way.
 const GRAPH3D_ZOOM_TAU = 40;
 // A click this many px off a dot's edge still finds it.
@@ -868,6 +886,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dFarFade, graph3dMergeOptions, graph3dAxisNearest, graph3dTiltRound, GRAPH3D_OPTIONS, GRAPH3D_OPTION_DEFAULTS, GRAPH3D_OPTION_RANGES, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dFarFade, graph3dMergeOptions, graph3dAxisNearest, graph3dTiltRound, GRAPH3D_OPTIONS, GRAPH3D_OPTION_DEFAULTS, GRAPH3D_OPTION_RANGES, graph3dLook, graph3dPace, graph3dWheelStep, graph3dCloseFill, graph3dSameCam, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }
