@@ -2,7 +2,7 @@
 // The running 3D Hierarchy: its state (`hier`, one at a time, graph3dCur), its life from three.js's load to
 // its teardown, the frame loop, and what the Graph calls (graph3dShow, graph3dRelease and the rest). The
 // camera, the ground, the marks, the input and the compass are graph-3d-camera.js, -ground.js, -marks.js,
-// -input.js and -compass.js; the pure helpers and the tuning are graph-3d.js.
+// -input.js and -compass.js; the pure helpers, the tuning and the 3D options' defaults are graph-3d.js.
 
 let graph3dCur = null;
 let graph3dThreeLoad = null;
@@ -35,6 +35,7 @@ function graph3dLoadThree() {
 // A new 3D Hierarchy, not yet drawn. It outlives the Graph's draws (every poll and selection rebuilds the
 // 2D marks): graph3dShowPlan takes the new marks and plan and keeps the camera and the shape.
 function graph3dCreate() {
+  graph3dLoadOptions();
   const root = document.createElement('div');
   root.className = 'graph-3d';
   const label = document.createElement('p');
@@ -56,7 +57,7 @@ function graph3dCreate() {
     cam: { theta: 0, phi: 0, dist: 1000, tx: 0, ty: 0, tz: 0 }, framed: false, fly: null,
     raf: 0, w: 1, h: 1, cw: 1, ch: 1, ox: 0, oy: 0, order: '',
     drag: null, pointers: new Map(), pressed: null, pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
-    zoom: null, spin: null, walk: new Set(), turn: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
+    zoom: null, coast: null, walk: new Set(), turn: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
     fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),
     bg: null, scheme: null, themeWatch: null, onTheme: null, compassAt: '',
@@ -78,6 +79,159 @@ function graph3dCreate() {
   return hier;
 }
 
+// The 3D options (GRAPH3D_OPTIONS) are the board `graph3dOptionsBoard`'s, read from this browser
+// (graph3dLoadOptions) the first time the board's 3D Hierarchy or its panel section is drawn.
+let graph3dOptionsBoard = null;
+
+function graph3dOptionsKey() {
+  return storageKey(state.projectName, 'graph.3d');
+}
+
+function graph3dSetOptions(options) {
+  for (const k of Object.keys(options)) GRAPH3D_OPTIONS[k] = options[k];
+}
+
+// The board's 3D options as this browser keeps them, merged with the defaults (graph3dMergeOptions), so a
+// value this version does not offer, or storage that refuses, reads as the default. Read once per board.
+function graph3dLoadOptions() {
+  if (graph3dOptionsBoard === state.projectName) return;
+  graph3dOptionsBoard = state.projectName;
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(graph3dOptionsKey());
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) { saved = null; }
+  graph3dSetOptions(graph3dMergeOptions(saved));
+}
+
+function graph3dSaveOptions() {
+  try { localStorage.setItem(graph3dOptionsKey(), JSON.stringify(GRAPH3D_OPTIONS)); }
+  catch (e) { /* storage unavailable: the options just won't persist this session */ }
+}
+
+// Reset: the defaults again, and nothing kept for the board.
+function graph3dResetOptions() {
+  try { localStorage.removeItem(graph3dOptionsKey()); }
+  catch (e) { /* storage unavailable: nothing was kept */ }
+  graph3dSetOptions(graph3dMergeOptions(null));
+}
+
+// The sliders of the 3D section for `shape`, each with the value it shows and what a move of it sets. The
+// pole sliders, the far side and the line strength are the dome's and the sphere's, and stand disabled on
+// the disc. The ring stays at least 5 degrees under the centre.
+const GRAPH3D_DEG = Math.PI / 180;
+function graph3dOptionSliders(shape) {
+  const hier = graph3dCur;
+  const bent = shape === 'half' || shape === 'sphere';
+  const R = GRAPH3D_OPTION_RANGES;
+  const def = bent && hier ? graph3dPoleDefaults(shape, hier.rim, hier.outer) : { top: 0, ring: Math.PI / 2 };
+  const poles = bent ? GRAPH3D_OPTIONS.poles[shape] : { top: 0, ring: null };
+  const deg = (r) => r[bent ? shape : 'half'];
+  const gap = 5 * GRAPH3D_DEG;
+  const ringMax = deg(R.ring)[1] * GRAPH3D_DEG;
+  const pct = (key) => ({ min: R[key][0] * 100, max: R[key][1] * 100, step: 1, unit: '%',
+    get: () => Math.round(GRAPH3D_OPTIONS[key] * 100), set: (v) => { GRAPH3D_OPTIONS[key] = v / 100; } });
+  const times = (key) => ({ min: R[key][0], max: R[key][1], step: 0.05, unit: '×',
+    get: () => GRAPH3D_OPTIONS[key], set: (v) => { GRAPH3D_OPTIONS[key] = v; } });
+  return [
+    { key: 'top', label: 'Centre below the top pole', unit: '°', min: deg(R.top)[0], max: deg(R.top)[1], step: 1, off: !bent,
+      get: () => Math.round(poles.top / GRAPH3D_DEG),
+      set: (v) => {
+        poles.top = v * GRAPH3D_DEG;
+        if ((poles.ring == null ? def.ring : poles.ring) < poles.top + gap) poles.ring = Math.min(ringMax, poles.top + gap);
+      } },
+    { key: 'ring', label: 'Outermost ring down to', unit: '°', min: deg(R.ring)[0], max: deg(R.ring)[1], step: 1, off: !bent,
+      get: () => Math.round((poles.ring == null ? def.ring : poles.ring) / GRAPH3D_DEG),
+      set: (v) => { poles.ring = Math.max(v * GRAPH3D_DEG, poles.top + gap); } },
+    Object.assign({ key: 'size', label: 'Mark size: world to screen' }, pct('size')),
+    Object.assign({ key: 'scale', label: 'Mark scale' }, times('scale')),
+    Object.assign({ key: 'far', label: 'Far side kept', off: !bent }, pct('far')),
+    Object.assign({ key: 'lines', label: 'Line strength', off: !bent }, pct('lines')),
+    Object.assign({ key: 'move', label: 'Move speed (W A S D)' }, times('move')),
+    Object.assign({ key: 'spin', label: 'Spin speed (Q E)' }, times('spin')),
+  ];
+}
+
+// The Graph panel's 3D section (graphBuildPanel), while 3D is on: the 3D options as sliders that change the
+// scene as they move and are kept per board in this browser, and a Reset that sets them back. It follows
+// the shape (graph3dRepaintOptions).
+function graph3dBuildOptions() {
+  graph3dLoadOptions();
+  const box = document.createElement('div');
+  box.className = 'graph-3d-options';
+  box.dataset.keepsSelection = '';
+  graph3dPaintOptions(box);
+  return box;
+}
+
+function graph3dPaintOptions(box) {
+  const shape = graph3dCur ? graph3dCur.shape : 'disc';
+  box.textContent = '';
+  const head = document.createElement('p');
+  head.className = 'graph-3d-options-head';
+  const title = document.createElement('span');
+  title.className = 'graph-option-label';
+  title.textContent = `3D: ${graph3dShapeName(shape)}`;
+  head.appendChild(title);
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'graph-3d-options-reset';
+  reset.textContent = 'Reset';
+  reset.title = 'Set the 3D options back to their defaults';
+  reset.addEventListener('click', (e) => {
+    e.stopPropagation();
+    graph3dResetOptions();
+    graph3dOptionsChanged();
+    graph3dPaintOptions(box);
+  });
+  head.appendChild(reset);
+  box.appendChild(head);
+  for (const sl of graph3dOptionSliders(shape)) {
+    const row = document.createElement('label');
+    row.className = 'graph-3d-option';
+    const name = document.createElement('span');
+    name.className = 'graph-option-label';
+    name.textContent = sl.label;
+    const out = document.createElement('output');
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.dataset.graph3dOption = sl.key;
+    input.min = String(sl.min); input.max = String(sl.max); input.step = String(sl.step);
+    input.value = String(sl.get());
+    input.disabled = !!sl.off;
+    out.textContent = `${sl.get()}${sl.unit}`;
+    input.addEventListener('input', () => {
+      sl.set(Number(input.value));
+      out.textContent = `${sl.get()}${sl.unit}`;
+      graph3dSaveOptions();
+      graph3dOptionsChanged();
+    });
+    // Let go after a drag or a click, the slider gives the focus back, so W, A, S, D, Q and E work at once;
+    // the arrow keys still move a slider that took the focus from the keyboard.
+    input.addEventListener('pointerup', () => input.blur());
+    row.appendChild(name);
+    row.appendChild(out);
+    row.appendChild(input);
+    box.appendChild(row);
+  }
+}
+
+// The 3D section shown again for the shape the 3D Hierarchy is on now.
+function graph3dRepaintOptions() {
+  const box = document.querySelector('.graph-3d-options');
+  if (box) graph3dPaintOptions(box);
+}
+
+// An option changed: the ground is placed again and the next frame drawn.
+function graph3dOptionsChanged() {
+  const hier = graph3dCur;
+  if (!hier) return;
+  hier.groundAt = '';
+  hier.painted = new WeakMap();
+  for (const g of hier.ground) g.painted = '';
+  graph3dRequest(hier);
+}
+
 function graph3dReady(hier) {
   return !!(hier.renderer && hier.view);
 }
@@ -89,7 +243,7 @@ function graph3dVisible(hier) {
 // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
 function graph3dPaintLabel(hier) {
   hier.label.textContent = hier.hint ? GRAPH3D_HINT
-    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE spin${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
+    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · QE spin · WS fly · AD slide${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
   hier.root.dataset.shape = hier.shape;
 }
 
@@ -149,23 +303,32 @@ function graph3dFrame(hier) {
     } else more = true;
   }
   if (hier.walk.size) {
-    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, graph3dPaceOf(hier), dt);
+    const pace = graph3dPaceOf(hier);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, pace, dt * GRAPH3D_OPTIONS.move);
     if (step) {
       for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
       more = true;
     }
+    const ahead = graph3dFlyStep(hier.walk, pace, dt * GRAPH3D_OPTIONS.move);
+    if (ahead) {
+      graph3dFlyBy(hier, ahead);
+      more = true;
+    }
   }
   if (hier.turn.size) {
-    const turn = graph3dTurn(hier.turn, dt);
+    const turn = graph3dTurn(hier.turn, dt * GRAPH3D_OPTIONS.spin);
     if (turn) {
       graph3dSpin(hier, turn);
       more = true;
     }
   }
-  if (hier.spin) {
-    graph3dLookBy(hier, hier.spin.vx * dt, hier.spin.vy * dt);
-    hier.spin = graph3dCoast(hier.spin, dt);
-    if (hier.spin) more = true;
+  if (hier.coast) {
+    const spins = hier.coast.spins;
+    if (spins) graph3dSpinDragBy(hier, hier.coast.vx * dt, hier.coast.vy * dt);
+    else graph3dLookBy(hier, hier.coast.vx * dt, hier.coast.vy * dt);
+    hier.coast = graph3dCoast(hier.coast, dt);
+    if (hier.coast && spins) hier.coast.spins = true;
+    if (hier.coast) more = true;
   }
   if (hier.morph) {
     const t = Math.min(1, (now - hier.morph.t0) / GRAPH3D_MORPH_MS);

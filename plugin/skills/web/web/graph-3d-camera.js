@@ -20,7 +20,7 @@ function graph3dApplyCamera(hier) {
 // shows no tip: the pointer's light and its tip go out when it starts (a card the focus is on keeps its
 // light), and come back on the next move of the pointer once the camera has stopped (graph3dRearm).
 function graph3dMoving(hier) {
-  return !!(hier.drag && hier.drag.moved) || !!hier.pinch || !!hier.spin || !!hier.fly || !!hier.zoom || !!hier.morph
+  return !!(hier.drag && hier.drag.moved) || !!hier.pinch || !!hier.coast || !!hier.fly || !!hier.zoom || !!hier.morph
     || hier.walk.size > 0 || hier.turn.size > 0;
 }
 
@@ -48,7 +48,7 @@ function graph3dFlyTo(hier, to, now) {
   if (!now) graph3dQuietHover(hier);
   graphHideTip();
   hier.zoom = null;
-  hier.spin = null;
+  hier.coast = null;
   if (now) { Object.assign(c, to); hier.fly = null; graph3dRequest(hier); return; }
   hier.fly = { from: Object.assign({}, c), to: Object.assign({}, c, to), t0: performance.now(), ms: GRAPH3D_FLY_MS };
   graph3dRequest(hier);
@@ -184,7 +184,7 @@ function graph3dZoomAt(hier, px, py, f) {
   const move = graph3dWheelStep(f, graph3dPaceOf(hier));
   goal.tx += dir.x * move; goal.ty += dir.y * move; goal.tz += dir.z * move;
   hier.zoom = goal;
-  hier.spin = null;
+  hier.coast = null;
   graph3dTakeOver(hier);
 }
 
@@ -203,7 +203,17 @@ function graph3dLookBy(hier, dx, dy) {
   Object.assign(c, graph3dLook(c, c.theta - (Math.PI * dx) / hier.h, c.phi - (Math.PI * dy) / hier.h));
 }
 
-// Q and E's turn of `by` radians: the camera swings round the shape's own vertical axis, so the shape's
+// A right drag's or its coast's step of (dx, dy) px: across, the shape spins under the camera round its own
+// vertical axis (graph3dSpin); up and down, the camera tilts round the tilt pivot (graph3dTiltRound), from
+// straight above to the shape's limit (graph3dMaxTilt).
+function graph3dSpinDragBy(hier, dx, dy) {
+  if (dx) graph3dSpin(hier, -(Math.PI * dx) / hier.h);
+  if (!dy) return;
+  const to = graph3dTiltRound(hier.cam, dy, hier.h, graph3dMaxTilt(hier.shape));
+  if (to) Object.assign(hier.cam, to);
+}
+
+// Q and E's spin, and a right drag's across, of `by` radians: the camera swings round the shape's own vertical axis, so the shape's
 // centre keeps its place on screen with the tilt and the distance. A zoom on its way swings with it.
 function graph3dSpin(hier, by) {
   const axis = graph3dShapeAxis(hier.shape, hier.rim, hier.outer);
@@ -215,13 +225,22 @@ function graph3dSpin(hier, by) {
   Object.assign(c, graph3dTurnRound(c, axis, c.theta + by, c.phi));
 }
 
-// The point the camera is turning round now, or null while it turns round none: the shape's axis point while
-// Q or E spins it.
-function graph3dTurnPivot(hier) {
-  return hier.turn.size > 0 ? graph3dShapeAxis(hier.shape, hier.rim, hier.outer) : null;
+// W and S held for a step of `step` scene units (graph3dFlyStep): the eye and the target fly together along
+// where the camera looks, so it never stops at the target. A zoom on its way flies with it.
+function graph3dFlyBy(hier, step) {
+  const c = hier.cam, z = hier.zoom;
+  const back = graph3dBasis(c.phi, c.theta).back;
+  for (const o of z ? [c, z] : [c]) { o.tx -= back[0] * step; o.ty -= back[1] * step; o.tz -= back[2] * step; }
 }
 
-// The small cross at the shape's centre on screen (hier.pivotMark): on (data-on) while Q or E spins the shape,
+// The point the camera is turning round now, or null while it turns round none: the shape's axis point while
+// Q or E, a right drag or its coast spins the shape.
+function graph3dTurnPivot(hier) {
+  const spins = (hier.coast && hier.coast.spins) || (hier.drag && hier.drag.moved && hier.drag.mode === 'spin');
+  return spins || hier.turn.size > 0 ? graph3dShapeAxis(hier.shape, hier.rim, hier.outer) : null;
+}
+
+// The small cross at the shape's centre on screen (hier.pivotMark): on (data-on) while the shape spins,
 // where it stays while it fades out (app.css).
 function graph3dPaintPivot(hier) {
   const p = graph3dTurnPivot(hier);
@@ -249,9 +268,9 @@ function graph3dPan(hier, dx, dy) {
   c.tz += (-right.z * dx + up.z * dy) * wpp;
 }
 
-// A walk key (W, A, S, D) or a turn key (Q, E) held, into its set `held` (hier.walk or hier.turn): while any
-// is down the frame loop slides the camera in the screen's plane (graph3dWalk), or turns
-// the camera round its target (graph3dTurn).
+// A move key (W, A, S, D) or a turn key (Q, E) held, into its set `held` (hier.walk or hier.turn): while any
+// is down the frame loop flies the camera ahead or back (graph3dFlyStep) or slides it sideways (graph3dWalk),
+// or spins the shape (graph3dTurn).
 function graph3dHoldKey(hier, held, key) {
   if (held.has(key)) return;
   held.add(key);
@@ -272,9 +291,10 @@ function graph3dSetShape(hier, shape) {
   hier.morph = { from: hier.morph ? hier.morph.to : from, to: shape, t0: performance.now(), e: 0 };
   hier.shape = shape;
   graph3dPaintLabel(hier);
+  graph3dRepaintOptions();
   graph3dQuietHover(hier);
   hier.zoom = null;
-  hier.spin = null;
+  hier.coast = null;
   graph3dFrameAll(hier, false, hier.cam.phi < 0.3);
   if (hier.fly) hier.fly.ms = GRAPH3D_MORPH_MS;
   graph3dRequest(hier);

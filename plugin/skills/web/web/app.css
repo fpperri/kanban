@@ -1751,6 +1751,15 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-3d-pivot::before, .graph-3d-pivot::after { content: ""; position: absolute; background: var(--mut); }
 .graph-3d-pivot::before { left: 0; top: 6.5px; width: 14px; height: 1px; }
 .graph-3d-pivot::after { left: 6.5px; top: 0; width: 1px; height: 14px; }
+/* The Graph panel's 3D section: the 3D options' sliders and their Reset (graph-3d-view.js). */
+.graph-3d-options { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-right: 10px; font-size: 0.78em; }
+.graph-3d-options-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0; }
+.graph-3d-options-reset { background: none; border: none; border-bottom: 1px dotted var(--accent); padding: 0 0 1px; font: inherit; color: var(--accent); cursor: pointer; }
+.graph-3d-options-reset:hover { border-bottom-style: solid; }
+.graph-3d-options-reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.graph-3d-option { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; }
+.graph-3d-option output { color: var(--mut); font-variant-numeric: tabular-nums; }
+.graph-3d-option input { grid-column: 1 / -1; width: 100%; margin: 0; }
 /* The compass in the stage's bottom-right corner: a dial on the plan, turned and tilted as the camera sees the
    plan (graph-3d-compass.js), its north the 2D Hierarchy's top; a press turns the view north up from straight above. */
 .graph-3d-compass { position: absolute; right: 6px; bottom: 6px; width: 44px; height: 44px; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; }

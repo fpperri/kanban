@@ -238,25 +238,27 @@ again; pressed again, the 2D drawing is back and the address drops it. It opens 
 straight above, where every dot stands where the 2D Hierarchy draws it; **g** steps the shape to the **half
 sphere** (a dome: the disc's centre its top, where the disc has it, the rim lowered under it), the **sphere**
 (the centre its top pole, the outermost ring wrapped down toward the bottom one) and back, with a short morph. A left drag pans (slides the camera in the screen's plane); the camera is a fly camera. A right drag
-(or Shift and a left drag) looks round from where the camera stands: it turns and tilts in place, from straight
-down to straight up, and its coast after the release goes on looking. The wheel flies the camera ahead or back
+**spins** the shape: across, it turns the shape round its own vertical axis (through the point **h** frames: the
+disc's centre, the dome's top, the sphere's top pole), so the shape's centre keeps its place on screen; up and
+down, it tilts the camera round the point of that axis nearest the line of sight, from straight above to the
+shape's limit. Its coast after the release goes on spinning. Shift and a right drag (or Shift and a left drag)
+**looks** round from where the camera stands: it turns and tilts in place, from straight down to straight up, and
+its coast goes on looking; a Shift+right press never opens the card menu. The wheel flies the camera ahead or back
 along the ray under the pointer (at the stage's centre, straight ahead), so a free-spinning wheel flies fast; on a
-touch screen one finger looks round and a pinch flies. Held, **w**, **a**, **s** and **d** slide the camera in the screen's plane, as a pan
-does: **w** along the camera's up (looking straight down that is ahead along the ground, at the horizon it raises
-the camera) and **s** back down, **a** and **d** left and right along its level right, two together diagonally
-(the wheel is the way ahead and back). The pace of the keys and the wheel is a share of how far the camera is from the nearest point
+touch screen one finger looks round and a pinch flies. Held, **w** and **s** **fly** the camera ahead and back
+along where it looks, the eye and the target together, so it never stops at the target; **a** and **d** slide it
+left and right along its level right, as a pan does. The pace of the keys and the wheel is a share of how far the camera is from the nearest point
 of the shape, so it feels the same far out and close among the dots; the tilt, turn and distance to the target stay,
 and a key's move stops when it comes up or the window loses focus. With Ctrl, Alt or Meta held they keep
 their own meaning (Ctrl+S saves), and on a note row of the notes palette **a** and **d** stay the note's.
-Held, **q** spins the shape left and **e** right, round its own vertical axis (through the point **h**
-frames: the disc's centre, the dome's top, the sphere's pole axis) wherever a pan has put it on screen, at a
+Held, **q** spins the shape left and **e** right, as a right drag across does, wherever a pan has put it on screen, at a
 steady pace; the shape's centre keeps its place on screen, the tilt and the distance stay, the compass turns with it, and the turn stops when the key comes up
 or the window loses focus. **q** and **e** together cancel, and either turns while **w**, **a**, **s** or **d**
-moves, so a flight can spin as it goes. While **q** or **e** spins the shape, a small
-quiet cross marks its centre, and fades out as the spin stops. Like the walk keys they stay off while a field has focus or a popup is
+moves, so a flight can spin as it goes. While the shape spins (**q**, **e**, a right drag or its coast), a small
+quiet cross marks its centre, and fades out as the spin stops. Like the move keys they stay off while a field has focus or a popup is
 up, so with a card's details open **e** opens its edit form, and on a note row **e** edits the note.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
-menu (a right drag never does). **f** frames the selection with the cards its lines join, **h** frames
+menu (a right drag never does, nor a Shift+right press). **f** frames the selection with the cards its lines join, **h** frames
 everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons fly
 ahead and back and fit. A compass in the stage's bottom-right corner turns and tilts with the camera; a press on it turns the
 view north up, looking straight down from where the camera stands (the 2D picture). Farther marks, and
@@ -265,6 +267,23 @@ dimmed cards are, never see-through. A quiet line in the bottom-left corner name
 then the shape and its keys. three.js draws the shape's washes, rings and dividers; it is vendored (see
 **Markdown** below) and asked for only the first time 3D is on, and leaving 3D, switching to the Flow
 or to another view takes the scene down.
+
+While 3D is on, the Graph panel has a **3D** section, named for the shape, with the **3D options**: sliders that
+change the scene as they move. On the half sphere and the sphere, the **pole limits** say how far below the top
+pole the centre stands and how far down the outermost ring goes (the disc keeps its plan, and these sliders stand
+disabled there); **Far side kept** says how much of its colour the far side of the dome and the sphere keeps, its
+lines, dots and captions, from all of it to nearly none; **Line strength** says the same for their lines on the
+near side. On every shape, **Mark size** blends a mark's size from its size in the world (far marks small) to a
+constant size on screen, the size the 2D Hierarchy draws it at 100% zoom, so marks stay readable from far away,
+and **Mark scale** grows every mark (its dot or square, its rings, its label and the area a click finds it in) by a
+factor from 1× to 4×, at either end, for a large board seen whole; **Move speed** scales **w**, **a**, **s** and
+**d**, and **Spin speed** scales **q** and **e**. The options are kept per board in this browser
+(`localStorage`, `kanban.<board>.graph.3d`; storage that refuses, or a value out of a slider's range, reads as
+the default), and **Reset** sets them back to the defaults and forgets what was kept. The defaults keep the
+centre at the top pole, the ring where the shape has it, marks at their size in the world at 1×, both speeds at
+1×, the far side kept at 20% and the line strength at 50%, so the dome's and the sphere's far side and lines are
+fainter than they were before the options and the side the camera faces reads first. The disc is drawn as
+before.
 
 **Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
 from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the

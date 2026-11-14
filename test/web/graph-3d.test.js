@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dAxisNearest, graph3dTiltRound, graph3dFarFade, graph3dMergeOptions, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -209,9 +209,9 @@ test('three.js is asked for at the vendored, version-pinned path the server serv
   assert.ok(!pageFiles(read('app.html')).some((f) => /three/.test(f)), 'the page does not name it');
 });
 
-test('a left drag pans and a right drag looks; Shift+left and a finger look; the middle button pans', () => {
+test('a left drag pans and a right drag spins; Shift+right, Shift+left and a finger look; the middle button pans', () => {
   assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: false, pointerType: 'mouse' }), 'pan');
-  assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: false, pointerType: 'mouse' }), 'look');
+  assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: false, pointerType: 'mouse' }), 'spin');
   assert.strictEqual(graph3dDragMode({ button: 0, shiftKey: true, pointerType: 'mouse' }), 'look');
   assert.strictEqual(graph3dDragMode({ button: 2, shiftKey: true, pointerType: 'mouse' }), 'look');
   assert.strictEqual(graph3dDragMode({ button: 1, shiftKey: false, pointerType: 'mouse' }), 'pan');
@@ -432,7 +432,7 @@ test('a click a little off a small dot still finds it, the one nearer the camera
   assert.strictEqual(graph3dNearest(vis, 200, 200, 10), null);
 });
 
-test('a released orbit coasts and slows to a stop', () => {
+test('a released look or spin coasts and slows to a stop', () => {
   let v = { vx: 1, vy: -0.5 };
   let steps = 0;
   while (v && steps < 1000) { v = graph3dCoast(v, 16); steps++; }
@@ -551,39 +551,36 @@ test('w, a, s and d are the walk keys whatever their case; with Ctrl, Alt or Met
   for (const key of ['g', 'q', 'ArrowUp', ' ', '', undefined]) assert.strictEqual(graph3dWalkKey({ key }), null, String(key));
 });
 
-test('the walk slides the camera in the screen plane: W up, S down, A left, D right', () => {
+test('the walk slides the camera sideways: A left, D right; W and S are no walk', () => {
   const dir = (keys, theta, phi) => { const v = graph3dWalk(new Set(keys), theta, phi, 1000, 100); const l = Math.hypot(...v); return v.map((c) => c / l); };
   const same = (a, b) => a.every((c, k) => near(c, b[k], 1e-9));
-  // At the horizon the camera's up is the scene's up.
-  assert.ok(same(dir(['w'], 0, Math.PI / 2), [0, 1, 0]), 'W: straight up at the horizon');
-  assert.ok(same(dir(['s'], 1.3, Math.PI / 2), [0, -1, 0]));
-  // Looking straight down, north up, its up is the plan's up: -z, the top of the 2D Hierarchy.
-  assert.ok(same(dir(['w'], 0, 0), [0, 0, -1]), 'W: along the ground, ahead, looking straight down');
-  assert.ok(same(dir(['s'], 0, 0), [0, 0, 1]));
-  assert.ok(same(dir(['w'], Math.PI / 2, 0), [-1, 0, 0]), 'turned a quarter, its up is -x');
+  assert.strictEqual(graph3dWalk(new Set(['w']), 0, 0, 1000, 100), null);
+  assert.strictEqual(graph3dWalk(new Set(['s']), 0, 0, 1000, 100), null);
   assert.ok(same(dir(['a'], 0, 0), [-1, 0, 0]));
   assert.ok(same(dir(['d'], 0, 0), [1, 0, 0]));
   // A quarter turn (graph3dBasis: right [0, 0, -1]): D goes to -z.
   assert.ok(same(dir(['d'], Math.PI / 2, 0.4), [0, 0, -1]));
 });
 
-test('two walk keys move diagonally at the speed of one; opposite keys, or none, stand still', () => {
-  const one = graph3dWalk(new Set(['w']), 0, Math.PI / 2, 1000, 100);
+test('opposite walk or fly keys, or none, stand still; W with D walks only sideways', () => {
+  const one = graph3dWalk(new Set(['d']), 0, Math.PI / 2, 1000, 100);
   const both = graph3dWalk(new Set(['w', 'd']), 0, Math.PI / 2, 1000, 100);
-  assert.ok(near(Math.hypot(...both), Math.hypot(...one), 1e-9), 'no faster on the diagonal');
-  assert.ok(near(both[0], both[1], 1e-9) && both[0] > 0 && near(both[2], 0, 1e-9), 'W and D at the horizon: up and to the right, at 45 degrees');
-  assert.strictEqual(graph3dWalk(new Set(['w', 's']), 0, Math.PI / 2, 1000, 100), null);
+  assert.deepStrictEqual(both, one);
+  assert.strictEqual(graph3dFlyStep(new Set(['w', 's']), 1000, 100), null);
+  assert.strictEqual(graph3dFlyStep(new Set(['a', 'd']), 1000, 100), null);
   assert.strictEqual(graph3dWalk(new Set(['a', 'd']), 0, Math.PI / 2, 1000, 100), null);
   assert.strictEqual(graph3dWalk(new Set(), 0, Math.PI / 2, 1000, 100), null);
 });
 
 test('a step of the walk is as long as the camera is far and as the key is held: the same on the screen zoomed in or out', () => {
-  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['w']), 0.7, Math.PI / 2, dist, dt));
+  const len = (dist, dt) => Math.hypot(...graph3dWalk(new Set(['d']), 0.7, Math.PI / 2, dist, dt));
   assert.ok(near(len(2000, 100), 2 * len(1000, 100), 1e-9), 'twice as far, twice the step');
   assert.ok(near(len(1000, 200), 2 * len(1000, 100), 1e-9), 'held twice as long, twice the way');
   // The stage seen straight above at `dist` is 2 dist tan(22.5 deg) high: a second held crosses half of it to a whole one.
   const stage = 2 * 1000 * Math.tan((45 * Math.PI) / 360);
   assert.ok(len(1000, 1000) > 0.5 * stage && len(1000, 1000) < stage, len(1000, 1000) / stage);
+  assert.ok(near(graph3dFlyStep(new Set(['w']), 1000, 1000), len(1000, 1000), 1e-9), 'W flies at the walk\'s speed');
+  assert.ok(near(graph3dFlyStep(new Set(['s']), 1000, 1000), -len(1000, 1000), 1e-9), 'S the same back');
 });
 
 test('q and e are the turn keys whatever their case; with Ctrl, Alt or Meta, or any other key, there is none', () => {
@@ -686,17 +683,65 @@ test('a look runs from straight down to straight up, short of the poles, whateve
   assert.strictEqual(graph3dLook(cam, 0, 2.5).phi, 2.5, 'past the old tilt limit of the shapes');
 });
 
-test('W and S slide along the camera up and down at any turn and tilt, never along where it looks; A and D stay level', () => {
+test('A and D stay level at any turn and tilt', () => {
   for (const theta of [0, 0.6, -2]) for (const phi of [0.3, 1.2, 2.6]) {
-    const b = graph3dBasis(phi, theta);
-    const w = graph3dWalk(new Set(['w']), theta, phi, 1000, 100);
-    const l = Math.hypot(...w);
-    w.forEach((c, k) => assert.ok(near(c / l, b.up[k], 1e-9), `W: the camera up at ${theta},${phi}`));
-    assert.ok(near(w[0] * b.back[0] + w[1] * b.back[1] + w[2] * b.back[2], 0, 1e-9), 'none of it along where it looks');
-    const s = graph3dWalk(new Set(['s']), theta, phi, 1000, 100);
-    s.forEach((c, k) => assert.ok(near(c, -w[k], 1e-9), 'S the reverse'));
     assert.ok(near(graph3dWalk(new Set(['d']), theta, phi, 1000, 100)[1], 0, 1e-12), `D level at ${theta},${phi}`);
   }
+});
+
+test('the tilt pivot is the point of the shape\'s axis nearest the line of sight, ahead of the eye', () => {
+  const close = (p, q) => p.every((v, k) => near(v, q[k], 1e-9));
+  assert.ok(close(graph3dAxisNearest({ theta: 0.7, phi: 1, dist: 500, tx: 0, ty: 50, tz: 0 }), [0, 50, 0]), 'a line of sight through the axis meets it at the target');
+  assert.ok(close(graph3dAxisNearest({ theta: 0, phi: Math.PI / 2, dist: 500, tx: 30, ty: -20, tz: 0 }), [0, -20, 0]), 'level, beside the axis: the axis at the eye\'s height');
+  assert.ok(close(graph3dAxisNearest({ theta: 0, phi: 0, dist: 500, tx: 80, ty: 7, tz: 10 }), [0, 7, 0]), 'straight down along the axis: the axis at the target\'s height');
+  assert.ok(close(graph3dAxisNearest({ theta: 0, phi: 1.2, dist: 500, tx: 50, ty: -40, tz: -600 }), [0, -40, 0]), 'the nearest point behind the eye: the axis at the target\'s height');
+});
+
+test('a right drag up or down tilts the camera round the tilt pivot, from straight above to the shape\'s limit', () => {
+  const h = 600;
+  const cam = { theta: 0.4, phi: 0.5, dist: 800, tx: 40, ty: 0, tz: -30 };
+  const eyeOf = (c) => graph3dEye([c.tx, c.ty, c.tz], graph3dBasis(c.phi, c.theta).back, c.dist);
+  const up = graph3dTiltRound(cam, -h / 10, h, 1.4);
+  assert.ok(near(up.phi, 0.5 + Math.PI / 10, 1e-12), 'a tenth of the stage up tilts a tenth of a half turn toward the horizon');
+  assert.strictEqual(up.theta, cam.theta);
+  const pivot = graph3dAxisNearest(cam);
+  const gap = (c) => Math.hypot(...eyeOf(c).map((v, k) => v - pivot[k]));
+  assert.ok(near(gap(Object.assign({}, cam, up)), gap(cam), 1e-6), 'the eye keeps its distance from the pivot');
+  assert.strictEqual(graph3dTiltRound(cam, h, h, 1.4).phi, 0, 'never past straight above');
+  assert.strictEqual(graph3dTiltRound(cam, -h, h, 1.4).phi, 1.4, 'never past the shape\'s limit');
+  assert.strictEqual(graph3dTiltRound({ ...cam, phi: 0 }, 50, h, 1.4), null, 'already straight above, a drag down moves nothing');
+  const past = { ...cam, phi: 2 };
+  assert.strictEqual(graph3dTiltRound(past, -50, h, 1.4), null, 'a camera a look tilted past the limit tilts no further');
+  assert.ok(graph3dTiltRound(past, 50, h, 1.4).phi < 2, 'and comes back down');
+});
+
+test('the far side fade at the old share (GRAPH3D_FAR_KEEP) keeps it; under it the far side fades after the lighting, over it keeps more', () => {
+  assert.deepStrictEqual(graph3dFarFade(0.45), { keep: 0.45, after: 1 });
+  assert.deepStrictEqual(graph3dFarFade(0.9), { keep: 0.9, after: 1 });
+  const low = graph3dFarFade(0.09);
+  assert.strictEqual(low.keep, 0.45);
+  assert.ok(near(low.after, 0.2, 1e-12));
+});
+
+test('the 3D options read from storage take each known value within its slider\'s range, the default otherwise', () => {
+  const def = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, scale: 1, far: 0.2, lines: 0.5, move: 1, spin: 1 };
+  assert.deepStrictEqual(graph3dMergeOptions(null), def);
+  assert.deepStrictEqual(graph3dMergeOptions('nonsense'), def);
+  assert.deepStrictEqual(graph3dMergeOptions({ size: 'big', far: NaN, lines: null, extra: 3, poles: 7 }), def);
+  const got = graph3dMergeOptions({ size: 0.5, far: 0.01, lines: 2, move: 3, spin: 0.1, poles: { half: { top: 0.2, ring: 1 }, sphere: { top: 9, ring: null } } });
+  assert.strictEqual(got.size, 0.5);
+  assert.strictEqual(graph3dMergeOptions({ scale: 9 }).scale, 4, 'marks at most four times as big');
+  assert.strictEqual(graph3dMergeOptions({ scale: 2.5 }).scale, 2.5);
+  assert.strictEqual(got.far, 0.03, 'the far side never gone');
+  assert.strictEqual(got.lines, 1);
+  assert.strictEqual(got.move, 3);
+  assert.strictEqual(got.spin, 0.25);
+  assert.deepStrictEqual(got.poles.half, { top: 0.2, ring: 1 });
+  assert.ok(near(got.poles.sphere.top, (120 * Math.PI) / 180, 1e-12), 'the sphere\'s centre no lower than its slider goes');
+  assert.strictEqual(got.poles.sphere.ring, null);
+  const a = graph3dMergeOptions(null), b = graph3dMergeOptions(null);
+  a.poles.half.top = 1;
+  assert.strictEqual(b.poles.half.top, 0, 'each read is a fresh copy');
 });
 
 test('the pace is the distance to the nearest point of the shape, never under the floor', () => {
@@ -712,4 +757,66 @@ test('a wheel tick flies toward the pointer: a tick in the zoom-in direction goe
   assert.ok(near(graph3dWheelStep(1 / f, 1000), -130, 1e-6), 'one tick out: the same back');
   assert.ok(near(graph3dWheelStep(f * f, 1000), 2 * 130, 1e-6), 'two ticks, twice the way');
   assert.ok(near(graph3dWheelStep(1, 1000), 0, 1e-12));
+});
+
+test('the pole angle grows linearly from the centre\'s angle to the ring\'s, then on to the bottom pole at the reach', () => {
+  assert.strictEqual(graph3dPoleAngle(0, 100, 200, 0.2, 1.2), 0.2, 'the centre at its own angle');
+  assert.ok(near(graph3dPoleAngle(50, 100, 200, 0.2, 1.2), 0.7, 1e-12), 'half way, half the way');
+  assert.ok(near(graph3dPoleAngle(100, 100, 200, 0.2, 1.2), 1.2, 1e-12), 'the rim at the ring');
+  assert.ok(near(graph3dPoleAngle(150, 100, 200, 0.2, 1.2), 1.2 + (Math.PI - 1.2) / 2, 1e-12), 'past the rim, on toward the bottom pole');
+  assert.ok(near(graph3dPoleAngle(500, 100, 200, 0.2, 1.2), Math.PI, 1e-12), 'never past the bottom pole');
+  assert.strictEqual(graph3dPoleAngle(150, 100, 100, 0, 1), 1, 'no room past the rim: the ring');
+});
+
+test('the default pole limits place every point exactly where it stood before the limits', () => {
+  const rim = 200, outer = 260;
+  const reach = Math.max(rim, outer) * 1.08, radius = reach / 2;
+  for (const r of [0, 40, 120, 199, 200, 230, 260, 300]) {
+    const half = (r / rim) * (Math.PI / 2), sph = Math.min(1, r / reach) * Math.PI;
+    if (r < rim) assert.deepStrictEqual(graph3dPlace('half', r, 0, rim, outer), [Math.cos(0) * rim * Math.sin(half), rim * Math.cos(half) - rim, Math.sin(0) * rim * Math.sin(half)], `half at ${r}`);
+    assert.deepStrictEqual(graph3dPlace('sphere', r, 0, rim, outer), [Math.cos(0) * radius * Math.sin(sph), radius * Math.cos(sph), Math.sin(0) * radius * Math.sin(sph)], `sphere at ${r}`);
+  }
+});
+
+test('the default pole limits are the angles the shapes always had', () => {
+  const rim = 200, outer = 260;
+  const reach = Math.max(rim, outer) * 1.08;
+  for (const r of [0, 40, 120, 199, 200, 230, 260, 300]) {
+    const was = [(r / rim) * (Math.PI / 2), Math.min(1, r / reach) * Math.PI];
+    const half = graph3dPoleDefaults('half', rim, outer), sph = graph3dPoleDefaults('sphere', rim, outer);
+    if (r <= rim) assert.ok(near(graph3dPoleAngle(r, rim, rim, half.top, half.ring), was[0], 1e-12), `half at ${r}`);
+    assert.ok(near(graph3dPoleAngle(r, rim, reach, sph.top, sph.ring), was[1], 1e-9), `sphere at ${r}`);
+  }
+});
+
+test('a pole limit moves the place on the dome and the sphere, never on the disc; the axis stays the top pole', () => {
+  const rim = 200, outer = 260;
+  const p0 = graph3dPlace('sphere', 100, 0, rim, outer);
+  const p1 = graph3dPlace('sphere', 100, 0, rim, outer, { top: 0.5, ring: 2 });
+  assert.ok(p1[1] < p0[1], 'set lower, the point stands lower');
+  const radius = (Math.max(rim, outer) * 1.08) / 2;
+  assert.ok(near(Math.hypot(...p1), radius, 1e-9), 'still on the sphere');
+  const c = graph3dPlace('sphere', 0, 0, rim, outer, { top: 0.5, ring: 2 });
+  assert.ok(near(Math.acos(c[1] / radius), 0.5, 1e-9), 'the centre at its angle below the top pole');
+  const h = graph3dPlace('half', 0, 0, rim, outer, { top: 0.3, ring: 1 });
+  assert.ok(h[1] < 0, 'the dome\'s centre below its top');
+  assert.deepStrictEqual(graph3dPlace('half', 250, 0, rim, outer, { top: 0.3, ring: 1 }), graph3dPlace('half', 250, 0, rim, outer), 'past the rim the dome\'s plane is unchanged');
+  assert.deepStrictEqual(graph3dPlace('disc', 30, 40, rim, outer, { top: 0.3, ring: 1 }), [30, 0, 40]);
+  assert.deepStrictEqual(graph3dShapeAxis('sphere', rim, outer), [0, radius, 0]);
+  assert.deepStrictEqual(graph3dShapeAxis('half', rim, outer), [0, 0, 0]);
+});
+
+test('the size blend runs from the world scale to the screen scale, clamped', () => {
+  assert.strictEqual(graph3dBlendScale(0.2, 1, 0), 0.2);
+  assert.strictEqual(graph3dBlendScale(0.2, 1, 1), 1);
+  assert.ok(near(graph3dBlendScale(0.2, 1, 0.5), 0.6, 1e-12));
+  assert.strictEqual(graph3dBlendScale(0.2, 1, 3), 1);
+  assert.strictEqual(graph3dBlendScale(0.2, 1, undefined), 0.2);
+});
+
+test('the mark scale grows a blended size by its factor, and at 1 leaves it exactly as it was', () => {
+  assert.strictEqual(graph3dBlendScale(0.37, 1, 0, 1), 0.37);
+  assert.strictEqual(graph3dBlendScale(0.37, 1, 0.3, 1), graph3dBlendScale(0.37, 1, 0.3));
+  assert.ok(near(graph3dBlendScale(0.2, 1, 0.5, 3), 1.8, 1e-12));
+  assert.ok(near(graph3dBlendScale(0.2, 1, 1, 4), 4, 1e-12), 'a constant size on screen, four times as big');
 });
