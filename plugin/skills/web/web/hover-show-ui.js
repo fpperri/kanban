@@ -19,7 +19,7 @@
 // This script reads app.js's globals at the moment it runs, never when it loads, the way search-panel.js
 // does: state, storageKey, loadViewMode, hoveredId, searchCtx, refreshHover, writeSearch, $. It also calls
 // graphHoverLineTerms (graph-view.js), hover-show.js (mergeHoverShow, hoverShowWith, hoverShowStep, hoverShowSides, hoverShowIds,
-// hoverShowTerms), hotkeys.js (hotkeySpace), search.js (searchWithTerms) and key-guard.js (keyGuardDetailOff).
+// hoverShowTerms), hotkeys.js (hotkeySpace, hotkeySpaceTaker), search.js (searchWithTerms) and key-guard.js (keyGuardDetailOff).
 
 let hoverShowMemo = null;
 
@@ -100,8 +100,21 @@ function hoverShowStepSide(toggle) {
   refreshHover();
 }
 
-// The controls that answer Space themselves: it presses a button, flips a switch or a tab, opens a summary.
-const HOVER_SPACE_OWN = 'input, textarea, select, button, a, summary, [contenteditable="true"], [role="button"], [role="checkbox"], [role="switch"], [role="tab"]';
+// The places Space types or ticks, which keep it whatever the pointer is on: a field, a checkbox, a todo item's tick.
+const HOVER_SPACE_FIELD = 'input, textarea, select, [contenteditable="true"], [role="checkbox"]';
+// The controls Space presses: a button, a link, a switch, a tab, a summary. A card under the pointer takes Space
+// from them (hotkeySpaceTaker): a click leaves the focus on the control it pressed.
+const HOVER_SPACE_PRESS = 'button, a, summary, [role="button"], [role="switch"], [role="tab"]';
+
+// What holds the focus, as hotkeySpaceTaker reads it: 'field', 'press' or 'none'.
+function hoverSpaceFocus(el) {
+  if (!el || !el.closest) return 'none';
+  if (el.closest(HOVER_SPACE_FIELD)) return 'field';
+  return el.closest(HOVER_SPACE_PRESS) ? 'press' : 'none';
+}
+
+// True from a Space taken off a focused control until its keyup, which the control would press on.
+let hoverSpaceHeld = false;
 
 // The card Space acts on: the one under the pointer, else the one with the focus.
 function hoverSpaceSubject() {
@@ -116,26 +129,66 @@ function hoverSpaceLineTerms() {
   return loadViewMode() === 'graph' ? graphHoverLineTerms() : '';
 }
 
-// Space, a key that would scroll the page, so it reads the whole key guard (off while a field has focus and
-// while a menu, a dialog, the notifications panel, the preferences sheet or the notes palette is up) and
-// leaves a control that answers it alone, a todo item's tick included. With no card to act on, or no set
-// ticked, it keeps its job. A held key acts once.
-function onHoverSpaceKey(e) {
+function hoverSpaceKind(e) {
   const kind = hotkeySpace(e);
-  if (kind !== 'write' && kind !== 'add') return;
-  if (e.defaultPrevented) return;
-  if (keyGuardDetailOff(document)) return;
-  if (e.target && e.target.closest && e.target.closest(HOVER_SPACE_OWN)) return;
+  return kind === 'write' || kind === 'add' ? kind : null;
+}
+
+// The write itself: the hovered card's terms, else the focused card's, else the hovered line's. False when there is
+// nothing to write (no card and no line, or no set ticked), and then Space keeps its job.
+function hoverSpaceWrite(e, kind) {
   const id = hoverSpaceSubject();
   const terms = id == null ? hoverSpaceLineTerms() : hoverShowTerms(hoverShowKindsNow(), window.kanbanIds.idKey(id) ?? id, hoverShowSidesNow());
-  if (!terms) return;
+  if (!terms) return false;
   e.preventDefault();
   const box = $('#search-input');
   const text = searchWithTerms(box.value, terms, kind === 'add');
   if (text !== box.value) writeSearch(text, 'hover');
+  return true;
+}
+
+// Space, a key that would scroll the page, so it reads the whole key guard (off while a field has focus and
+// while a menu, a dialog, the notifications panel, the preferences sheet or the notes palette is up) and
+// leaves a field or a tick alone, a todo item's included. A button, link or switch with the focus keeps it only
+// with no card hovered (hotkeySpaceTaker). With no card to act on, or no set ticked, it keeps its job. A held
+// key acts once.
+function onHoverSpaceKey(e) {
+  const kind = hoverSpaceKind(e);
+  if (!kind || e.defaultPrevented) return;
+  if (keyGuardDetailOff(document)) return;
+  if (hotkeySpaceTaker(hoverSpaceFocus(e.target), hoveredId != null) !== 'card') return;
+  hoverSpaceWrite(e, kind);
+}
+
+// The capture side, before the focused control sees the key: with a card hovered, Space over a button, link or
+// switch is the card's, and neither the keydown, a held key's repeats, nor the keyup (onHoverSpaceUp) reach the
+// control, which would press on one of them.
+function onHoverSpaceOverControl(e) {
+  if (e.key !== ' ') return;
+  const off = keyGuardDetailOff(document);
+  if (e.repeat) {
+    if (hoverSpaceHeld) { e.preventDefault(); e.stopPropagation(); }
+    return;
+  }
+  hoverSpaceHeld = false;
+  const kind = hoverSpaceKind(e);
+  if (off || !kind || e.defaultPrevented) return;
+  if (hoverSpaceFocus(e.target) !== 'press' || hotkeySpaceTaker('press', hoveredId != null) !== 'card') return;
+  if (!hoverSpaceWrite(e, kind)) return;
+  e.stopPropagation();
+  hoverSpaceHeld = true;
+}
+
+function onHoverSpaceUp(e) { // key-guard: exempt (ends only a Space whose keydown onHoverSpaceOverControl took past the guard)
+  if (e.key !== ' ' || !hoverSpaceHeld) return;
+  hoverSpaceHeld = false;
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('keydown', onHoverSpaceOverControl, true);
+  document.addEventListener('keyup', onHoverSpaceUp, true);
   document.addEventListener('keydown', onHoverSpaceKey);
   $('#search-hover-fold').addEventListener('click', toggleSearchHoverFold);
   $('#search-hover').addEventListener('change', (e) => {

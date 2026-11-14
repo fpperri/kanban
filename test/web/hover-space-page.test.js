@@ -238,13 +238,66 @@ test('in a text field Space is a space: a hovered card does not take it', async 
   assert.strictEqual(editable.space(), 0, 'a contenteditable box');
 });
 
-test('on a button, a link, a switch or a tab Space presses it: a hovered card does not take it', async () => {
+const onTick = { closest: (sel) => (sel.includes('[role="checkbox"]') ? {} : null) };
+
+// A Space press as the browser runs it: the document's capture listeners, the focused control's own handler (it
+// presses on keydown here, as a role="button" row does; a real button presses on keyup, which is taken too), then
+// the bubbling listeners. Answers how many times the control was pressed and whether keydown and keyup were prevented.
+function pressSpace(s, target, over = {}) {
+  let pressed = 0;
+  const base = { key: ' ', target, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, repeat: false, ...over };
+  const down = s.page.fireDocument('keydown', { ...base, type: 'keydown' }, { honorStop: true, atTarget: (e) => { if (!e.defaultPrevented) pressed++; } });
+  const up = s.page.fireDocument('keyup', { ...base, type: 'keyup', repeat: false }, { honorStop: true, atTarget: (e) => { if (!e.defaultPrevented && !down.defaultPrevented) pressed++; } });
+  return { pressed, down: down.defaultPrevented, up: up.defaultPrevented };
+}
+
+test('a hovered card beats a focused button, link or switch: Space writes its sets and the control is not pressed', async () => {
   const s = await open();
   s.over(1);
-  assert.strictEqual(s.space({ target: onControl }), 0);
+  const r = pressSpace(s, onControl);
+  assert.strictEqual(s.box(), 'dlinks:1 | hlinks:1');
+  assert.deepStrictEqual(r, { pressed: 0, down: true, up: true });
+  s.over(2);
+  pressSpace(s, onControl, { shiftKey: true });
+  assert.strictEqual(s.box(), 'dlinks:1 | hlinks:1 | dlinks:2 | hlinks:2', 'Shift+Space adds, the button focused still');
+});
+
+test('with no card hovered a focused button, link or switch keeps Space: it presses', async () => {
+  const s = await open();
+  const r = pressSpace(s, onControl);
   assert.strictEqual(s.box(), '');
-  const selectors = s.page.run('HOVER_SPACE_OWN');
-  for (const own of ['button', 'a', 'summary', '[role="button"]', '[role="checkbox"]', '[role="switch"]', '[role="tab"]', 'input']) assert.ok(selectors.includes(own), own);
+  assert.deepStrictEqual(r, { pressed: 2, down: false, up: false }, "the control's own keydown and keyup both ran");
+  s.over(1);
+  s.out(1);
+  assert.strictEqual(pressSpace(s, onControl).down, false, 'the pointer left the card');
+});
+
+test("a todo item's tick keeps Space with a card hovered, and a keyup after it is left alone", async () => {
+  const s = await open();
+  s.over(1);
+  const r = pressSpace(s, onTick);
+  assert.strictEqual(s.box(), '');
+  assert.deepStrictEqual(r, { pressed: 2, down: false, up: false });
+});
+
+test('a focused button with a card hovered but no set ticked keeps Space: there is nothing to write', async () => {
+  const s = await open({ stored: { [KEY]: JSON.stringify({ kinds: [] }) } });
+  s.over(1);
+  assert.strictEqual(pressSpace(s, onControl).down, false);
+  assert.strictEqual(s.box(), '');
+});
+
+test('a held Space over a focused button after the write stays taken, so the button never presses', async () => {
+  const s = await open();
+  s.over(1);
+  let pressed = 0;
+  const base = { key: ' ', target: onControl, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false };
+  const atTarget = (e) => { if (!e.defaultPrevented) pressed++; };
+  s.page.fireDocument('keydown', { ...base, type: 'keydown', repeat: false }, { honorStop: true, atTarget });
+  s.page.fireDocument('keydown', { ...base, type: 'keydown', repeat: true }, { honorStop: true, atTarget });
+  s.page.fireDocument('keyup', { ...base, type: 'keyup', repeat: false }, { honorStop: true, atTarget });
+  assert.strictEqual(pressed, 0);
+  assert.strictEqual(s.box(), 'dlinks:1 | hlinks:1');
 });
 
 test('behind a menu, a dialog, the notifications panel, the preferences sheet or the notes palette Space keeps its job: a todo item ticks', async () => {
