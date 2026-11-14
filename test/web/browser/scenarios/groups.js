@@ -22,7 +22,8 @@ const DLG_GONE = `${DLG}.classList.contains('hidden')`;
 const GROUPS = `state.groups.list`;
 const group = (id) => `${GROUPS}.find((g)=>g.id===${JSON.stringify(id)})`;
 const cardsOf = (id) => `(${group(id)}||{cards:[]}).cards.join()`;
-const CHIP = `(()=>{const c=${q('.np-chip')};return c&&!c.hidden?${q('.np-chip-text')}.textContent:''})()`;
+// The subject: the card picker, as long as the clear button beside it shows (the palette is aimed at something).
+const CHIP = `(()=>{const x=${q('.np-chip-x')};return x&&!x.hidden?${q('.np-pick-input')}.value:''})()`;
 const BOARD_IDS = `[...document.querySelectorAll('#board .card-el')].map((e)=>e.dataset.id).sort((a,b)=>a-b).join()`;
 const badgesOf = (id) => `[...document.querySelectorAll('#board .card-el[data-id="${id}"] .group-badge')].map((b)=>b.textContent)`;
 
@@ -238,7 +239,7 @@ module.exports = {
     await press('#ctx-note');
     check('groups: the question says they are not grouped together', await dlgUp() && await ev(`/aren.t grouped together/.test(document.getElementById('group-dialog-body').textContent)&&document.querySelectorAll('#group-dialog .pick-btn.strong').length===0`));
     await press('#group-dialog .pick-btn[data-choice="each"]');
-    check('groups: Add the note to each card opens the palette on both cards', await waitFor(`${DLG_GONE}`, 2000) && await palUp() && await ev(CHIP) === 'each of 2 cards', await ev(CHIP));
+    check('groups: Add the note to each card opens the palette on both cards', await waitFor(`${DLG_GONE}`, 2000) && await palUp() && await ev(CHIP) === '2 cards', await ev(CHIP));
     check('groups: the preview says one note goes on each', await waitFor(`/on each of 2 cards \\(#2, #10\\)/.test(${q('.np-prev-text')}.textContent)`, 2500), await ev(`${q('.np-prev-text')}.textContent`));
     await ev(`(()=>{const t=${q('.np-time')};t.value='09:30';t.dispatchEvent(new Event('input',{bubbles:true}));const i=${q('.np-input')};i.value='checked both';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus();return true})()`);
     await key('Enter');

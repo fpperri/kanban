@@ -213,7 +213,7 @@ module.exports = {
       check('the header reads 2 queued', await waitFor(`${PILL}==='2 queued'`, 6000), await ev(PILL));
 
       await menuItem('n1', 'ctx-note');
-      check('Add note on n1 opens the palette on it', await waitFor(`!document.getElementById('notes-palette').classList.contains('hidden')&&document.querySelector('#notes-palette .np-chip-text').textContent.startsWith('#n1')`, 3000), await ev(`document.querySelector('#notes-palette .np-chip-text').textContent`));
+      check('Add note on n1 opens the palette on it', await waitFor(`!document.getElementById('notes-palette').classList.contains('hidden')&&document.querySelector('#notes-palette .np-pick-input').value.startsWith('#n1')`, 3000), await ev(`document.querySelector('#notes-palette .np-pick-input').value`));
       await ev(`(()=>{const i=document.querySelector('#notes-palette .np-input');i.value='a note on n1';i.dispatchEvent(new Event('input',{bubbles:true}));i.focus();return true})()`);
       await page.key('Enter');
       check('the note is filed under n1', await waitFor(`state.logbook.notes.some((n)=>n.target==='n1'&&n.note==='a note on n1')`, 6000));
