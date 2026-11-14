@@ -33,6 +33,7 @@ function fn(name) {
 function fakeDocument() {
   const make = (tag) => ({
     tag, attrs: {}, children: [], textContent: '', className: '',
+    style: { props: {}, setProperty(k, v) { this.props[k] = String(v); } },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },

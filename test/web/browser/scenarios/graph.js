@@ -18,6 +18,7 @@
 const LIGHT = { query: 'renew | zephyr', lit: [1, 2, 7, 11, 12], done: 12 };
 
 const { openPanel } = require('../panel');
+const { checkDoneFade } = require('../done-fade');
 
 module.exports = {
   name: 'graph',
@@ -60,6 +61,13 @@ module.exports = {
     check('toggle button reads Board view and is pressed', await ev(`(()=>{const b=document.getElementById('graph-toggle-btn');return b.getAttribute('aria-pressed')==='true'&&/Board view/.test(b.textContent)})()`));
     const tiersNodes = s.nodes;
     await shot('tiers');
+    // A done dot's fade, in the Hierarchy, in each theme.
+    await checkDoneFade(page, 'hierarchy');
+    for (const theme of ['dark', 'light']) {
+      await ev(`document.documentElement.setAttribute('data-theme','${theme}')`);
+      await checkDoneFade(page, `hierarchy, ${theme} theme`);
+    }
+    await ev(`document.documentElement.removeAttribute('data-theme')`);
 
     await ev(`document.querySelector('#search-statuses .status-pill[data-col=archive]').click()`);
     await waitFor(`document.querySelectorAll('.graph-node').length>${tiersNodes}`);

@@ -30,7 +30,7 @@ function fn(name) {
 
 function make(tag) {
   return {
-    tag, attrs: {}, children: [], textContent: '', className: '', hidden: false, style: {},
+    tag, attrs: {}, children: [], textContent: '', className: '', hidden: false, style: { setProperty(k, v) { this[k] = String(v); } },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k] === undefined ? null : this.attrs[k]; },
     removeAttribute(k) { delete this.attrs[k]; },

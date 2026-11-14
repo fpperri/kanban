@@ -1660,7 +1660,11 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-node.status-palette-6 { color: var(--hash-g); }
 .graph-node.status-palette-7 { color: var(--hash-h); }
 .graph-dot { fill: currentColor; stroke: none; stroke-linejoin: round; }
-.graph-node.is-done .graph-dot { fill: var(--surface); stroke: currentColor; stroke-width: 1.8px; }
+/* A done dot is hollow, the ground at its centre and its own colour fading in toward the ring: the fade is its own
+   gradient (graphDrawPlan), inside the card's group so its rim stop takes the card's colour. */
+.graph-node.is-done .graph-dot { fill: var(--graph-done-fill, var(--surface)); stroke: currentColor; stroke-width: 1.8px; }
+.graph-done-fade-centre { stop-color: var(--surface); }
+.graph-done-fade-rim { stop-color: currentColor; stop-opacity: 0.55; }
 /* Archived is a location, told apart by a dashed ring, never by dimming the dot: a filled dot keeps its status colour
    and gains a muted dashed edge, a done (hollow) one keeps its own colour's ring and dashes it. The done rule's :where() keeps it no heavier than the
    selected, hovered and focused strokes below, which must win over it. */
@@ -1711,7 +1715,7 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
    writes as --graph-3d-paint. Never see-through: in 3D near and far marks overlap, and see-through ones would show
    each other through, so the 2D Graph's dimming by opacity is undone here. A line is as wide as its ends
    are near (--graph-3d-w). */
-.graph-3d .graph-node > .graph-dot { color: var(--graph-3d-paint, currentColor); }
+.graph-3d .graph-node > .graph-dot, .graph-3d .graph-node > .graph-done-fade { color: var(--graph-3d-paint, currentColor); }
 .graph-3d .graph-node.has-kids .graph-kids-ring { --graph-3d-ink: var(--mut); }
 .graph-3d .graph-node.is-review .graph-flag-ring { --graph-3d-ink: var(--id-review); }
 .graph-3d .graph-node.is-waiting .graph-flag-ring { --graph-3d-ink: var(--id-waiting); }

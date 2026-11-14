@@ -29,6 +29,8 @@
 // selectedIds, isDragging, hideContextMenu, currentDetailId, closeCard, setView, graph3dCur, graph3dRequest,
 // graph3dScreenOf, graph3dShapeAxis.
 
+const { checkDoneFade } = require('../done-fade');
+
 const ROOT = `document.querySelector('#graph-view .graph-3d')`;
 // A dot's middle on the screen, for every dot drawn, by card id.
 const DOTS = `(()=>{const o={};for(const g of document.querySelectorAll('#graph-view .graph-node')){const d=g.querySelector('.graph-dot');if(!d||getComputedStyle(g).display==='none')continue;const r=d.getBoundingClientRect();o[g.dataset.id]={x:r.left+r.width/2,y:r.top+r.height/2}}return o})()`;
@@ -108,6 +110,7 @@ module.exports = {
     check('it opens on the disc, straight above', await ev(`${ROOT}.dataset.shape`) === 'disc' && top && top.phi === 0 && top.theta === 0, top);
     check('the compass shows north up, seen from straight above', await ev(COMPASS) === 'scale(1 1) rotate(0)', await ev(COMPASS));
     const above = await ev(DOTS);
+    await checkDoneFade(page, '3D, straight above');
     const ids = Object.keys(flat);
     const off = ids.map((id) => ({ id, d: above[id] ? Math.hypot(above[id].x - flat[id].x, above[id].y - flat[id].y) : Infinity })).filter((o) => o.d > 2);
     check('from straight above every dot stands within 2 px of the 2D Hierarchy', ids.length > 20 && off.length === 0, off.slice(0, 5));

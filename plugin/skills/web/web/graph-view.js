@@ -1041,7 +1041,18 @@ function graphDrawPlan(plan) {
     const leader = n.name !== undefined ? g.appendChild(fixed(graphEl('path', { d: '' }, 'graph-node-leader'))) : null;
     // A type with an icon draws its dot as that outline (the plan holds it as `d`, from
     // a closed table), still the one graph-dot in the status colour; every other card is round.
-    g.appendChild(fixed(n.d ? graphEl('path', { d: n.d }, 'graph-dot') : graphEl('circle', { r: n.r }, 'graph-dot')));
+    const dot = fixed(n.d ? graphEl('path', { d: n.d }, 'graph-dot') : graphEl('circle', { r: n.r }, 'graph-dot'));
+    // A done dot is hollow, its colour fading in toward the ring: a gradient of its own inside the group, so
+    // its stops take the card's colour (app.css paints them), which the dot's fill points at.
+    if (n.cls.includes(' is-done')) {
+      const id = `graph-done-fade-${nodeEls.size}`;
+      const fade = graphEl('radialGradient', { id }, 'graph-done-fade');
+      fade.appendChild(graphEl('stop', { offset: '0.45' }, 'graph-done-fade-centre'));
+      fade.appendChild(graphEl('stop', { offset: '1' }, 'graph-done-fade-rim'));
+      g.appendChild(fade);
+      dot.style.setProperty('--graph-done-fill', `url(#${id})`);
+    }
+    g.appendChild(dot);
     const kids = n.cls.includes(' has-kids');
     const flagged = / is-(blocked|waiting|review)/.test(n.cls);
     if (kids) g.appendChild(fixed(graphEl('circle', { r: n.kidsRing }, 'graph-kids-ring')));
