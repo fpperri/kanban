@@ -4,9 +4,11 @@
 // ground on a canvas that covers the stage, and the 2D drawing's own marks are moved to where the
 // camera sees them. Opened straight above on the disc, every dot stands within 2 px of where the
 // 2D Hierarchy drew it. G steps the shape (disc, half sphere, sphere and round). With the mouse a
-// left drag pans (the camera's target moves, its tilt and turn stay) and a right drag looks round from
-// where the camera stands (its heading changes, its position does not) and opens no menu; the wheel flies
-// it toward the pointer; a left click on a dot selects its
+// left drag pans (the camera's target moves, its tilt and turn stay); a right drag spins the shape round its
+// own vertical axis across (the axis keeps its place on screen to the pixel, and a cross marks it while it
+// spins) and tilts the camera up and down, and opens no menu; Shift and a right drag looks round from where
+// the camera stands (its heading changes, its position does not), and a Shift+right press opens no menu, with
+// a drag or without; the wheel flies it toward the pointer; a left click on a dot selects its
 // card, a double click opens it, and a right click on it, with no drag, opens the card menu. The
 // browser asks for that menu when the right button goes up on Windows and when it goes down on Linux
 // and the Mac; the second order is played here by a contextmenu event sent while the button is held,
@@ -24,7 +26,8 @@
 // (the runner's flags allow it).
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
-// selectedIds, isDragging, hideContextMenu, currentDetailId, closeCard, setView, graph3dCur, graph3dRequest.
+// selectedIds, isDragging, hideContextMenu, currentDetailId, closeCard, setView, graph3dCur, graph3dRequest,
+// graph3dScreenOf, graph3dShapeAxis.
 
 const ROOT = `document.querySelector('#graph-view .graph-3d')`;
 // A dot's middle on the screen, for every dot drawn, by card id.
@@ -39,6 +42,10 @@ const MENU_AT = (x, y) => `document.elementFromPoint(${x},${y}).dispatchEvent(ne
 // the near side.
 const TOP = `(()=>{const h=graph3dCur;const r=(n)=>Math.hypot(n.x,n.y);const z=new Map(h.vis.map((o)=>[o.id,o.z]));const fan=h.view.plan.nodes.filter((n)=>r(n)<h.rim&&z.has(n.id));const r0=Math.min(...fan.map(r)),r1=Math.max(...fan.map(r));const inner=fan.filter((n)=>r(n)<=r0+1),outer=fan.filter((n)=>r(n)>=r1-1);const mean=(ns)=>ns.reduce((a,n)=>a+z.get(n.id),0)/ns.length;const s=${ROOT}.getBoundingClientRect();const shown=inner.every((n)=>{const g=${ROOT}.querySelector('.graph-node[data-id="'+n.id+'"]');if(g.classList.contains('graph-3d-far'))return false;const b=g.querySelector('.graph-dot').getBoundingClientRect();const x=b.left+b.width/2,y=b.top+b.height/2;return x>s.left&&x<s.right&&y>s.top&&y<s.bottom});return {inner:inner.length,outer:outer.length,zInner:Math.round(mean(inner)),zOuter:Math.round(mean(outer)),shown}})()`;
 const CAM = `(()=>{const r=${ROOT};if(!r||!r.dataset.cam)return null;const [theta,phi,dist,tx,ty,tz]=r.dataset.cam.split(',').map(Number);return {theta,phi,dist,tx,ty,tz}})()`;
+// Where the shape's own vertical axis (the point H frames) stands on the page.
+const AXIS = `(()=>{const h=graph3dCur;const s=graph3dScreenOf(h,graph3dShapeAxis(h.shape,h.rim,h.outer));const r=h.root.getBoundingClientRect();return s&&{x:r.left+s.x,y:r.top+s.y}})()`;
+const CROSS_ON = `${ROOT}.querySelector('.graph-3d-pivot').dataset.on==='1'`;
+const SHIFT = 8;
 const FRAMES = `(()=>{const raf=window.requestAnimationFrame.bind(window),caf=window.cancelAnimationFrame.bind(window);const f=window.__graph3dFrames={pending:new Set(),asked:0};`
   + `window.requestAnimationFrame=(cb)=>{const mine=/graph-3d(-[a-z]+)?\\.js/.test(new Error().stack||'');let id=0;id=raf((t)=>{f.pending.delete(id);cb(t)});if(mine){f.pending.add(id);f.asked++}return id};`
   + `window.cancelAnimationFrame=(id)=>{f.pending.delete(id);caf(id)};return true})()`;
@@ -51,27 +58,32 @@ module.exports = {
     const { ev, open, waitFor, centre, mouse, click, key, check, shot } = page;
     const menu = `document.getElementById('context-menu')`;
     const cam = () => ev(CAM);
-    // The camera once it has stopped: the same reading twice, a few frames apart.
+    // The camera once it has stopped: six equal reads in a row, about half a second: the readout is rounded to
+    // two places, so the slow end of a coast can read the same twice and still be moving.
     const settled = async () => {
-      let last = null;
-      for (let i = 0; i < 60; i++) {
+      let last = null, same = 0;
+      for (let i = 0; i < 80; i++) {
         const now = await cam();
-        if (now && last && JSON.stringify(now) === JSON.stringify(last)) return now;
+        same = now && last && JSON.stringify(now) === JSON.stringify(last) ? same + 1 : 0;
+        if (same >= 5) return now;
         last = now;
         await page.sleep(80);
       }
       return last;
     };
     const stageRect = () => ev(`(()=>{const r=document.querySelector('#graph-view .graph-main').getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom}})()`);
-    const drag = async (from, to, button, onPress) => {
+    // `mods` is the CDP modifiers bitmask (SHIFT); `onPress` runs once the button is down, `onHeld` once it has
+    // dragged, before it comes up.
+    const drag = async (from, to, button, onPress, { mods = 0, onHeld } = {}) => {
       const buttons = button === 'right' ? 2 : 1;
-      await mouse('mouseMoved', from.x, from.y, { button: 'none' });
-      await mouse('mousePressed', from.x, from.y, { button });
+      await mouse('mouseMoved', from.x, from.y, { button: 'none', modifiers: mods });
+      await mouse('mousePressed', from.x, from.y, { button, modifiers: mods });
       if (onPress) await onPress();
       for (let k = 1; k <= 8; k++) {
-        await mouse('mouseMoved', from.x + ((to.x - from.x) * k) / 8, from.y + ((to.y - from.y) * k) / 8, { button, buttons });
+        await mouse('mouseMoved', from.x + ((to.x - from.x) * k) / 8, from.y + ((to.y - from.y) * k) / 8, { button, buttons, modifiers: mods });
       }
-      await mouse('mouseReleased', to.x, to.y, { button });
+      if (onHeld) await onHeld();
+      await mouse('mouseReleased', to.x, to.y, { button, modifiers: mods });
     };
 
     await open('/?view=graph&graph=hierarchy');
@@ -106,18 +118,38 @@ module.exports = {
     check('a left drag pans: the target moves, the tilt and the turn stay', panned.phi === top.phi && panned.theta === top.theta && Math.hypot(panned.tx - top.tx, panned.tz - top.tz) > 20, { top, panned });
     check('a drag leaves isDragging off once it ends', await waitFor('isDragging===false'));
 
-    // A right drag looks round from where the camera stands, and opens no card menu: the camera's position
-    // does not move, its heading (the turn and the tilt) changes.
-    await drag(spot, { x: spot.x + 120, y: spot.y - 140 }, 'right');
-    const turned = await settled();
-    const eyeOf = (c) => [c.tx + Math.sin(c.phi) * Math.sin(c.theta) * c.dist, c.ty + Math.cos(c.phi) * c.dist, c.tz + Math.sin(c.phi) * Math.cos(c.theta) * c.dist];
-    const e0 = eyeOf(panned), e1 = eyeOf(turned);
-    check('a right drag looks round: the tilt and the turn change', turned.phi > 0.2 && Math.abs(turned.theta - panned.theta) > 0.2, { panned, turned });
-    check('a right drag keeps the camera where it stands', Math.hypot(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]) < panned.dist * 0.015 && turned.dist === panned.dist, { e0, e1 });
+    // A right drag across spins the shape round its own vertical axis: the turn changes, the tilt and the
+    // distance stay, the axis keeps its place on screen to the pixel, a cross marks it while it spins, and no
+    // card menu opens.
+    const axis0 = await ev(AXIS);
+    let crossDuring = false;
+    await drag(spot, { x: spot.x + 160, y: spot.y }, 'right', null, { onHeld: async () => { crossDuring = await waitFor(CROSS_ON, 2000); } });
+    const spun = await settled();
+    const axis1 = await ev(AXIS);
+    check('a right drag across spins the shape: the turn changes, the tilt and the distance stay',
+      Math.abs(spun.theta - panned.theta) > 0.2 && spun.phi === panned.phi && spun.dist === panned.dist, { panned, spun });
+    check('a right drag across spins round the shape\'s axis: the axis does not drift on screen', Math.hypot(axis1.x - axis0.x, axis1.y - axis0.y) < 0.5, { axis0, axis1 });
+    check('a cross marks the axis while a right drag spins the shape', crossDuring);
     await page.sleep(400);
     check('a right drag opens no menu', await ev(`${menu}.classList.contains('hidden')`));
+
+    // A right drag up tilts the camera round the shape's axis, at the same distance.
+    await drag(spot, { x: spot.x, y: spot.y - 140 }, 'right');
+    const tilted = await settled();
+    check('a right drag up tilts the camera, the turn and the distance kept', tilted.phi > 0.2 && tilted.theta === spun.theta && tilted.dist === spun.dist, { spun, tilted });
     check('the compass turns and tilts with the camera', await ev(COMPASS) !== 'scale(1 1) rotate(0)', await ev(COMPASS));
     await shot('3d-tilted');
+
+    // Shift and a right drag looks round from where the camera stands, and opens no card menu: the camera's
+    // position does not move, its heading (the turn and the tilt) changes.
+    await drag(spot, { x: spot.x + 120, y: spot.y - 60 }, 'right', null, { mods: SHIFT });
+    const turned = await settled();
+    const eyeOf = (c) => [c.tx + Math.sin(c.phi) * Math.sin(c.theta) * c.dist, c.ty + Math.cos(c.phi) * c.dist, c.tz + Math.sin(c.phi) * Math.cos(c.theta) * c.dist];
+    const e0 = eyeOf(tilted), e1 = eyeOf(turned);
+    check('Shift and a right drag looks round: the tilt and the turn change', Math.abs(turned.phi - tilted.phi) > 0.1 && Math.abs(turned.theta - tilted.theta) > 0.2, { tilted, turned });
+    check('Shift and a right drag keeps the camera where it stands', Math.hypot(e1[0] - e0[0], e1[1] - e0[1], e1[2] - e0[2]) < tilted.dist * 0.015 && turned.dist === tilted.dist, { e0, e1 });
+    await page.sleep(400);
+    check('Shift and a right drag opens no menu', await ev(`${menu}.classList.contains('hidden')`));
 
     // The same right drag with the menu asked for as the button goes down: still no menu.
     await drag(spot, { x: spot.x + 60, y: spot.y + 40 }, 'right', () => ev(MENU_AT(spot.x, spot.y)));
@@ -216,6 +248,11 @@ module.exports = {
     await ev(`hideContextMenu()`);
     const dotOf = (id) => ev(`(()=>{const g=${ROOT}.querySelector('.graph-node[data-id="${id}"] .graph-dot');const r=g.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     let dot = await dotOf(target.id);
+    await mouse('mousePressed', dot.x, dot.y, { button: 'right', modifiers: SHIFT });
+    await ev(MENU_AT(dot.x, dot.y));
+    await mouse('mouseReleased', dot.x, dot.y, { button: 'right', modifiers: SHIFT });
+    await page.sleep(400);
+    check('a Shift+right click on a dot, with no drag, opens no menu', await ev(`${menu}.classList.contains('hidden')`));
     await mouse('mousePressed', dot.x, dot.y, { button: 'right' });
     await mouse('mouseReleased', dot.x, dot.y, { button: 'right' });
     check('a right click on a dot, with no drag, opens the card menu', await waitFor(`!${menu}.classList.contains('hidden')`, 3000));

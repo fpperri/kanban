@@ -542,7 +542,7 @@ function graphBuildPanel(kind, fan, deps, lanes) {
   zoom.appendChild(graphButton('graph-zoom-btn', 'Fit', 'Fit every card in the panel', { graphAction: 'fit' }));
   panel.appendChild(zoom);
   if (fan) panel.appendChild(graphBuildOptionsRow(fan.options));
-  if (kind === 'hierarchy' && graph3dWanted()) panel.appendChild(graph3dBuildTunePanel());
+  if (kind === 'hierarchy' && graph3dWanted()) panel.appendChild(graph3dBuildOptions());
   if (kind === 'flow') panel.appendChild(graphBuildFlowRow(deps, lanes));
   panel.appendChild(graphBuildHoverRow());
   return panel;

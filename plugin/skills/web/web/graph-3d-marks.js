@@ -85,10 +85,9 @@ function graph3dPaintNode(hier, g, share) {
   for (const el of parts) graph3dPaintMark(hier, el, share);
 }
 
-// PROTOTYPE: the far side slider under today's share (GRAPH3D_FAR_KEEP) fades the far side after the lighting's
-// floor (graph3dShare), so it fades with a card selected too; over it, the far side keeps that share instead.
-function graph3dFarPost() {
-  return Math.min(1, GRAPH3D_TUNE.far / GRAPH3D_FAR_KEEP);
+// The far side option's two shares (graph3dFarFade): `keep` before the lighting's floor, `after` it.
+function graph3dFarNow() {
+  return graph3dFarFade(GRAPH3D_OPTIONS.far);
 }
 
 // One frame of the marks: the dots, their shadows and paint order, the lines and counts, the captions,
@@ -147,10 +146,10 @@ function graph3dPlaceDots(hier, f) {
     if (!close) { g.classList.add('graph-3d-off'); continue; }
     g.classList.remove('graph-3d-off');
     const raw = graph3dScaleAt(hier, q[2]);
-    const s = Math.round(graph3dBlendScale(graph3dMarkScale(raw, hier.cam.phi, hier.shape, ref), hier.kHome, GRAPH3D_TUNE.size) * 10000) / 10000;
+    const s = Math.round(graph3dBlendScale(graph3dMarkScale(raw, hier.cam.phi, hier.shape, ref), hier.kHome, GRAPH3D_OPTIONS.size, GRAPH3D_OPTIONS.scale) * 10000) / 10000;
     g.setAttribute('transform', `translate(${graph3dRound2(q[0])} ${graph3dRound2(q[1])}) scale(${s})`);
     g.style.setProperty('--graph-k', String(s));
-    const ls = Math.round(graph3dBlendScale(graph3dLabelScale(raw, ref, f.top, grow), 1, GRAPH3D_TUNE.size) * 1000) / 1000;
+    const ls = Math.round(graph3dBlendScale(graph3dLabelScale(raw, ref, f.top, grow), 1, GRAPH3D_OPTIONS.size, GRAPH3D_OPTIONS.scale) * 1000) / 1000;
     g.style.setProperty('--graph-3d-s', String(ls));
     const lit = litOf(g);
     const far = f.isFar(p) && !lit;
@@ -167,11 +166,11 @@ function graph3dPlaceDots(hier, f) {
   const span = zmax - zmin;
   const deep = span > 1 && !f.top;
   f.zmax = zmax;
-  f.keepOf = (z, far, close, lit) => (deep && !lit ? 1 - (GRAPH3D_DEPTH_FADE * (z - zmin)) / span : 1) * (far ? Math.max(GRAPH3D_TUNE.far, GRAPH3D_FAR_KEEP) : 1) * close;
+  f.keepOf = (z, far, close, lit) => (deep && !lit ? 1 - (GRAPH3D_DEPTH_FADE * (z - zmin)) / span : 1) * (far ? graph3dFarNow().keep : 1) * close;
   for (const o of vis) {
     o.keep = f.keepOf(o.z, o.far, o.close, o.lit);
     o.unlit = f.unlitIf(o.g, 'node');
-    graph3dPaintNode(hier, o.g, graph3dShare(o.keep, o.unlit) * (o.far ? graph3dFarPost() : 1));
+    graph3dPaintNode(hier, o.g, graph3dShare(o.keep, o.unlit) * (o.far ? graph3dFarNow().after : 1));
   }
   if (hier.scene.fog) {
     const sp = Math.sin(Math.min(Math.PI / 2, Math.max(0, hier.cam.phi)));
@@ -262,7 +261,7 @@ function graph3dPlaceLines(hier, f, vis) {
       const z = ends.length ? ends.reduce((a, o) => a + o.z, 0) / ends.length : f.zmax;
       el.style.setProperty('--graph-3d-w', String(Math.round(graph3dLineWidth(sk, hier.kHome) * 1000) / 1000));
       lineKeep = f.keepOf(z, false, 1, false);
-      graph3dPaintMark(hier, el, graph3dShare(lineKeep, f.unlitIf(el, 'link')) * (f.bent ? GRAPH3D_TUNE.lines : 1));
+      graph3dPaintMark(hier, el, graph3dShare(lineKeep, f.unlitIf(el, 'link')) * (f.bent ? GRAPH3D_OPTIONS.lines : 1));
       if (ends.length) lineLs = Math.round((ends.reduce((a, o) => a + o.ls, 0) / ends.length) * 1000) / 1000;
     }
     if (drawn.hitEls[i]) drawn.hitEls[i].setAttribute('d', split.far.length ? graph3dPathOf(hier, f, pieces) : d);
@@ -277,7 +276,7 @@ function graph3dPlaceLines(hier, f, vis) {
         count.setAttribute('x', graph3dRound2(q[0]));
         count.setAttribute('y', graph3dRound2(q[1]));
         count.style.setProperty('--graph-3d-s', String(lineLs));
-        graph3dPaintMark(hier, count, graph3dShare(lineKeep, el ? f.unlitIf(el, 'count') : null) * (f.bent ? GRAPH3D_TUNE.lines : 1));
+        graph3dPaintMark(hier, count, graph3dShare(lineKeep, el ? f.unlitIf(el, 'count') : null) * (f.bent ? GRAPH3D_OPTIONS.lines : 1));
         if (!far) texts.push({ el: count, x: q[0], y: q[1], anchor: 'middle', middle: true, size: 11 * lineLs });
       }
     }
@@ -296,7 +295,7 @@ function graph3dFarLink(hier, i, el, d, unlit) {
   }
   if (f.nextSibling !== el) el.parentNode.insertBefore(f, el);
   f.setAttribute('class', `${el.getAttribute('class')} graph-3d-far`);
-  graph3dPaintMark(hier, f, graph3dShare(Math.max(GRAPH3D_TUNE.far, GRAPH3D_FAR_KEEP), unlit) * graph3dFarPost() * GRAPH3D_TUNE.lines);
+  graph3dPaintMark(hier, f, graph3dShare(graph3dFarNow().keep, unlit) * graph3dFarNow().after * GRAPH3D_OPTIONS.lines);
   f.style.setProperty('--graph-3d-w', el.style.getPropertyValue('--graph-3d-w') || '1');
   f.setAttribute('d', d);
 }
@@ -314,7 +313,7 @@ function graph3dPlaceCaptions(hier, f, texts) {
     c.el.setAttribute('y', graph3dRound2(q[1]));
     const title = c.el.classList.contains('graph-block-title');
     texts.push({ el: c.el, x: q[0], y: q[1], anchor: c.el.getAttribute('text-anchor') || 'start', middle: c.el.hasAttribute('dy'), size: title ? 13 : 11, bold: title });
-    const keep = f.keepOf(q[2], f.isFar(p), 1, false) * (f.isFar(p) ? graph3dFarPost() : 1);
+    const keep = f.keepOf(q[2], f.isFar(p), 1, false) * (f.isFar(p) ? graph3dFarNow().after : 1);
     graph3dPaintMark(hier, c.el, keep);
     for (const name of c.names) graph3dPaintMark(hier, name, keep);
   }

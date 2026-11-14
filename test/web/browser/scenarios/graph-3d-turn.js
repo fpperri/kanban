@@ -3,7 +3,7 @@
 // opened over it). Held, Q turns the view left round the shape's own vertical axis and E turns it right; the
 // tilt and the distance stay, the shape's centre keeps its place on screen wherever a pan has put it (a quiet
 // cross marks it while the turn runs, and is gone after), and the compass turns with the camera. The turn stops when the key
-// comes up and when the window loses focus; Q and E together cancel; Q turns while W rises. The keys never
+// comes up and when the window loses focus; Q and E together cancel; Q turns while W flies. The keys never
 // turn the camera while a field has focus, with Ctrl held, on a note row of the notes palette (where e edits
 // the note), nor with a card's details open, where e opens the card's edit form. The 2D Hierarchy and the
 // Flow draw no 3D Hierarchy, and Q and E there do nothing.
@@ -74,16 +74,16 @@ module.exports = {
     await open('/?view=graph&graph=hierarchy&in3d=1');
     check('the 3D Hierarchy is drawn', await waitFor(`(()=>{const r=${ROOT};return !!r&&!r.classList.contains('graph-3d-loading')&&!!r.querySelector('canvas.graph-3d-canvas')&&!!r.dataset.cam})()`, 20000));
 
-    // Tilted by a right drag first, so the turn is seen to keep the tilt.
+    // Tilted by a right drag up first, so the turn is seen to keep the tilt.
     const area = await ev(`(()=>{const r=document.querySelector('#graph-view .graph-main').getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom}})()`);
     const spot = { x: area.l + 120, y: area.b - 140 };
     await mouse('mouseMoved', spot.x, spot.y, { button: 'none' });
     await mouse('mousePressed', spot.x, spot.y, { button: 'right' });
     for (let k = 1; k <= 8; k++) await mouse('mouseMoved', spot.x, spot.y - 12 * k, { button: 'right', buttons: 2 });
     await mouse('mouseReleased', spot.x, spot.y - 96, { button: 'right' });
-    await key('Escape');
     const tilted = await settled();
-    check('a right drag tilts the camera', tilted.phi > 0.2, tilted);
+    check('a right drag up tilts the camera', tilted.phi > 0.2, tilted);
+    check('a right drag opens no menu', await ev(`document.getElementById('context-menu').classList.contains('hidden')`));
 
     // Panned off the middle, Q turns the shape round its own axis: its centre keeps its place on screen
     // while the turn runs, a quiet cross marks it, and the cross is gone once the key is up.
@@ -132,17 +132,17 @@ module.exports = {
     await up('q');
     check('Q and E held together turn nothing', JSON.stringify(held) === JSON.stringify(heldLater), { held, heldLater });
 
-    // Q turns while W rises.
+    // Q turns while W flies.
     const from = await settled();
     await down('w');
     await down('q');
-    const both = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.abs(c.theta-(${from.theta}))>0.3&&Math.abs(c.ty-(${from.ty}))>${from.dist * 0.05}})()`, 6000);
+    const both = await waitFor(`(()=>{const c=${CAM};return !!c&&Math.abs(c.theta-(${from.theta}))>0.3&&Math.hypot(c.tx-(${from.tx}),c.ty-(${from.ty}),c.tz-(${from.tz}))>${from.dist * 0.05}})()`, 6000);
     await up('q');
     await up('w');
     const walked = await still();
     const to = walked.a;
-    check('Q with W held turns the camera while it walks, the tilt and the distance kept',
-      both && to.theta > from.theta + 0.3 && to.ty > from.ty && to.phi === from.phi && to.dist === from.dist && walked.still, { from, to });
+    check('Q with W held turns the camera while it flies, the tilt and the distance kept',
+      both && to.theta > from.theta + 0.3 && to.ty < from.ty && to.phi === from.phi && to.dist === from.dist && walked.still, { from, to });
 
     // The window losing focus stops the turn, the key still down.
     const lost = await settled();

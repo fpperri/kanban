@@ -121,24 +121,26 @@ function graph3dPathPoints(d, step) {
 // above the disc; to 180 for the sphere. Past the rim the half stays on the plane the dome stands on.
 // The sphere reaches a little past `outer` (graph3dOuter), when given, so a card past the rim, as an
 // Unnested table's are, keeps a place of its own short of the bottom pole.
-// PROTOTYPE: the pole limits (`poles`, else the side panel's GRAPH3D_TUNE.poles of the shape): `top`, the angle
-// down from the top pole the centre stands at, and `ring`, the angle the outermost ring stands at (null: as
-// before, 90 degrees on the dome, rim / reach of the way round on the sphere); between them the angle grows
-// linearly with the distance from the centre (graph3dPoleAngle).
+// The pole limits (`poles`, else the 3D options' of the shape, GRAPH3D_OPTIONS): `top`, the angle down from
+// the top pole the centre stands at, and `ring`, the angle the outermost ring stands at (null: 90 degrees on
+// the dome, rim / reach of the way round on the sphere); between them the angle grows linearly with the
+// distance from the centre (graph3dPoleAngle). Left at their defaults, every point stands exactly where it
+// did before the limits.
 function graph3dPlace(shape, x, y, rim, outer, poles) {
   if (shape !== 'half' && shape !== 'sphere') return [x, 0, y];
   const r = Math.hypot(x, y);
   const b = Math.atan2(y, x);
-  const pl = poles || GRAPH3D_TUNE.poles[shape];
+  const pl = poles || GRAPH3D_OPTIONS.poles[shape];
+  const plain = pl.top === 0 && pl.ring == null;
   if (shape === 'half') {
     if (r >= rim) return [Math.cos(b) * r, -rim, Math.sin(b) * r];
-    const phi = graph3dPoleAngle(r, rim, rim, pl.top, pl.ring == null ? Math.PI / 2 : pl.ring);
+    const phi = plain ? (r / rim) * (Math.PI / 2) : graph3dPoleAngle(r, rim, rim, pl.top, pl.ring == null ? Math.PI / 2 : pl.ring);
     const rho = rim * Math.sin(phi);
     return [Math.cos(b) * rho, rim * Math.cos(phi) - rim, Math.sin(b) * rho];
   }
   const reach = Math.max(rim, outer || 0) * GRAPH3D_SPHERE_REACH;
   const radius = reach / 2;
-  const phi = graph3dPoleAngle(r, rim, reach, pl.top, pl.ring == null ? (rim / reach) * Math.PI : pl.ring);
+  const phi = plain ? Math.min(1, r / reach) * Math.PI : graph3dPoleAngle(r, rim, reach, pl.top, pl.ring == null ? (rim / reach) * Math.PI : pl.ring);
   const rho = radius * Math.sin(phi);
   return [Math.cos(b) * rho, radius * Math.cos(phi), Math.sin(b) * rho];
 }
@@ -157,10 +159,38 @@ function graph3dPoleDefaults(shape, rim, outer) {
   return { top: 0, ring: (rim / (Math.max(rim, outer || 0) * GRAPH3D_SPHERE_REACH)) * Math.PI };
 }
 
-// A mark's scale with the side panel's size blend `m`: 0 the scale it is seen at in the world, 1 the
-// constant `screen` scale whatever its distance, linearly between.
-function graph3dBlendScale(world, screen, m) {
-  return world + (screen - world) * Math.min(1, Math.max(0, m || 0));
+// A mark's scale with the mark size option `m`: 0 the scale it is seen at in the world, 1 the
+// constant `screen` scale whatever its distance, linearly between; then grown by the mark scale option `k`
+// (1, the default, leaves it as it is).
+function graph3dBlendScale(world, screen, m, k = 1) {
+  const s = world + (screen - world) * Math.min(1, Math.max(0, m || 0));
+  return k === 1 ? s : s * k;
+}
+
+// The far side option `far` (the share of its colour the far side keeps) as the two shares the marks are
+// painted with: `keep`, taken before the lighting's floor (graph3dShare), never under today's
+// GRAPH3D_FAR_KEEP, and `after`, taken after it, so under today's share the far side fades with a card lit
+// too. At the default both are as they always were.
+function graph3dFarFade(far) {
+  return { keep: Math.max(far, GRAPH3D_FAR_KEEP), after: Math.min(1, far / GRAPH3D_FAR_KEEP) };
+}
+
+// The 3D options a stored record says (graph3dLoadOptions), each value the record holds as a number within
+// its slider's range (GRAPH3D_OPTION_RANGES, the pole angles in radians), every other the default; a ring
+// left null keeps the shape's own. Always a fresh object.
+function graph3dMergeOptions(saved) {
+  const out = JSON.parse(JSON.stringify(GRAPH3D_OPTION_DEFAULTS));
+  if (!saved || typeof saved !== 'object') return out;
+  const take = (v, [lo, hi], def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
+  for (const k of ['size', 'scale', 'far', 'lines', 'move', 'spin']) out[k] = take(saved[k], GRAPH3D_OPTION_RANGES[k], out[k]);
+  const poles = saved.poles && typeof saved.poles === 'object' ? saved.poles : {};
+  for (const shape of ['half', 'sphere']) {
+    const p = poles[shape] && typeof poles[shape] === 'object' ? poles[shape] : {};
+    const deg = (range) => range.map((v) => (v * Math.PI) / 180);
+    out.poles[shape].top = take(p.top, deg(GRAPH3D_OPTION_RANGES.top[shape]), 0);
+    out.poles[shape].ring = take(p.ring, deg(GRAPH3D_OPTION_RANGES.ring[shape]), null);
+  }
+  return out;
 }
 
 // The middle of the shape's sphere: the dome's under its top by the rim's radius, the sphere's at 0 0 0.
@@ -528,13 +558,13 @@ function graph3dKinOf(links, id) {
   return out;
 }
 
-// What a press starts once it drags: 'pan' for the left button (and the middle one), 'orbit' for the
+// What a press starts once it drags: 'pan' for the left button (and the middle one), 'spin' for the
 // right one, 'look' for a Shift+right or Shift+left press and a finger; null for any other button. A press
 // that never drags is a click: a left click selects, a right one opens the card menu (a Shift+right one none).
 function graph3dDragMode({ button, shiftKey, pointerType }) {
   if (pointerType === 'touch') return 'look';
   if ((button === 2 || button === 0) && shiftKey) return 'look';
-  if (button === 2) return 'orbit';
+  if (button === 2) return 'spin';
   if (button === 0 || button === 1) return 'pan';
   return null;
 }
@@ -572,18 +602,10 @@ function graph3dFlyStep(held, pace, dt) {
   return way ? (way * GRAPH3D_WALK * 2 * pace * GRAPH3D_TAN_HALF_FOV * dt) / 1000 : null;
 }
 
-// What W and S do (the prototype's two ways, the address's wsmode): 'fly', the eye and the target move
-// together along where the camera looks, or 'dolly', the distance to the target shrinks and grows.
-function graph3dWsMode(search) {
-  const v = new URLSearchParams(search || '').get('wsmode');
-  return v === 'dolly' ? 'dolly' : 'fly';
-}
-
 // How far the camera moves, as [x, y, z] in the scene, while the walk keys `held` are down for `dt` ms with the
-// camera turned `theta` and tilted `phi`: it slides in the screen's plane, as a pan does: W and S along the
-// camera's up and down (looking straight down that is along the ground, at the horizon straight up), A and D
-// along its right, which is level. `pace` is the distance the speed goes by (see graph3dPace), the same share
-// of what the camera sees whatever it is; two keys together go no faster than one. Null when nothing moves.
+// camera turned `theta` and tilted `phi`: A and D slide it along its right, which is level, as a pan does.
+// `pace` is the distance the speed goes by (see graph3dPace), the same share of what the camera sees whatever
+// it is. Null when nothing moves.
 function graph3dWalk(held, theta, phi, pace, dt) {
   let r = 0, u = 0;
   for (const k of held) { const v = GRAPH3D_WALK_KEYS[k]; if (v) { r += v[0]; u += v[1]; } }
@@ -642,6 +664,33 @@ const GRAPH3D_LOOK_MARGIN = 0.02;
 function graph3dLook(cam, theta, phi) {
   const eye = graph3dEye([cam.tx, cam.ty, cam.tz], graph3dBasis(cam.phi, cam.theta).back, cam.dist);
   return graph3dTurnRound(cam, eye, theta, Math.min(Math.PI - GRAPH3D_LOOK_MARGIN, Math.max(GRAPH3D_LOOK_MARGIN, phi)));
+}
+
+// The tilt pivot: the point of the shapes' vertical axis (x = 0, z = 0) nearest the line of sight of the
+// camera `cam`, ahead of its eye; looking straight along the axis, or with that point behind the eye, the
+// axis at the target's height.
+function graph3dAxisNearest(cam) {
+  const back = graph3dBasis(cam.phi, cam.theta).back;
+  const eye = graph3dEye([cam.tx, cam.ty, cam.tz], back, cam.dist);
+  const f = [-back[0], -back[1], -back[2]];
+  const b = f[1], d = graph3dDot(f, eye), e = eye[1];
+  const den = 1 - b * b;
+  if (den > 1e-4) {
+    const s = (b * e - d) / den;
+    if (s > 0) return [0, (e - b * d) / den, 0];
+  }
+  return [0, cam.ty, 0];
+}
+
+// A right drag's (or its coast's) step of `dy` px up or down on a stage `h` px high: the camera `cam` tilted
+// round the tilt pivot (graph3dAxisNearest) by half a turn for the stage's height, from straight above to
+// `max` (a camera a look has tilted past `max` tilts no further, and may come back). The new
+// { tx, ty, tz, theta, phi }, or null when the tilt does not change.
+function graph3dTiltRound(cam, dy, h, max) {
+  const top = Math.max(max, cam.phi);
+  const phi = Math.min(top, Math.max(0, cam.phi - (Math.PI * dy) / h));
+  if (phi === cam.phi) return null;
+  return graph3dTurnRound(cam, graph3dAxisNearest(cam), cam.theta, phi);
 }
 
 // The camera `cam` (its target tx ty tz, its turn theta and tilt phi) turned round the scene point `pivot`
@@ -753,11 +802,20 @@ const GRAPH3D_MIX = { wash: 0.13, guide: 0.55, sub: 0.4, divider: 0.6, block: 1 
 // The share of its colour a mark at the back keeps (the rest is the ground), and a mark on the sphere's far side.
 const GRAPH3D_DEPTH_FADE = 0.3;
 const GRAPH3D_FAR_KEEP = 0.45;
-// PROTOTYPE: what the 3D side panel's sliders set, in memory only (graph3dBuildTunePanel): the pole limits of
-// the dome and the sphere in radians (ring null: as before), the size blend toward a constant size on screen,
-// the share of colour the far side keeps, the share near lines keep, and the walk and spin speeds' factors.
-const GRAPH3D_TUNE_DEFAULTS = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, far: GRAPH3D_FAR_KEEP, lines: 1, move: 1, spin: 1 };
-const GRAPH3D_TUNE = JSON.parse(JSON.stringify(GRAPH3D_TUNE_DEFAULTS));
+// The 3D options, the sliders of the Graph panel's 3D section (graph3dBuildOptions): the pole limits of the
+// dome and the sphere in radians (ring null: the shape's own), the mark size (0 its size in the world, 1 a
+// constant size on screen), the mark scale (a factor on that, so marks can grow past today's largest), the share of colour the far side keeps, the share the lines of the dome and the
+// sphere keep, and the factors of the move speed (W, A, S, D) and the spin speed (Q, E). The defaults draw
+// the 3D Hierarchy as it was before the options. GRAPH3D_OPTIONS holds the board's, kept per browser
+// (graph3dLoadOptions).
+const GRAPH3D_OPTION_DEFAULTS = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, scale: 1, far: GRAPH3D_FAR_KEEP, lines: 1, move: 1, spin: 1 };
+// Each slider's range: the pole angles in degrees, per shape; the others as stored.
+const GRAPH3D_OPTION_RANGES = {
+  top: { half: [0, 75], sphere: [0, 120] },
+  ring: { half: [10, 90], sphere: [10, 179] },
+  size: [0, 1], scale: [1, 4], far: [0.03, 1], lines: [0.15, 1], move: [0.25, 4], spin: [0.25, 4],
+};
+const GRAPH3D_OPTIONS = JSON.parse(JSON.stringify(GRAPH3D_OPTION_DEFAULTS));
 // Tilted, the ground's own lines and washes go further into it toward the back than the marks do, up to
 // this much at edge-on: the plane recedes as a surface does.
 const GRAPH3D_GROUND_FOG = 0.55;
@@ -769,11 +827,11 @@ const GRAPH3D_SHADOW = 0.8;
 // A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
-const GRAPH3D_HELP = 'Left drag pans, right drag turns the shape round its own axis and tilts the camera, Shift+right (or Shift+left) drag looks round from where the camera stands, '
+const GRAPH3D_HELP = 'Left drag pans, right drag spins the shape round its own axis and tilts the camera, Shift+right (or Shift+left) drag looks round from where the camera stands, '
   + 'the wheel flies toward the pointer; one finger looks round and a pinch flies. G steps the shape, F frames the selection, H frames everything; '
-  + 'Q and E, held, spin the shape round its own axis; W and S, held, fly ahead and back (or dolly toward the target); A and D slide sideways.';
+  + 'Q and E, held, spin the shape round its own axis; W and S, held, fly ahead and back along where the camera looks; A and D slide sideways.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
-const GRAPH3D_HINT = 'Drag pans · right drag orbits · Shift+right drag looks · wheel flies · double click opens · G shape · F frame · H home · QE spin · WS %ws · AD slide';
+const GRAPH3D_HINT = 'Drag pans · right drag spins · Shift+right drag looks · wheel flies · double click opens · G shape · F frame · H home · QE spin · WS fly · AD slide';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
 // The words the corner's label says when three.js did not load (the engine's own message goes to the console).
@@ -809,6 +867,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dWsMode, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, GRAPH3D_TUNE, GRAPH3D_TUNE_DEFAULTS, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dFarFade, graph3dMergeOptions, graph3dAxisNearest, graph3dTiltRound, GRAPH3D_OPTIONS, GRAPH3D_OPTION_DEFAULTS, GRAPH3D_OPTION_RANGES, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }
