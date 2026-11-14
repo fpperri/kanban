@@ -185,7 +185,7 @@ function graph3dPaintGround(hier) {
       const x = pos[3 * k], y = pos[3 * k + 1], z = pos[3 * k + 2];
       const back = (sphere && x * (ex - x) + y * (ey - y) + z * (ez - z) < 0)
         || (dome && graph3dDomeBack([x, y, z], [ex, ey, ez], hier.rim));
-      const m = back ? GRAPH3D_FAR_KEEP : 1;
+      const m = back ? GRAPH3D_TUNE.far : 1;
       col[3 * k] = bg.r + (b.r - bg.r) * m;
       col[3 * k + 1] = bg.g + (b.g - bg.g) * m;
       col[3 * k + 2] = bg.b + (b.b - bg.b) * m;
@@ -262,7 +262,8 @@ function graph3dPaintBody(hier, g, ex, ey, ez) {
 
 // The ground's points on the shape as it stands now, mid-morph included; moved only when the shape changes.
 function graph3dPlaceGround(hier) {
-  const key = hier.morph ? `${hier.morph.from}>${hier.morph.to}@${hier.morph.e}@${hier.outer}` : `${hier.shape}@${hier.rim}@${hier.outer}`;
+  const key = (hier.morph ? `${hier.morph.from}>${hier.morph.to}@${hier.morph.e}@${hier.outer}` : `${hier.shape}@${hier.rim}@${hier.outer}`)
+    + JSON.stringify(GRAPH3D_TUNE.poles);
   if (key === hier.groundAt) return;
   hier.groundAt = key;
   for (const g of hier.ground) {

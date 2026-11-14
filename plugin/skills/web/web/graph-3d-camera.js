@@ -317,6 +317,8 @@ function graph3dSetShape(hier, shape) {
   hier.morph = { from: hier.morph ? hier.morph.to : from, to: shape, t0: performance.now(), e: 0 };
   hier.shape = shape;
   graph3dPaintLabel(hier);
+  const tune = document.querySelector('.graph-3d-tune');
+  if (tune && tune.graph3dRepaint) tune.graph3dRepaint();
   graph3dQuietHover(hier);
   hier.zoom = null;
   hier.spin = null;

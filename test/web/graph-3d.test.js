@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dWsMode, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dWsMode, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -705,4 +705,49 @@ test('a wheel tick flies toward the pointer: a tick in the zoom-in direction goe
   assert.ok(near(graph3dWheelStep(1 / f, 1000), -130, 1e-6), 'one tick out: the same back');
   assert.ok(near(graph3dWheelStep(f * f, 1000), 2 * 130, 1e-6), 'two ticks, twice the way');
   assert.ok(near(graph3dWheelStep(1, 1000), 0, 1e-12));
+});
+
+test('the pole angle grows linearly from the centre\'s angle to the ring\'s, then on to the bottom pole at the reach', () => {
+  assert.strictEqual(graph3dPoleAngle(0, 100, 200, 0.2, 1.2), 0.2, 'the centre at its own angle');
+  assert.ok(near(graph3dPoleAngle(50, 100, 200, 0.2, 1.2), 0.7, 1e-12), 'half way, half the way');
+  assert.ok(near(graph3dPoleAngle(100, 100, 200, 0.2, 1.2), 1.2, 1e-12), 'the rim at the ring');
+  assert.ok(near(graph3dPoleAngle(150, 100, 200, 0.2, 1.2), 1.2 + (Math.PI - 1.2) / 2, 1e-12), 'past the rim, on toward the bottom pole');
+  assert.ok(near(graph3dPoleAngle(500, 100, 200, 0.2, 1.2), Math.PI, 1e-12), 'never past the bottom pole');
+  assert.strictEqual(graph3dPoleAngle(150, 100, 100, 0, 1), 1, 'no room past the rim: the ring');
+});
+
+test('the default pole limits place every point where it stood before the limits', () => {
+  const rim = 200, outer = 260;
+  const reach = Math.max(rim, outer) * 1.08;
+  for (const r of [0, 40, 120, 199, 200, 230, 260, 300]) {
+    const was = [(r / rim) * (Math.PI / 2), Math.min(1, r / reach) * Math.PI];
+    const half = graph3dPoleDefaults('half', rim, outer), sph = graph3dPoleDefaults('sphere', rim, outer);
+    if (r <= rim) assert.ok(near(graph3dPoleAngle(r, rim, rim, half.top, half.ring), was[0], 1e-12), `half at ${r}`);
+    assert.ok(near(graph3dPoleAngle(r, rim, reach, sph.top, sph.ring), was[1], 1e-9), `sphere at ${r}`);
+  }
+});
+
+test('a pole limit moves the place on the dome and the sphere, never on the disc; the axis stays the top pole', () => {
+  const rim = 200, outer = 260;
+  const p0 = graph3dPlace('sphere', 100, 0, rim, outer);
+  const p1 = graph3dPlace('sphere', 100, 0, rim, outer, { top: 0.5, ring: 2 });
+  assert.ok(p1[1] < p0[1], 'set lower, the point stands lower');
+  const radius = (Math.max(rim, outer) * 1.08) / 2;
+  assert.ok(near(Math.hypot(...p1), radius, 1e-9), 'still on the sphere');
+  const c = graph3dPlace('sphere', 0, 0, rim, outer, { top: 0.5, ring: 2 });
+  assert.ok(near(Math.acos(c[1] / radius), 0.5, 1e-9), 'the centre at its angle below the top pole');
+  const h = graph3dPlace('half', 0, 0, rim, outer, { top: 0.3, ring: 1 });
+  assert.ok(h[1] < 0, 'the dome\'s centre below its top');
+  assert.deepStrictEqual(graph3dPlace('half', 250, 0, rim, outer, { top: 0.3, ring: 1 }), graph3dPlace('half', 250, 0, rim, outer), 'past the rim the dome\'s plane is unchanged');
+  assert.deepStrictEqual(graph3dPlace('disc', 30, 40, rim, outer, { top: 0.3, ring: 1 }), [30, 0, 40]);
+  assert.deepStrictEqual(graph3dShapeAxis('sphere', rim, outer), [0, radius, 0]);
+  assert.deepStrictEqual(graph3dShapeAxis('half', rim, outer), [0, 0, 0]);
+});
+
+test('the size blend runs from the world scale to the screen scale, clamped', () => {
+  assert.strictEqual(graph3dBlendScale(0.2, 1, 0), 0.2);
+  assert.strictEqual(graph3dBlendScale(0.2, 1, 1), 1);
+  assert.ok(near(graph3dBlendScale(0.2, 1, 0.5), 0.6, 1e-12));
+  assert.strictEqual(graph3dBlendScale(0.2, 1, 3), 1);
+  assert.strictEqual(graph3dBlendScale(0.2, 1, undefined), 0.2);
 });

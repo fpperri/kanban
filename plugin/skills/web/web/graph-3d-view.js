@@ -111,6 +111,99 @@ function graph3dBuildProtoBar(hier) {
   return bar;
 }
 
+// PROTOTYPE: the Graph panel's 3D section (graphBuildPanel), shown while 3D is on: sliders that change the
+// scene live (GRAPH3D_TUNE, in memory only) and a link that sets them back. The pole sliders are the shape's
+// own and stand disabled on the disc.
+const GRAPH3D_DEG = Math.PI / 180;
+function graph3dTuneSliders(shape) {
+  const hier = graph3dCur;
+  const bent = shape === 'half' || shape === 'sphere';
+  const def = bent && hier ? graph3dPoleDefaults(shape, hier.rim, hier.outer) : { top: 0, ring: Math.PI / 2 };
+  const poles = bent ? GRAPH3D_TUNE.poles[shape] : { top: 0, ring: null };
+  const ringMax = shape === 'sphere' ? 179 : 90;
+  return [
+    { key: 'top', label: 'Centre below the top pole', unit: '°', min: 0, max: shape === 'sphere' ? 120 : 75, step: 1, off: !bent,
+      get: () => Math.round(poles.top / GRAPH3D_DEG),
+      set: (v) => { poles.top = v * GRAPH3D_DEG; if ((poles.ring == null ? def.ring : poles.ring) < poles.top + 5 * GRAPH3D_DEG) poles.ring = Math.min(ringMax * GRAPH3D_DEG, poles.top + 5 * GRAPH3D_DEG); } },
+    { key: 'ring', label: 'Outermost ring down to', unit: '°', min: 10, max: ringMax, step: 1, off: !bent,
+      get: () => Math.round((poles.ring == null ? def.ring : poles.ring) / GRAPH3D_DEG),
+      set: (v) => { poles.ring = Math.max(v * GRAPH3D_DEG, poles.top + 5 * GRAPH3D_DEG); } },
+    { key: 'size', label: 'Mark size: world to screen', unit: '%', min: 0, max: 100, step: 1,
+      get: () => Math.round(GRAPH3D_TUNE.size * 100), set: (v) => { GRAPH3D_TUNE.size = v / 100; } },
+    { key: 'far', label: 'Far side kept', unit: '%', min: 3, max: 100, step: 1, off: !bent,
+      get: () => Math.round(GRAPH3D_TUNE.far * 100), set: (v) => { GRAPH3D_TUNE.far = v / 100; } },
+    { key: 'lines', label: 'Line strength (dome, sphere)', unit: '%', min: 15, max: 100, step: 1, off: !bent,
+      get: () => Math.round(GRAPH3D_TUNE.lines * 100), set: (v) => { GRAPH3D_TUNE.lines = v / 100; } },
+    { key: 'move', label: 'Move speed (WASD)', unit: '×', min: 0.25, max: 4, step: 0.05,
+      get: () => GRAPH3D_TUNE.move, set: (v) => { GRAPH3D_TUNE.move = v; } },
+    { key: 'spin', label: 'Spin speed (QE)', unit: '×', min: 0.25, max: 4, step: 0.05,
+      get: () => GRAPH3D_TUNE.spin, set: (v) => { GRAPH3D_TUNE.spin = v; } },
+  ];
+}
+
+function graph3dBuildTunePanel() {
+  const box = document.createElement('div');
+  box.className = 'graph-3d-tune';
+  box.dataset.keepsSelection = '';
+  const paint = () => {
+    const shape = graph3dCur ? graph3dCur.shape : 'disc';
+    box.textContent = '';
+    const head = document.createElement('p');
+    head.className = 'graph-3d-tune-head';
+    head.textContent = `PROTOTYPE · 3D tuning (${graph3dShapeName(shape)}) `;
+    const reset = document.createElement('a');
+    reset.href = '#';
+    reset.className = 'graph-3d-tune-reset';
+    reset.textContent = 'reset';
+    reset.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const fresh = JSON.parse(JSON.stringify(GRAPH3D_TUNE_DEFAULTS));
+      for (const k of Object.keys(fresh)) GRAPH3D_TUNE[k] = fresh[k];
+      graph3dTuned();
+      paint();
+    });
+    head.appendChild(reset);
+    box.appendChild(head);
+    for (const sl of graph3dTuneSliders(shape)) {
+      const row = document.createElement('label');
+      row.className = 'graph-3d-tune-row';
+      const name = document.createElement('span');
+      name.textContent = sl.label;
+      const out = document.createElement('output');
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.dataset.tune = sl.key;
+      input.min = String(sl.min); input.max = String(sl.max); input.step = String(sl.step);
+      input.value = String(sl.get());
+      input.disabled = !!sl.off;
+      out.textContent = `${sl.get()}${sl.unit}`;
+      input.addEventListener('input', () => {
+        sl.set(Number(input.value));
+        out.textContent = `${sl.get()}${sl.unit}`;
+        graph3dTuned();
+      });
+      row.appendChild(name);
+      row.appendChild(out);
+      row.appendChild(input);
+      box.appendChild(row);
+    }
+  };
+  paint();
+  box.graph3dRepaint = paint;
+  return box;
+}
+
+// A slider moved: the ground is placed again and the next frame drawn.
+function graph3dTuned() {
+  const hier = graph3dCur;
+  if (!hier) return;
+  hier.groundAt = '';
+  hier.painted = new WeakMap();
+  for (const g of hier.ground) g.painted = '';
+  graph3dRequest(hier);
+}
+
 function graph3dReady(hier) {
   return !!(hier.renderer && hier.view);
 }
@@ -183,19 +276,19 @@ function graph3dFrame(hier) {
   }
   if (hier.walk.size) {
     const pace = graph3dPaceOf(hier);
-    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, pace, dt);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, pace, dt * GRAPH3D_TUNE.move);
     if (step) {
       for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
       more = true;
     }
-    const ahead = graph3dFlyStep(hier.walk, pace, dt);
+    const ahead = graph3dFlyStep(hier.walk, pace, dt * GRAPH3D_TUNE.move);
     if (ahead) {
       graph3dFlyBy(hier, ahead);
       more = true;
     }
   }
   if (hier.turn.size) {
-    const turn = graph3dTurn(hier.turn, dt);
+    const turn = graph3dTurn(hier.turn, dt * GRAPH3D_TUNE.spin);
     if (turn) {
       graph3dSpin(hier, turn);
       more = true;

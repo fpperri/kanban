@@ -121,21 +121,46 @@ function graph3dPathPoints(d, step) {
 // above the disc; to 180 for the sphere. Past the rim the half stays on the plane the dome stands on.
 // The sphere reaches a little past `outer` (graph3dOuter), when given, so a card past the rim, as an
 // Unnested table's are, keeps a place of its own short of the bottom pole.
-function graph3dPlace(shape, x, y, rim, outer) {
+// PROTOTYPE: the pole limits (`poles`, else the side panel's GRAPH3D_TUNE.poles of the shape): `top`, the angle
+// down from the top pole the centre stands at, and `ring`, the angle the outermost ring stands at (null: as
+// before, 90 degrees on the dome, rim / reach of the way round on the sphere); between them the angle grows
+// linearly with the distance from the centre (graph3dPoleAngle).
+function graph3dPlace(shape, x, y, rim, outer, poles) {
   if (shape !== 'half' && shape !== 'sphere') return [x, 0, y];
   const r = Math.hypot(x, y);
   const b = Math.atan2(y, x);
+  const pl = poles || GRAPH3D_TUNE.poles[shape];
   if (shape === 'half') {
     if (r >= rim) return [Math.cos(b) * r, -rim, Math.sin(b) * r];
-    const phi = (r / rim) * (Math.PI / 2);
+    const phi = graph3dPoleAngle(r, rim, rim, pl.top, pl.ring == null ? Math.PI / 2 : pl.ring);
     const rho = rim * Math.sin(phi);
     return [Math.cos(b) * rho, rim * Math.cos(phi) - rim, Math.sin(b) * rho];
   }
   const reach = Math.max(rim, outer || 0) * GRAPH3D_SPHERE_REACH;
   const radius = reach / 2;
-  const phi = Math.min(1, r / reach) * Math.PI;
+  const phi = graph3dPoleAngle(r, rim, reach, pl.top, pl.ring == null ? (rim / reach) * Math.PI : pl.ring);
   const rho = radius * Math.sin(phi);
   return [Math.cos(b) * rho, radius * Math.cos(phi), Math.sin(b) * rho];
+}
+
+// The angle down from the top pole a point `r` from the plan's centre stands at: `top` at the centre and
+// `ring` at the rim, linearly between; past the rim on to the bottom pole at `reach` (the sphere's), never past it.
+function graph3dPoleAngle(r, rim, reach, top, ring) {
+  if (r <= rim) return top + (Math.max(0, r) / rim) * (ring - top);
+  if (!(reach > rim)) return ring;
+  return ring + Math.min(1, (r - rim) / (reach - rim)) * (Math.PI - ring);
+}
+
+// The pole limits a shape draws with when none are set: the centre at the top pole and the rim where it always was.
+function graph3dPoleDefaults(shape, rim, outer) {
+  if (shape === 'half') return { top: 0, ring: Math.PI / 2 };
+  return { top: 0, ring: (rim / (Math.max(rim, outer || 0) * GRAPH3D_SPHERE_REACH)) * Math.PI };
+}
+
+// A mark's scale with the side panel's size blend `m`: 0 the scale it is seen at in the world, 1 the
+// constant `screen` scale whatever its distance, linearly between.
+function graph3dBlendScale(world, screen, m) {
+  return world + (screen - world) * Math.min(1, Math.max(0, m || 0));
 }
 
 // The middle of the shape's sphere: the dome's under its top by the rim's radius, the sphere's at 0 0 0.
@@ -605,7 +630,10 @@ function graph3dTurn(held, dt) {
 // The vertical axis a shape turns round, as the point of it the plan's middle stands at: the disc's centre,
 // the dome's top, the sphere's top pole; H frames the shape round it, and Q and E spin it (graph3dTurnRound).
 function graph3dShapeAxis(shape, rim, outer) {
-  return graph3dPlace(shape, 0, 0, rim, outer);
+  const p = graph3dPlace(shape, 0, 0, rim, outer);
+  if (shape === 'disc') return p;
+  // The top pole, whatever angle the centre is set down from it at.
+  return shape === 'half' ? [0, 0, 0] : [0, graph3dSphereRadius(shape, rim, outer), 0];
 }
 
 // The camera `cam` looking round from where it stands: turned to `theta` and tilted to `phi` (kept from straight
@@ -725,6 +753,11 @@ const GRAPH3D_MIX = { wash: 0.13, guide: 0.55, sub: 0.4, divider: 0.6, block: 1 
 // The share of its colour a mark at the back keeps (the rest is the ground), and a mark on the sphere's far side.
 const GRAPH3D_DEPTH_FADE = 0.3;
 const GRAPH3D_FAR_KEEP = 0.45;
+// PROTOTYPE: what the 3D side panel's sliders set, in memory only (graph3dBuildTunePanel): the pole limits of
+// the dome and the sphere in radians (ring null: as before), the size blend toward a constant size on screen,
+// the share of colour the far side keeps, the share near lines keep, and the walk and spin speeds' factors.
+const GRAPH3D_TUNE_DEFAULTS = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, far: GRAPH3D_FAR_KEEP, lines: 1, move: 1, spin: 1 };
+const GRAPH3D_TUNE = JSON.parse(JSON.stringify(GRAPH3D_TUNE_DEFAULTS));
 // Tilted, the ground's own lines and washes go further into it toward the back than the marks do, up to
 // this much at edge-on: the plane recedes as a surface does.
 const GRAPH3D_GROUND_FOG = 0.55;
@@ -776,6 +809,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dWsMode, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dWsMode, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, GRAPH3D_TUNE, GRAPH3D_TUNE_DEFAULTS, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }
