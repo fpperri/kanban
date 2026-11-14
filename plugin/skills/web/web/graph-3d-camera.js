@@ -128,9 +128,10 @@ function graph3dFrameAll(hier, now, side) {
 }
 
 // The cards `ids` (with `focus`, the one the camera looks at, else their middle) brought to the middle of
-// the stage with room round them; on the sphere the camera turns round to see the focus face on, so a
+// the stage with room round them, or (`close`) their middle, near enough that they fill the stage but for a
+// small margin (graph3dCloseFill); on the sphere the camera turns round to see the focus face on, so a
 // card on the far side comes to the front, and on the dome it does so for a card on its back.
-function graph3dFrameCards(hier, ids, focus) {
+function graph3dFrameCards(hier, ids, focus, close) {
   const nodes = hier.view.plan.nodes.filter((n) => ids.has(String(n.id)));
   if (!nodes.length) return false;
   const P = nodes.map((n) => graph3dPlace(hier.shape, n.x, n.y, hier.rim, hier.outer));
@@ -145,8 +146,15 @@ function graph3dFrameCards(hier, ids, focus) {
   }
   if (face) Object.assign(to, face);
   const tv = GRAPH3D_TAN_HALF_FOV;
-  const fit = graph3dFit(P, c, graph3dBasis(to.phi, to.theta), tv * (hier.w / hier.h), tv, GRAPH3D_CARD_FILL, true);
-  to.dist = Math.max(fit.dist, hier.h / (2 * tv * GRAPH3D_CARD_SCALE));
+  if (close) {
+    const share = graph3dCloseFill(hier.w, hier.h);
+    const fit = graph3dFit(P, c, graph3dBasis(to.phi, to.theta), tv * (hier.w / hier.h) * share.x, tv * share.y, 1);
+    Object.assign(to, { tx: c[0] + fit.shift[0], ty: c[1] + fit.shift[1], tz: c[2] + fit.shift[2] });
+    to.dist = Math.max(fit.dist, hier.h / (2 * tv * GRAPH3D_CLOSEST_SCALE));
+  } else {
+    const fit = graph3dFit(P, c, graph3dBasis(to.phi, to.theta), tv * (hier.w / hier.h), tv, GRAPH3D_CARD_FILL, true);
+    to.dist = Math.max(fit.dist, hier.h / (2 * tv * GRAPH3D_CARD_SCALE));
+  }
   graph3dFlyTo(hier, to, false);
   return true;
 }
@@ -156,11 +164,19 @@ function graph3dCenterCard(hier, id) {
   graph3dFrameCards(hier, graph3dKinOf(hier.view.plan.links, id), id);
 }
 
-// F: the selection (a lone card with its kin), or everything when nothing is selected.
+// F: the selection (a lone card with its kin), or everything when nothing is selected. F again, with the
+// camera where the last F left it (or still on its way there) and the same selection, cycles the wide frame
+// and the close one (hier.lastF: the selection, whether it was close, and the camera it left).
 function graph3dFrameSelection(hier) {
   const sel = [...selectedIds].map(String);
   const ids = sel.length === 1 ? graph3dKinOf(hier.view.plan.links, sel[0]) : new Set(sel);
-  if (!graph3dFrameCards(hier, ids, sel.length === 1 ? sel[0] : null)) graph3dFrameAll(hier, false);
+  const key = [...sel].sort().join(',');
+  const last = hier.lastF;
+  const still = !!last && last.sel === key && (hier.fly ? hier.fly.to === last.cam : graph3dSameCam(hier.cam, last.cam));
+  const close = still && !last.close;
+  hier.lastF = null;
+  if (!graph3dFrameCards(hier, ids, sel.length === 1 ? sel[0] : null, close)) { graph3dFrameAll(hier, false); return; }
+  hier.lastF = { sel: key, close, cam: hier.fly.to };
 }
 
 // How fast the camera flies: a share of how far it is from the nearest point of the shape (graph3dPace), at

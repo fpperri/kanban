@@ -27,7 +27,9 @@
 //
 // Page globals this scenario reads (listed in test/web/browser-globals.test.js):
 // selectedIds, isDragging, hideContextMenu, currentDetailId, closeCard, setView, graph3dCur, graph3dRequest,
-// graph3dScreenOf, graph3dShapeAxis.
+// graph3dScreenOf, graph3dShapeAxis, graph3dKinOf.
+
+const { keyEvents } = require('../harness');
 
 const ROOT = `document.querySelector('#graph-view .graph-3d')`;
 // A dot's middle on the screen, for every dot drawn, by card id.
@@ -225,6 +227,53 @@ module.exports = {
       await settled();
       await ev(`selectedIds.clear()`);
     }
+
+    // F again, with nothing moved in between, frames the selection close: on the half sphere and on the sphere
+    // the card with the most kin and the cards its lines join span most of the stage, all inside it, at the
+    // wide frame's turn and tilt; a third F goes back to the wide frame. A left drag (the half sphere) or a
+    // held move key (the sphere) between presses starts the cycle again at the wide frame.
+    const KIN = `(()=>{const h=graph3dCur;let best=null;for(const n of h.view.plan.nodes){const k=graph3dKinOf(h.view.plan.links,n.id);if(!best||k.size>best.size)best={id:String(n.id),size:k.size,ids:[...k]}}return best})()`;
+    const SPAN = (ids) => `(()=>{const s=${ROOT}.getBoundingClientRect();let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity,inside=true;for(const id of ${JSON.stringify(ids)}){const g=${ROOT}.querySelector('.graph-node[data-id="'+id+'"] .graph-dot');if(!g)return null;const r=g.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);if(x<s.left||x>s.right||y<s.top||y>s.bottom)inside=false}return {span:Math.round(Math.max((x1-x0)/(s.right-s.left),(y1-y0)/(s.bottom-s.top))*100)/100,inside}})()`;
+    const sameCam = (a, b) => !!a && !!b && ['theta', 'phi'].every((k) => Math.abs(a[k] - b[k]) < 0.02)
+      && ['dist', 'tx', 'ty', 'tz'].every((k) => Math.abs(a[k] - b[k]) <= 0.5 + Math.abs(b[k]) * 0.002);
+    const kin = await ev(KIN);
+    check('the plan board has a card whose lines join it to at least two others', kin && kin.size >= 3, kin);
+    for (const shape of ['half', 'sphere']) {
+      await key('g');
+      check(`G steps the shape to ${shape} for the close frame`, await waitFor(`${ROOT}.dataset.shape===${JSON.stringify(shape)}`, 3000));
+      await settled();
+      await ev(`(selectedIds.clear(),selectedIds.add(${JSON.stringify(kin.id)}),true)`);
+      await key('f');
+      const wide = await settled();
+      const wideSpan = await ev(SPAN(kin.ids));
+      await key('f');
+      const close = await settled();
+      const closeSpan = await ev(SPAN(kin.ids));
+      check(`on the ${shape}, F again frames the selection close: its marks span most of the stage, all inside it, at the same turn and tilt`,
+        !!wideSpan && !!closeSpan && closeSpan.inside && closeSpan.span > 0.6 && closeSpan.span > wideSpan.span * 1.2 && close.phi === wide.phi && close.theta === wide.theta,
+        { wideSpan, closeSpan, wide, close });
+      await shot(`3d-${shape}-f-close`);
+      await key('f');
+      const third = await settled();
+      check(`on the ${shape}, a third F goes back to the wide frame`, sameCam(third, wide), { third, wide });
+      await key('f');
+      check(`on the ${shape}, a fourth F frames close again`, sameCam(await settled(), close), { close });
+      if (shape === 'half') {
+        await drag(spot, { x: spot.x + 120, y: spot.y - 60 }, 'left');
+      } else {
+        await page.send('Input.dispatchKeyEvent', keyEvents('w')[0]);
+        await page.sleep(150);
+        await page.send('Input.dispatchKeyEvent', keyEvents('w')[1]);
+      }
+      const moved = await settled();
+      await key('f');
+      const reset = await settled();
+      check(`on the ${shape}, after ${shape === 'half' ? 'a drag' : 'a move key'} F starts again at the wide frame`, !sameCam(moved, close) && sameCam(reset, wide), { moved, reset, wide });
+    }
+    await key('g');
+    check('G steps the shape back to the disc', await waitFor(`${ROOT}.dataset.shape==='disc'`, 3000));
+    await settled();
+    await ev(`selectedIds.clear()`);
 
     // H frames everything again; a left click on a dot selects its card, a right click on it opens the menu.
     await key('h');
