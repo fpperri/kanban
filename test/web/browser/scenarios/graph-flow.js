@@ -127,6 +127,7 @@ const addCard = (card) => `fetch('/api/cards',{method:'POST',headers:{'content-t
 const setWaits = (id, waits) => `fetch('/api/cards/${id}',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({waiting_for:${JSON.stringify(waits)}})}).then((r)=>r.status)`;
 
 const { openPanel, forgetPanelChoice } = require('../panel');
+const { checkDoneFade } = require('../done-fade');
 
 module.exports = {
   name: 'graph-flow',
@@ -211,6 +212,7 @@ module.exports = {
     check('plan: all columns: waits for nothing, chain 1, and the strip', await settled(plan.all.heads) && await columnsAre(plan.all.columns, plan.all.heads), { heads: await ev(HEADS), columns: await columns() });
     check('plan: the same arrows join the same cards', sameList((await ev(ARROWS)).map((a) => a.pair), plan.arrows));
     check('plan: in all the done card is not faded', await ev(`${OPACITY(plan.done)}`) === '1');
+    await checkDoneFade(page, 'plan: the Flow');
     check('plan: the address says deps=all and the board keeps it', await waitFor(`/[?&]deps=all(&|$)/.test(${SEARCH})&&/[?&]graph=flow(&|$)/.test(${SEARCH})`) && await ev(STORED('deps')) === 'all', await ev(SEARCH));
     await shot('graph-flow-all');
 

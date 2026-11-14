@@ -82,6 +82,8 @@ function graph3dPaintNode(hier, g, share) {
     hier.parts.set(g, parts);
   }
   graph3dPaintMark(hier, g.querySelector('.graph-dot'), share, true);
+  // A done dot's fade takes the paint its ring takes, so its rim fades into the ground with it.
+  graph3dPaintMark(hier, g.querySelector('.graph-done-fade'), share, true);
   for (const el of parts) graph3dPaintMark(hier, el, share);
 }
 

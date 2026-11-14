@@ -131,8 +131,9 @@ test('the graph block keeps a CSP-safe, token-only palette', () => {
   const defined = new Set([...css.slice(0, css.indexOf('}')).matchAll(/(--[a-z0-9-]+):/g)].map((m) => m[1]));
   // Besides the theme's tokens, a rule reads the zoom the view writes (--graph-k), and in 3D what a rule of the
   // block declares from a token (--graph-3d-ink) and what the graph-3d files write per mark from those (its paint,
-  // a scale, a shadow's strength): none of them a colour of its own.
+  // a scale, a shadow's strength), and the fill the view points a done dot at (its own fade): none of them a colour of its own.
   for (const m of block.matchAll(/(--graph-3d-[a-z0-9-]+):/g)) defined.add(m[1]);
+  for (const m of src.matchAll(/setProperty\('(--graph-[a-z0-9-]+)'/g)) defined.add(m[1]);
   const sources3d = fs.readdirSync(WEB).filter((f) => /^graph-3d(-[a-z]+)?\.js$/.test(f)).map(read).join('\n');
   for (const m of sources3d.matchAll(/setProperty\('(--graph-3d-[a-z0-9-]+)'/g)) defined.add(m[1]);
   for (const m of block.matchAll(/var\((--[a-z0-9-]+)/g)) assert.ok(m[1] === '--graph-k' || defined.has(m[1]), m[1]);
@@ -224,6 +225,7 @@ const vm = require('node:vm');
 function fakeDocument() {
   const make = (tag) => ({
     tag, attrs: {}, children: [], textContent: '', className: '',
+    style: { props: {}, setProperty(k, v) { this.props[k] = String(v); } },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },

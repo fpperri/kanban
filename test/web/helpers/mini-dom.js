@@ -17,7 +17,7 @@ class Node {
     this.className = '';
     this.hidden = false;
     this.disabled = false;
-    this.style = {};
+    this.style = { setProperty(k, v) { this[k] = String(v); } };
     this.textContent = '';
     this.contentWindow = { posted: [], postMessage: (message, target) => this.contentWindow.posted.push([message, target]) };
   }

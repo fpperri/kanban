@@ -30,6 +30,7 @@ function fn(name) {
 function fakeDocument() {
   const make = (tag) => ({
     tag, attrs: {}, children: [], textContent: '', className: '',
+    style: { props: {}, setProperty(k, v) { this.props[k] = String(v); } },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },
@@ -126,6 +127,51 @@ test('the flow stamps none of the fan\'s marks', () => {
   for (const cls of ['graph-guide', 'graph-divider', 'graph-caption', 'graph-block-frame', 'graph-block-title', 'graph-block-caption', 'graph-loose-caption']) {
     assert.strictEqual(v.by(cls).length, 0, cls);
   }
+});
+
+// A done card's dot is hollow: its centre the ground's, then its own status colour fading in toward the
+// ring (app.css paints the stops). The fade is a gradient inside the card's group, so its stops take the
+// card's colour, and the dot is pointed at it through a custom property, since the view sets no fill attribute.
+for (const kind of ['hierarchy', 'flow']) {
+  test(`${kind}: a done dot fills with a fade of its own, dark to 45% of its radius, its colour at the rim; no other dot has one`, () => {
+    const v = fanOf(kind);
+    const nodes = v.by('graph-node');
+    const done = nodes.filter((g) => g.attrs.class.split(' ').includes('is-done'));
+    const other = nodes.filter((g) => !g.attrs.class.split(' ').includes('is-done'));
+    assert.ok(done.length && other.length, 'the board has done cards and others');
+    const ids = new Set();
+    for (const g of done) {
+      const fades = g.children.filter((c) => c.tag === 'radialGradient');
+      assert.strictEqual(fades.length, 1, `card ${g.attrs['data-id']} has one fade`);
+      const [fade] = fades;
+      assert.strictEqual(fade.attrs.class, 'graph-done-fade');
+      assert.deepStrictEqual(fade.children.map((s) => [s.tag, s.attrs.offset, s.attrs.class]),
+        [['stop', '0.45', 'graph-done-fade-centre'], ['stop', '1', 'graph-done-fade-rim']]);
+      const dot = g.children.find((c) => c.attrs.class === 'graph-dot');
+      assert.strictEqual(dot.style.props['--graph-done-fill'], `url(#${fade.attrs.id})`);
+      ids.add(fade.attrs.id);
+    }
+    assert.strictEqual(ids.size, done.length, 'each fade has its own id');
+    for (const g of other) {
+      assert.ok(!g.children.some((c) => c.tag === 'radialGradient'), `card ${g.attrs['data-id']} has no fade`);
+      const dot = g.children.find((c) => c.attrs.class === 'graph-dot');
+      assert.strictEqual(dot.style.props['--graph-done-fill'], undefined);
+    }
+  });
+}
+
+test('app.css fills a done dot with its fade (the ground where none is set), the centre in the ground, the rim in the card colour at 55%', () => {
+  const rule = (sel) => {
+    const at = css.indexOf(`\n${sel} {`);
+    const m = at < 0 ? null : css.slice(at).match(/\{([^}]*)\}/);
+    assert.ok(m, `${sel} has a rule`);
+    return m[1];
+  };
+  assert.match(rule('.graph-node.is-done .graph-dot'), /fill: var\(--graph-done-fill, var\(--surface\)\);/);
+  assert.match(rule('.graph-done-fade-centre'), /stop-color: var\(--surface\);/);
+  const rim = rule('.graph-done-fade-rim');
+  assert.match(rim, /stop-color: currentColor;/);
+  assert.match(rim, /stop-opacity: 0\.55;/);
 });
 
 test('the view makes the marks with DOM calls and classes only: no style attribute, no fill or stroke attribute, no markup string', () => {
