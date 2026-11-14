@@ -715,7 +715,7 @@ test('a right drag up or down tilts the camera round the tilt pivot, from straig
   assert.ok(graph3dTiltRound(past, 50, h, 1.4).phi < 2, 'and comes back down');
 });
 
-test('the far side fade at its default keeps today\'s share; under it the far side fades after the lighting, over it keeps more', () => {
+test('the far side fade at the old share (GRAPH3D_FAR_KEEP) keeps it; under it the far side fades after the lighting, over it keeps more', () => {
   assert.deepStrictEqual(graph3dFarFade(0.45), { keep: 0.45, after: 1 });
   assert.deepStrictEqual(graph3dFarFade(0.9), { keep: 0.9, after: 1 });
   const low = graph3dFarFade(0.09);
@@ -724,7 +724,7 @@ test('the far side fade at its default keeps today\'s share; under it the far si
 });
 
 test('the 3D options read from storage take each known value within its slider\'s range, the default otherwise', () => {
-  const def = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, scale: 1, far: 0.45, lines: 1, move: 1, spin: 1 };
+  const def = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, scale: 1, far: 0.2, lines: 0.5, move: 1, spin: 1 };
   assert.deepStrictEqual(graph3dMergeOptions(null), def);
   assert.deepStrictEqual(graph3dMergeOptions('nonsense'), def);
   assert.deepStrictEqual(graph3dMergeOptions({ size: 'big', far: NaN, lines: null, extra: 3, poles: 7 }), def);

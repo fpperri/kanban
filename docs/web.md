@@ -279,8 +279,11 @@ and **Mark scale** grows every mark (its dot or square, its rings, its label and
 factor from 1× to 4×, at either end, for a large board seen whole; **Move speed** scales **w**, **a**, **s** and
 **d**, and **Spin speed** scales **q** and **e**. The options are kept per board in this browser
 (`localStorage`, `kanban.<board>.graph.3d`; storage that refuses, or a value out of a slider's range, reads as
-the default), and **Reset** sets them back to the defaults and forgets what was kept. The defaults draw the 3D
-Hierarchy as it was before the options.
+the default), and **Reset** sets them back to the defaults and forgets what was kept. The defaults keep the
+centre at the top pole, the ring where the shape has it, marks at their size in the world at 1×, both speeds at
+1×, the far side kept at 20% and the line strength at 50%, so the dome's and the sphere's far side and lines are
+fainter than they were before the options and the side the camera faces reads first. The disc is drawn as
+before.
 
 **Flow** lays the board out by its dependencies instead, in columns from left to right, with an arrow
 from each card waited for to the card that waits, and no parent line. A **Dependencies** switch under the

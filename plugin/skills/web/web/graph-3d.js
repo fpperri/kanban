@@ -169,8 +169,8 @@ function graph3dBlendScale(world, screen, m, k = 1) {
 
 // The far side option `far` (the share of its colour the far side keeps) as the two shares the marks are
 // painted with: `keep`, taken before the lighting's floor (graph3dShare), never under today's
-// GRAPH3D_FAR_KEEP, and `after`, taken after it, so under today's share the far side fades with a card lit
-// too. At the default both are as they always were.
+// GRAPH3D_FAR_KEEP, and `after`, taken after it, so under that share the far side fades with a card lit
+// too. At GRAPH3D_FAR_KEEP both are as they were before the option.
 function graph3dFarFade(far) {
   return { keep: Math.max(far, GRAPH3D_FAR_KEEP), after: Math.min(1, far / GRAPH3D_FAR_KEEP) };
 }
@@ -805,10 +805,11 @@ const GRAPH3D_FAR_KEEP = 0.45;
 // The 3D options, the sliders of the Graph panel's 3D section (graph3dBuildOptions): the pole limits of the
 // dome and the sphere in radians (ring null: the shape's own), the mark size (0 its size in the world, 1 a
 // constant size on screen), the mark scale (a factor on that, so marks can grow past today's largest), the share of colour the far side keeps, the share the lines of the dome and the
-// sphere keep, and the factors of the move speed (W, A, S, D) and the spin speed (Q, E). The defaults draw
-// the 3D Hierarchy as it was before the options. GRAPH3D_OPTIONS holds the board's, kept per browser
+// sphere keep, and the factors of the move speed (W, A, S, D) and the spin speed (Q, E). By default the
+// shapes, the marks and the speeds are as they were before the options, and the far side and the lines of
+// the dome and the sphere are fainter, so the side the camera faces reads first. GRAPH3D_OPTIONS holds the board's, kept per browser
 // (graph3dLoadOptions).
-const GRAPH3D_OPTION_DEFAULTS = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, scale: 1, far: GRAPH3D_FAR_KEEP, lines: 1, move: 1, spin: 1 };
+const GRAPH3D_OPTION_DEFAULTS = { poles: { half: { top: 0, ring: null }, sphere: { top: 0, ring: null } }, size: 0, scale: 1, far: 0.2, lines: 0.5, move: 1, spin: 1 };
 // Each slider's range: the pole angles in degrees, per shape; the others as stored.
 const GRAPH3D_OPTION_RANGES = {
   top: { half: [0, 75], sphere: [0, 120] },

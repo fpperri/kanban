@@ -83,6 +83,9 @@ module.exports = {
         await mouse('mouseMoved', from.x + ((to.x - from.x) * k) / 8, from.y + ((to.y - from.y) * k) / 8, { button, buttons, modifiers: mods });
       }
       if (onHeld) await onHeld();
+      // A right drag is held still past the coast's 80 ms window before the release, so no coast carries it on:
+      // where it leaves the camera is the drag's own, the same on a slow machine as on a fast one.
+      if (button === 'right') await page.sleep(250);
       await mouse('mouseReleased', to.x, to.y, { button, modifiers: mods });
     };
 
