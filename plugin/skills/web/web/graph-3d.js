@@ -503,23 +503,28 @@ function graph3dKinOf(links, id) {
   return out;
 }
 
-// What a press starts once it drags: 'pan' for the left button (and the middle one), 'look' for the
-// right one, a Shift+left press and a finger; null for any other button. A press that never drags is
-// a click: a left click selects, a right one opens the card menu.
+// What a press starts once it drags: 'pan' for the left button (and the middle one), 'orbit' for the
+// right one, 'look' for a Shift+right or Shift+left press and a finger; null for any other button. A press
+// that never drags is a click: a left click selects, a right one opens the card menu (a Shift+right one none).
 function graph3dDragMode({ button, shiftKey, pointerType }) {
   if (pointerType === 'touch') return 'look';
-  if (button === 2 || (button === 0 && shiftKey)) return 'look';
+  if ((button === 2 || button === 0) && shiftKey) return 'look';
+  if (button === 2) return 'orbit';
   if (button === 0 || button === 1) return 'pan';
   return null;
 }
 
-// The walk keys, each as [right, up] in the camera's own screen: W up, S down, A left, D right.
+// The walk keys, each as [right, up] in the camera's own screen: A left, D right.
 const GRAPH3D_WALK_KEYS = {
-  'w': [0, 1],
   'a': [-1, 0],
-  's': [0, -1],
   'd': [1, 0],
 };
+// The fly keys, each as the way it moves along where the camera looks: W ahead, S back.
+const GRAPH3D_FLY_KEYS = {
+  'w': 1,
+  's': -1,
+};
+const GRAPH3D_MOVE_KEYS = Object.assign({}, GRAPH3D_WALK_KEYS, GRAPH3D_FLY_KEYS);
 
 // The key of the table `keys` a keydown or keyup is, whatever its case, or null: with Ctrl, Alt or Meta
 // held the letter keeps its own meaning (Ctrl+S saves, Ctrl+E codes the selection in a text box).
@@ -529,9 +534,24 @@ function graph3dKeyIn(keys, { key, ctrlKey, altKey, metaKey }) {
   return Object.prototype.hasOwnProperty.call(keys, k) ? k : null;
 }
 
-// The walk key a keydown or keyup is (w, a, s or d), or null.
+// The walk or fly key a keydown or keyup is (w, a, s or d), or null.
 function graph3dWalkKey(ev) {
-  return graph3dKeyIn(GRAPH3D_WALK_KEYS, ev);
+  return graph3dKeyIn(GRAPH3D_MOVE_KEYS, ev);
+}
+
+// How far W and S move the camera along where it looks while the keys `held` are down for `dt` ms: the walk's
+// own speed (graph3dWalk) for `pace`, ahead positive. W and S together cancel; null when nothing moves.
+function graph3dFlyStep(held, pace, dt) {
+  let way = 0;
+  for (const k of held) way += GRAPH3D_FLY_KEYS[k] || 0;
+  return way ? (way * GRAPH3D_WALK * 2 * pace * GRAPH3D_TAN_HALF_FOV * dt) / 1000 : null;
+}
+
+// What W and S do (the prototype's two ways, the address's wsmode): 'fly', the eye and the target move
+// together along where the camera looks, or 'dolly', the distance to the target shrinks and grows.
+function graph3dWsMode(search) {
+  const v = new URLSearchParams(search || '').get('wsmode');
+  return v === 'dolly' ? 'dolly' : 'fly';
 }
 
 // How far the camera moves, as [x, y, z] in the scene, while the walk keys `held` are down for `dt` ms with the
@@ -716,11 +736,11 @@ const GRAPH3D_SHADOW = 0.8;
 // A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
-const GRAPH3D_HELP = 'Left drag pans, right drag or Shift+left drag looks round from where the camera stands, the wheel flies toward the pointer; '
-  + 'one finger looks round and a pinch flies. G steps the shape, F frames the selection, H frames everything; '
-  + 'W, A, S and D, held, slide the camera in the screen plane (W up, S down); Q and E, held, spin the shape left and right.';
+const GRAPH3D_HELP = 'Left drag pans, right drag orbits round the target, Shift+right (or Shift+left) drag looks round from where the camera stands, '
+  + 'the wheel flies toward the pointer; one finger looks round and a pinch flies. G steps the shape, F frames the selection, H frames everything; '
+  + 'Q and E, held, turn the view from where the camera stands; W and S, held, fly ahead and back (or dolly toward the target); A and D slide sideways.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
-const GRAPH3D_HINT = 'Drag pans · right drag looks · wheel flies · double click opens · G shape · F frame · H home · WASD move · QE spin';
+const GRAPH3D_HINT = 'Drag pans · right drag orbits · Shift+right drag looks · wheel flies · double click opens · G shape · F frame · H home · QE turn · WS %ws · AD slide';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
 // The words the corner's label says when three.js did not load (the engine's own message goes to the console).
@@ -756,6 +776,6 @@ if (typeof module !== 'undefined' && module.exports) {
     graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dCentre, graph3dSphereHits, graph3dEye,
     graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder,
     graph3dRestack, graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+    graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dWsMode, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
   };
 }

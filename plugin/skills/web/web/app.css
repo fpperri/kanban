@@ -1753,6 +1753,10 @@ code.mention.same:focus-visible { outline: 2px solid var(--mention); outline-off
 .graph-3d-pivot::after { left: 6.5px; top: 0; width: 1px; height: 14px; }
 /* The compass in the stage's bottom-right corner: a dial on the plan, turned and tilted as the camera sees the
    plan (graph-3d-compass.js), its north the 2D Hierarchy's top; a press turns the view north up from straight above. */
+/* PROTOTYPE: the W/S mode bar (graph-3d-view.js). */
+.graph-3d-proto { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 4px 8px; background: var(--surface); border: 1px dashed var(--accent); border-radius: 6px; font-size: 0.78em; color: var(--mut); z-index: 3; }
+.graph-3d-proto button { padding: 2px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: inherit; cursor: pointer; }
+.graph-3d-proto button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
 .graph-3d-compass { position: absolute; right: 6px; bottom: 6px; width: 44px; height: 44px; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; }
 .graph-3d-compass svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .graph-3d-compass-ring { fill: none; stroke: var(--line-strong); stroke-width: 1.4px; }

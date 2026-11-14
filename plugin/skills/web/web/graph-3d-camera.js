@@ -203,22 +203,45 @@ function graph3dLookBy(hier, dx, dy) {
   Object.assign(c, graph3dLook(c, c.theta - (Math.PI * dx) / hier.h, c.phi - (Math.PI * dy) / hier.h));
 }
 
-// Q and E's turn of `by` radians: the camera swings round the shape's own vertical axis, so the shape's
-// centre keeps its place on screen with the tilt and the distance. A zoom on its way swings with it.
-function graph3dSpin(hier, by) {
-  const axis = graph3dShapeAxis(hier.shape, hier.rim, hier.outer);
-  const c = hier.cam, z = hier.zoom;
-  if (z) {
-    const to = graph3dTurnRound({ tx: z.tx, ty: z.ty, tz: z.tz, theta: c.theta, phi: z.phi }, axis, c.theta + by, z.phi);
-    z.tx = to.tx; z.ty = to.ty; z.tz = to.tz;
-  }
-  Object.assign(c, graph3dTurnRound(c, axis, c.theta + by, c.phi));
+// An orbit drag or coast step of (dx, dy) px: the camera swings round its target at the same distance, the
+// tilt kept from straight above to the shape's limit (graph3dMaxTilt; a camera already tilted past it by a
+// look tilts no further).
+function graph3dOrbitBy(hier, dx, dy) {
+  const c = hier.cam;
+  const max = Math.max(graph3dMaxTilt(hier.shape), c.phi);
+  c.theta -= (Math.PI * dx) / hier.h;
+  c.phi = Math.min(max, Math.max(0, c.phi - (Math.PI * dy) / hier.h));
 }
 
-// The point the camera is turning round now, or null while it turns round none: the shape's axis point while
-// Q or E spins it.
+// Q and E's turn of `by` radians: the camera turns round where it stands (graph3dLook, the tilt kept), its
+// target swinging round the eye. A zoom on its way turns with it.
+function graph3dSpin(hier, by) {
+  const c = hier.cam, z = hier.zoom;
+  if (z) {
+    const to = graph3dLook({ tx: z.tx, ty: z.ty, tz: z.tz, dist: z.dist, theta: c.theta, phi: z.phi }, c.theta + by, z.phi);
+    z.tx = to.tx; z.ty = to.ty; z.tz = to.tz;
+  }
+  Object.assign(c, graph3dLook(c, c.theta + by, c.phi));
+}
+
+// W and S held for a step of `step` scene units (graph3dFlyStep), the way the address's wsmode says: 'fly'
+// moves the eye and the target together along where the camera looks; 'dolly' moves the eye toward or away
+// from the target, as near as the closest a dot is seen (GRAPH3D_CLOSEST_SCALE) and as far as rim * 40.
+function graph3dFlyBy(hier, step) {
+  const c = hier.cam, z = hier.zoom;
+  if (hier.wsmode === 'dolly') {
+    const lo = hier.h / (2 * GRAPH3D_TAN_HALF_FOV * GRAPH3D_CLOSEST_SCALE), hi = hier.rim * 40;
+    for (const o of z ? [c, z] : [c]) o.dist = Math.min(hi, Math.max(lo, o.dist - step));
+    return;
+  }
+  const back = graph3dBasis(c.phi, c.theta).back;
+  for (const o of z ? [c, z] : [c]) { o.tx -= back[0] * step; o.ty -= back[1] * step; o.tz -= back[2] * step; }
+}
+
+// The point the camera is turning round now, or null while it turns round none: Q and E turn round the eye
+// itself, so none.
 function graph3dTurnPivot(hier) {
-  return hier.turn.size > 0 ? graph3dShapeAxis(hier.shape, hier.rim, hier.outer) : null;
+  return null;
 }
 
 // The small cross at the shape's centre on screen (hier.pivotMark): on (data-on) while Q or E spins the shape,

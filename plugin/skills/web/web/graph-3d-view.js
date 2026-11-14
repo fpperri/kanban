@@ -56,12 +56,14 @@ function graph3dCreate() {
     cam: { theta: 0, phi: 0, dist: 1000, tx: 0, ty: 0, tz: 0 }, framed: false, fly: null,
     raf: 0, w: 1, h: 1, cw: 1, ch: 1, ox: 0, oy: 0, order: '',
     drag: null, pointers: new Map(), pressed: null, pinch: null, right: null, rightTimer: 0, replaying: false, ro: null,
+    wsmode: graph3dWsMode(location.search), protoBar: null,
     zoom: null, spin: null, walk: new Set(), turn: new Set(), tick: 0, vis: [], kHome: 1, hint: true, hintTimer: 0, empty: false, dprWatch: null,
     fitDist: 0, idSide: new Map(), armed: true, quietAt: null,
     theme: 0, groundRgb: { r: 0, g: 0, b: 0, a: 1 }, inks: new WeakMap(), painted: new WeakMap(), parts: new WeakMap(), shadows: new Map(),
     bg: null, scheme: null, themeWatch: null, onTheme: null, compassAt: '',
   };
   root.appendChild(graph3dBuildCompass(hier));
+  root.appendChild(graph3dBuildProtoBar(hier));
   graph3dPaintLabel(hier);
   hier.hintTimer = setTimeout(() => graph3dEndHint(hier), GRAPH3D_HINT_MS);
   graph3dWireInput(hier);
@@ -78,6 +80,37 @@ function graph3dCreate() {
   return hier;
 }
 
+// PROTOTYPE: the bar that switches what W and S do (fly or dolly) and writes it to the address (wsmode).
+function graph3dBuildProtoBar(hier) {
+  const bar = document.createElement('div');
+  bar.className = 'graph-3d-proto';
+  const tag = document.createElement('span');
+  tag.textContent = 'PROTOTYPE · W/S:';
+  bar.appendChild(tag);
+  const paint = () => buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === hier.wsmode)));
+  const buttons = ['fly', 'dolly'].map((mode) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = mode;
+    b.dataset.mode = mode;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hier.wsmode = mode;
+      const q = new URLSearchParams(location.search);
+      q.set('wsmode', mode);
+      try { history.replaceState(history.state, '', location.pathname + '?' + q.toString() + location.hash); } catch (err) { /* the address lags */ }
+      paint();
+      graph3dPaintLabel(hier);
+      b.blur();
+    });
+    bar.appendChild(b);
+    return b;
+  });
+  paint();
+  hier.protoBar = bar;
+  return bar;
+}
+
 function graph3dReady(hier) {
   return !!(hier.renderer && hier.view);
 }
@@ -88,8 +121,8 @@ function graph3dVisible(hier) {
 
 // The first seconds, or until the first gesture, the label names the gestures; then the shape and its keys.
 function graph3dPaintLabel(hier) {
-  hier.label.textContent = hier.hint ? GRAPH3D_HINT
-    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · WASD move · QE spin${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
+  hier.label.textContent = hier.hint ? GRAPH3D_HINT.replace('%ws', hier.wsmode)
+    : `${graph3dShapeName(hier.shape)} · G shape · F frame · H home · QE turn · WS ${hier.wsmode} · AD slide${hier.empty ? ' · nothing in view: H brings it back' : ''}`;
   hier.root.dataset.shape = hier.shape;
 }
 
@@ -149,9 +182,15 @@ function graph3dFrame(hier) {
     } else more = true;
   }
   if (hier.walk.size) {
-    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, graph3dPaceOf(hier), dt);
+    const pace = graph3dPaceOf(hier);
+    const step = graph3dWalk(hier.walk, hier.cam.theta, hier.cam.phi, pace, dt);
     if (step) {
       for (const c of hier.zoom ? [hier.cam, hier.zoom] : [hier.cam]) { c.tx += step[0]; c.ty += step[1]; c.tz += step[2]; }
+      more = true;
+    }
+    const ahead = graph3dFlyStep(hier.walk, pace, dt);
+    if (ahead) {
+      graph3dFlyBy(hier, ahead);
       more = true;
     }
   }
@@ -163,8 +202,11 @@ function graph3dFrame(hier) {
     }
   }
   if (hier.spin) {
-    graph3dLookBy(hier, hier.spin.vx * dt, hier.spin.vy * dt);
+    const orbit = hier.spin.orbit;
+    if (orbit) graph3dOrbitBy(hier, hier.spin.vx * dt, hier.spin.vy * dt);
+    else graph3dLookBy(hier, hier.spin.vx * dt, hier.spin.vy * dt);
     hier.spin = graph3dCoast(hier.spin, dt);
+    if (hier.spin && orbit) hier.spin.orbit = true;
     if (hier.spin) more = true;
   }
   if (hier.morph) {

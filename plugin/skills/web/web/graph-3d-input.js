@@ -61,7 +61,7 @@ function graph3dOnPointerDown(hier, e) {
   // The 2D Graph's own pan and pinch (wireGraphView) stay out of the 3D Hierarchy, and a press on the
   // compass is the compass's.
   e.stopPropagation();
-  if (!hier.renderer || hier.compass.contains(e.target)) return;
+  if (!hier.renderer || hier.compass.contains(e.target) || (hier.protoBar && hier.protoBar.contains(e.target))) return;
   hier.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   // The card the button is down on keeps its place in the page until the button is up (graph3dOrderDots).
   hier.pressed = e.target.closest ? e.target.closest('.graph-node') : null;
@@ -73,7 +73,8 @@ function graph3dOnPointerDown(hier, e) {
   if (hier.drag || hier.pinch) return;
   if (e.pointerType !== 'touch' && e.button === 2) {
     graph3dForgetRight(hier);
-    hier.right = { down: true, moved: false, held: null };
+    // A Shift+right press looks round and opens no menu, with a drag or without: as if it had dragged.
+    hier.right = { down: true, moved: !!e.shiftKey, held: null };
   }
   const mode = graph3dDragMode(e);
   if (!mode) return;
@@ -109,8 +110,9 @@ function graph3dOnPointerMove(hier, e) {
   const dx = e.clientX - d.x, dy = e.clientY - d.y;
   d.x = e.clientX;
   d.y = e.clientY;
-  if (d.mode === 'look') {
-    graph3dLookBy(hier, dx, dy);
+  if (d.mode === 'look' || d.mode === 'orbit') {
+    if (d.mode === 'orbit') graph3dOrbitBy(hier, dx, dy);
+    else graph3dLookBy(hier, dx, dy);
     const t = performance.now();
     d.trail.push({ t, dx, dy });
     while (d.trail.length && t - d.trail[0].t > 80) d.trail.shift();
@@ -141,12 +143,12 @@ function graph3dOnPointerEnd(hier, e) {
   }
   // A released look coasts on at the speed of its last 80 ms, then slows to a stop.
   const t = performance.now();
-  const trail = d.moved && d.mode === 'look' && e.type === 'pointerup' ? d.trail.filter((m) => t - m.t <= 80) : [];
+  const trail = d.moved && (d.mode === 'look' || d.mode === 'orbit') && e.type === 'pointerup' ? d.trail.filter((m) => t - m.t <= 80) : [];
   if (trail.length > 1) {
     const span = Math.max(16, t - trail[0].t);
     const sx = trail.reduce((a, m) => a + m.dx, 0), sy = trail.reduce((a, m) => a + m.dy, 0);
     const coast = graph3dCoast({ vx: sx / span, vy: sy / span }, 0);
-    hier.spin = coast;
+    hier.spin = coast && Object.assign(coast, { orbit: d.mode === 'orbit' });
     hier.tick = 0;
   }
   graph3dRequest(hier);
@@ -154,7 +156,7 @@ function graph3dOnPointerEnd(hier, e) {
 
 // The dot a click a little off a dot means, or null on a mark of its own or the corner's controls.
 function graph3dNearDot(hier, e) {
-  if (e.target.closest && e.target.closest('.graph-node, .graph-caption, .graph-block-title, .graph-block-caption, .graph-3d-label, .graph-3d-compass')) return null;
+  if (e.target.closest && e.target.closest('.graph-node, .graph-caption, .graph-block-title, .graph-block-caption, .graph-3d-label, .graph-3d-compass, .graph-3d-proto')) return null;
   const rect = hier.root.getBoundingClientRect();
   return graph3dNearest(hier.vis, e.clientX - rect.left, e.clientY - rect.top, GRAPH3D_PICK_TOL);
 }
