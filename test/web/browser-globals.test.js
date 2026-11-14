@@ -22,6 +22,7 @@ const PAGE_GLOBALS = [
   'currentDetailId',
   'DOUBLE_CLICK_MS',
   'graph3dCur',
+  'graph3dKinOf',
   'graph3dRequest',
   'graph3dScreenOf',
   'graph3dShapeAxis',

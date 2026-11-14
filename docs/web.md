@@ -258,8 +258,9 @@ moves, so a flight can spin as it goes. While the shape spins (**q**, **e**, a r
 quiet cross marks its centre, and fades out as the spin stops. Like the move keys they stay off while a field has focus or a popup is
 up, so with a card's details open **e** opens its edit form, and on a note row **e** edits the note.
 A click selects as in 2D, a double click opens the card, and a right click without a drag opens the card
-menu (a right drag never does, nor a Shift+right press). **f** frames the selection with the cards its lines join, **h** frames
-everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons fly
+menu (a right drag never does, nor a Shift+right press). **f** frames the selection with the cards its lines join, and
+**f** again, with nothing moved in between, flies close so they fill the stage; a third **f** goes back to the wide frame (any
+other move of the camera, or a new selection, starts it again wide). **h** frames everything, Enter in the search box turns the camera to the card it finds, and the zoom buttons fly
 ahead and back and fit. A compass in the stage's bottom-right corner turns and tilts with the camera; a press on it turns the
 view north up, looking straight down from where the camera stands (the 2D picture). Farther marks, and
 those on the far side of the half sphere or the sphere, are drawn in their colour mixed into the ground, as

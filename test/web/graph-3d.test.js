@@ -9,7 +9,7 @@ const {
   graph3dSnap, graph3dNearest, graph3dCoast, graph3dLineWidth, graph3dLabelScale, graph3dBasis,
   graph3dFit, graph3dFacing, graph3dKinOf, graph3dSoftCap, graph3dSphereHits, graph3dEye, graph3dDomeBack, graph3dShapeFar, graph3dSideTilt, graph3dPaintOrder, graph3dRestack,
   graph3dDragMode, graph3dRgb, graph3dMix, graph3dShare, graph3dCompass, graph3dNorthUp,
-  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dAxisNearest, graph3dTiltRound, graph3dFarFade, graph3dMergeOptions, graph3dLook, graph3dPace, graph3dWheelStep, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
+  graph3dRound2, graph3dEase, graph3dMenuVerdict, graph3dWalkKey, graph3dWalk, graph3dFlyStep, graph3dTurnKey, graph3dTurn, graph3dTurnRound, graph3dShapeAxis, graph3dPoleAngle, graph3dPoleDefaults, graph3dBlendScale, graph3dAxisNearest, graph3dTiltRound, graph3dFarFade, graph3dMergeOptions, graph3dLook, graph3dPace, graph3dWheelStep, graph3dCloseFill, graph3dSameCam, GRAPH3D_UNLIT, GRAPH3D_THREE_SRC,
 } = require('../../plugin/skills/web/web/graph-3d');
 const { pageFiles, VENDORED } = require('../../plugin/skills/web/scripts/server');
 
@@ -819,4 +819,23 @@ test('the mark scale grows a blended size by its factor, and at 1 leaves it exac
   assert.strictEqual(graph3dBlendScale(0.37, 1, 0.3, 1), graph3dBlendScale(0.37, 1, 0.3));
   assert.ok(near(graph3dBlendScale(0.2, 1, 0.5, 3), 1.8, 1e-12));
   assert.ok(near(graph3dBlendScale(0.2, 1, 1, 4), 4, 1e-12), 'a constant size on screen, four times as big');
+});
+
+test('the close frame fills most of the stage each way, a small margin left round it', () => {
+  const wide = graph3dCloseFill(1600, 1200);
+  assert.ok(wide.x > 0.75 && wide.x < 0.9 && wide.y > 0.75 && wide.y < 0.9, JSON.stringify(wide));
+  assert.ok(near((1 - wide.x) * 1600, (1 - wide.y) * 1200 * (1600 / 1200)), 'the margin is the same share of each side');
+  const small = graph3dCloseFill(320, 200);
+  assert.ok(near((1 - small.y) * 200, 80) && (1 - small.x) * 320 >= 80 - 1e-9, 'a small stage keeps at least 40 px each side');
+  const tiny = graph3dCloseFill(60, 50);
+  assert.ok(tiny.x > 0 && tiny.y > 0, 'a stage smaller than its margins still frames something');
+});
+
+test('the camera an F left is the same camera only while nothing has moved it', () => {
+  const cam = { theta: 1.2, phi: 0.6, dist: 840, tx: 12.5, ty: -40, tz: 300 };
+  assert.strictEqual(graph3dSameCam(Object.assign({}, cam), cam), true);
+  assert.strictEqual(graph3dSameCam(Object.assign({}, cam, { tx: 12.5 + 1e-9 }), cam), true, 'a flight ends a rounding off its goal');
+  for (const k of Object.keys(cam)) assert.strictEqual(graph3dSameCam(Object.assign({}, cam, { [k]: cam[k] + 0.01 }), cam), false, k);
+  assert.strictEqual(graph3dSameCam(cam, null), false);
+  assert.strictEqual(graph3dSameCam(null, cam), false);
 });
