@@ -21,7 +21,7 @@ const HOTKEYS = [
   { id: 'note-find', keys: ['Ctrl/Cmd+F'], reads: ['f'], what: "In the notes palette with its note box empty and no card aimed: put # in the note box, and the id typed after it narrows the list to that card's notes as you type; Enter aims the palette at it. Erasing the # or typing anything that is not an id puts the list back. With text in the box or a card aimed, it stays the browser's find." },
   { id: 'escape', keys: ['Esc'], reads: ['Escape'], what: 'Close the menu or popup that is up, then the search panel. In the edit form opened from a card\'s details, leave it and return to the details (after the unsaved-changes question, when there are changes). In the notes palette it clears the card chip first, then closes the palette (at once from its filter field). With none up, in the search box it empties the box and the selection, and elsewhere it steps the selection back: isolate off, then the additions, then the anchor, and then it clears what the box still holds, a slice: run included, so repeated Esc ends on an empty box.' },
   { id: 'enter', keys: ['Enter'], reads: ['Enter'], what: 'Open the focused card. In a list of suggestions, take the highlighted one. In the search box, go to the first match; a second Enter opens it when it is the only one.' },
-  { id: 'space', keys: ['Space', 'Shift+Space'], reads: [' '], what: 'Write the sets On hover show ticks for the hovered card, else the focused one, into the search box as alternatives (dlinks:12 | hlinks:12), its run of slices kept and isolate as it was. With Shift, add them to what the box holds as one more alternative; an empty box takes them as a plain Space does. With no card hovered or focused, a line the pointer is on in the Graph writes the cards it lights as card terms (#176 | #50), parent first. With neither, in a text field, or on a button, link or switch, Space keeps its own job (scrolling, pressing, a todo item\'s tick).' },
+  { id: 'space', keys: ['Space', 'Shift+Space'], reads: [' '], what: 'Write the sets On hover show ticks for the hovered card, else the focused one, into the search box as alternatives (dlinks:12 | hlinks:12), its run of slices kept and isolate as it was. With Shift, add them to what the box holds as one more alternative; an empty box takes them as a plain Space does. With no card hovered or focused, a line the pointer is on in the Graph writes the cards it lights as card terms (#176 | #50), parent first. A hovered card wins over a button, link or switch that has the focus (a click leaves it there), which is not pressed; with no card hovered, Space presses it. With neither card nor line, or in a text field, Space keeps its own job (scrolling, pressing, typing, a todo item\'s tick).' },
   { id: 'space-select', keys: ['Ctrl+Space'], reads: [' '], what: 'Select the focused card in the Graph, as a click does.' },
   { id: 'save', keys: ['Ctrl/Cmd+S'], reads: ['s'], what: 'Save the edit or bulk popup that is open.' },
   { id: 'fullscreen', keys: ['Alt+Enter'], reads: ['Enter'], what: 'Toggle fullscreen on the popup that is open; with the notes palette up over the card details, on the palette. In the palette it does nothing while another popup is up, and on a phone.' },
@@ -87,11 +87,24 @@ function hotkeySpace(e) {
   return e.shiftKey ? 'add' : 'write';
 }
 
+// Who takes a plain or Shift Space the key guard lets through: 'control', the focused control's own job, or
+// 'card', the page's (the hovered card, else the focused one, else the hovered line). `focus` is what holds
+// the focus: 'field' for a place Space types or ticks (a text field, a checkbox, a todo item's tick), 'press'
+// for a button, link or switch, 'none' for anything else. A field always keeps Space. A press control keeps it
+// only with no card hovered: a click leaves the focus on the button it pressed, and the pointer on a card says
+// which one Space is for.
+function hotkeySpaceTaker(focus, hovered) {
+  if (focus === 'field') return 'control';
+  if (focus === 'press') return hovered ? 'card' : 'control';
+  return 'card';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace };
+  module.exports = { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace, hotkeySpaceTaker };
 } else {
   window.HOTKEYS = HOTKEYS;
   window.hotkeyRows = hotkeyRows;
   window.hotkeyIsHelp = hotkeyIsHelp;
   window.hotkeySpace = hotkeySpace;
+  window.hotkeySpaceTaker = hotkeySpaceTaker;
 }
