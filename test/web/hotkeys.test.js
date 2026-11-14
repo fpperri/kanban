@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace } = require('../../plugin/skills/web/web/hotkeys');
+const { HOTKEYS, hotkeyRows, hotkeyIsHelp, hotkeySpace, hotkeySpaceTaker } = require('../../plugin/skills/web/web/hotkeys');
 
 // The list the preferences sheet's Hotkeys section shows (hotkeys.js): every key the page
 // answers, what it does, and the state of the ones that have one. Pure, so it is driven
@@ -131,6 +131,21 @@ test('any other chord with Space, a held key and any other key are not Space\'s'
   assert.strictEqual(hotkeySpace(null), null);
 });
 
+test('a field or a tick keeps Space whether a card is hovered or not', () => {
+  assert.strictEqual(hotkeySpaceTaker('field', false), 'control');
+  assert.strictEqual(hotkeySpaceTaker('field', true), 'control');
+});
+
+test('a hovered card beats a focused button, link or switch; with no card hovered the control keeps Space', () => {
+  assert.strictEqual(hotkeySpaceTaker('press', true), 'card');
+  assert.strictEqual(hotkeySpaceTaker('press', false), 'control');
+});
+
+test('with focus on no control, Space is the page\'s, hovered card or not', () => {
+  assert.strictEqual(hotkeySpaceTaker('none', true), 'card');
+  assert.strictEqual(hotkeySpaceTaker('none', false), 'card');
+});
+
 test('the list names the three: Space and Shift+Space write, Ctrl+Space selects, and each says what it does', () => {
   const rows = hotkeyRows(NOW);
   assert.deepStrictEqual(rowOf(rows, 'space').keys, ['Space', 'Shift+Space']);
@@ -138,6 +153,7 @@ test('the list names the three: Space and Shift+Space write, Ctrl+Space selects,
   assert.match(rowOf(rows, 'space').what, /dlinks:12 \| hlinks:12/);
   assert.match(rowOf(rows, 'space').what, /isolate as it was/);
   assert.match(rowOf(rows, 'space').what, /keeps its own job/, 'with no card, in a field, on a control');
+  assert.match(rowOf(rows, 'space').what, /hovered card wins over a button, link or switch that has the focus/, 'a click leaves its focus on a button');
   assert.deepStrictEqual(rowOf(rows, 'space-select').keys, ['Ctrl+Space']);
   assert.match(rowOf(rows, 'space-select').what, /Select the focused card in the Graph/);
   assert.ok(!/Select the focused card/.test(rowOf(rows, 'space').what), 'Space no longer selects');
