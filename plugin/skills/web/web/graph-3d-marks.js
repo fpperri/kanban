@@ -85,6 +85,12 @@ function graph3dPaintNode(hier, g, share) {
   for (const el of parts) graph3dPaintMark(hier, el, share);
 }
 
+// PROTOTYPE: the far side slider under today's share (GRAPH3D_FAR_KEEP) fades the far side after the lighting's
+// floor (graph3dShare), so it fades with a card selected too; over it, the far side keeps that share instead.
+function graph3dFarPost() {
+  return Math.min(1, GRAPH3D_TUNE.far / GRAPH3D_FAR_KEEP);
+}
+
 // One frame of the marks: the dots, their shadows and paint order, the lines and counts, the captions,
 // then the labels kept apart.
 function graph3dPlaceMarks(hier) {
@@ -161,11 +167,11 @@ function graph3dPlaceDots(hier, f) {
   const span = zmax - zmin;
   const deep = span > 1 && !f.top;
   f.zmax = zmax;
-  f.keepOf = (z, far, close, lit) => (deep && !lit ? 1 - (GRAPH3D_DEPTH_FADE * (z - zmin)) / span : 1) * (far ? GRAPH3D_TUNE.far : 1) * close;
+  f.keepOf = (z, far, close, lit) => (deep && !lit ? 1 - (GRAPH3D_DEPTH_FADE * (z - zmin)) / span : 1) * (far ? Math.max(GRAPH3D_TUNE.far, GRAPH3D_FAR_KEEP) : 1) * close;
   for (const o of vis) {
     o.keep = f.keepOf(o.z, o.far, o.close, o.lit);
     o.unlit = f.unlitIf(o.g, 'node');
-    graph3dPaintNode(hier, o.g, graph3dShare(o.keep, o.unlit));
+    graph3dPaintNode(hier, o.g, graph3dShare(o.keep, o.unlit) * (o.far ? graph3dFarPost() : 1));
   }
   if (hier.scene.fog) {
     const sp = Math.sin(Math.min(Math.PI / 2, Math.max(0, hier.cam.phi)));
@@ -255,8 +261,8 @@ function graph3dPlaceLines(hier, f, vis) {
       const sk = ends.length ? ends.reduce((a, o) => a + o.s, 0) / ends.length : hier.kHome;
       const z = ends.length ? ends.reduce((a, o) => a + o.z, 0) / ends.length : f.zmax;
       el.style.setProperty('--graph-3d-w', String(Math.round(graph3dLineWidth(sk, hier.kHome) * 1000) / 1000));
-      lineKeep = f.keepOf(z, false, 1, false) * (f.bent ? GRAPH3D_TUNE.lines : 1);
-      graph3dPaintMark(hier, el, graph3dShare(lineKeep, f.unlitIf(el, 'link')));
+      lineKeep = f.keepOf(z, false, 1, false);
+      graph3dPaintMark(hier, el, graph3dShare(lineKeep, f.unlitIf(el, 'link')) * (f.bent ? GRAPH3D_TUNE.lines : 1));
       if (ends.length) lineLs = Math.round((ends.reduce((a, o) => a + o.ls, 0) / ends.length) * 1000) / 1000;
     }
     if (drawn.hitEls[i]) drawn.hitEls[i].setAttribute('d', split.far.length ? graph3dPathOf(hier, f, pieces) : d);
@@ -271,7 +277,7 @@ function graph3dPlaceLines(hier, f, vis) {
         count.setAttribute('x', graph3dRound2(q[0]));
         count.setAttribute('y', graph3dRound2(q[1]));
         count.style.setProperty('--graph-3d-s', String(lineLs));
-        graph3dPaintMark(hier, count, graph3dShare(lineKeep, el ? f.unlitIf(el, 'count') : null));
+        graph3dPaintMark(hier, count, graph3dShare(lineKeep, el ? f.unlitIf(el, 'count') : null) * (f.bent ? GRAPH3D_TUNE.lines : 1));
         if (!far) texts.push({ el: count, x: q[0], y: q[1], anchor: 'middle', middle: true, size: 11 * lineLs });
       }
     }
@@ -290,7 +296,7 @@ function graph3dFarLink(hier, i, el, d, unlit) {
   }
   if (f.nextSibling !== el) el.parentNode.insertBefore(f, el);
   f.setAttribute('class', `${el.getAttribute('class')} graph-3d-far`);
-  graph3dPaintMark(hier, f, graph3dShare(GRAPH3D_TUNE.far * GRAPH3D_TUNE.lines, unlit));
+  graph3dPaintMark(hier, f, graph3dShare(Math.max(GRAPH3D_TUNE.far, GRAPH3D_FAR_KEEP), unlit) * graph3dFarPost() * GRAPH3D_TUNE.lines);
   f.style.setProperty('--graph-3d-w', el.style.getPropertyValue('--graph-3d-w') || '1');
   f.setAttribute('d', d);
 }
@@ -308,7 +314,7 @@ function graph3dPlaceCaptions(hier, f, texts) {
     c.el.setAttribute('y', graph3dRound2(q[1]));
     const title = c.el.classList.contains('graph-block-title');
     texts.push({ el: c.el, x: q[0], y: q[1], anchor: c.el.getAttribute('text-anchor') || 'start', middle: c.el.hasAttribute('dy'), size: title ? 13 : 11, bold: title });
-    const keep = f.keepOf(q[2], f.isFar(p), 1, false);
+    const keep = f.keepOf(q[2], f.isFar(p), 1, false) * (f.isFar(p) ? graph3dFarPost() : 1);
     graph3dPaintMark(hier, c.el, keep);
     for (const name of c.names) graph3dPaintMark(hier, name, keep);
   }
