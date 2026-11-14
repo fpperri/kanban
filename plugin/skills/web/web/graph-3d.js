@@ -736,11 +736,11 @@ const GRAPH3D_SHADOW = 0.8;
 // A right press that opened no menu (a drag, or one whose menu the browser has not asked for yet) stops
 // holding back the browser's contextmenu after this long.
 const GRAPH3D_MENU_HOLD_MS = 600;
-const GRAPH3D_HELP = 'Left drag pans, right drag orbits round the target, Shift+right (or Shift+left) drag looks round from where the camera stands, '
+const GRAPH3D_HELP = 'Left drag pans, right drag turns the shape round its own axis and tilts the camera, Shift+right (or Shift+left) drag looks round from where the camera stands, '
   + 'the wheel flies toward the pointer; one finger looks round and a pinch flies. G steps the shape, F frames the selection, H frames everything; '
-  + 'Q and E, held, turn the view from where the camera stands; W and S, held, fly ahead and back (or dolly toward the target); A and D slide sideways.';
+  + 'Q and E, held, spin the shape round its own axis; W and S, held, fly ahead and back (or dolly toward the target); A and D slide sideways.';
 const GRAPH3D_COMPASS_TIP = 'Compass: turn the view north up, seen from straight above';
-const GRAPH3D_HINT = 'Drag pans · right drag orbits · Shift+right drag looks · wheel flies · double click opens · G shape · F frame · H home · QE turn · WS %ws · AD slide';
+const GRAPH3D_HINT = 'Drag pans · right drag orbits · Shift+right drag looks · wheel flies · double click opens · G shape · F frame · H home · QE spin · WS %ws · AD slide';
 // three.js r160, its classic build (the global THREE), vendored and served by this exact path (server.js).
 const GRAPH3D_THREE_SRC = '/vendor/three/three.min.js?v=0.160.0';
 // The words the corner's label says when three.js did not load (the engine's own message goes to the console).

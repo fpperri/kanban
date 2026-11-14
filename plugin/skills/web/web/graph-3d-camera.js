@@ -203,25 +203,46 @@ function graph3dLookBy(hier, dx, dy) {
   Object.assign(c, graph3dLook(c, c.theta - (Math.PI * dx) / hier.h, c.phi - (Math.PI * dy) / hier.h));
 }
 
-// An orbit drag or coast step of (dx, dy) px: the camera swings round its target at the same distance, the
-// tilt kept from straight above to the shape's limit (graph3dMaxTilt; a camera already tilted past it by a
-// look tilts no further).
+// An orbit drag or coast step of (dx, dy) px: across, the shape turns under the camera round its own vertical
+// axis (graph3dSpin); up and down, the camera tilts round the point of that axis nearest its line of sight
+// (graph3dAxisPivot), at the same distance, the tilt kept from straight above to the shape's limit
+// (graph3dMaxTilt; a camera already tilted past it by a look tilts no further).
 function graph3dOrbitBy(hier, dx, dy) {
+  if (dx) graph3dSpin(hier, -(Math.PI * dx) / hier.h);
+  if (!dy) return;
   const c = hier.cam;
   const max = Math.max(graph3dMaxTilt(hier.shape), c.phi);
-  c.theta -= (Math.PI * dx) / hier.h;
-  c.phi = Math.min(max, Math.max(0, c.phi - (Math.PI * dy) / hier.h));
+  const phi = Math.min(max, Math.max(0, c.phi - (Math.PI * dy) / hier.h));
+  if (phi === c.phi) return;
+  Object.assign(c, graph3dTurnRound(c, graph3dAxisPivot(hier), c.theta, phi));
 }
 
-// Q and E's turn of `by` radians: the camera turns round where it stands (graph3dLook, the tilt kept), its
-// target swinging round the eye. A zoom on its way turns with it.
+// The point of the shape's vertical axis (x = 0, z = 0) nearest the camera's line of sight, ahead of the eye;
+// looking straight along the axis, or with the nearest point behind the eye, the axis at the target's height.
+function graph3dAxisPivot(hier) {
+  const c = hier.cam;
+  const back = graph3dBasis(c.phi, c.theta).back;
+  const eye = graph3dEye([c.tx, c.ty, c.tz], back, c.dist);
+  const f = [-back[0], -back[1], -back[2]];
+  const b = f[1], d = graph3dDot(f, eye), e = eye[1];
+  const den = 1 - b * b;
+  if (den > 1e-4) {
+    const s = (b * e - d) / den;
+    if (s > 0) return [0, (e - b * d) / den, 0];
+  }
+  return [0, c.ty, 0];
+}
+
+// Q and E's turn of `by` radians: the camera swings round the shape's own vertical axis, so the shape's
+// centre keeps its place on screen with the tilt and the distance. A zoom on its way swings with it.
 function graph3dSpin(hier, by) {
+  const axis = graph3dShapeAxis(hier.shape, hier.rim, hier.outer);
   const c = hier.cam, z = hier.zoom;
   if (z) {
-    const to = graph3dLook({ tx: z.tx, ty: z.ty, tz: z.tz, dist: z.dist, theta: c.theta, phi: z.phi }, c.theta + by, z.phi);
+    const to = graph3dTurnRound({ tx: z.tx, ty: z.ty, tz: z.tz, theta: c.theta, phi: z.phi }, axis, c.theta + by, z.phi);
     z.tx = to.tx; z.ty = to.ty; z.tz = to.tz;
   }
-  Object.assign(c, graph3dLook(c, c.theta + by, c.phi));
+  Object.assign(c, graph3dTurnRound(c, axis, c.theta + by, c.phi));
 }
 
 // W and S held for a step of `step` scene units (graph3dFlyStep), the way the address's wsmode says: 'fly'
@@ -238,10 +259,11 @@ function graph3dFlyBy(hier, step) {
   for (const o of z ? [c, z] : [c]) { o.tx -= back[0] * step; o.ty -= back[1] * step; o.tz -= back[2] * step; }
 }
 
-// The point the camera is turning round now, or null while it turns round none: Q and E turn round the eye
-// itself, so none.
+// The point the camera is turning round now, or null while it turns round none: the shape's axis point while
+// Q or E spins it or a right drag or its coast orbits.
 function graph3dTurnPivot(hier) {
-  return null;
+  const orbit = (hier.spin && hier.spin.orbit) || (hier.drag && hier.drag.moved && hier.drag.mode === 'orbit');
+  return orbit || hier.turn.size > 0 ? graph3dShapeAxis(hier.shape, hier.rim, hier.outer) : null;
 }
 
 // The small cross at the shape's centre on screen (hier.pivotMark): on (data-on) while Q or E spins the shape,
